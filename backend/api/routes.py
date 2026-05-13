@@ -109,16 +109,25 @@ async def db_status():
         return {"error": str(e), "document_count": 0}
 
 
+@router.get("/documents/rpa-supported")
+async def rpa_supported_docs():
+    """RPA 지원 서류 목록 반환"""
+    from rpa.manager import SUPPORTED_DOC_NAMES
+    return {"supported": SUPPORTED_DOC_NAMES}
+
+
 @router.post("/documents/rpa-issue")
 async def rpa_issue(req: DocRequest):
     """
-    실제 정부24 브라우저 자동화 시작.
-    현재 지원: 주민등록등본
+    실제 브라우저 자동화로 서류 발급 시작.
+    지원: 주민등록등본, 주민등록초본, 건강보험 자격득실확인서, 고용보험 피보험자격 이력내역서
     """
-    from rpa.gov24_rpa import start_rpa_task
-    if req.doc_name != "주민등록등본":
-        from fastapi import HTTPException
-        raise HTTPException(status_code=400, detail=f"현재 RPA는 주민등록등본만 지원합니다. (요청: {req.doc_name})")
+    from rpa.manager import start_rpa_task, SUPPORTED_DOC_NAMES
+    if req.doc_name not in SUPPORTED_DOC_NAMES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"지원하지 않는 서류: {req.doc_name}\n지원 목록: {', '.join(SUPPORTED_DOC_NAMES)}",
+        )
     task_id = start_rpa_task(req.doc_name, req.user_name)
     return {"task_id": task_id, "status": "started", "doc_name": req.doc_name}
 
@@ -126,11 +135,10 @@ async def rpa_issue(req: DocRequest):
 @router.get("/documents/rpa-status/{task_id}")
 async def rpa_status(task_id: str):
     """RPA 태스크 현재 상태 조회"""
-    from rpa.gov24_rpa import get_task
+    from rpa.manager import get_task
     task = get_task(task_id)
     if task is None:
         raise HTTPException(status_code=404, detail="태스크를 찾을 수 없습니다.")
-    # RPATask 객체인 경우 dict 변환
     if hasattr(task, "to_dict"):
         return task.to_dict()
     return task
