@@ -159,36 +159,43 @@ async def run_work24_rpa(task) -> None:
             ss = await take_screenshot(page)
             task.update("running", f"로그인 페이지 이동\n현재 URL: {page.url}", ss)
 
-            # ③ 카카오 간편인증 클릭
+            # ③ 간편인증 클릭 → 카카오 선택
             await asyncio.sleep(1)
-            kakao_clicked = await click_first_matching(page, SIMPLE_AUTH_SELECTORS)
 
-            # anyidAdaptor 방식 시도
-            if not kakao_clicked:
-                try:
-                    result = await page.evaluate("""
-                        () => {
-                            if (typeof anyidAdaptor !== 'undefined') {
-                                anyidAdaptor.ssoLoginPage('/cm/main.do', '3');
-                                return true;
-                            }
-                            const links = Array.from(document.querySelectorAll('a, button'));
-                            const kakao = links.find(el => {
-                                const t = (el.textContent + el.getAttribute('class') + el.getAttribute('onclick')).toLowerCase();
-                                return t.includes('카카오') || t.includes('kakao');
-                            });
-                            if (kakao) { kakao.click(); return true; }
-                            return false;
+            # 간편인증 링크 클릭 (class: link-easy-anyId — Work24 확인 완료)
+            # 클릭 시 anyid 모달이 열려 카카오/네이버/KB 등 선택 가능
+            easy_auth_clicked = await click_first_matching(page, [
+                "a.link-easy-anyId",
+                "a[class*='easy-anyId']",
+                "a:has-text('간편인증')",
+            ])
+            if easy_auth_clicked:
+                await asyncio.sleep(3)  # anyid 모달 로드 대기
+
+            # anyid 모달 내 카카오톡 버튼 클릭
+            kakao_clicked = False
+            try:
+                kakao_clicked = await page.evaluate("""
+                    () => {
+                        // anyid 모달 내 카카오톡 버튼 (실제 브라우저에서 렌더링됨)
+                        const keywords = ['카카오톡으로 인증', '카카오톡', 'kakao'];
+                        for (const kw of keywords) {
+                            const els = Array.from(document.querySelectorAll('a, button, li, span'));
+                            const el = els.find(e => e.textContent.trim().toLowerCase().includes(kw.toLowerCase()));
+                            if (el) { el.click(); return true; }
                         }
-                    """)
-                    kakao_clicked = bool(result)
-                    if kakao_clicked:
-                        await asyncio.sleep(2)
-                except Exception:
-                    pass
+                        return false;
+                    }
+                """)
+            except Exception:
+                pass
 
+            if not kakao_clicked:
+                kakao_clicked = await click_first_matching(page, SIMPLE_AUTH_SELECTORS)
+
+            await asyncio.sleep(2)
             ss = await take_screenshot(page)
-            if kakao_clicked:
+            if kakao_clicked or easy_auth_clicked:
                 task.update(
                     "waiting_login",
                     "📱 카카오 간편인증 화면이 열렸습니다.\n"

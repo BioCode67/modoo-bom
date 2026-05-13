@@ -14,15 +14,15 @@ GOV24_BASE = "https://plus.gov.kr"
 GOV24_LOGIN_URL = "https://plus.gov.kr/login/login"
 
 # 문서 발급 서비스 URL (www.gov.kr 민원24 연계)
+# 등본/초본 모두 동일한 서비스 페이지(CappBizCD=13100000015)에서 발급됨
+# 신청 양식에서 등본/초본 선택
+_BASE_DOC_URL = (
+    "https://www.gov.kr/mw/AA020InfoCappView.do"
+    "?CappBizCD=13100000015&HighCtgCD=A01010001&tp_seq=01&Mcode=10200"
+)
 DOC_URLS = {
-    "주민등록등본": (
-        "https://www.gov.kr/mw/AA020InfoCappView.do"
-        "?CappBizCD=13100000015&HighCtgCD=A01010001&tp_seq=01&Mcode=10200"
-    ),
-    "주민등록초본": (
-        "https://www.gov.kr/mw/AA020InfoCappView.do"
-        "?CappBizCD=13100000016&HighCtgCD=A01010001&tp_seq=01&Mcode=10200"
-    ),
+    "주민등록등본": _BASE_DOC_URL,
+    "주민등록초본": _BASE_DOC_URL,
 }
 
 # 간편인증 탭 선택자 (로그인 페이지에 표시되는 탭)
@@ -212,7 +212,39 @@ async def run_gov24_rpa(task, doc_name: str) -> None:
                 ss = await take_screenshot(page)
                 task.update("running", "온라인 발급 탭 선택", ss)
 
-            # ⑥ 발급 목적 기본값 선택
+            # ⑥ 초본 신청 시 양식에서 "초본" 선택
+            if doc_name == "주민등록초본":
+                try:
+                    await page.evaluate("""
+                        () => {
+                            // 등본/초본 라디오 버튼 또는 선택 항목에서 초본 선택
+                            const labels = Array.from(document.querySelectorAll('label, span, td'));
+                            const chobonLabel = labels.find(el => el.textContent.trim() === '초본');
+                            if (chobonLabel) {
+                                // 연관 input 클릭
+                                const forAttr = chobonLabel.getAttribute('for');
+                                if (forAttr) {
+                                    const inp = document.getElementById(forAttr);
+                                    if (inp) { inp.click(); return; }
+                                }
+                                chobonLabel.click();
+                                return;
+                            }
+                            // select 요소에서 초본 option 선택
+                            const selects = document.querySelectorAll('select');
+                            selects.forEach(sel => {
+                                const opt = Array.from(sel.options).find(o => o.text.includes('초본'));
+                                if (opt) sel.value = opt.value;
+                            });
+                        }
+                    """)
+                    await asyncio.sleep(0.5)
+                    ss = await take_screenshot(page)
+                    task.update("running", "초본 선택 완료", ss)
+                except Exception:
+                    pass
+
+            # ⑦ 발급 목적 기본값 선택
             for sel in ["select[name*='purpose']", "select[name*='issuPurps']", "#issuPurps"]:
                 try:
                     el = page.locator(sel).first
@@ -222,7 +254,7 @@ async def run_gov24_rpa(task, doc_name: str) -> None:
                 except Exception:
                     pass
 
-            # ⑦ 신청하기 버튼 클릭
+            # ⑧ 신청하기 버튼 클릭
             await asyncio.sleep(1)
             clicked = await click_first_matching(page, APPLY_SELECTORS)
             ss = await take_screenshot(page)

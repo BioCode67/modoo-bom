@@ -119,21 +119,41 @@ async def run_nhis_rpa(task) -> None:
                 ss = await take_screenshot(page)
                 task.update("running", "로그인 페이지 이동 완료", ss)
 
-            # ④ 간편인증 탭 → 카카오 버튼 클릭
+            # ④ 간편인증 → 카카오톡 클릭
             await asyncio.sleep(1)
 
-            # 간편인증 탭 먼저 클릭 (있을 경우)
+            # 간편인증 링크 클릭 (class: login-link — NHIS 확인 완료)
+            # 클릭 시 카카오뱅크/카카오톡/카카오스토리 목록이 펼쳐짐
             simple_auth = [
+                "a.login-link",
+                "a:has-text('간편 인증')",
                 "a:has-text('간편인증')",
-                "li:has-text('간편인증') a",
-                "button:has-text('간편인증')",
-                "a[data-tab*='simple']",
             ]
             await click_first_matching(page, simple_auth)
-            await asyncio.sleep(1.5)
+            await asyncio.sleep(2)
 
-            # 카카오 버튼 클릭
-            kakao_clicked = await click_first_matching(page, KAKAO_SELECTORS)
+            # 카카오톡 선택 (li 요소: JS 클릭 필요 — playwright visibility 우회)
+            kakao_clicked = False
+            try:
+                kakao_clicked = await page.evaluate("""
+                    () => {
+                        // 카카오톡 li 직접 클릭 (anyid 처리)
+                        const lis = Array.from(document.querySelectorAll('li'));
+                        const kaTalk = lis.find(li => li.textContent.trim().includes('카카오톡'));
+                        if (kaTalk) { kaTalk.click(); return true; }
+                        // 폴백: 카카오 관련 a 태그
+                        const kas = Array.from(document.querySelectorAll('a, button'))
+                            .filter(el => el.textContent.includes('카카오'));
+                        if (kas.length > 0) { kas[0].click(); return true; }
+                        return false;
+                    }
+                """)
+            except Exception:
+                pass
+
+            if not kakao_clicked:
+                kakao_clicked = await click_first_matching(page, KAKAO_SELECTORS)
+
             ss = await take_screenshot(page)
 
             if kakao_clicked:
