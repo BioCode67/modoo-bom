@@ -78,7 +78,6 @@ export function Dashboard({ result, profileSummary, userName = '사용자', onRe
               </span>
             </div>
           )}
-          </div>
         </CardContent>
       </Card>
 
@@ -224,6 +223,8 @@ function NotificationsTab({ notifications }: { notifications: AnalysisResult['no
   )
 
   const urgencyColors = { high: 'border-red-300 bg-red-50', medium: 'border-yellow-300 bg-yellow-50', low: 'border-blue-200 bg-blue-50' }
+  const urgencyLabels = { high: '긴급', medium: '중요', low: '일반' }
+  const urgencyBadge = { high: 'bg-red-100 text-red-700', medium: 'bg-yellow-100 text-yellow-700', low: 'bg-blue-100 text-blue-700' }
 
   return (
     <div className="space-y-3">
@@ -232,7 +233,15 @@ function NotificationsTab({ notifications }: { notifications: AnalysisResult['no
           <div className="flex items-start gap-3">
             <Bell className="h-4 w-4 mt-0.5 text-foreground shrink-0" />
             <div className="flex-1">
-              <p className="text-sm font-medium">{n.title}</p>
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="text-sm font-medium">{n.title}</p>
+                <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${urgencyBadge[n.urgency] ?? ''}`}>
+                  {urgencyLabels[n.urgency] ?? n.urgency}
+                </span>
+              </div>
+              {n.trigger && (
+                <p className="text-xs text-muted-foreground mt-0.5">트리거: {n.trigger}</p>
+              )}
               <div className="flex flex-wrap gap-1 mt-2">
                 {n.recommended_policies.map((p) => (
                   <span key={p} className="inline-flex rounded-full bg-white border border-border px-2 py-0.5 text-[11px]">{p}</span>

@@ -73,6 +73,25 @@ async def run_agent_with_streaming(ws: WebSocket, profile_data: dict):
     # 최종 완성 상태에서 결과 추출
     if full_state:
         eligible = full_state.get("eligible_policies", [])
+
+        # 수혜 정책에 혜택·신청정보 보강 (sample_data 매핑)
+        try:
+            from rag.sample_data import WELFARE_POLICIES
+            _pol_map = {p["id"]: p for p in WELFARE_POLICIES}
+            enriched = []
+            for p in eligible:
+                extra = _pol_map.get(p.get("id", ""), {})
+                enriched.append({
+                    **p,
+                    "benefit": extra.get("benefit", ""),
+                    "application": extra.get("application", ""),
+                    "department": extra.get("department", ""),
+                    "category": extra.get("category", ""),
+                })
+            eligible = enriched
+        except Exception:
+            pass
+
         result_payload = {
             "eligible_policies": eligible,
             "application_guides": full_state.get("application_guides", []),

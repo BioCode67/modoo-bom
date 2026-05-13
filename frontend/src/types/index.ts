@@ -30,6 +30,10 @@ export interface EligiblePolicy {
   confidence: number
   reason: string
   priority: 'high' | 'medium' | 'low'
+  benefit?: string
+  application?: string
+  department?: string
+  category?: string
 }
 
 export interface ApplicationGuide {
@@ -109,7 +113,7 @@ export type WsMessage =
 export const NODE_LABELS: Record<string, string> = {
   profile_analyzer: '프로필 분석',
   policy_search: 'RAG 정책 검색',
-  eligibility_check: '자격 판별 (GPT-4o)',
+  eligibility_check: '자격 판별 (Claude)',
   reflection_check: 'Reflection 검증',
   guide_generator: '신청 가이드 생성',
   doc_retrieval: '서류 자동 취득',

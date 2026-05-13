@@ -19,6 +19,7 @@ export function useAgentWebSocket() {
   const [errorMsg, setErrorMsg] = useState<string>('')
   const [progress, setProgress] = useState(0)
   const wsRef = useRef<WebSocket | null>(null)
+  const activeRef = useRef(false)
 
   // doneCount는 nodeStates에서 직접 계산 (렌더 시점)
   const doneCount = Object.values(nodeStates).filter((n) => n.status === 'done').length
@@ -29,6 +30,7 @@ export function useAgentWebSocket() {
       wsRef.current = null
     }
 
+    activeRef.current = true
     setPhase('running')
     setNodeStates({})
     setResult(null)
@@ -75,12 +77,14 @@ export function useAgentWebSocket() {
           return next
         })
       } else if (msg.type === 'complete') {
+        activeRef.current = false
         setResult(msg.result)
         setProgress(100)
         setPhase('complete')
         ws.close()
         wsRef.current = null
       } else if (msg.type === 'error') {
+        activeRef.current = false
         setErrorMsg(msg.message)
         setPhase('error')
         ws.close()
@@ -98,7 +102,8 @@ export function useAgentWebSocket() {
     }
 
     ws.onclose = (evt) => {
-      if (!evt.wasClean && phase === 'running') {
+      if (!evt.wasClean && activeRef.current) {
+        activeRef.current = false
         setErrorMsg('WebSocket 연결이 예기치 않게 끊어졌습니다.')
         setPhase('error')
       }
@@ -107,6 +112,7 @@ export function useAgentWebSocket() {
   }, []) // 의존성 없음 — 내부에서 setNodeStates 함수형 업데이트 사용
 
   const reset = useCallback(() => {
+    activeRef.current = false
     wsRef.current?.close()
     wsRef.current = null
     setPhase('idle')

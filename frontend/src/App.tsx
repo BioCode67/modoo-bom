@@ -67,7 +67,7 @@ export default function App() {
                 서류 자동 취득까지 도와드립니다.
               </p>
               <div className="flex flex-wrap justify-center gap-2 pt-1">
-                {['ChromaDB RAG', 'GPT-4o 자격판별', '정부24 API', 'Reflection Loop'].map((tag) => (
+                {['ChromaDB RAG', 'Claude Sonnet 자격판별', '정부24 RPA', 'Reflection Loop'].map((tag) => (
                   <span key={tag} className="text-[11px] bg-muted text-muted-foreground px-2 py-0.5 rounded-full">
                     {tag}
                   </span>
@@ -172,7 +172,7 @@ export default function App() {
       <footer className="mt-20 border-t py-6 text-center text-[11px] text-muted-foreground">
         <p>모두봄 (ModooBom) — 2026 AI·SW 중심대학 디지털 경진대회 SW부문</p>
         <p className="mt-1 opacity-70">
-          React 18 · Vite · shadcn/ui · FastAPI · LangGraph · ChromaDB · GPT-4o
+          React 18 · Vite · shadcn/ui · FastAPI · LangGraph · ChromaDB · Claude Sonnet
         </p>
       </footer>
     </div>

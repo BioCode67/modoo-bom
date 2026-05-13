@@ -1,7 +1,7 @@
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { EligiblePolicy, ApplicationGuide } from '@/types'
-import { ShieldCheck, ChevronDown, ChevronUp, Clock } from 'lucide-react'
+import { ShieldCheck, ChevronDown, ChevronUp, Clock, Banknote, Building2 } from 'lucide-react'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
 
@@ -49,6 +49,20 @@ export function PolicyList({ policies, guides }: Props) {
                   </div>
                 </div>
                 <p className="text-sm text-muted-foreground mt-1">{policy.reason}</p>
+                <div className="flex flex-wrap gap-3 mt-2">
+                  {policy.benefit && (
+                    <div className="flex items-center gap-1 text-xs text-green-700">
+                      <Banknote className="h-3.5 w-3.5" />
+                      {policy.benefit}
+                    </div>
+                  )}
+                  {policy.department && (
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Building2 className="h-3.5 w-3.5" />
+                      {policy.department}
+                    </div>
+                  )}
+                </div>
               </CardHeader>
               <CardContent className="pb-3">
                 <button
@@ -79,6 +93,11 @@ export function PolicyList({ policies, guides }: Props) {
                       <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                         <Clock className="h-3.5 w-3.5" />
                         예상 처리 기간: 약 {guide.estimated_days}일
+                      </div>
+                    )}
+                    {policy.application && (
+                      <div className="rounded-lg bg-blue-50 border border-blue-200 px-3 py-2 text-xs text-blue-800">
+                        🏛️ 신청 방법: {policy.application}
                       </div>
                     )}
                   </div>
