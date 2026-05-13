@@ -28,12 +28,12 @@ interface RpaStatus {
 interface Props { userName: string }
 
 const SUPPORTED_DOCS = [
-  { name: '주민등록등본', site: '정부24', emoji: '🏠', desc: '현재 주소·세대원 확인', color: 'bg-blue-600 hover:bg-blue-700' },
-  { name: '주민등록초본', site: '정부24', emoji: '📋', desc: '주소변동 이력 포함', color: 'bg-blue-500 hover:bg-blue-600' },
-  { name: '가족관계증명서', site: '정부24', emoji: '👨‍👩‍👧', desc: '가족 구성원 증명', color: 'bg-indigo-600 hover:bg-indigo-700' },
-  { name: '장애인증명서', site: '정부24', emoji: '♿', desc: '장애등급 공인 증명', color: 'bg-purple-600 hover:bg-purple-700' },
-  { name: '건강보험 자격득실확인서', site: '건강보험공단', emoji: '🏥', desc: '보험 자격 이력 확인', color: 'bg-green-600 hover:bg-green-700' },
-  { name: '고용보험 피보험자격 이력내역서', site: '고용24', emoji: '💼', desc: '취업·실직 이력 증명', color: 'bg-orange-600 hover:bg-orange-700' },
+  { name: '건강보험 자격득실확인서', site: '건강보험공단', emoji: '🏥', desc: '보험 자격 이력 확인 · 권장', color: 'bg-green-600 hover:bg-green-700', recommended: true },
+  { name: '고용보험 피보험자격 이력내역서', site: '고용24', emoji: '💼', desc: '취업·실직 이력 증명', color: 'bg-orange-600 hover:bg-orange-700', recommended: false },
+  { name: '주민등록등본', site: '정부24', emoji: '🏠', desc: '현재 주소·세대원 확인', color: 'bg-blue-600 hover:bg-blue-700', recommended: false },
+  { name: '주민등록초본', site: '정부24', emoji: '📋', desc: '주소변동 이력 포함', color: 'bg-blue-500 hover:bg-blue-600', recommended: false },
+  { name: '가족관계증명서', site: '정부24', emoji: '👨‍👩‍👧', desc: '가족 구성원 증명', color: 'bg-indigo-600 hover:bg-indigo-700', recommended: false },
+  { name: '장애인증명서', site: '정부24', emoji: '♿', desc: '장애등급 공인 증명', color: 'bg-purple-600 hover:bg-purple-700', recommended: false },
 ]
 
 const STATUS_LABEL: Record<string, string> = {
@@ -134,6 +134,15 @@ export function RpaDocumentPanel({ userName }: Props) {
       </CardHeader>
 
       <CardContent className="space-y-4">
+        {/* 안내 배너 */}
+        {!taskId && (
+          <div className="rounded-xl bg-amber-50 border border-amber-200 px-3 py-2.5 text-xs text-amber-800 leading-relaxed">
+            <p className="font-semibold mb-1">⚠️ 카카오톡 본인인증이 필요합니다</p>
+            <p>버튼 클릭 시 실제 브라우저가 열립니다. 화면 안내에 따라 간편인증을 진행하면 자동으로 서류가 발급됩니다.</p>
+            <p className="mt-1 text-amber-700 font-medium">🏥 건강보험 자격득실확인서가 가장 안정적으로 동작합니다.</p>
+          </div>
+        )}
+
         {/* 서류 선택 버튼 */}
         {!taskId && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -142,8 +151,13 @@ export function RpaDocumentPanel({ userName }: Props) {
                 key={doc.name}
                 onClick={() => handleStart(doc.name)}
                 disabled={loading}
-                className={`flex items-center gap-3 px-3 py-3 rounded-xl text-white text-sm font-medium disabled:opacity-50 transition-all hover:-translate-y-0.5 hover:shadow-md ${doc.color}`}
+                className={`relative flex items-center gap-3 px-3 py-3 rounded-xl text-white text-sm font-medium disabled:opacity-50 transition-all hover:-translate-y-0.5 hover:shadow-md ${doc.color}`}
               >
+                {doc.recommended && (
+                  <span className="absolute -top-1.5 -right-1.5 text-[9px] bg-yellow-400 text-yellow-900 font-bold rounded-full px-1.5 py-0.5 leading-none z-10">
+                    권장
+                  </span>
+                )}
                 {loading && selectedDoc === doc.name
                   ? <Loader2 className="h-5 w-5 animate-spin shrink-0" />
                   : <span className="text-lg shrink-0">{doc.emoji}</span>

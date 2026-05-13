@@ -1,238 +1,295 @@
 """
-국민건강보험공단 건강보험 자격득실확인서 실제 자동 발급 (Playwright RPA)
-사이트: https://www.nhis.or.kr
-- 자격득실확인서 직접 접근 시 로그인 페이지로 자동 리디렉션
-- 로그인 후 자격득실확인서 발급
+국민건강보험공단 건강보험 자격득실확인서 RPA (Playwright)
+
+흐름:
+  ① 자격득실확인서 URL 접속 → 로그인 페이지로 자동 리디렉션
+  ② 사용자에게 로그인 단계 안내 (간편인증 → 카카오톡)
+  ③ 로그인 완료 후 자격득실확인서 URL로 자동 복귀 감지
+  ④ '발급' 버튼 자동 클릭
+  ⑤ 인쇄/PDF 창이 뜨면 완료
 """
 import asyncio
-from rpa.base import (
-    take_screenshot, wait_for_login,
-    click_first_matching, make_browser_context_args,
-    click_kakaotalk_in_anyid, detect_auth_form, AUTH_FORM_USER_GUIDE,
-)
+from rpa.base import take_screenshot, make_browser_context_args
 
-NHIS_MAIN = "https://www.nhis.or.kr"
-# 자격득실확인서 직접 링크 (로그인 안 되어 있으면 자동 리디렉션)
-NHIS_DOC_URL = "https://www.nhis.or.kr/nhis/minwon/jpAea00401.do"
-# 로그인 페이지
-NHIS_LOGIN_URL = "https://www.nhis.or.kr/nhis/etc/personalLoginPage.do"
+# 자격득실확인서 직접 URL (미로그인 시 로그인 후 자동 복귀)
+NHIS_CERT_URL = "https://www.nhis.or.kr/nhis/minwon/jpAea00401.do"
+# 로그인 완료 판정: URL에 이 문자열 등장 또는 로그아웃 버튼 등장
+CERT_URL_KEYWORD = "jpAea00401"
+LOGIN_URL_KEYWORD = "personalLoginPage"
 
-# 로그인 버튼 선택자 (nhis.or.kr 확인 완료 class: btn-navi navi-row icon_login)
-LOGIN_BTN_SELECTORS = [
-    "a.btn-navi.icon_login",
-    "a.btn-navi.navi-row.icon_login",
-    "a[class*='icon_login']",
-    "a:has-text('로그인')",
-    "button:has-text('로그인')",
-    "a[href*='login']",
-]
-
-# 간편인증 / 카카오 선택자 (NHIS 로그인 화면)
-KAKAO_SELECTORS = [
-    "a[title*='카카오']",
-    "a:has-text('카카오')",
-    "img[alt*='카카오']",
-    "[class*='kakao']",
-    "a[href*='kakao']",
-    "li.kakao a",
-    # 공동인증서가 기본 → 간편인증 탭 먼저
-    "a:has-text('간편인증')",
-    "li:has-text('간편인증') a",
-    "button:has-text('간편인증')",
-]
-
-# 자격득실확인서 메뉴 선택자 (로그인 후)
-DOC_MENU_SELECTORS = [
-    "a:has-text('자격득실확인서')",
-    "a:has-text('자격득실')",
-    "li:has-text('자격득실확인서') a",
-    "a[href*='jpAea004']",
-    "a[href*='certif']",
-    "a[href*='qualif']",
-]
-
+# 발급 버튼 선택자 (페이지에 따라 다를 수 있음)
 ISSUE_SELECTORS = [
     "button:has-text('발급')",
     "a:has-text('발급하기')",
     "button:has-text('발급하기')",
-    "input[value='발급']",
-    "input[value='출력']",
+    "input[value*='발급']",
+    "input[value*='출력']",
     "button:has-text('출력')",
-    "#btnIssue",
+    "button:has-text('확인서 발급')",
     ".btn-issue",
+    "#btnIssue",
     "#btnPrint",
 ]
 
-PRINT_SELECTORS = [
-    "button:has-text('출력')",
-    "button:has-text('인쇄')",
-    "button:has-text('PDF')",
-    "button:has-text('저장')",
-    "#btnPrint",
-    ".btn-print",
+# 로그아웃 버튼 (로그인 완료 감지용)
+LOGOUT_SELECTORS = [
+    "a[href*='logout']",
+    "a[href*='Logout']",
+    "a[title*='로그아웃']",
+    "button:has-text('로그아웃')",
+    ".btn-logout",
+    ".logout",
+    ".user-logout",
+    "a:has-text('로그아웃')",
 ]
+
+LOGIN_GUIDE = """\
+🔐 로그인 단계 안내 (브라우저 창을 보세요)
+
+1️⃣  열린 브라우저에서 '간편 인증' 탭 클릭
+2️⃣  인증 목록에서 '카카오톡' 클릭
+3️⃣  이름 / 생년월일 / 전화번호 입력
+4️⃣  '전체동의' 체크 후 '인증 요청' 클릭
+5️⃣  📱 스마트폰 카카오톡 알림 → [본인인증 허용] 누르기
+
+✅ 인증 완료 후 자동으로 다음 단계가 진행됩니다."""
+
+
+async def _wait_for_cert_page(page, task, timeout_sec: int = 300) -> bool:
+    """로그인 완료 후 자격득실확인서 페이지 복귀 대기"""
+    last_report = 0
+
+    for elapsed in range(timeout_sec):
+        try:
+            url = page.url
+
+            # 방법 1: 자격득실확인서 URL로 복귀
+            if CERT_URL_KEYWORD in url and LOGIN_URL_KEYWORD not in url:
+                return True
+
+            # 방법 2: 로그아웃 버튼 등장 (로그인 완료 = 어느 페이지든)
+            for sel in LOGOUT_SELECTORS:
+                try:
+                    el = page.locator(sel).first
+                    if await el.count() > 0:
+                        return True
+                except Exception:
+                    pass
+
+        except Exception:
+            pass
+
+        # 15초마다 스크린샷 + 안내
+        if elapsed > 0 and elapsed - last_report >= 15:
+            try:
+                ss = await take_screenshot(page)
+                remaining = timeout_sec - elapsed
+                task.update(
+                    "waiting_login",
+                    f"{LOGIN_GUIDE}\n\n⏱ 남은 시간: {remaining}초",
+                    ss,
+                )
+                last_report = elapsed
+            except Exception:
+                pass
+
+        await asyncio.sleep(1)
+
+    return False
+
+
+async def _click_issue_button(page, context, task) -> bool:
+    """발급 버튼 클릭. 팝업이 열리는 경우도 처리."""
+    # 페이지가 로드될 시간 여유
+    await asyncio.sleep(2)
+
+    # 모든 열린 페이지에서 발급 버튼 탐색
+    for check_page in context.pages:
+        for sel in ISSUE_SELECTORS:
+            try:
+                el = check_page.locator(sel).first
+                if await el.count() > 0:
+                    await el.scroll_into_view_if_needed()
+                    await el.click()
+                    await asyncio.sleep(1.5)
+                    ss = await take_screenshot(check_page)
+                    task.update("running", f"'발급' 버튼 클릭 완료 — 처리 중...", ss)
+                    return True
+            except Exception:
+                continue
+
+    # JavaScript 폴백 — 텍스트 기반 버튼 탐색
+    try:
+        for check_page in context.pages:
+            result = await check_page.evaluate("""
+                () => {
+                    const keywords = ['발급', '확인서 발급', '발급하기', '출력', '인쇄'];
+                    for (const kw of keywords) {
+                        const el = Array.from(
+                            document.querySelectorAll('button, input[type=button], input[type=submit], a')
+                        ).find(e => (e.textContent || e.value || '').includes(kw));
+                        if (el) { el.click(); return kw; }
+                    }
+                    return null;
+                }
+            """)
+            if result:
+                await asyncio.sleep(1.5)
+                ss = await take_screenshot(check_page)
+                task.update("running", f"JS로 '{result}' 버튼 클릭 완료", ss)
+                return True
+    except Exception:
+        pass
+
+    return False
+
+
+async def _wait_for_print_popup(context, task, timeout_sec: int = 90) -> bool:
+    """인쇄/출력 팝업 또는 PDF 버튼 대기"""
+    print_sels = [
+        "button:has-text('출력')", "button:has-text('인쇄')",
+        "button:has-text('PDF')", "button:has-text('저장')",
+        "#btnPrint", ".btn-print",
+    ]
+
+    for _ in range(timeout_sec):
+        try:
+            for check_page in context.pages:
+                for sel in print_sels:
+                    try:
+                        el = check_page.locator(sel).first
+                        if await el.count() > 0:
+                            await check_page.bring_to_front()
+                            ss = await take_screenshot(check_page)
+                            task.update("running", "출력/PDF 버튼 감지! 클릭합니다.", ss)
+                            await el.click()
+                            return True
+                    except Exception:
+                        pass
+
+            # 새 탭이 열렸으면 (발급 완료 후 결과창)
+            if len(context.pages) > 1:
+                newest = context.pages[-1]
+                await newest.wait_for_load_state("domcontentloaded", timeout=3000)
+                ss = await take_screenshot(newest)
+                task.update("running", "발급 완료 페이지 감지!", ss)
+                return True
+        except Exception:
+            pass
+        await asyncio.sleep(1)
+
+    return False
 
 
 async def run_nhis_rpa(task) -> None:
-    """국민건강보험공단에서 건강보험 자격득실확인서 발급"""
+    """국민건강보험공단 건강보험 자격득실확인서 발급 RPA"""
     try:
         from playwright.async_api import async_playwright
     except ImportError:
-        task.update("error", "playwright 미설치: pip install playwright && playwright install chromium")
+        task.update("error", "playwright 미설치\n터미널에서: pip install playwright && playwright install chromium")
         return
 
     try:
         async with async_playwright() as pw:
             browser = await pw.chromium.launch(
                 headless=False,
-                slow_mo=300,
+                slow_mo=200,
                 args=[
                     "--start-maximized",
                     "--disable-blink-features=AutomationControlled",
                     "--no-sandbox",
                 ],
             )
-            context = await browser.new_context(**make_browser_context_args())
+            ctx_args = make_browser_context_args()
+            ctx_args["no_viewport"] = True  # 최대화 적용
+            context = await browser.new_context(**ctx_args)
             await context.add_init_script(
                 "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
             )
             page = await context.new_page()
 
-            # ① 자격득실확인서 페이지 직접 접속 (로그인 안 되어 있으면 자동 리디렉션)
-            task.update("running", "건강보험공단 자격득실확인서 페이지 접속 중...")
-            await page.goto(NHIS_DOC_URL, wait_until="domcontentloaded", timeout=30000)
+            # ① 자격득실확인서 URL 접속 (미로그인 → 로그인 페이지로 리디렉션)
+            task.update("running", "건강보험공단 접속 중...\n(로그인 페이지로 이동합니다)")
+            try:
+                await page.goto(NHIS_CERT_URL, wait_until="domcontentloaded", timeout=30000)
+            except Exception:
+                await page.goto(NHIS_CERT_URL, wait_until="load", timeout=40000)
             await asyncio.sleep(2)
+
             ss = await take_screenshot(page)
             current_url = page.url
-            task.update("running", f"접속 완료\n현재 URL: {current_url}", ss)
+            task.update("running", f"페이지 로드 완료\nURL: {current_url}", ss)
 
-            # ② 로그인 페이지로 리디렉션됐는지 확인, 아니면 직접 이동
-            if "login" not in current_url.lower() and "personal" not in current_url.lower():
-                await page.goto(NHIS_LOGIN_URL, wait_until="domcontentloaded", timeout=20000)
-                await asyncio.sleep(2)
-                ss = await take_screenshot(page)
-                task.update("running", "로그인 페이지로 이동", ss)
-
-            # ③ 로그인 버튼 클릭 (로그인 링크가 따로 있는 경우)
-            if "login" not in page.url.lower() and "personal" not in page.url.lower():
-                await click_first_matching(page, LOGIN_BTN_SELECTORS)
-                await asyncio.sleep(2)
-                ss = await take_screenshot(page)
-                task.update("running", "로그인 페이지 이동 완료", ss)
-
-            # ④ 간편인증 → 카카오톡 클릭
-            await asyncio.sleep(1)
-
-            # 간편인증 링크 클릭 (class: login-link — NHIS 확인 완료)
-            simple_auth = [
-                "a.login-link",
-                "a:has-text('간편 인증')",
-                "a:has-text('간편인증')",
-            ]
-            await click_first_matching(page, simple_auth)
-            await asyncio.sleep(2)
-
-            # 카카오톡 선택 (뱅크/스토리 제외 — 공통 헬퍼 사용)
-            kakao_clicked = await click_kakaotalk_in_anyid(page)
-
-            await asyncio.sleep(2)
-            ss = await take_screenshot(page)
-
-            # 본인인증 폼이 열렸는지 감지
-            if await detect_auth_form(page):
-                task.update("waiting_login", AUTH_FORM_USER_GUIDE, ss)
-            elif kakao_clicked:
-                task.update(
-                    "waiting_login",
-                    "📱 카카오 간편인증 화면이 열렸습니다.\n"
-                    "스마트폰 카카오톡 알림에서 [인증 허용]을 눌러주세요.\n"
-                    "인증 완료 후 자동으로 다음 단계가 진행됩니다.",
-                    ss,
-                )
+            # ② 이미 로그인된 경우 바로 발급
+            if CERT_URL_KEYWORD in current_url and LOGIN_URL_KEYWORD not in current_url:
+                task.update("running", "이미 로그인 상태 — 발급 버튼 탐색 중...", ss)
             else:
-                task.update(
-                    "waiting_login",
-                    "열린 브라우저에서 카카오 간편인증으로 로그인해주세요.\n"
-                    "📱 로그인 완료 후 자동으로 진행됩니다.",
-                    ss,
-                )
-
-            # ⑤ 로그인 완료 대기
-            login_ok = await wait_for_login(
-                page, task, timeout_sec=300, login_url=NHIS_LOGIN_URL
-            )
-            if not login_ok:
+                # ③ 로그인 안내 후 완료 대기
                 ss = await take_screenshot(page)
-                task.update("error", "로그인 대기 시간 초과 (5분). 다시 시도해주세요.", ss)
-                await browser.close()
-                return
+                task.update("waiting_login", LOGIN_GUIDE, ss)
 
-            ss = await take_screenshot(page)
-            task.update("running", "로그인 완료! 자격득실확인서 발급 페이지로 이동합니다.", ss)
-            await asyncio.sleep(1.5)
+                login_ok = await _wait_for_cert_page(page, task, timeout_sec=300)
 
-            # ⑥ 자격득실확인서 발급 페이지로 재이동
-            await page.goto(NHIS_DOC_URL, wait_until="domcontentloaded", timeout=20000)
-            await asyncio.sleep(2.5)
-            ss = await take_screenshot(page)
-            task.update("running", "자격득실확인서 발급 페이지 접속 완료", ss)
+                if not login_ok:
+                    ss = await take_screenshot(page)
+                    task.update("error", "로그인 대기 시간 초과 (5분). 다시 시도해주세요.", ss)
+                    await browser.close()
+                    return
 
-            # ⑦ 자격득실확인서 메뉴 클릭 시도 (리스트에서 선택)
-            if await click_first_matching(page, DOC_MENU_SELECTORS):
-                await asyncio.sleep(2)
                 ss = await take_screenshot(page)
-                task.update("running", "자격득실확인서 메뉴 선택 완료", ss)
-
-            # ⑧ 발급/출력 버튼 클릭
-            await asyncio.sleep(1)
-            clicked = await click_first_matching(page, ISSUE_SELECTORS)
-            ss = await take_screenshot(page)
-            if clicked:
-                task.update("running", "발급 버튼 클릭 완료 — 처리 중...", ss)
-                await asyncio.sleep(3)
-            else:
-                task.update(
-                    "running",
-                    "브라우저에서 '발급하기' 또는 '출력' 버튼을 클릭해주세요.\n"
-                    "완료 후 자동으로 감지합니다.",
-                    ss,
-                )
-
-            # ⑨ 출력/저장 버튼 대기 (최대 90초)
-            for _ in range(90):
-                try:
-                    for sel in PRINT_SELECTORS:
-                        el = page.locator(sel).first
-                        if await el.count() > 0:
-                            ss = await take_screenshot(page)
-                            task.update("running", "출력 버튼 감지! 클릭합니다.", ss)
-                            await el.click()
-                            break
-
-                    if len(context.pages) > 1:
-                        popup = context.pages[-1]
-                        await popup.bring_to_front()
-                        ss = await take_screenshot(popup)
-                        task.update("running", "발급 완료 팝업 감지!", ss)
-                        break
-                except Exception:
-                    pass
+                task.update("running", "✅ 로그인 완료! 자격득실확인서 페이지 이동 중...", ss)
                 await asyncio.sleep(1)
 
+                # ④ 자격득실확인서 URL로 직접 이동 (로그인 후 리디렉션 안 된 경우 대비)
+                if CERT_URL_KEYWORD not in page.url:
+                    await page.goto(NHIS_CERT_URL, wait_until="domcontentloaded", timeout=20000)
+                    await asyncio.sleep(2)
+                    ss = await take_screenshot(page)
+                    task.update("running", f"자격득실확인서 페이지 접속\nURL: {page.url}", ss)
+
+            # ⑤ 발급 버튼 클릭
             ss = await take_screenshot(page)
+            task.update("running", "발급 버튼 탐색 중...", ss)
+
+            clicked = await _click_issue_button(page, context, task)
+
+            if not clicked:
+                ss = await take_screenshot(page)
+                task.update(
+                    "running",
+                    "발급 버튼을 자동으로 찾지 못했습니다.\n"
+                    "브라우저에서 '발급하기' 또는 '출력' 버튼을 직접 클릭해주세요.\n"
+                    "클릭 후 자동으로 감지합니다.",
+                    ss,
+                )
+
+            # ⑥ 출력/PDF 팝업 대기 (최대 90초)
+            await _wait_for_print_popup(context, task, timeout_sec=90)
+
+            # ⑦ 최종 스크린샷 및 완료 처리
+            try:
+                final_page = context.pages[-1] if len(context.pages) > 1 else page
+                ss = await take_screenshot(final_page)
+            except Exception:
+                ss = await take_screenshot(page)
+
             task.update(
                 "done",
-                "✅ 건강보험 자격득실확인서 발급 절차 완료!\n"
-                "열린 브라우저에서 Ctrl+P(⌘+P)로 PDF 저장 또는 인쇄 가능합니다.\n"
-                "브라우저는 60초 후 자동 종료됩니다.",
+                "✅ 건강보험 자격득실확인서 발급 절차 완료!\n\n"
+                "브라우저에서 Ctrl+P (Mac: ⌘+P) 로 PDF 저장 또는 인쇄가 가능합니다.\n"
+                "브라우저는 2분 후 자동 종료됩니다.",
                 ss,
             )
             task.result = {"success": True, "doc_name": "건강보험 자격득실확인서"}
 
-            await asyncio.sleep(60)
+            await asyncio.sleep(120)
             await browser.close()
 
     except Exception as e:
         import traceback
         traceback.print_exc()
-        task.update("error", f"자동화 오류: {str(e)[:300]}", None)
+        try:
+            ss = await take_screenshot(page)
+        except Exception:
+            ss = None
+        task.update("error", f"자동화 오류: {str(e)[:300]}\n터미널에서 상세 로그를 확인하세요.", ss)
