@@ -1,9 +1,9 @@
-"""Mock 모드 동작 검증 — OPENAI_API_KEY 없이 전체 플로우 테스트"""
+"""Mock 모드 동작 검증 — ANTHROPIC_API_KEY 없이 전체 플로우 테스트"""
 import asyncio
 import os
 import pytest
 
-os.environ.setdefault("OPENAI_API_KEY", "mock")
+os.environ.pop("ANTHROPIC_API_KEY", None)  # 미설정 → Mock 모드
 
 
 # ── 유닛 테스트 ────────────────────────────────────────────────────────────────

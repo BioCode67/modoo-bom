@@ -19,8 +19,9 @@ async def orchestrator_node(state: AgentState) -> dict:
             state.eligible_policies, state.retrieved_docs, state.notifications,
         )
     else:
-        from langchain_openai import ChatOpenAI
+        from langchain_anthropic import ChatAnthropic
         from langchain_core.messages import SystemMessage, HumanMessage
+        import os
 
         summary = {
             "eligible_policies": [{"name": p.get("name"), "reason": p.get("reason")} for p in eligible],
@@ -29,7 +30,8 @@ async def orchestrator_node(state: AgentState) -> dict:
             "portfolio": state.portfolio_summary,
         }
 
-        llm = ChatOpenAI(model="gpt-4o", temperature=0.5)
+        model = os.getenv("CLAUDE_MODEL", "claude-opus-4-7")
+        llm = ChatAnthropic(model=model, temperature=0.5, max_tokens=1024)
         response = await llm.ainvoke([
             SystemMessage(content=_SYSTEM_PROMPT),
             HumanMessage(content=f"분석 결과:\n{json.dumps(summary, ensure_ascii=False, indent=2)}"),

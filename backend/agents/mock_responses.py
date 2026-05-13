@@ -1,11 +1,11 @@
-"""OpenAI API 없이 동작하는 Mock 응답 — 데모/테스트용"""
+"""Anthropic API 없이 동작하는 Mock 응답 — 데모/테스트용"""
 import json
 import os
 
 
 def is_mock_mode() -> bool:
-    key = os.getenv("OPENAI_API_KEY", "")
-    return not key or key.startswith("sk-mock") or key == "mock"
+    key = os.getenv("ANTHROPIC_API_KEY", "")
+    return not key or key == "mock"
 
 
 # profile_analyzer mock

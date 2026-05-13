@@ -30,15 +30,17 @@ async def guide_generator_node(state: AgentState) -> dict:
     if is_mock_mode():
         result = mock_guides(eligible)
     else:
-        from langchain_openai import ChatOpenAI
+        from langchain_anthropic import ChatAnthropic
         from langchain_core.messages import SystemMessage, HumanMessage
         from rag.sample_data import WELFARE_POLICIES
+        import os
 
         policy_map = {p["id"]: p for p in WELFARE_POLICIES}
         top = sorted(eligible, key=lambda x: x.get("confidence", 0), reverse=True)[:5]
         enriched = [{**ep, **policy_map.get(ep.get("id", ""), {})} for ep in top]
 
-        llm = ChatOpenAI(model="gpt-4o", temperature=0.3, response_format={"type": "json_object"})
+        model = os.getenv("CLAUDE_MODEL", "claude-opus-4-7")
+        llm = ChatAnthropic(model=model, temperature=0.3, max_tokens=2048)
         response = await llm.ainvoke([
             SystemMessage(content=_SYSTEM_PROMPT),
             HumanMessage(content=f"정책 목록:\n{json.dumps(enriched, ensure_ascii=False, indent=2)}"),

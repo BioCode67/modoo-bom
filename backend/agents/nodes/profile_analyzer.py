@@ -1,4 +1,4 @@
-"""Node 1: profile_analyzer — 사용자 프로필 분석 및 검색 키워드 추출"""
+"""Node 1: profile_analyzer — 사용자 프로필 분석 및 검색 키워드 추출 (Claude)"""
 import json
 from ..state import AgentState, NodeEvent
 from ..mock_responses import is_mock_mode, mock_profile_analysis
@@ -20,8 +20,9 @@ async def profile_analyzer_node(state: AgentState) -> dict:
     if is_mock_mode():
         result = mock_profile_analysis(profile)
     else:
-        from langchain_openai import ChatOpenAI
+        from langchain_anthropic import ChatAnthropic
         from langchain_core.messages import SystemMessage, HumanMessage
+        import os
 
         profile_text = (
             f"이름: {profile.name}, 나이: {profile.age}세, 성별: {profile.gender}\n"
@@ -34,7 +35,8 @@ async def profile_analyzer_node(state: AgentState) -> dict:
             f"최근 생애이벤트: {', '.join(profile.life_events) if profile.life_events else '없음'}"
         )
 
-        llm = ChatOpenAI(model="gpt-4o", temperature=0, response_format={"type": "json_object"})
+        model = os.getenv("CLAUDE_MODEL", "claude-opus-4-7")
+        llm = ChatAnthropic(model=model, temperature=0, max_tokens=1024)
         response = await llm.ainvoke([
             SystemMessage(content=_SYSTEM_PROMPT),
             HumanMessage(content=f"사용자 프로필:\n{profile_text}"),

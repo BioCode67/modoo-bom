@@ -30,7 +30,7 @@ JSON 형식으로만 응답:
 
 
 async def eligibility_check_node(state: AgentState) -> dict:
-    label = "GPT-4o 자격 판별 중..." if not is_mock_mode() else "자격 판별 중 (Mock 모드)..."
+    label = "Claude 자격 판별 중..." if not is_mock_mode() else "자격 판별 중 (Mock 모드)..."
     new_events = [NodeEvent(node="eligibility_check", status="running", message=label)]
 
     profile = state.user_profile
@@ -43,8 +43,9 @@ async def eligibility_check_node(state: AgentState) -> dict:
     if is_mock_mode():
         result = mock_eligibility(policies, profile)
     else:
-        from langchain_openai import ChatOpenAI
+        from langchain_anthropic import ChatAnthropic
         from langchain_core.messages import SystemMessage, HumanMessage
+        import os
 
         profile_text = (
             f"나이: {profile.age}세, 성별: {profile.gender}, 지역: {profile.region}\n"
@@ -59,7 +60,8 @@ async def eligibility_check_node(state: AgentState) -> dict:
             ensure_ascii=False, indent=2,
         )
 
-        llm = ChatOpenAI(model="gpt-4o", temperature=0, response_format={"type": "json_object"})
+        model = os.getenv("CLAUDE_MODEL", "claude-opus-4-7")
+        llm = ChatAnthropic(model=model, temperature=0, max_tokens=2048)
         response = await llm.ainvoke([
             SystemMessage(content=_SYSTEM_PROMPT),
             HumanMessage(content=f"사용자 프로필:\n{profile_text}\n\n정책 목록:\n{policies_text}"),

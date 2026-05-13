@@ -35,14 +35,16 @@ async def reflection_check_node(state: AgentState) -> dict:
     if is_mock_mode():
         result = mock_reflection(eligible, profile)
     else:
-        from langchain_openai import ChatOpenAI
+        from langchain_anthropic import ChatAnthropic
         from langchain_core.messages import SystemMessage, HumanMessage
+        import os
 
         profile_text = (
             f"나이: {profile.age}, 소득: 중위소득 {profile.income_percentile}%, "
             f"장애: {profile.disability}, 고용: {profile.employment_status}"
         )
-        llm = ChatOpenAI(model="gpt-4o", temperature=0, response_format={"type": "json_object"})
+        model = os.getenv("CLAUDE_MODEL", "claude-opus-4-7")
+        llm = ChatAnthropic(model=model, temperature=0, max_tokens=1024)
         response = await llm.ainvoke([
             SystemMessage(content=_SYSTEM_PROMPT),
             HumanMessage(content=f"프로필: {profile_text}\n\n판별 결과:\n{json.dumps(eligible, ensure_ascii=False, indent=2)}"),

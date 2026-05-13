@@ -13,17 +13,13 @@ from api.websocket import websocket_endpoint
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # 서버 시작 시 ChromaDB 샘플 데이터 자동 시딩
-    openai_key = os.getenv("OPENAI_API_KEY", "")
-    if openai_key and not openai_key.startswith("sk-mock"):
-        try:
-            from rag.embedder import seed_chromadb
-            count = seed_chromadb()
-            print(f"[ModooBom] ChromaDB 초기화 완료 — {count}건 임베딩")
-        except Exception as e:
-            print(f"[ModooBom] ChromaDB 초기화 스킵: {e}")
-    else:
-        print("[ModooBom] OPENAI_API_KEY 미설정 — ChromaDB 시딩 스킵 (Mock 모드)")
+    # 서버 시작 시 ChromaDB 샘플 데이터 자동 시딩 (sentence-transformers 내장 임베딩 사용)
+    try:
+        from rag.embedder import seed_chromadb
+        count = seed_chromadb()
+        print(f"[ModooBom] ChromaDB 초기화 완료 — {count}건 임베딩")
+    except Exception as e:
+        print(f"[ModooBom] ChromaDB 초기화 스킵: {e}")
     yield
 
 

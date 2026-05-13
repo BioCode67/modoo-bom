@@ -1,12 +1,12 @@
-"""복지정책 샘플 데이터 ChromaDB 임베딩 및 검색"""
+"""복지정책 샘플 데이터 ChromaDB 임베딩 및 검색 — sentence-transformers 내장 임베딩 사용"""
 import json
-import os
-from langchain_openai import OpenAIEmbeddings
+from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
 from .chromadb_client import get_collection
 from .sample_data import WELFARE_POLICIES
 
-
 COLLECTION_NAME = "welfare_policies"
+
+_embed_fn = DefaultEmbeddingFunction()
 
 
 def _policy_to_document(policy: dict) -> str:
@@ -30,8 +30,6 @@ def seed_chromadb() -> int:
     if existing >= len(WELFARE_POLICIES):
         return existing
 
-    embeddings_model = OpenAIEmbeddings(model="text-embedding-3-small")
-
     documents = [_policy_to_document(p) for p in WELFARE_POLICIES]
     ids = [p["id"] for p in WELFARE_POLICIES]
     metadatas = [
@@ -47,7 +45,7 @@ def seed_chromadb() -> int:
         for p in WELFARE_POLICIES
     ]
 
-    vectors = embeddings_model.embed_documents(documents)
+    vectors = _embed_fn(documents)
 
     collection.upsert(
         ids=ids,
@@ -58,12 +56,11 @@ def seed_chromadb() -> int:
     return len(WELFARE_POLICIES)
 
 
-def search_policies(query: str, n_results: int = 5) -> list[dict]:
+def search_policies(query: str, n_results: int = 5) -> list:
     """쿼리와 유사한 복지 정책 검색"""
     collection = get_collection(COLLECTION_NAME)
-    embeddings_model = OpenAIEmbeddings(model="text-embedding-3-small")
 
-    query_vector = embeddings_model.embed_query(query)
+    query_vector = _embed_fn([query])[0]
     results = collection.query(
         query_embeddings=[query_vector],
         n_results=n_results,

@@ -37,7 +37,7 @@ async def health():
         "service": "ModooBom API",
         "version": "0.3.0",
         "mode": "mock" if is_mock_mode() else "production",
-        "openai_key_set": bool(os.getenv("OPENAI_API_KEY", "").startswith("sk-") and not is_mock_mode()),
+        "anthropic_key_set": bool(os.getenv("ANTHROPIC_API_KEY", "") and not is_mock_mode()),
         "chromadb": {
             "ok": chroma_ok,
             "document_count": doc_count,
@@ -139,9 +139,11 @@ async def rpa_status(task_id: str):
 @router.get("/admin/env")
 async def env_check():
     """환경변수 상태 확인 (키 값은 마스킹)"""
-    openai_key = os.getenv("OPENAI_API_KEY", "")
+    anthropic_key = os.getenv("ANTHROPIC_API_KEY", "")
+    claude_model = os.getenv("CLAUDE_MODEL", "claude-opus-4-7")
     return {
-        "OPENAI_API_KEY": f"{'set (' + openai_key[:8] + '...)' if openai_key else 'not set'}",
+        "ANTHROPIC_API_KEY": f"{'set (' + anthropic_key[:10] + '...)' if anthropic_key else 'not set'}",
+        "CLAUDE_MODEL": claude_model,
         "CHROMA_PERSIST_DIR": os.getenv("CHROMA_PERSIST_DIR", "./chroma_db"),
         "CORS_ORIGINS": os.getenv("CORS_ORIGINS", "http://localhost:5173"),
         "mock_mode": is_mock_mode(),
