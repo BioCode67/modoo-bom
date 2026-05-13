@@ -49,6 +49,7 @@ export interface RetrievedDoc {
   issued_at?: string
   issuing_org?: string
   validity_days?: number
+  preview_url?: string
   download_url?: string
   error?: string
   fallback_url?: string

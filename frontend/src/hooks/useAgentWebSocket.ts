@@ -35,7 +35,8 @@ export function useAgentWebSocket() {
     setErrorMsg('')
     setProgress(0)
 
-    const wsUrl = `ws://${window.location.hostname}:8000/ws/analyze`
+    const apiBase = import.meta.env.VITE_API_BASE ?? `http://${window.location.hostname}:8000`
+    const wsUrl = apiBase.replace(/^http/, 'ws') + '/ws/analyze'
     const ws = new WebSocket(wsUrl)
     wsRef.current = ws
 

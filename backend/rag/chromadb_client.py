@@ -3,7 +3,7 @@ import os
 import chromadb
 from chromadb.config import Settings
 
-_client: chromadb.ClientAPI | None = None
+_client = None  # chromadb.ClientAPI
 
 
 def get_client() -> chromadb.ClientAPI:

@@ -3,6 +3,10 @@ import asyncio
 import random
 import uuid
 from datetime import datetime
+from mocks.document_generator import generate_document
+
+# receipt_number → HTML 문서 내용 저장소
+_doc_store = {}  # dict[str, str]
 
 
 _DOCUMENT_TEMPLATES = {
@@ -72,13 +76,23 @@ async def issue_document(doc_name: str, user_name: str = "홍길동") -> dict:
         }
 
     issued_at = datetime.now().isoformat()
+    receipt_number = f"GOV24-{uuid.uuid4().hex[:8].upper()}"
+
+    # HTML 문서 생성 및 저장
+    html_content = generate_document(doc_name, user_name)
+    preview_url = None
+    if html_content:
+        _doc_store[receipt_number] = html_content
+        preview_url = f"/api/documents/view/{receipt_number}"
+
     return {
         "success": True,
         "doc_name": doc_name,
-        "receipt_number": f"GOV24-{uuid.uuid4().hex[:8].upper()}",
+        "receipt_number": receipt_number,
         "issued_for": user_name,
         "issued_at": issued_at,
         **template,
+        "preview_url": preview_url,
         "download_url": f"/api/documents/download/{uuid.uuid4().hex}",
         "memo": "Mock 발급 — 실제 서비스에서는 정부24 공식 API 연동",
     }

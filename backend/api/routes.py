@@ -1,9 +1,10 @@
 """FastAPI REST 라우터"""
 import os
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from rag.embedder import search_policies, seed_chromadb
-from mocks.gov24_api import issue_document
+from mocks.gov24_api import issue_document, _doc_store
 from agents.mock_responses import is_mock_mode
 
 router = APIRouter(prefix="/api")
@@ -74,6 +75,15 @@ async def search(req: SearchRequest):
 async def issue_doc(req: DocRequest):
     result = await issue_document(req.doc_name, req.user_name)
     return result
+
+
+@router.get("/documents/view/{receipt_number}", response_class=HTMLResponse)
+async def view_document(receipt_number: str):
+    """발급된 Mock 서류를 HTML로 반환 (브라우저에서 직접 열기 / 인쇄)"""
+    html = _doc_store.get(receipt_number)
+    if not html:
+        raise HTTPException(status_code=404, detail="서류를 찾을 수 없습니다. (만료되었거나 존재하지 않는 접수번호)")
+    return HTMLResponse(content=html)
 
 
 @router.post("/admin/seed")

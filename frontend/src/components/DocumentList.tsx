@@ -1,7 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import type { RetrievedDoc } from '@/types'
-import { FileCheck2, FileX2, ExternalLink, Download } from 'lucide-react'
+import { FileCheck2, FileX2, ExternalLink, Download, Eye } from 'lucide-react'
+
+const API_BASE = import.meta.env.VITE_API_BASE ?? `http://${window.location.hostname}:8000`
 
 interface Props {
   docs: RetrievedDoc[]
@@ -51,11 +53,28 @@ export function DocumentList({ docs }: Props) {
               <span>발급일</span><span className="text-foreground">{doc.issued_at?.split('T')[0]}</span>
               <span>유효기간</span><span className="text-foreground">{doc.validity_days}일</span>
             </div>
-            {doc.download_url && (
-              <a href={doc.download_url} className="inline-flex items-center gap-1 mt-2 text-xs text-primary hover:underline">
-                <Download className="h-3 w-3" /> 다운로드
-              </a>
-            )}
+            <div className="flex flex-wrap gap-3 mt-3">
+              {doc.preview_url && (
+                <a
+                  href={`${API_BASE}${doc.preview_url}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
+                >
+                  <Eye className="h-3 w-3" /> 문서 미리보기
+                </a>
+              )}
+              {doc.download_url && (
+                <a
+                  href={doc.preview_url ? `${API_BASE}${doc.preview_url}` : doc.download_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md border border-input bg-background text-xs font-medium hover:bg-accent transition-colors"
+                >
+                  <Download className="h-3 w-3" /> 인쇄 / PDF 저장
+                </a>
+              )}
+            </div>
           </CardContent>
         </Card>
       ))}
