@@ -1,51 +1,115 @@
 """
 고용24 고용보험 피보험자격 이력내역서 실제 자동 발급 (Playwright RPA)
 사이트: https://www.work24.go.kr
+- 간편인증 로그인 → 개인서비스 → 피보험자격이력내역서 발급
 """
 import asyncio
 from rpa.base import (
-    take_screenshot, try_click_kakao, wait_for_login,
+    take_screenshot, wait_for_login,
     click_first_matching, make_browser_context_args,
 )
 
-WORK24_MAIN = "https://www.work24.go.kr"
-WORK24_LOGIN = "https://www.work24.go.kr/cm/d/a/CMAAD0010.do"
+WORK24_MAIN = "https://www.work24.go.kr/cm/main.do"
+# 로그인 페이지 (간편인증 포함)
+WORK24_LOGIN_URL = "https://www.work24.go.kr/cm/z/b/0210/openLginPageForAnyIdIntro.do"
 
-# 피보험자격이력내역서 직접 링크 후보
-WORK24_DOC_URLS = [
-    "https://www.work24.go.kr/ui/a/d/CMIAD0010.do",   # 고용보험 개인 서비스
-    "https://www.work24.go.kr/cm/d/a/CMAAD0010.do",   # 로그인
-]
-
-# 피보험자격이력 메뉴 선택자
+# 피보험자격이력내역서 메뉴 선택자 (로그인 후 GNB/사이드 메뉴에 표시)
 DOC_MENU_SELECTORS = [
     "a:has-text('피보험자격이력')",
-    "a:has-text('피보험 자격 이력')",
+    "a:has-text('피보험 자격이력')",
     "a:has-text('이력내역서')",
-    "a[href*='CMIAD']",
-    "a[href*='insure']",
-    "a[href*='피보험']",
+    "a:has-text('피보험자격 이력')",
+    "span:has-text('피보험자격이력')",
+    "li:has-text('피보험자격이력') a",
+    "li:has-text('이력내역서') a",
 ]
 
-ISSUE_SELECTORS = [
+# 조회 버튼 선택자
+SEARCH_SELECTORS = [
     "button:has-text('조회')",
-    "button:has-text('발급')",
     "input[value='조회']",
-    "input[value='발급']",
-    "a:has-text('발급')",
+    "a:has-text('조회')",
     "#btnSearch",
-    "#btnIssue",
     ".btn-search",
+    "button:has-text('확인')",
 ]
 
-PRINT_SELECTORS = [
+# 발급/출력 버튼 선택자
+ISSUE_SELECTORS = [
+    "button:has-text('발급')",
     "button:has-text('출력')",
     "button:has-text('인쇄')",
-    "button:has-text('PDF저장')",
-    "button:has-text('프린트')",
+    "a:has-text('발급')",
+    "input[value='발급']",
+    "#btnIssue",
     "#btnPrint",
+    ".btn-issue",
     ".btn-print",
 ]
+
+# 간편인증 선택자 (work24 로그인 페이지)
+SIMPLE_AUTH_SELECTORS = [
+    "a:has-text('카카오')",
+    "button:has-text('카카오')",
+    "img[alt*='카카오']",
+    "[class*='kakao']",
+    "a[href*='kakao']",
+    # anyid 방식 (work24 공통)
+    "a[onclick*='anyidAdaptor']",
+    ".btn_quick_login",
+    "a:has-text('간편인증')",
+]
+
+
+async def _navigate_to_doc_menu(page, task) -> bool:
+    """로그인 후 피보험자격이력내역서 메뉴 탐색"""
+    # 메인 메뉴에서 직접 클릭 시도
+    clicked = await click_first_matching(page, DOC_MENU_SELECTORS)
+    if clicked:
+        return True
+
+    # JavaScript로 텍스트 기반 탐색
+    try:
+        found = await page.evaluate("""
+            () => {
+                const keywords = ['피보험자격이력', '이력내역서', '피보험자격 이력'];
+                for (const kw of keywords) {
+                    const els = Array.from(document.querySelectorAll('a, button, span, li'));
+                    const el = els.find(e => e.textContent && e.textContent.includes(kw));
+                    if (el) {
+                        const link = el.tagName === 'A' ? el : el.closest('a') || el.querySelector('a');
+                        if (link) { link.click(); return true; }
+                        el.click();
+                        return true;
+                    }
+                }
+                return false;
+            }
+        """)
+        if found:
+            await asyncio.sleep(2)
+            return True
+    except Exception:
+        pass
+
+    # work24 fn_goPageUrl 함수로 직접 메뉴 호출 (개인서비스 → 고용보험 → 피보험자격)
+    try:
+        await page.evaluate("""
+            () => {
+                // work24 개인 → 고용보험 개인서비스 이동
+                if (typeof fn_goPageUrl === 'function') {
+                    // 개인서비스 마이페이지 이동
+                    fn_goPageUrl('/cm', 'EBG020000001', '/z/a/0100/myPageMainPost.do', 'EBM01', 'N', '');
+                }
+            }
+        """)
+        await asyncio.sleep(2)
+        # 이후 텍스트 기반으로 재탐색
+        return await click_first_matching(page, DOC_MENU_SELECTORS)
+    except Exception:
+        pass
+
+    return False
 
 
 async def run_work24_rpa(task) -> None:
@@ -53,21 +117,28 @@ async def run_work24_rpa(task) -> None:
     try:
         from playwright.async_api import async_playwright
     except ImportError:
-        task.update("error", "playwright 미설치")
+        task.update("error", "playwright 미설치: pip install playwright && playwright install chromium")
         return
 
     try:
         async with async_playwright() as pw:
             browser = await pw.chromium.launch(
                 headless=False,
-                slow_mo=400,
-                args=["--start-maximized", "--disable-blink-features=AutomationControlled"],
+                slow_mo=300,
+                args=[
+                    "--start-maximized",
+                    "--disable-blink-features=AutomationControlled",
+                    "--no-sandbox",
+                ],
             )
             context = await browser.new_context(**make_browser_context_args())
+            await context.add_init_script(
+                "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
+            )
             page = await context.new_page()
 
-            # ① 고용24 접속
-            task.update("running", "고용24 접속 중...")
+            # ① 고용24 메인 접속
+            task.update("running", "고용24(work24) 접속 중...")
             await page.goto(WORK24_MAIN, wait_until="domcontentloaded", timeout=30000)
             await asyncio.sleep(2)
             ss = await take_screenshot(page)
@@ -77,25 +148,52 @@ async def run_work24_rpa(task) -> None:
             login_selectors = [
                 "a:has-text('로그인')",
                 "button:has-text('로그인')",
-                "a[href*='login']",
-                "a[href*='CMAAD']",
+                ".btn_quick_login",
+                "a[onclick*='openLginPage']",
+                "a[onclick*='login']",
             ]
             clicked = await click_first_matching(page, login_selectors)
             if not clicked:
-                await page.goto(WORK24_LOGIN, wait_until="domcontentloaded", timeout=20000)
+                await page.goto(WORK24_LOGIN_URL, wait_until="domcontentloaded", timeout=20000)
             await asyncio.sleep(2)
             ss = await take_screenshot(page)
-            task.update("running", "로그인 페이지 이동", ss)
+            task.update("running", f"로그인 페이지 이동\n현재 URL: {page.url}", ss)
 
             # ③ 카카오 간편인증 클릭
             await asyncio.sleep(1)
-            kakao_clicked = await try_click_kakao(page)
+            kakao_clicked = await click_first_matching(page, SIMPLE_AUTH_SELECTORS)
+
+            # anyidAdaptor 방식 시도
+            if not kakao_clicked:
+                try:
+                    result = await page.evaluate("""
+                        () => {
+                            if (typeof anyidAdaptor !== 'undefined') {
+                                anyidAdaptor.ssoLoginPage('/cm/main.do', '3');
+                                return true;
+                            }
+                            const links = Array.from(document.querySelectorAll('a, button'));
+                            const kakao = links.find(el => {
+                                const t = (el.textContent + el.getAttribute('class') + el.getAttribute('onclick')).toLowerCase();
+                                return t.includes('카카오') || t.includes('kakao');
+                            });
+                            if (kakao) { kakao.click(); return true; }
+                            return false;
+                        }
+                    """)
+                    kakao_clicked = bool(result)
+                    if kakao_clicked:
+                        await asyncio.sleep(2)
+                except Exception:
+                    pass
+
             ss = await take_screenshot(page)
             if kakao_clicked:
                 task.update(
                     "waiting_login",
-                    "카카오 인증 화면으로 이동했습니다.\n"
-                    "📱 스마트폰 카카오톡 알림에서 [인증 허용]을 눌러주세요.",
+                    "📱 카카오 간편인증 화면이 열렸습니다.\n"
+                    "스마트폰 카카오톡 알림에서 [인증 허용]을 눌러주세요.\n"
+                    "인증 완료 후 자동으로 다음 단계가 진행됩니다.",
                     ss,
                 )
             else:
@@ -107,7 +205,9 @@ async def run_work24_rpa(task) -> None:
                 )
 
             # ④ 로그인 완료 대기
-            login_ok = await wait_for_login(page, task, timeout_sec=180)
+            login_ok = await wait_for_login(
+                page, task, timeout_sec=180, login_url=WORK24_LOGIN_URL
+            )
             if not login_ok:
                 ss = await take_screenshot(page)
                 task.update("error", "로그인 대기 시간 초과 (3분). 다시 시도해주세요.", ss)
@@ -116,49 +216,52 @@ async def run_work24_rpa(task) -> None:
 
             ss = await take_screenshot(page)
             task.update("running", "로그인 완료! 피보험자격이력내역서 메뉴를 찾는 중...", ss)
-            await asyncio.sleep(1.5)
+            await asyncio.sleep(2)
 
-            # ⑤ 피보험자격이력 메뉴 클릭 시도
-            clicked = await click_first_matching(page, DOC_MENU_SELECTORS)
-            if clicked:
-                await asyncio.sleep(2)
-                ss = await take_screenshot(page)
-                task.update("running", "피보험자격이력내역서 메뉴 선택 완료", ss)
-            else:
-                # 직접 URL 이동
-                await page.goto(WORK24_DOC_URLS[0], wait_until="domcontentloaded", timeout=20000)
-                await asyncio.sleep(2)
-                ss = await take_screenshot(page)
-                task.update("running", "피보험자격이력내역서 페이지 이동", ss)
-
-            # ⑥ 조회/발급 버튼 클릭
-            await asyncio.sleep(1)
-            clicked = await click_first_matching(page, ISSUE_SELECTORS)
+            # ⑤ 피보험자격이력내역서 메뉴 탐색
+            doc_found = await _navigate_to_doc_menu(page, task)
             ss = await take_screenshot(page)
-            if clicked:
-                task.update("running", "조회 버튼 클릭 완료 — 이력 조회 중...", ss)
-                await asyncio.sleep(3)
+
+            if doc_found:
+                task.update("running", "피보험자격이력내역서 메뉴 선택 완료", ss)
             else:
                 task.update(
                     "running",
-                    "브라우저에서 '조회' 또는 '발급' 버튼을 클릭해주세요.",
+                    "메뉴를 자동으로 찾지 못했습니다.\n"
+                    "브라우저에서 [개인서비스 → 고용보험 → 피보험자격이력] 메뉴를 클릭해주세요.\n"
+                    "완료 후 자동으로 감지합니다.",
                     ss,
                 )
+                # 사용자가 수동 탐색할 시간 대기
+                await asyncio.sleep(30)
+                ss = await take_screenshot(page)
+                task.update("running", "현재 화면 확인", ss)
 
-            # ⑦ 출력 버튼 대기
-            for _ in range(60):
+            await asyncio.sleep(2)
+
+            # ⑥ 조회 버튼 클릭
+            clicked = await click_first_matching(page, SEARCH_SELECTORS)
+            ss = await take_screenshot(page)
+            if clicked:
+                task.update("running", "조회 버튼 클릭 — 이력 조회 중...", ss)
+                await asyncio.sleep(3)
+            else:
+                task.update("running", "화면을 확인하는 중...", ss)
+
+            # ⑦ 발급/출력 버튼 대기 (최대 90초)
+            for _ in range(90):
                 try:
-                    for sel in PRINT_SELECTORS:
+                    for sel in ISSUE_SELECTORS:
                         el = page.locator(sel).first
                         if await el.count() > 0:
                             ss = await take_screenshot(page)
-                            task.update("running", "출력 버튼 감지! 클릭합니다.", ss)
+                            task.update("running", "발급/출력 버튼 감지! 클릭합니다.", ss)
                             await el.click()
+                            await asyncio.sleep(2)
                             break
 
-                    pages = context.pages
-                    if len(pages) > 1:
-                        popup = pages[-1]
+                    if len(context.pages) > 1:
+                        popup = context.pages[-1]
                         await popup.bring_to_front()
                         ss = await take_screenshot(popup)
                         task.update("running", "발급 완료 팝업 감지!", ss)
@@ -171,7 +274,8 @@ async def run_work24_rpa(task) -> None:
             task.update(
                 "done",
                 "✅ 고용보험 피보험자격 이력내역서 발급 절차 완료!\n"
-                "열린 브라우저에서 Ctrl+P(⌘+P)로 PDF 저장 또는 인쇄 가능합니다.",
+                "열린 브라우저에서 Ctrl+P(⌘+P)로 PDF 저장 또는 인쇄 가능합니다.\n"
+                "브라우저는 60초 후 자동 종료됩니다.",
                 ss,
             )
             task.result = {"success": True, "doc_name": "고용보험 피보험자격 이력내역서"}
@@ -182,4 +286,4 @@ async def run_work24_rpa(task) -> None:
     except Exception as e:
         import traceback
         traceback.print_exc()
-        task.update("error", f"자동화 오류: {str(e)[:200]}", None)
+        task.update("error", f"자동화 오류: {str(e)[:300]}", None)
