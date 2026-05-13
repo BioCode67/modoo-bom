@@ -115,7 +115,7 @@ export default function App() {
                   {/* 핵심 지표 */}
                   <div className="grid grid-cols-3 gap-3">
                     {[
-                      { value: '500+', label: '복지 정책', sub: '데이터베이스' },
+                      { value: '120+', label: '복지 정책', sub: '데이터베이스' },
                       { value: '10', label: 'AI 노드', sub: 'LangGraph' },
                       { value: '3분', label: '분석 시간', sub: '자동 서류 포함' },
                     ].map((s) => (
@@ -169,7 +169,7 @@ export default function App() {
             <div className="max-w-6xl mx-auto px-4 sm:px-6">
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 text-center">
                 {[
-                  { num: '60+', label: '복지 정책', desc: '2024년 기준 최신화' },
+                  { num: '120+', label: '복지 정책', desc: '2024년 기준 최신화' },
                   { num: '6종', label: '서류 자동취득', desc: '정부24·건보공단·고용24' },
                   { num: '10', label: 'AI 분석 노드', desc: 'LangGraph 파이프라인' },
                   { num: '129', label: '복지 상담', desc: '무료 전화 상담 가능' },
@@ -342,9 +342,9 @@ export default function App() {
             <div className="space-y-3">
               {[
                 { q: '개인정보는 안전한가요?', a: '입력하신 정보는 분석 후 즉시 파기됩니다. 서버에 저장되지 않으며, 외부에 전송되지 않습니다. AI 분석을 위해 일시적으로만 사용됩니다.' },
-                { q: '분석 결과가 정확한가요?', a: '60개 이상의 복지 정책 데이터와 AI 매칭으로 높은 정확도를 제공하지만, 최종 확인은 주민센터나 복지로(www.bokjiro.go.kr)에서 해주세요. 담당 공무원과 상담을 권장합니다.' },
+                { q: '분석 결과가 정확한가요?', a: '120개 이상의 복지 정책 데이터와 AI 매칭으로 높은 정확도를 제공하지만, 최종 확인은 주민센터나 복지로(www.bokjiro.go.kr)에서 해주세요. 담당 공무원과 상담을 권장합니다.' },
                 { q: 'RPA 서류 취득이 실제로 발급되나요?', a: '실제 정부 사이트(정부24, 건강보험공단, 고용24)에 브라우저가 자동으로 접속합니다. 카카오톡 간편인증으로 로그인하시면 서류 발급 절차를 자동으로 안내해드립니다.' },
-                { q: '어떤 복지 정책을 분석하나요?', a: '기초연금, 아동수당, 부모급여, 청년 지원(내일저축계좌, 도약계좌), 장애인 지원, 실업급여, 한부모가족 지원 등 60개 이상의 정책을 분석합니다.' },
+                { q: '어떤 복지 정책을 분석하나요?', a: '기초연금, 아동수당, 부모급여, 청년 지원(내일저축계좌, 도약계좌), 장애인 지원(연금·활동지원), 실업급여, 주거급여, 의료급여, 한부모가족 지원, 문화누리카드 등 120개 이상의 정책을 분석합니다.' },
                 { q: '무료로 이용할 수 있나요?', a: '모두봄은 복지 소외계층을 위한 공공 목적으로 개발된 서비스로, 완전 무료입니다. 언제든지 부담 없이 이용하실 수 있습니다.' },
               ].map(({ q, a }, i) => (
                 <details key={i} className="group rounded-2xl border border-border/60 bg-white overflow-hidden">
