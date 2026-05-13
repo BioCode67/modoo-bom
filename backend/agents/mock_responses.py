@@ -183,25 +183,30 @@ def mock_final_response(eligible: list[dict], docs: list[dict], notifications: l
     eligible_list = [p for p in eligible if p.get("eligible")]
     doc_ok = [d for d in docs if d.get("success")]
 
-    lines = [
-        f"## 복지 분석 결과 요약\n",
-        f"**수혜 가능 정책 {len(eligible_list)}건**을 찾았습니다.\n",
-    ]
+    parts = []
 
-    if eligible_list:
-        lines.append("### 우선 신청 추천")
-        for p in sorted(eligible_list, key=lambda x: x.get("confidence", 0), reverse=True)[:3]:
-            lines.append(f"- **{p['name']}**: {p['reason']}")
+    if not eligible_list:
+        parts.append("현재 프로필 기준으로 수혜 가능한 정책을 찾지 못했습니다. 프로필 정보를 더 정확하게 입력하시면 더 많은 혜택을 찾을 수 있습니다.")
+        parts.append("복지로(www.bokjiro.go.kr) 또는 주민센터 방문 상담을 권장합니다.")
+        return "\n".join(parts)
+
+    top3 = sorted(eligible_list, key=lambda x: x.get("confidence", 0), reverse=True)[:3]
+    names = ", ".join(p["name"] for p in top3)
+    parts.append(f"수혜 가능 정책 {len(eligible_list)}건을 찾았습니다. 우선적으로 {names} 신청을 권장합니다.")
+
+    reasons = []
+    for p in top3:
+        reasons.append(f"{p['name']}({p['reason']})")
+    if reasons:
+        parts.append("선정 이유: " + ", ".join(reasons) + ".")
 
     if doc_ok:
-        lines.append(f"\n### 자동 취득 서류 ({len(doc_ok)}건)")
-        for d in doc_ok:
-            lines.append(f"- {d['doc_name']} (접수번호: {d.get('receipt_number', 'N/A')})")
+        doc_names = ", ".join(d["doc_name"] for d in doc_ok)
+        parts.append(f"필요 서류 중 {doc_names} {len(doc_ok)}건이 자동으로 발급됐습니다.")
 
     if notifications:
-        lines.append("\n### 생애이벤트 알림")
-        for n in notifications[:2]:
-            lines.append(f"- {n['title']}")
+        notif_titles = ", ".join(n["title"] for n in notifications[:2])
+        parts.append(f"생애 이벤트 알림: {notif_titles}.")
 
-    lines.append("\n> 복지로(www.bokjiro.go.kr) 또는 주민센터에서 신청하실 수 있습니다.")
-    return "\n".join(lines)
+    parts.append("복지로(www.bokjiro.go.kr) 또는 가까운 주민센터에서 신청하실 수 있습니다.")
+    return " ".join(parts)
