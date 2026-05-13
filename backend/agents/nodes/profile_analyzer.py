@@ -1,5 +1,6 @@
 """Node 1: profile_analyzer — 사용자 프로필 분석 및 검색 키워드 추출 (Claude)"""
 import json
+from agents.utils import extract_json
 from ..state import AgentState, NodeEvent
 from ..mock_responses import is_mock_mode, mock_profile_analysis
 
@@ -41,7 +42,7 @@ async def profile_analyzer_node(state: AgentState) -> dict:
             SystemMessage(content=_SYSTEM_PROMPT),
             HumanMessage(content=f"사용자 프로필:\n{profile_text}"),
         ])
-        result = json.loads(response.content)
+        result = extract_json(str(response.content))
 
     keywords = result.get("keywords", [])
     new_events.append(NodeEvent(

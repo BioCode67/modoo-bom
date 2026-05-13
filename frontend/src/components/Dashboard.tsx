@@ -70,6 +70,15 @@ export function Dashboard({ result, profileSummary, userName = '사용자', onRe
               </div>
             ))}
           </div>
+          {(portfolio_summary?.total_benefit_amount ?? 0) > 0 && (
+            <div className="mt-3 rounded-lg bg-white/15 px-4 py-2.5 flex items-center justify-between">
+              <span className="text-blue-100 text-sm">예상 월 수혜 금액</span>
+              <span className="text-white font-bold text-lg">
+                최대 {portfolio_summary.total_benefit_amount.toLocaleString()}원<span className="text-blue-200 text-sm font-normal">/월</span>
+              </span>
+            </div>
+          )}
+          </div>
         </CardContent>
       </Card>
 

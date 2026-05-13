@@ -64,6 +64,9 @@ async def run_agent_with_streaming(ws: WebSocket, profile_data: dict):
                 await asyncio.sleep(0.03)
 
     except Exception as e:
+        import traceback
+        err_detail = traceback.format_exc()
+        print(f"[WebSocket] 에이전트 오류:\n{err_detail}")
         await _send(ws, "error", {"message": f"에이전트 실행 오류: {e}"})
         return
 

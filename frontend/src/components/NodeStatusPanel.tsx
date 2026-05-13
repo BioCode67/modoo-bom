@@ -152,6 +152,11 @@ function DataChips({ data }: { data: Record<string, unknown> }) {
   if (typeof data.eligible_count === 'number') chips.push(`자격 ${data.eligible_count}건`)
   if (typeof data.guide_count === 'number')    chips.push(`가이드 ${data.guide_count}건`)
   if (typeof data.success === 'number')        chips.push(`취득 ${data.success}건`)
+  if (typeof data.failed === 'number' && data.failed > 0) chips.push(`수동 ${data.failed}건`)
+  if (typeof data.total === 'number')          chips.push(`총 ${data.total}건`)
+  if (typeof data.high === 'number')           chips.push(`우선순위高 ${data.high}건`)
+  if (typeof data.tracked === 'number' || Array.isArray(data.tracked))
+    chips.push(`추적 ${Array.isArray(data.tracked) ? data.tracked.length : data.tracked}건`)
   if (typeof data.passed === 'boolean')        chips.push(data.passed ? '검증 통과' : '재검토')
   if (Array.isArray(data.keywords) && (data.keywords as string[]).length > 0) {
     ;(data.keywords as string[]).slice(0, 3).forEach((k) => chips.push(k))

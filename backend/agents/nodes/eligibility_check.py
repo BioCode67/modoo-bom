@@ -1,5 +1,6 @@
-"""Node 3: eligibility_check — GPT-4o 기반 자격 판별 (Mock 폴백 포함)"""
+"""Node 3: eligibility_check — Claude 기반 자격 판별 (Mock 폴백 포함)"""
 import json
+from agents.utils import extract_json
 from ..state import AgentState, NodeEvent
 from ..mock_responses import is_mock_mode, mock_eligibility
 
@@ -66,7 +67,7 @@ async def eligibility_check_node(state: AgentState) -> dict:
             SystemMessage(content=_SYSTEM_PROMPT),
             HumanMessage(content=f"사용자 프로필:\n{profile_text}\n\n정책 목록:\n{policies_text}"),
         ])
-        result = json.loads(response.content)
+        result = extract_json(str(response.content))
 
     eligible = [p for p in result.get("eligible_policies", []) if p.get("eligible")]
     new_events.append(NodeEvent(

@@ -1,9 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <rect width="100" height="100" rx="22" fill="#2563eb"/>
-  <!-- 새싹 (sprout) 아이콘 -->
-  <circle cx="50" cy="38" r="16" fill="#4ade80" opacity="0.9"/>
-  <circle cx="34" cy="44" r="12" fill="#22c55e" opacity="0.8"/>
-  <rect x="47" y="50" width="6" height="22" rx="3" fill="#16a34a"/>
-  <ellipse cx="38" cy="60" rx="10" ry="6" fill="#15803d" opacity="0.7" transform="rotate(-30 38 60)"/>
-  <ellipse cx="62" cy="62" rx="10" ry="6" fill="#15803d" opacity="0.7" transform="rotate(30 62 62)"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <rect width="32" height="32" rx="8" fill="#2563EB"/>
+  <path d="M16 6C16 6 8 10 8 17C8 21.4 11.6 25 16 25C20.4 25 24 21.4 24 17C24 10 16 6 16 6Z" fill="white" opacity="0.9"/>
+  <path d="M16 10C16 10 11 13 11 17C11 19.8 13.2 22 16 22C18.8 22 21 19.8 21 17C21 13 16 10 16 10Z" fill="#2563EB"/>
+  <circle cx="16" cy="17" r="2.5" fill="white"/>
 </svg>

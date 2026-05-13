@@ -81,6 +81,7 @@ export interface PortfolioSummary {
   high_priority_count: number
   medium_priority_count: number
   low_priority_count: number
+  total_benefit_amount: number
   categories: string[]
   high_priority_policies: { id: string; name: string; reason: string }[]
   all_eligible_names: string[]

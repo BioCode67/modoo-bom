@@ -170,17 +170,39 @@ export function ProfileForm({ onSubmit, disabled }: Props) {
           </div>
 
           {/* 자녀 / 임신 */}
-          <div className="flex items-center gap-6">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" className="h-4 w-4 rounded"
-                checked={profile.has_children} onChange={(e) => set('has_children', e.target.checked)} />
-              <span className="text-sm">자녀 있음</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" className="h-4 w-4 rounded"
-                checked={profile.is_pregnant} onChange={(e) => set('is_pregnant', e.target.checked)} />
-              <span className="text-sm">임신 중</span>
-            </label>
+          <div className="space-y-2">
+            <div className="flex items-center gap-6">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" className="h-4 w-4 rounded"
+                  checked={profile.has_children} onChange={(e) => {
+                    set('has_children', e.target.checked)
+                    if (!e.target.checked) set('children_ages', [])
+                  }} />
+                <span className="text-sm">자녀 있음</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" className="h-4 w-4 rounded"
+                  checked={profile.is_pregnant} onChange={(e) => set('is_pregnant', e.target.checked)} />
+                <span className="text-sm">임신 중</span>
+              </label>
+            </div>
+            {profile.has_children && (
+              <div className="pl-6 space-y-1.5">
+                <Label className="text-xs text-muted-foreground">자녀 나이 (쉼표로 구분, 예: 3, 7, 12)</Label>
+                <Input
+                  placeholder="예: 3, 7, 12"
+                  value={profile.children_ages.join(', ')}
+                  onChange={(e) => {
+                    const ages = e.target.value
+                      .split(',')
+                      .map((s) => parseInt(s.trim(), 10))
+                      .filter((n) => !isNaN(n) && n >= 0)
+                    set('children_ages', ages)
+                  }}
+                  className="h-8 text-sm"
+                />
+              </div>
+            )}
           </div>
 
           {/* 생애 이벤트 */}

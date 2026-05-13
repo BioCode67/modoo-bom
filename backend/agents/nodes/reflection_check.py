@@ -1,5 +1,6 @@
 """Node 4: reflection_check — Hallucination 검증 (Mock 폴백 포함)"""
 import json
+from agents.utils import extract_json
 from ..state import AgentState, NodeEvent
 from ..mock_responses import is_mock_mode, mock_reflection
 
@@ -49,7 +50,7 @@ async def reflection_check_node(state: AgentState) -> dict:
             SystemMessage(content=_SYSTEM_PROMPT),
             HumanMessage(content=f"프로필: {profile_text}\n\n판별 결과:\n{json.dumps(eligible, ensure_ascii=False, indent=2)}"),
         ])
-        result = json.loads(response.content)
+        result = extract_json(str(response.content))
 
     passed = result.get("passed", True)
     issues = result.get("issues", [])
