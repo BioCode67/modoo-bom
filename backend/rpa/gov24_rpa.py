@@ -1,7 +1,7 @@
 """
 정부24 주민등록등본 / 초본 실제 자동 발급 (Playwright RPA)
 - plus.gov.kr SPA 기반 로그인 (2024년 이전 www.gov.kr → plus.gov.kr 전환)
-- 간편인증 탭 선택 → 카카오 클릭 → 사용자 폰 인증 대기 → 자동 발급
+- 간편인증 탭 선택 → 카카오톡(TALK) 클릭 → anyid 본인인증 폼 → 사용자 완료 대기
 """
 import asyncio
 from rpa.base import (
@@ -14,8 +14,6 @@ GOV24_BASE = "https://plus.gov.kr"
 GOV24_LOGIN_URL = "https://plus.gov.kr/login/login"
 
 # 문서 발급 서비스 URL (www.gov.kr 민원24 연계)
-# 등본/초본 모두 동일한 서비스 페이지(CappBizCD=13100000015)에서 발급됨
-# 신청 양식에서 등본/초본 선택
 _BASE_DOC_URL = (
     "https://www.gov.kr/mw/AA020InfoCappView.do"
     "?CappBizCD=13100000015&HighCtgCD=A01010001&tp_seq=01&Mcode=10200"
@@ -25,7 +23,7 @@ DOC_URLS = {
     "주민등록초본": _BASE_DOC_URL,
 }
 
-# 간편인증 탭 선택자 (로그인 페이지에 표시되는 탭)
+# 간편인증 탭 선택자
 SIMPLE_AUTH_SELECTORS = [
     "li.simplicity.login_type.anyidEsign a",
     "li.anyidEsign a",
@@ -35,21 +33,23 @@ SIMPLE_AUTH_SELECTORS = [
     "a[class*='anyidEsign']",
 ]
 
-# 간편인증 모달/팝업 내부의 카카오 버튼
-KAKAO_MODAL_SELECTORS = [
-    "a[title*='카카오']",
-    "a[data-id*='kakao']",
-    "img[alt*='카카오']",
-    "a:has-text('카카오')",
-    "[class*='kakao']",
-    "a[href*='kakao']",
-    "li.kakao a",
-    ".kakao-btn",
+# ★ 카카오톡(TALK) 전용 선택자 — 카카오뱅크/카카오스토리와 구분하기 위해 '톡' 포함
+KAKAOTALK_SELECTORS = [
+    "a[title='카카오톡']",
+    "img[alt='카카오톡']",
+    "a:has-text('카카오톡')",
+    "li:has-text('카카오톡') a",
+    "button:has-text('카카오톡')",
+    # anyid 리스트 내 TALK 아이콘
+    ".kakao-talk",
+    "[class*='kakaotalk']",
+    "[data-id='kakaotalk']",
+    "[data-provider='kakaotalk']",
 ]
 
 # 신청 버튼 선택자
 APPLY_SELECTORS = [
-    "a.btn_bg01",               # gov.kr 민원24 서비스 카드 확인 버튼
+    "a.btn_bg01",
     "a:has-text('신청하기')",
     "button:has-text('신청하기')",
     "a:has-text('발급신청')",
@@ -70,50 +70,106 @@ PRINT_SELECTORS = [
     ".btn-print",
 ]
 
+# 본인인증 정보 폼이 떴는지 감지하는 선택자 (anyid 인증 요청 폼)
+AUTH_FORM_SELECTORS = [
+    "button:has-text('인증 요청')",
+    "button:has-text('인증요청')",
+    "input[placeholder*='생년월일']",
+    "input[placeholder*='이름']",
+    "button:has-text('전체동의')",
+    "label:has-text('전체동의')",
+    "input[type='checkbox']",  # 동의 체크박스
+]
 
-async def _click_simple_auth_kakao(page, task) -> bool:
+
+async def _click_kakaotalk_in_anyid(page, task) -> bool:
     """
-    정부24 로그인 페이지에서 간편인증 탭 → 카카오 버튼 순서로 클릭.
-    성공 여부 반환.
+    anyid 모달에서 '카카오톡' 을 정확히 클릭.
+    카카오뱅크(뱅크) / 카카오스토리 와 혼동하지 않도록 '톡' 을 포함한 텍스트만 매칭.
     """
-    # 간편인증 탭 클릭
-    await asyncio.sleep(1.5)
-    simple_clicked = await click_first_matching(page, SIMPLE_AUTH_SELECTORS)
-    if simple_clicked:
-        ss = await take_screenshot(page)
-        task.update("running", "간편인증 탭 선택 완료 — 카카오 버튼을 찾는 중...", ss)
-        await asyncio.sleep(2)
-    else:
-        ss = await take_screenshot(page)
-        task.update("running", "간편인증 탭을 찾지 못했습니다. 직접 선택해주세요.", ss)
-        return False
+    # 1) Playwright 선택자로 시도
+    for sel in KAKAOTALK_SELECTORS:
+        try:
+            el = page.locator(sel).first
+            if await el.count() > 0:
+                await el.scroll_into_view_if_needed()
+                await el.click()
+                await asyncio.sleep(1.5)
+                return True
+        except Exception:
+            continue
 
-    # 카카오 버튼 클릭 (모달 또는 같은 페이지)
-    kakao_clicked = await click_first_matching(page, KAKAO_MODAL_SELECTORS)
-    if kakao_clicked:
-        await asyncio.sleep(2)
-        return True
-
-    # JS 직접 클릭 시도 (Shadow DOM 또는 동적 렌더링 대응)
+    # 2) JS: '카카오톡' 텍스트를 정확히 포함하는 요소 클릭 (뱅크 제외)
     try:
         result = await page.evaluate("""
             () => {
-                const candidates = [
-                    ...document.querySelectorAll('a, button, img'),
-                ].filter(el => {
-                    const t = (el.textContent + el.getAttribute('alt') + el.getAttribute('title') + el.className).toLowerCase();
-                    return t.includes('카카오') || t.includes('kakao');
+                // '카카오톡' 텍스트만 매칭 — 카카오뱅크/카카오스토리 제외
+                const all = [...document.querySelectorAll('a, button, li, span, img, div')];
+                const candidates = all.filter(el => {
+                    const text = (
+                        (el.textContent || '') +
+                        (el.getAttribute('alt') || '') +
+                        (el.getAttribute('title') || '') +
+                        (el.getAttribute('data-id') || '') +
+                        (el.getAttribute('data-provider') || '') +
+                        el.className
+                    ).toLowerCase();
+                    // '카카오톡' 또는 'kakaotalk' — '뱅크' / 'bank' 제외
+                    return (text.includes('카카오톡') || text.includes('kakaotalk')) &&
+                           !text.includes('뱅크') && !text.includes('bank');
                 });
-                if (candidates.length > 0) { candidates[0].click(); return true; }
+                if (candidates.length > 0) {
+                    const el = candidates[0];
+                    const clickTarget = el.tagName === 'IMG'
+                        ? (el.closest('a') || el.closest('button') || el)
+                        : el;
+                    clickTarget.click();
+                    return true;
+                }
                 return false;
             }
         """)
         if result:
-            await asyncio.sleep(2)
+            await asyncio.sleep(1.5)
             return True
     except Exception:
         pass
 
+    # 3) JS: anyid 리스트에서 마지막 카카오 계열 항목 (카카오톡이 보통 리스트 하단)
+    try:
+        result = await page.evaluate("""
+            () => {
+                const all = [...document.querySelectorAll('a, button, li')];
+                const kakaoItems = all.filter(el => {
+                    const t = (el.textContent + el.className).toLowerCase();
+                    return t.includes('카카오') || t.includes('kakao');
+                });
+                // 여러 카카오 항목 중 가장 마지막 = 카카오톡 (리스트 순서상 하단)
+                if (kakaoItems.length > 0) {
+                    kakaoItems[kakaoItems.length - 1].click();
+                    return kakaoItems.length;
+                }
+                return 0;
+            }
+        """)
+        if result:
+            await asyncio.sleep(1.5)
+            return True
+    except Exception:
+        pass
+
+    return False
+
+
+async def _detect_auth_form(page) -> bool:
+    """anyid 본인인증 정보 입력 폼이 화면에 떴는지 확인"""
+    for sel in AUTH_FORM_SELECTORS:
+        try:
+            el = page.locator(sel).first
+            if await el.count() > 0:
+                return True
+        except Exception:
+            continue
     return False
 
 
@@ -142,12 +198,9 @@ async def run_gov24_rpa(task, doc_name: str) -> None:
                 ],
             )
             context = await browser.new_context(**make_browser_context_args())
-
-            # navigator.webdriver 숨기기
             await context.add_init_script(
                 "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
             )
-
             page = await context.new_page()
 
             # ① plus.gov.kr 로그인 페이지 접속
@@ -160,14 +213,49 @@ async def run_gov24_rpa(task, doc_name: str) -> None:
             ss = await take_screenshot(page)
             task.update("running", f"정부24 로그인 페이지 로드 완료\n현재 URL: {page.url}", ss)
 
-            # ② 간편인증 → 카카오 버튼 클릭
-            kakao_clicked = await _click_simple_auth_kakao(page, task)
-            ss = await take_screenshot(page)
-
-            if kakao_clicked:
+            # ② 간편인증 탭 클릭
+            await asyncio.sleep(1.5)
+            simple_clicked = await click_first_matching(page, SIMPLE_AUTH_SELECTORS)
+            if simple_clicked:
+                await asyncio.sleep(2)
+                ss = await take_screenshot(page)
+                task.update("running", "간편인증 탭 선택 완료 — anyid 모달에서 카카오톡 찾는 중...", ss)
+            else:
+                ss = await take_screenshot(page)
                 task.update(
                     "waiting_login",
-                    "📱 카카오 간편인증 화면이 열렸습니다.\n"
+                    "간편인증 탭을 자동으로 찾지 못했습니다.\n"
+                    "브라우저에서 '간편인증' 탭을 직접 클릭하고\n"
+                    "카카오톡(TALK)을 선택한 뒤 인증을 완료해주세요.",
+                    ss,
+                )
+
+            # ③ anyid 모달에서 카카오톡 클릭 (카카오뱅크 아님!)
+            await asyncio.sleep(1)
+            kakaotalk_clicked = await _click_kakaotalk_in_anyid(page, task)
+            await asyncio.sleep(2)
+            ss = await take_screenshot(page)
+
+            # ④ 본인인증 정보 입력 폼 감지
+            form_detected = await _detect_auth_form(page)
+
+            if kakaotalk_clicked and form_detected:
+                task.update(
+                    "waiting_login",
+                    "📋 카카오톡 본인인증 정보 입력 폼이 열렸습니다.\n\n"
+                    "브라우저에서 다음을 직접 입력해주세요:\n"
+                    "  1️⃣  이름 입력\n"
+                    "  2️⃣  생년월일 입력 (예: 19900101)\n"
+                    "  3️⃣  휴대폰 번호 입력\n"
+                    "  4️⃣  '전체동의' 체크박스 선택\n"
+                    "  5️⃣  '인증 요청' 버튼 클릭\n\n"
+                    "📱 이후 카카오톡 알림에서 [본인인증 허용] 을 누르면 자동으로 진행됩니다.",
+                    ss,
+                )
+            elif kakaotalk_clicked:
+                task.update(
+                    "waiting_login",
+                    "📱 카카오톡 간편인증 화면이 열렸습니다.\n"
                     "스마트폰 카카오톡 알림에서 [인증 허용]을 눌러주세요.\n"
                     "인증 완료 후 자동으로 다음 단계가 진행됩니다.",
                     ss,
@@ -175,19 +263,20 @@ async def run_gov24_rpa(task, doc_name: str) -> None:
             else:
                 task.update(
                     "waiting_login",
-                    "열린 브라우저에서 '간편인증' 탭을 선택하고\n"
-                    "카카오 간편인증으로 로그인해주세요.\n"
-                    "📱 로그인 완료 후 자동으로 진행됩니다.",
+                    "열린 브라우저에서 '간편인증' 탭 → '카카오톡(TALK)' 선택 후\n"
+                    "본인인증 정보(이름·생년월일·전화번호)를 입력하고\n"
+                    "'인증 요청'을 클릭해주세요.\n"
+                    "📱 카카오톡 알림 허용 후 자동으로 진행됩니다.",
                     ss,
                 )
 
-            # ③ 로그인 완료 대기 (URL이 login에서 벗어날 때 감지)
+            # ⑤ 로그인 완료 대기 (URL이 login에서 벗어날 때 감지, 최대 5분)
             login_ok = await wait_for_login(
-                page, task, timeout_sec=180, login_url=GOV24_LOGIN_URL
+                page, task, timeout_sec=300, login_url=GOV24_LOGIN_URL
             )
             if not login_ok:
                 ss = await take_screenshot(page)
-                task.update("error", "로그인 대기 시간 초과 (3분). 다시 시도해주세요.", ss)
+                task.update("error", "로그인 대기 시간 초과 (5분). 다시 시도해주세요.", ss)
                 await browser.close()
                 return
 
@@ -195,14 +284,14 @@ async def run_gov24_rpa(task, doc_name: str) -> None:
             task.update("running", f"로그인 완료! {doc_name} 발급 페이지로 이동합니다.", ss)
             await asyncio.sleep(1.5)
 
-            # ④ 문서 발급 서비스 페이지 이동
+            # ⑥ 문서 발급 서비스 페이지 이동
             task.update("running", f"{doc_name} 민원 서비스 페이지 이동 중...")
             await page.goto(doc_url, wait_until="domcontentloaded", timeout=30000)
             await asyncio.sleep(3)
             ss = await take_screenshot(page)
             task.update("running", f"{doc_name} 서비스 페이지 접속 완료", ss)
 
-            # ⑤ "온라인 발급" / "신청하기" 탭 있으면 선택
+            # ⑦ "온라인 발급" 탭 선택
             online_selectors = [
                 "a:has-text('온라인발급')", "a:has-text('온라인 발급')",
                 "a:has-text('전자문서')", "button:has-text('온라인발급')",
@@ -212,16 +301,14 @@ async def run_gov24_rpa(task, doc_name: str) -> None:
                 ss = await take_screenshot(page)
                 task.update("running", "온라인 발급 탭 선택", ss)
 
-            # ⑥ 초본 신청 시 양식에서 "초본" 선택
+            # ⑧ 초본 신청 시 양식에서 '초본' 선택
             if doc_name == "주민등록초본":
                 try:
                     await page.evaluate("""
                         () => {
-                            // 등본/초본 라디오 버튼 또는 선택 항목에서 초본 선택
                             const labels = Array.from(document.querySelectorAll('label, span, td'));
                             const chobonLabel = labels.find(el => el.textContent.trim() === '초본');
                             if (chobonLabel) {
-                                // 연관 input 클릭
                                 const forAttr = chobonLabel.getAttribute('for');
                                 if (forAttr) {
                                     const inp = document.getElementById(forAttr);
@@ -230,7 +317,6 @@ async def run_gov24_rpa(task, doc_name: str) -> None:
                                 chobonLabel.click();
                                 return;
                             }
-                            // select 요소에서 초본 option 선택
                             const selects = document.querySelectorAll('select');
                             selects.forEach(sel => {
                                 const opt = Array.from(sel.options).find(o => o.text.includes('초본'));
@@ -244,7 +330,7 @@ async def run_gov24_rpa(task, doc_name: str) -> None:
                 except Exception:
                     pass
 
-            # ⑦ 발급 목적 기본값 선택
+            # ⑨ 발급 목적 기본값 선택
             for sel in ["select[name*='purpose']", "select[name*='issuPurps']", "#issuPurps"]:
                 try:
                     el = page.locator(sel).first
@@ -254,7 +340,7 @@ async def run_gov24_rpa(task, doc_name: str) -> None:
                 except Exception:
                     pass
 
-            # ⑧ 신청하기 버튼 클릭
+            # ⑩ 신청하기 버튼 클릭
             await asyncio.sleep(1)
             clicked = await click_first_matching(page, APPLY_SELECTORS)
             ss = await take_screenshot(page)
@@ -269,7 +355,7 @@ async def run_gov24_rpa(task, doc_name: str) -> None:
                     ss,
                 )
 
-            # ⑧ 인쇄/출력 창 대기 (최대 90초)
+            # ⑪ 인쇄/출력 창 대기 (최대 90초)
             for _ in range(90):
                 try:
                     for sel in PRINT_SELECTORS:
