@@ -125,6 +125,87 @@ const POLICIES = [
     bg: 'bg-red-50 border-red-200',
     text: 'text-red-700',
   },
+  {
+    id: 'housing_benefit',
+    name: '주거급여',
+    category: '주거',
+    maxAmount: 341000,
+    unit: '월',
+    condition: (p: CalcProfile) => p.income <= 48,
+    calcAmount: (p: CalcProfile) => {
+      const base = p.seoulRegion ? 341000 : p.gyeonggiRegion ? 268000 : 198000
+      return Math.round(base * (1 - Math.max(0, p.income - 30) / 50))
+    },
+    desc: '임차가구: 중위소득 48% 이하, 지역별 기준임대료 차등 지급',
+    color: 'from-teal-400 to-cyan-500',
+    bg: 'bg-teal-50 border-teal-200',
+    text: 'text-teal-700',
+  },
+  {
+    id: 'medical_benefit',
+    name: '의료급여 본인부담 감면',
+    category: '의료',
+    maxAmount: 200000,
+    unit: '월',
+    condition: (p: CalcProfile) => p.income <= 40,
+    calcAmount: (p: CalcProfile) => p.income <= 30 ? 200000 : 100000,
+    desc: '중위소득 40% 이하: 1종(30%↓) 외래 1,000원, 2종(40%↓) 15% 본인부담',
+    color: 'from-emerald-400 to-green-500',
+    bg: 'bg-emerald-50 border-emerald-200',
+    text: 'text-emerald-700',
+  },
+  {
+    id: 'single_parent',
+    name: '한부모가족 아동양육비',
+    category: '가족',
+    maxAmount: 200000,
+    unit: '월',
+    condition: (p: CalcProfile) => p.singleParent && p.childrenUnder18 > 0 && p.income <= 63,
+    calcAmount: (p: CalcProfile) => 200000 * Math.min(p.childrenUnder18, 3),
+    desc: '한부모가족, 중위소득 63% 이하, 자녀 1인당 월 20만원',
+    color: 'from-violet-400 to-purple-500',
+    bg: 'bg-violet-50 border-violet-200',
+    text: 'text-violet-700',
+  },
+  {
+    id: 'disability_activity',
+    name: '장애인 활동지원',
+    category: '장애',
+    maxAmount: 1584800,
+    unit: '월',
+    condition: (p: CalcProfile) => p.disability && p.disabilityGrade <= 2,
+    calcAmount: (p: CalcProfile) => p.disabilityGrade === 1 ? 1584800 : 1230000,
+    desc: '중증장애인 활동보조, 방문목욕, 방문간호 서비스 지원',
+    color: 'from-indigo-400 to-blue-500',
+    bg: 'bg-indigo-50 border-indigo-200',
+    text: 'text-indigo-700',
+  },
+  {
+    id: 'education_benefit',
+    name: '교육급여',
+    category: '교육',
+    maxAmount: 81000,
+    unit: '월',
+    condition: (p: CalcProfile) => p.income <= 50 && p.childrenUnder18 > 0,
+    calcAmount: () => 81000,
+    desc: '중위소득 50% 이하 가구 학생, 교육활동지원비 (고교 연 55.4만원 등)',
+    color: 'from-amber-400 to-yellow-500',
+    bg: 'bg-amber-50 border-amber-200',
+    text: 'text-amber-700',
+  },
+  {
+    id: 'culture_voucher',
+    name: '문화누리카드',
+    category: '문화',
+    maxAmount: 13000,
+    unit: '월',
+    condition: (p: CalcProfile) => p.income <= 50,
+    calcAmount: () => 13000,
+    desc: '기초생활수급자·차상위계층, 연간 13만원 문화·여행·체육 바우처',
+    color: 'from-pink-400 to-rose-400',
+    bg: 'bg-pink-50 border-pink-200',
+    text: 'text-pink-700',
+  },
 ]
 
 interface CalcProfile {
@@ -133,11 +214,15 @@ interface CalcProfile {
   disability: boolean
   disabilityGrade: number
   childrenUnder8: number
+  childrenUnder18: number
   hasNewborn0: boolean
   hasNewborn1: boolean
   hasNewbornAny: boolean
   isSecondChild: boolean
   employed: boolean
+  singleParent: boolean
+  seoulRegion: boolean
+  gyeonggiRegion: boolean
 }
 
 const DEFAULT_PROFILE: CalcProfile = {
@@ -146,11 +231,15 @@ const DEFAULT_PROFILE: CalcProfile = {
   disability: false,
   disabilityGrade: 0,
   childrenUnder8: 0,
+  childrenUnder18: 0,
   hasNewborn0: false,
   hasNewborn1: false,
   hasNewbornAny: false,
   isSecondChild: false,
   employed: false,
+  singleParent: false,
+  seoulRegion: false,
+  gyeonggiRegion: false,
 }
 
 export function WelfareCalculator() {
@@ -287,6 +376,41 @@ export function WelfareCalculator() {
                     </button>
                   ))}
                 </div>
+              </div>
+            )}
+          </div>
+
+          {/* 지역 */}
+          <div className="space-y-2">
+            <label className="text-sm font-semibold">거주 지역</label>
+            <div className="flex gap-2">
+              {[{ v: 'seoul', l: '서울' }, { v: 'gyeonggi', l: '경기·인천' }, { v: 'other', l: '기타' }].map(({ v, l }) => {
+                const active = v === 'seoul' ? p.seoulRegion : v === 'gyeonggi' ? p.gyeonggiRegion : !p.seoulRegion && !p.gyeonggiRegion
+                return (
+                  <button key={v} type="button"
+                    onClick={() => setP(prev => ({ ...prev, seoulRegion: v === 'seoul', gyeonggiRegion: v === 'gyeonggi' }))}
+                    className={cn('flex-1 rounded-xl border py-2 text-sm font-medium transition-all', active ? 'bg-primary/10 border-primary text-primary' : 'border-border text-muted-foreground hover:border-primary/40')}
+                  >{l}</button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* 가구 유형 */}
+          <div className="rounded-xl border border-border/60 bg-muted/20 p-3 space-y-2">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" className="h-4 w-4 rounded accent-primary" checked={p.singleParent} onChange={(e) => set('singleParent', e.target.checked)} />
+              <span className="text-sm font-medium">한부모가족</span>
+            </label>
+            {p.singleParent && (
+              <div className="flex items-center gap-3 pl-6">
+                <span className="text-xs font-medium text-muted-foreground">18세 미만 자녀</span>
+                <div className="flex items-center gap-2">
+                  <button type="button" onClick={() => set('childrenUnder18', Math.max(0, p.childrenUnder18 - 1))} className="h-7 w-7 rounded-lg border border-border flex items-center justify-center text-sm font-bold hover:bg-muted/50">−</button>
+                  <span className="text-sm font-bold w-4 text-center">{p.childrenUnder18}</span>
+                  <button type="button" onClick={() => set('childrenUnder18', Math.min(10, p.childrenUnder18 + 1))} className="h-7 w-7 rounded-lg border border-border flex items-center justify-center text-sm font-bold hover:bg-muted/50">+</button>
+                </div>
+                <span className="text-xs text-muted-foreground">명</span>
               </div>
             )}
           </div>

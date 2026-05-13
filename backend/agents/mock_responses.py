@@ -1,6 +1,8 @@
 """Anthropic API 없이 동작하는 Mock 응답 — 데모/테스트용"""
-import json
 import os
+from rag.sample_data import WELFARE_POLICIES as _ALL_POLICIES
+
+_POLICY_MAP = {p["id"]: p for p in _ALL_POLICIES}
 
 
 def is_mock_mode() -> bool:
@@ -8,111 +10,223 @@ def is_mock_mode() -> bool:
     return not key or key == "mock"
 
 
-# profile_analyzer mock
+# ── profile_analyzer mock ────────────────────────────────────────────────────
+
 def mock_profile_analysis(profile) -> dict:
     keywords = []
     if profile.age >= 65:
-        keywords += ["기초연금", "노인", "어르신"]
-    if profile.age < 35:
-        keywords += ["청년", "청년지원"]
+        keywords += ["기초연금", "노인", "어르신", "장기요양"]
+    elif profile.age >= 60:
+        keywords += ["노인", "60세", "고령자"]
+    if 19 <= profile.age <= 34:
+        keywords += ["청년", "청년지원", "청년취업"]
+    if 35 <= profile.age <= 64:
+        keywords += ["중장년", "재취업"]
     if profile.disability:
-        keywords += ["장애인", "장애"]
-    if profile.is_pregnant or (profile.has_children and min(profile.children_ages or [99]) < 2):
-        keywords += ["임산부", "출산", "영아", "아동수당"]
+        keywords += ["장애인", "장애", "활동지원"]
+    if profile.is_pregnant:
+        keywords += ["임산부", "임신", "출산", "국민행복카드"]
+    if profile.has_children:
+        ages = profile.children_ages or []
+        if any(a < 2 for a in ages):
+            keywords += ["영아", "부모급여", "아동수당"]
+        elif any(a < 8 for a in ages):
+            keywords += ["아동수당", "보육료", "유아학비"]
+        if any(a < 18 for a in ages):
+            keywords += ["아동", "교육급여"]
     if profile.employment_status == "unemployed":
-        keywords += ["실업급여", "취업지원", "구직"]
-    if profile.income_percentile <= 50:
-        keywords += ["저소득", "기초생활"]
+        keywords += ["실업급여", "취업지원", "구직", "국민취업지원제도"]
+    if profile.income_percentile <= 30:
+        keywords += ["기초생활", "생계급여", "의료급여", "저소득"]
+    elif profile.income_percentile <= 50:
+        keywords += ["차상위", "저소득", "주거급여"]
     if profile.household_type in ("한부모가족", "조손가구"):
-        keywords += ["한부모"]
-    keywords = keywords or ["복지", "사회보장"]
+        keywords += ["한부모", "양육비"]
+    if profile.household_type == "다문화가족":
+        keywords += ["다문화", "방문교육"]
+    if "실직" in (profile.life_events or []):
+        keywords += ["실업급여", "긴급복지"]
+    if "출산" in (profile.life_events or []):
+        keywords += ["부모급여", "아동수당", "산모신생아"]
+    if "장애진단" in (profile.life_events or []):
+        keywords += ["장애인연금", "활동지원", "장애수당"]
+    keywords = list(dict.fromkeys(keywords or ["복지", "사회보장"]))[:8]
+
+    region_note = f", {profile.region} 거주" if profile.region else ""
+    household_note = f", {profile.household_type} 가구" if profile.household_type else ""
 
     return {
         "summary": (
-            f"{profile.name}님({profile.age}세, {profile.region})의 프로필을 분석했습니다. "
-            f"가구유형 {profile.household_type}, 소득수준 중위소득 {profile.income_percentile}% 기준으로 "
-            f"맞춤 복지 정책을 검색합니다."
+            f"{profile.name or '사용자'}님({profile.age}세{region_note}{household_note})의 프로필을 분석했습니다. "
+            f"소득수준 기준중위소득 {profile.income_percentile}%로, "
+            f"{'장애인 등록 상태이며 ' if profile.disability else ''}"
+            f"{'임신 중이며 ' if profile.is_pregnant else ''}"
+            f"맞춤 복지 정책 {len(keywords)}개 키워드로 검색합니다."
         ),
-        "keywords": list(dict.fromkeys(keywords))[:8],
+        "keywords": keywords,
     }
 
 
-# eligibility_check mock
+# ── eligibility_check mock ───────────────────────────────────────────────────
+
+def _check_policy(doc: str, name: str, pid: str, profile) -> tuple[bool, str, str, float]:
+    """(eligible, reason, priority, confidence) 반환"""
+
+    # ── 노인 계열 ──────────────────────────────────────────────────────────
+    if any(k in doc for k in ["만 65세", "65세 이상", "만65세"]):
+        if profile.age >= 65:
+            return True, f"만 {profile.age}세로 연령 기준 충족", "high", 0.95
+        return False, "", "low", 0.0
+
+    if any(k in doc for k in ["만 60세", "60세 이상", "만60세", "만 66세"]):
+        if profile.age >= 60:
+            return True, f"만 {profile.age}세로 연령 기준 충족", "medium", 0.90
+        return False, "", "low", 0.0
+
+    # ── 청년 계열 ──────────────────────────────────────────────────────────
+    if any(k in doc for k in ["만 19~34세", "19~34세", "만 34세 이하", "19세~34세"]):
+        if 19 <= profile.age <= 34:
+            return True, f"만 {profile.age}세로 청년 연령 기준 충족", "high", 0.92
+        return False, "", "low", 0.0
+
+    if any(k in doc for k in ["만 19~39세", "만 39세 이하"]):
+        if 19 <= profile.age <= 39:
+            return True, f"만 {profile.age}세로 청년 연령 기준 충족", "medium", 0.88
+        return False, "", "low", 0.0
+
+    if "만 15~34세" in doc or "15~34세" in doc:
+        if 15 <= profile.age <= 34:
+            return True, f"만 {profile.age}세로 청년 연령 기준 충족", "high", 0.90
+        return False, "", "low", 0.0
+
+    if any(k in doc for k in ["만 9~24세", "9~24세"]):
+        if 9 <= profile.age <= 24:
+            return True, f"만 {profile.age}세 청소년·청년 기준 충족", "high", 0.88
+        return False, "", "low", 0.0
+
+    # ── 장애인 계열 ────────────────────────────────────────────────────────
+    if "중증장애인" in doc:
+        if profile.disability and profile.disability_grade in ("1급", "2급", "1", "2"):
+            return True, f"등록 중증장애인({profile.disability_grade}) 조건 충족", "high", 0.93
+        return False, "", "low", 0.0
+
+    if "발달장애인" in doc:
+        if profile.disability and any(g in (profile.disability_grade or "") for g in ["지적", "자폐"]):
+            return True, f"발달장애인({profile.disability_grade}) 조건 충족", "high", 0.91
+        return False, "", "low", 0.0
+
+    if "등록 장애인" in doc or ("장애인" in doc and "장애" in name):
+        if profile.disability:
+            return True, f"등록 장애인({profile.disability_grade}) 조건 충족", "high", 0.92
+        return False, "", "low", 0.0
+
+    # ── 아동·영유아 계열 ──────────────────────────────────────────────────
+    if "만 8세 미만" in doc or "0세~7세" in doc or "만 0~7세" in doc:
+        if profile.has_children and any(a < 8 for a in (profile.children_ages or [])):
+            return True, "만 8세 미만 자녀 보유", "high", 0.97
+        return False, "", "low", 0.0
+
+    if any(k in doc for k in ["만 0~5세", "만 0~2세", "영아", "만 24개월"]):
+        if profile.has_children and any(a < 3 for a in (profile.children_ages or [])):
+            return True, "영유아(만 0~5세) 자녀 보유", "high", 0.96
+        return False, "", "low", 0.0
+
+    if "만 12세 이하" in doc:
+        if profile.has_children and any(a <= 12 for a in (profile.children_ages or [])):
+            return True, "만 12세 이하 자녀 보유", "medium", 0.90
+        return False, "", "low", 0.0
+
+    if "만 18세 미만" in doc and "아동" in doc:
+        if profile.has_children and any(a < 18 for a in (profile.children_ages or [])):
+            return True, "만 18세 미만 자녀 보유", "medium", 0.88
+        return False, "", "low", 0.0
+
+    # ── 임산부·출산 계열 ──────────────────────────────────────────────────
+    if any(k in doc for k in ["임산부", "임신", "임신확인"]):
+        if profile.is_pregnant:
+            return True, "임신 중 확인", "high", 0.96
+        return False, "", "low", 0.0
+
+    if "출산" in doc and any(k in doc for k in ["산모", "출생", "출생 후"]):
+        if profile.is_pregnant or (profile.has_children and any(a == 0 for a in (profile.children_ages or []))):
+            return True, "출산(예정) 가정 조건 충족", "high", 0.94
+        return False, "", "low", 0.0
+
+    # ── 저소득·기초생활 계열 ──────────────────────────────────────────────
+    if any(k in doc for k in ["기초생활수급자", "의료급여 수급자", "중위소득 30%"]):
+        if profile.income_percentile <= 30:
+            return True, f"소득 중위소득 {profile.income_percentile}%로 기초생활 기준 충족", "high", 0.87
+        return False, "", "low", 0.0
+
+    if any(k in doc for k in ["기초생활수급자 및 차상위", "차상위계층"]):
+        if profile.income_percentile <= 50:
+            return True, f"소득 중위소득 {profile.income_percentile}%로 차상위 기준 충족", "medium", 0.85
+        return False, "", "low", 0.0
+
+    if any(k in doc for k in ["중위소득 48%", "중위소득 50%"]):
+        if profile.income_percentile <= 50:
+            return True, f"소득 중위소득 {profile.income_percentile}%로 기준 충족", "medium", 0.84
+        return False, "", "low", 0.0
+
+    if any(k in doc for k in ["중위소득 60%", "중위소득 63%"]):
+        if profile.income_percentile <= 63:
+            return True, f"소득 중위소득 {profile.income_percentile}%로 기준 충족", "medium", 0.82
+        return False, "", "low", 0.0
+
+    if any(k in doc for k in ["중위소득 120%", "중위소득 150%", "중위소득 180%"]):
+        if profile.income_percentile <= 180:
+            return True, f"소득 기준 충족 (중위소득 {profile.income_percentile}%)", "low", 0.75
+        return False, "", "low", 0.0
+
+    # ── 실직·취업 계열 ────────────────────────────────────────────────────
+    if any(k in doc for k in ["비자발적 이직", "실직", "비자발적 실직자"]):
+        if profile.employment_status == "unemployed":
+            return True, "실직/비자발적 이직으로 신청 자격 있음", "high", 0.85
+        return False, "", "low", 0.0
+
+    if any(k in doc for k in ["구직 중", "미취업", "미취업 청년"]):
+        if profile.employment_status == "unemployed":
+            return True, "미취업 상태로 신청 자격 있음", "medium", 0.82
+        return False, "", "low", 0.0
+
+    # ── 한부모 계열 ────────────────────────────────────────────────────────
+    if "한부모가족" in doc or "한부모" in doc:
+        if profile.household_type in ("한부모가족", "한부모"):
+            return True, "한부모가족 확인", "high", 0.93
+        return False, "", "low", 0.0
+
+    # ── 다문화 계열 ────────────────────────────────────────────────────────
+    if any(k in doc for k in ["다문화가족", "결혼이민자", "귀화자"]):
+        if profile.household_type == "다문화가족":
+            return True, "다문화가족 확인", "medium", 0.90
+        return False, "", "low", 0.0
+
+    # ── 소득 무관 보편 서비스 ─────────────────────────────────────────────
+    if "소득무관" in doc or "소득·재산 무관" in doc:
+        return True, "소득 무관 전국민 지원 서비스", "medium", 0.80
+
+    # ── 연령 무관 일반 지원 ────────────────────────────────────────────────
+    if any(k in doc for k in ["만 15~69세", "만 15세 이상"]):
+        if 15 <= profile.age <= 69:
+            return True, f"만 {profile.age}세로 연령 기준 충족", "low", 0.72
+        return False, "", "low", 0.0
+
+    return False, "", "low", 0.0
+
+
 def mock_eligibility(policies: list[dict], profile) -> dict:
     results = []
     for p in policies:
-        doc = p.get("document", "")
+        doc = p.get("document", "") + " " + p.get("eligibility", "")
         name = p.get("name", "")
         pid = p.get("id", "")
 
-        eligible = False
-        reason = ""
-        priority = "low"
-        confidence = 0.5
+        # 샘플 데이터에서 더 상세한 eligibility 텍스트 가져오기
+        full = _POLICY_MAP.get(pid, {})
+        if full:
+            doc = doc + " " + full.get("eligibility", "") + " " + full.get("target", "")
 
-        # 노인 관련
-        if "65세" in doc and profile.age >= 65:
-            eligible = True
-            reason = f"만 {profile.age}세로 연령 기준 충족"
-            priority = "high"
-            confidence = 0.95
-
-        # 청년 관련
-        elif any(k in doc for k in ["19~34세", "19세~34세", "만 34세"]) and 19 <= profile.age <= 34:
-            eligible = True
-            reason = f"만 {profile.age}세로 청년 연령 기준 충족"
-            priority = "medium"
-            confidence = 0.88
-
-        # 장애인
-        elif "장애" in doc and profile.disability:
-            eligible = True
-            reason = f"등록 장애인({profile.disability_grade}) 조건 충족"
-            priority = "high"
-            confidence = 0.92
-
-        # 아동수당
-        elif "만 8세" in doc and profile.has_children and any(a < 8 for a in (profile.children_ages or [])):
-            eligible = True
-            reason = "만 8세 미만 자녀 보유"
-            priority = "high"
-            confidence = 0.97
-
-        # 임산부
-        elif "임산부" in doc and profile.is_pregnant:
-            eligible = True
-            reason = "임신 중 확인"
-            priority = "high"
-            confidence = 0.96
-
-        # 저소득
-        elif "중위소득 50%" in doc and profile.income_percentile <= 50:
-            eligible = True
-            reason = f"소득 기준 중위소득 {profile.income_percentile}%로 기준 충족"
-            priority = "medium"
-            confidence = 0.85
-
-        # 실업급여
-        elif "실직" in doc or "이직" in doc:
-            if profile.employment_status == "unemployed":
-                eligible = True
-                reason = "실직/비자발적 이직으로 신청 자격 있음"
-                priority = "high"
-                confidence = 0.80
-
-        # 한부모
-        elif "한부모" in doc and profile.household_type == "한부모가족":
-            eligible = True
-            reason = "한부모가족 확인"
-            priority = "high"
-            confidence = 0.93
-
-        # 기초생활
-        elif any(k in doc for k in ["기초생활", "중위소득 30%"]) and profile.income_percentile <= 30:
-            eligible = True
-            reason = f"소득 중위소득 {profile.income_percentile}%로 기초생활 기준 충족 가능"
-            priority = "high"
-            confidence = 0.78
+        eligible, reason, priority, confidence = _check_policy(doc, name, pid, profile)
 
         results.append({
             "id": pid,
@@ -128,85 +242,146 @@ def mock_eligibility(policies: list[dict], profile) -> dict:
         "eligible_policies": results,
         "reasoning_summary": (
             f"총 {len(policies)}개 정책 검토 결과 {len(eligible_names)}개 수혜 자격 확인: "
-            + (", ".join(eligible_names[:3]) + ("..." if len(eligible_names) > 3 else ""))
-            if eligible_names else "현재 프로필 기준 수혜 가능 정책을 찾지 못했습니다."
-        ),
+            + (", ".join(eligible_names[:4]) + ("..." if len(eligible_names) > 4 else ""))
+        ) if eligible_names else "현재 프로필 기준 수혜 가능 정책을 찾지 못했습니다.",
     }
 
 
-# reflection_check mock
+# ── reflection_check mock ────────────────────────────────────────────────────
+
 def mock_reflection(eligible: list[dict], profile) -> dict:
     issues = []
     for p in eligible:
         if not p.get("eligible"):
             continue
-        # 간단한 규칙 검증
-        if "노인" in p.get("name", "") and profile.age < 65:
-            issues.append(f"{p['name']}: 연령 기준 불일치")
-        if "청년" in p.get("name", "") and profile.age > 34:
-            issues.append(f"{p['name']}: 청년 연령 초과")
-
+        name = p.get("name", "")
+        if ("노인" in name or "기초연금" in name) and profile.age < 65:
+            issues.append(f"{name}: 연령 기준 불일치 (만 65세 이상 필요)")
+        if "청년" in name and (profile.age < 19 or profile.age > 34):
+            issues.append(f"{name}: 청년 연령 기준 불일치")
+        if "장애" in name and not profile.disability:
+            issues.append(f"{name}: 장애인 등록 필요")
+        if "임산부" in name and not profile.is_pregnant:
+            issues.append(f"{name}: 임신 확인 필요")
     return {
         "passed": len(issues) == 0,
         "issues": issues,
-        "summary": "검증 완료" if not issues else f"{len(issues)}건 이슈 발견",
+        "summary": "검증 통과" if not issues else f"{len(issues)}건 이슈 발견",
     }
 
 
-# guide_generator mock
+# ── guide_generator mock ─────────────────────────────────────────────────────
+
+_GUIDE_TEMPLATES = {
+    "기초연금": {
+        "desc": "만 65세 이상 소득 하위 70% 어르신께 매월 최대 334,810원을 지급하는 국가 연금입니다.",
+        "steps": [
+            "1단계: 주민등록증 지참, 가까운 주민센터·국민연금공단 방문",
+            "2단계: 기초연금 수급 신청서 및 금융정보 제공 동의서 작성",
+            "3단계: 소득·재산 조사 (약 2~3주 소요)",
+            "4단계: 선정 결과 통보 (문자·우편)",
+            "5단계: 신청 다음 달부터 매월 25일 지급",
+        ],
+        "tips": "배우자와 함께 수급 시 각 20% 감액됩니다. 복지로(www.bokjiro.go.kr)에서도 온라인 신청 가능합니다.",
+        "days": 30,
+    },
+    "실업급여": {
+        "desc": "비자발적으로 실직한 분이 재취업 활동을 하는 동안 생활을 지원하는 급여입니다.",
+        "steps": [
+            "1단계: 퇴직 전 이직확인서를 고용보험 사이트(www.ei.go.kr)에서 확인",
+            "2단계: 퇴직 후 즉시 고용센터 방문 또는 고용24(www.work.go.kr) 온라인 신청",
+            "3단계: 수급자격 인정신청서 및 구직등록",
+            "4단계: 수급자격 인정 결정 (약 2주)",
+            "5단계: 구직활동 인정 후 실업인정일마다 급여 지급",
+        ],
+        "tips": "퇴직 후 1년이 지나면 수급 자격이 소멸됩니다. 빨리 신청하세요!",
+        "days": 14,
+    },
+    "아동수당": {
+        "desc": "만 8세 미만 아동 모두에게 소득에 관계없이 매월 10만원을 지급합니다.",
+        "steps": [
+            "1단계: 출생신고 완료 후 즉시 신청 가능",
+            "2단계: 복지로·정부24 온라인 또는 주민센터 방문",
+            "3단계: 신청인(보호자) 신분증, 주민등록등본 제출",
+            "4단계: 신청 후 다음 달부터 지급",
+        ],
+        "tips": "출생 후 60일 이내 신청하면 출생월부터 소급 지급됩니다. 늦어지면 신청일 기준으로만 지급됩니다.",
+        "days": 7,
+    },
+}
+
+_DEFAULT_STEPS = [
+    "1단계: 주민센터 방문 또는 복지로(www.bokjiro.go.kr) 온라인 신청",
+    "2단계: 신분증 및 주민등록등본 지참",
+    "3단계: 담당자 상담 후 신청서 작성",
+    "4단계: 자격 심사 및 결정 통보 (약 2~4주)",
+    "5단계: 급여·서비스 지급 시작",
+]
+
+
 def mock_guides(policies: list[dict]) -> dict:
     guides = []
-    for p in policies[:5]:
-        if not p.get("eligible"):
-            continue
+    for p in [ep for ep in policies if ep.get("eligible")][:5]:
         name = p.get("name", "")
         pid = p.get("id", "")
+        tmpl = _GUIDE_TEMPLATES.get(name, {})
+        full = _POLICY_MAP.get(pid, {})
         guides.append({
             "policy_id": pid,
             "policy_name": name,
-            "plain_description": f"{name}은 자격 조건을 갖춘 분께 지원되는 복지 혜택입니다.",
-            "steps": [
-                "주민센터 방문 또는 복지로(www.bokjiro.go.kr) 온라인 신청",
-                "필요 서류 제출 (주민등록등본 등)",
-                "담당자 확인 후 수급 자격 판정",
-                "결정 통보 수령 (2~4주 소요)",
-                "급여 지급 시작",
-            ],
-            "tips": "신청 전 주민센터에 전화(☎ 129)로 서류를 미리 확인하면 편리합니다.",
-            "estimated_days": 14,
+            "plain_description": tmpl.get("desc") or full.get("benefit", f"{name} 혜택을 받으실 수 있습니다."),
+            "steps": tmpl.get("steps") or _DEFAULT_STEPS,
+            "tips": tmpl.get("tips") or f"신청 전 129(복지상담 무료전화)로 서류를 미리 확인하면 편리합니다.",
+            "estimated_days": tmpl.get("days") or 14,
         })
     return {"guides": guides}
 
 
-# orchestrator mock
+# ── orchestrator mock ────────────────────────────────────────────────────────
+
 def mock_final_response(eligible: list[dict], docs: list[dict], notifications: list[dict]) -> str:
     eligible_list = [p for p in eligible if p.get("eligible")]
     doc_ok = [d for d in docs if d.get("success")]
 
-    parts = []
-
     if not eligible_list:
-        parts.append("현재 프로필 기준으로 수혜 가능한 정책을 찾지 못했습니다. 프로필 정보를 더 정확하게 입력하시면 더 많은 혜택을 찾을 수 있습니다.")
-        parts.append("복지로(www.bokjiro.go.kr) 또는 주민센터 방문 상담을 권장합니다.")
-        return "\n".join(parts)
+        return (
+            "현재 입력하신 프로필 기준으로는 수혜 가능한 정책을 찾지 못했습니다. "
+            "프로필 정보를 더 정확하게 입력하시거나, "
+            "복지로(www.bokjiro.go.kr) 또는 가까운 주민센터를 방문하시면 전문 상담을 받으실 수 있습니다. "
+            "129로 전화하시면 무료 복지 상담도 가능합니다."
+        )
 
+    high = [p for p in eligible_list if p.get("priority") == "high"]
     top3 = sorted(eligible_list, key=lambda x: x.get("confidence", 0), reverse=True)[:3]
     names = ", ".join(p["name"] for p in top3)
-    parts.append(f"수혜 가능 정책 {len(eligible_list)}건을 찾았습니다. 우선적으로 {names} 신청을 권장합니다.")
 
-    reasons = []
-    for p in top3:
-        reasons.append(f"{p['name']}({p['reason']})")
+    sentences = [
+        f"분석 결과 수혜 가능 정책 {len(eligible_list)}건을 찾았으며, "
+        f"그 중 우선순위 높은 정책이 {len(high)}건입니다.",
+
+        f"가장 먼저 {names} 신청을 권장합니다.",
+    ]
+
+    reasons = [f"{p['name']}({p['reason']})" for p in top3 if p.get("reason")]
     if reasons:
-        parts.append("선정 이유: " + ", ".join(reasons) + ".")
+        sentences.append("선정 근거: " + ", ".join(reasons) + ".")
 
     if doc_ok:
-        doc_names = ", ".join(d["doc_name"] for d in doc_ok)
-        parts.append(f"필요 서류 중 {doc_names} {len(doc_ok)}건이 자동으로 발급됐습니다.")
+        sentences.append(
+            f"필요 서류 중 {', '.join(d['doc_name'] for d in doc_ok)} 등 "
+            f"{len(doc_ok)}건이 자동 발급되었습니다."
+        )
 
     if notifications:
-        notif_titles = ", ".join(n["title"] for n in notifications[:2])
-        parts.append(f"생애 이벤트 알림: {notif_titles}.")
+        notif = notifications[0]
+        sentences.append(
+            f"생애 이벤트 알림: {notif['title']} — "
+            f"{', '.join(notif.get('recommended_policies', [])[:2])} 등을 확인하세요."
+        )
 
-    parts.append("복지로(www.bokjiro.go.kr) 또는 가까운 주민센터에서 신청하실 수 있습니다.")
-    return " ".join(parts)
+    sentences.append(
+        "복지로(www.bokjiro.go.kr) 또는 가까운 주민센터에서 신청하시거나, "
+        "129 무료 상담 전화를 이용하세요."
+    )
+
+    return " ".join(sentences)

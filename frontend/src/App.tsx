@@ -6,11 +6,12 @@ import { ChatBot } from '@/components/ChatBot'
 import { useAgentWebSocket } from '@/hooks/useAgentWebSocket'
 import {
   Loader2, AlertCircle, Sprout, Terminal, ExternalLink,
-  Sparkles, Shield, Clock, FileText, TrendingUp,
+  Sparkles, Shield, Clock, FileText, TrendingUp, Eye,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { DashboardSkeleton } from '@/components/DashboardSkeleton'
 import type { UserProfile } from '@/types'
+import { cn } from '@/lib/utils'
 
 const FEATURES = [
   { icon: Sparkles, title: 'AI 맞춤 분석', desc: 'Claude 기반 LangGraph 10노드 에이전트가 수백 개 정책 중 적합한 혜택만 선별' },
@@ -23,6 +24,7 @@ export default function App() {
   const { phase, nodeStates, result, errorMsg, progress, doneCount, startAnalysis, reset } =
     useAgentWebSocket()
   const [submittedProfile, setSubmittedProfile] = useState<UserProfile | null>(null)
+  const [elderlyMode, setElderlyMode] = useState(false)
 
   const handleSubmit = (profile: UserProfile) => {
     setSubmittedProfile(profile)
@@ -35,7 +37,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-background">
+    <div className={cn('min-h-screen bg-gradient-to-b from-slate-50 via-white to-background', elderlyMode && 'elderly-mode')}>
       {/* ── 헤더 ── */}
       <header className="sticky top-0 z-30 bg-white/85 backdrop-blur-xl border-b border-border/40 shadow-sm">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center gap-3">
@@ -57,6 +59,19 @@ export default function App() {
                 <span className="sm:hidden">{progress}%</span>
               </div>
             )}
+            <button
+              onClick={() => setElderlyMode(m => !m)}
+              title={elderlyMode ? '일반 모드로 전환' : '큰 글씨 모드 (어르신용)'}
+              className={cn(
+                'flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-semibold border transition-all duration-200',
+                elderlyMode
+                  ? 'bg-amber-100 border-amber-300 text-amber-700'
+                  : 'bg-muted/60 border-border/50 text-muted-foreground hover:bg-muted',
+              )}
+            >
+              <Eye className="h-3.5 w-3.5" />
+              {elderlyMode ? '큰글씨 ON' : '큰글씨'}
+            </button>
             <span className="text-[10px] rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-2.5 py-1 font-bold shadow-sm">
               Beta
             </span>

@@ -182,6 +182,64 @@ async def apply_status(task_id: str):
     return task
 
 
+class EstimateRequest(BaseModel):
+    age: int = 0
+    income_percentile: int = 100
+    disability: bool = False
+    disability_grade: str = ""
+    has_children: bool = False
+    children_ages: list[int] = []
+    is_pregnant: bool = False
+    household_type: str = ""
+    employment_status: str = ""
+    region: str = ""
+
+
+@router.post("/estimate")
+async def estimate_benefits(req: EstimateRequest):
+    """프로필 기반 빠른 복지 혜택 금액 추정 (AI 없이 즉시 반환)"""
+    from types import SimpleNamespace
+    from rag.sample_data import WELFARE_POLICIES
+    from agents.mock_responses import _check_policy
+
+    profile = SimpleNamespace(
+        age=req.age,
+        income_percentile=req.income_percentile,
+        disability=req.disability,
+        disability_grade=req.disability_grade,
+        has_children=req.has_children,
+        children_ages=req.children_ages,
+        is_pregnant=req.is_pregnant,
+        household_type=req.household_type,
+        employment_status=req.employment_status,
+        region=req.region,
+        name="사용자",
+        gender="other",
+        life_events=[],
+    )
+
+    eligible = []
+    for policy in WELFARE_POLICIES:
+        doc_text = (policy.get("document", "") + " " + policy.get("eligibility", "") +
+                    " " + policy.get("target", ""))
+        eligible_flag, reason, priority, confidence = _check_policy(
+            doc_text, policy["name"], policy["id"], profile
+        )
+        if eligible_flag:
+            eligible.append({
+                "id": policy["id"],
+                "name": policy["name"],
+                "category": policy["category"],
+                "reason": reason,
+                "priority": priority,
+            })
+
+    return {
+        "eligible_count": len(eligible),
+        "policies": eligible[:10],
+    }
+
+
 @router.get("/admin/env")
 async def env_check():
     """환경변수 상태 확인 (키 값은 마스킹)"""

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -6,9 +6,10 @@ import { Select } from '@/components/ui/select'
 import type { UserProfile } from '@/types'
 import {
   Sparkles, User, Home, Briefcase, ChevronRight, ChevronLeft,
-  Baby, Heart, Accessibility, CheckCircle2,
+  Baby, Heart, Accessibility, CheckCircle2, Zap,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { quickEstimate } from '@/lib/benefit-calc'
 
 const REGIONS = [
   '서울특별시','부산광역시','대구광역시','인천광역시','광주광역시',
@@ -125,6 +126,49 @@ export function ProfileForm({ onSubmit, disabled }: Props) {
     if (step === 1) return profile.household_type && profile.employment_status
     return true
   }
+
+function BenefitPreview({ profile, step }: { profile: UserProfile; step: number }) {
+  const benefits = useMemo(() => {
+    if (!profile.age || profile.age === 0) return []
+    return quickEstimate(profile).slice(0, 4)
+  }, [profile])
+
+  const monthlyTotal = useMemo(
+    () => benefits.filter(b => b.unit === '월').reduce((s, b) => s + b.amount, 0),
+    [benefits],
+  )
+
+  if (benefits.length === 0 || step === 0) return null
+
+  return (
+    <div className="mx-5 mb-4 rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50 to-indigo-50 p-3.5 animate-fade-in">
+      <div className="flex items-center justify-between mb-2.5">
+        <div className="flex items-center gap-1.5">
+          <Zap className="h-3.5 w-3.5 text-blue-600" />
+          <span className="text-xs font-bold text-blue-900">예상 혜택 미리보기</span>
+        </div>
+        {monthlyTotal > 0 && (
+          <span className="text-xs font-bold text-blue-700">
+            월 최대 {monthlyTotal.toLocaleString()}원
+          </span>
+        )}
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {benefits.map((b) => (
+          <span key={b.name} className={cn('inline-flex items-center gap-1 text-[10px] font-semibold rounded-full px-2.5 py-1 border', b.bg, b.color)}>
+            {b.name}
+            {b.amount > 0 && (
+              <span className="opacity-70">
+                {b.unit === '월' ? ` ${b.amount.toLocaleString()}원` : ' (일시금)'}
+              </span>
+            )}
+          </span>
+        ))}
+      </div>
+      <p className="text-[9px] text-blue-400 mt-2">※ 입력 조건 기반 참고 수치 · 실제와 다를 수 있음</p>
+    </div>
+  )
+}
 
   if (disabled) {
     return (
@@ -457,6 +501,9 @@ export function ProfileForm({ onSubmit, disabled }: Props) {
                 </div>
               )}
             </div>
+
+            {/* 실시간 예상 혜택 미리보기 */}
+            <BenefitPreview profile={profile} step={step} />
 
             {/* 하단 버튼 */}
             <div className="flex gap-3 px-5 pb-5">

@@ -172,6 +172,25 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 .priority-medium { @apply text-amber-600 bg-amber-50 border-amber-200; }
 .priority-low    { @apply text-emerald-600 bg-emerald-50 border-emerald-200; }
 
+/* ── 고령자/접근성 모드 ── */
+.elderly-mode {
+  line-height: 1.8;
+}
+.elderly-mode .text-xs    { font-size: 0.875rem !important; line-height: 1.5 !important; }
+.elderly-mode .text-\[10px\], .elderly-mode .text-\[11px\] { font-size: 0.8125rem !important; }
+.elderly-mode .text-sm    { font-size: 1.0625rem !important; }
+.elderly-mode .text-base  { font-size: 1.1875rem !important; }
+.elderly-mode input, .elderly-mode button, .elderly-mode select {
+  min-height: 48px !important;
+  font-size: 1rem !important;
+}
+.elderly-mode input[type="range"],
+.elderly-mode input[type="checkbox"] {
+  min-height: unset !important;
+}
+.elderly-mode .rounded-xl  { border-radius: 1rem !important; }
+.elderly-mode .rounded-2xl { border-radius: 1.25rem !important; }
+
 /* ── 모달 오버레이 ── */
 .modal-overlay {
   @apply fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4;
