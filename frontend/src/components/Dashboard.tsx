@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge'
 import type { AnalysisResult } from '@/types'
 import { PolicyList } from './PolicyList'
 import { DocumentList } from './DocumentList'
+import { RpaDocumentPanel } from './RpaDocumentPanel'
 import { Bell, ClipboardList, BarChart3, CheckCircle2, AlertCircle, RefreshCcw } from 'lucide-react'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
@@ -28,10 +29,11 @@ const STATUS_COLORS: Record<string, string> = {
 interface Props {
   result: AnalysisResult
   profileSummary?: string
+  userName?: string
   onReset: () => void
 }
 
-export function Dashboard({ result, profileSummary, onReset }: Props) {
+export function Dashboard({ result, profileSummary, userName = '사용자', onReset }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>('portfolio')
   const { eligible_policies, application_guides, retrieved_docs, portfolio_summary, notifications, tracked_applications, final_response } = result
   const eligibleCount = eligible_policies.filter((p) => p.eligible).length
@@ -114,7 +116,12 @@ export function Dashboard({ result, profileSummary, onReset }: Props) {
       <div>
         {activeTab === 'portfolio' && <PortfolioTab summary={portfolio_summary} />}
         {activeTab === 'policies' && <PolicyList policies={eligible_policies} guides={application_guides} />}
-        {activeTab === 'docs' && <DocumentList docs={retrieved_docs} />}
+        {activeTab === 'docs' && (
+          <div className="space-y-6">
+            <DocumentList docs={retrieved_docs} />
+            <RpaDocumentPanel userName={userName} />
+          </div>
+        )}
         {activeTab === 'tracker' && <TrackerTab applications={tracked_applications} />}
         {activeTab === 'notifications' && <NotificationsTab notifications={notifications} />}
       </div>

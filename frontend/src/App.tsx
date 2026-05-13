@@ -1,13 +1,26 @@
+import { useState } from 'react'
 import { ProfileForm } from '@/components/ProfileForm'
 import { NodeStatusPanel } from '@/components/NodeStatusPanel'
 import { Dashboard } from '@/components/Dashboard'
 import { useAgentWebSocket } from '@/hooks/useAgentWebSocket'
 import { Loader2, AlertCircle, Sprout, Terminal, ExternalLink } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
+import type { UserProfile } from '@/types'
 
 export default function App() {
   const { phase, nodeStates, result, errorMsg, progress, doneCount, startAnalysis, reset } =
     useAgentWebSocket()
+  const [submittedProfile, setSubmittedProfile] = useState<UserProfile | null>(null)
+
+  const handleSubmit = (profile: UserProfile) => {
+    setSubmittedProfile(profile)
+    startAnalysis(profile)
+  }
+
+  const handleReset = () => {
+    reset()
+    setSubmittedProfile(null)
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-background">
@@ -61,7 +74,7 @@ export default function App() {
                 ))}
               </div>
             </div>
-            <ProfileForm onSubmit={startAnalysis} />
+            <ProfileForm onSubmit={handleSubmit} />
           </div>
         )}
 
@@ -70,7 +83,7 @@ export default function App() {
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 max-w-5xl mx-auto">
             {/* 왼쪽: 프로필 (disabled) */}
             <div className="lg:col-span-2">
-              <ProfileForm onSubmit={startAnalysis} disabled />
+              <ProfileForm onSubmit={handleSubmit} disabled />
             </div>
             {/* 오른쪽: 노드 상태 */}
             <div className="lg:col-span-3 space-y-3">
@@ -99,7 +112,8 @@ export default function App() {
           <Dashboard
             result={result}
             profileSummary={result.profile_summary}
-            onReset={reset}
+            userName={submittedProfile?.name ?? '사용자'}
+            onReset={handleReset}
           />
         )}
 

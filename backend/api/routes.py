@@ -109,6 +109,33 @@ async def db_status():
         return {"error": str(e), "document_count": 0}
 
 
+@router.post("/documents/rpa-issue")
+async def rpa_issue(req: DocRequest):
+    """
+    실제 정부24 브라우저 자동화 시작.
+    현재 지원: 주민등록등본
+    """
+    from rpa.gov24_rpa import start_rpa_task
+    if req.doc_name != "주민등록등본":
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail=f"현재 RPA는 주민등록등본만 지원합니다. (요청: {req.doc_name})")
+    task_id = start_rpa_task(req.doc_name, req.user_name)
+    return {"task_id": task_id, "status": "started", "doc_name": req.doc_name}
+
+
+@router.get("/documents/rpa-status/{task_id}")
+async def rpa_status(task_id: str):
+    """RPA 태스크 현재 상태 조회"""
+    from rpa.gov24_rpa import get_task
+    task = get_task(task_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail="태스크를 찾을 수 없습니다.")
+    # RPATask 객체인 경우 dict 변환
+    if hasattr(task, "to_dict"):
+        return task.to_dict()
+    return task
+
+
 @router.get("/admin/env")
 async def env_check():
     """환경변수 상태 확인 (키 값은 마스킹)"""
