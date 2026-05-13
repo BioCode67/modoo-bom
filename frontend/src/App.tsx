@@ -89,7 +89,7 @@ export default function App() {
             <div className="lg:col-span-3 space-y-3">
               <div className="flex items-center gap-2">
                 <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                <h2 className="font-semibold text-sm">AI 에이전트 실행 중…</h2>
+                <h2 className="font-semibold text-sm">LangGraph 10노드 에이전트 실행 중…</h2>
                 <span className="ml-auto text-xs text-muted-foreground tabular-nums">
                   {progress}%
                 </span>

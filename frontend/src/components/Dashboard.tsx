@@ -45,7 +45,7 @@ export function Dashboard({ result, profileSummary, userName = '사용자', onRe
         <CardContent className="py-5 px-6">
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-blue-100 text-sm">분석 완료</p>
+              <p className="text-blue-100 text-sm">{userName}님 분석 완료 ✓</p>
               <h2 className="text-2xl font-bold mt-0.5">
                 수혜 가능 정책 <span className="text-yellow-300">{eligibleCount}건</span>
               </h2>
