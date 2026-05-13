@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect width="100" height="100" rx="22" fill="#2563eb"/>
+  <!-- 새싹 (sprout) 아이콘 -->
+  <circle cx="50" cy="38" r="16" fill="#4ade80" opacity="0.9"/>
+  <circle cx="34" cy="44" r="12" fill="#22c55e" opacity="0.8"/>
+  <rect x="47" y="50" width="6" height="22" rx="3" fill="#16a34a"/>
+  <ellipse cx="38" cy="60" rx="10" ry="6" fill="#15803d" opacity="0.7" transform="rotate(-30 38 60)"/>
+  <ellipse cx="62" cy="62" rx="10" ry="6" fill="#15803d" opacity="0.7" transform="rotate(30 62 62)"/>
+</svg>
