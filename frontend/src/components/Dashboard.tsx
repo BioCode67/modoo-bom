@@ -155,6 +155,16 @@ function PortfolioTab({ summary }: { summary: AnalysisResult['portfolio_summary'
         ))}
       </div>
 
+      {summary.categories?.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {summary.categories.map((cat) => (
+            <span key={cat} className="inline-flex rounded-full bg-blue-100 text-blue-700 border border-blue-200 px-2.5 py-0.5 text-xs font-medium">
+              {cat}
+            </span>
+          ))}
+        </div>
+      )}
+
       {summary.high_priority_policies?.length > 0 && (
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm">우선 신청 추천 정책</CardTitle></CardHeader>
@@ -168,6 +178,21 @@ function PortfolioTab({ summary }: { summary: AnalysisResult['portfolio_summary'
                 </div>
               </div>
             ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {summary.all_eligible_names?.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm">전체 수혜 가능 목록</CardTitle></CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-1.5">
+              {summary.all_eligible_names.map((name) => (
+                <span key={name} className="inline-flex rounded-full bg-green-50 border border-green-200 text-green-800 px-2 py-0.5 text-[11px]">
+                  {name}
+                </span>
+              ))}
+            </div>
           </CardContent>
         </Card>
       )}

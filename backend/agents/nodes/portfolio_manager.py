@@ -40,13 +40,29 @@ async def portfolio_manager_node(state: AgentState) -> dict:
         benefit_text = policy_benefit_map.get(p.get("id", ""), "")
         total_monthly += _estimate_monthly_benefit(p.get("name", ""), benefit_text)
 
+    # 카테고리 분류 (sample_data의 category 필드 사용)
+    categories = list({
+        policy_benefit_map.get(p.get("id", ""), "")
+        for p in eligible if p.get("id")
+    } - {""})
+    # 카테고리가 없으면 정책명 첫 단어로 폴백
+    if not categories:
+        categories = list({p.get("name", "").split()[0] for p in eligible if p.get("name")})
+
+    # sample_data에서 category 필드 가져오기
+    try:
+        category_map = {p["id"]: p.get("category", "") for p in WELFARE_POLICIES}
+        categories = list({category_map.get(p.get("id", ""), "") for p in eligible} - {""})
+    except Exception:
+        pass
+
     portfolio = {
         "total_eligible": len(eligible),
         "high_priority_count": len(high),
         "medium_priority_count": len(medium),
         "low_priority_count": len(low),
         "total_benefit_amount": total_monthly,
-        "categories": list({p.get("name", "").split()[0] for p in eligible if p.get("name")}),
+        "categories": categories,
         "high_priority_policies": [
             {"id": p.get("id"), "name": p.get("name"), "reason": p.get("reason", "")}
             for p in high
