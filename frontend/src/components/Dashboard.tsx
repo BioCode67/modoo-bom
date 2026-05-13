@@ -6,17 +6,24 @@ import { DocumentList } from './DocumentList'
 import { RpaDocumentPanel } from './RpaDocumentPanel'
 import {
   Bell, ClipboardList, BarChart3, CheckCircle2, AlertCircle,
-  RefreshCcw, Sparkles, TrendingUp, FileCheck, Zap,
+  RefreshCcw, Sparkles, TrendingUp, FileCheck, Zap, Calculator,
 } from 'lucide-react'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
+import { WelfareCalculator } from './WelfareCalculator'
+import { LocalOfficeInfo } from './LocalOfficeInfo'
+import { ApplyPanel } from './ApplyPanel'
+import { MapPin, Send } from 'lucide-react'
 
-type Tab = 'portfolio' | 'policies' | 'docs' | 'tracker' | 'notifications'
+type Tab = 'portfolio' | 'policies' | 'docs' | 'apply' | 'calculator' | 'local' | 'tracker' | 'notifications'
 
 const TABS: { id: Tab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: 'portfolio', label: '포트폴리오', icon: BarChart3 },
   { id: 'policies', label: '수혜 정책', icon: CheckCircle2 },
   { id: 'docs', label: '서류 취득', icon: ClipboardList },
+  { id: 'apply', label: '신청 자동화', icon: Send },
+  { id: 'calculator', label: '계산기', icon: Calculator },
+  { id: 'local', label: '복지시설', icon: MapPin },
   { id: 'tracker', label: '신청 추적', icon: RefreshCcw },
   { id: 'notifications', label: '알림', icon: Bell },
 ]
@@ -137,33 +144,35 @@ export function Dashboard({ result, profileSummary, userName = '사용자', onRe
         </Card>
       )}
 
-      {/* 탭 네비게이션 — 필 스타일 */}
-      <div className="flex gap-1 rounded-xl bg-muted/60 p-1">
-        {TABS.map(({ id, label, icon: Icon }) => (
-          <button
-            key={id}
-            onClick={() => setActiveTab(id)}
-            className={cn(
-              'flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs font-medium transition-all duration-200',
-              activeTab === id
-                ? 'bg-white shadow-sm text-primary'
-                : 'text-muted-foreground hover:text-foreground',
-            )}
-          >
-            <Icon className="h-3.5 w-3.5 shrink-0" />
-            <span className="hidden sm:inline">{label}</span>
-            {id === 'policies' && eligibleCount > 0 && (
-              <span className="ml-0.5 rounded-full bg-primary text-primary-foreground text-[9px] font-bold px-1.5 py-0.5 leading-none">
-                {eligibleCount}
-              </span>
-            )}
-            {id === 'notifications' && notifications.length > 0 && (
-              <span className="ml-0.5 rounded-full bg-destructive text-destructive-foreground text-[9px] font-bold px-1.5 py-0.5 leading-none">
-                {notifications.length}
-              </span>
-            )}
-          </button>
-        ))}
+      {/* 탭 네비게이션 — 스크롤 가능 */}
+      <div className="overflow-x-auto -mx-0 pb-1">
+        <div className="flex gap-1 rounded-xl bg-muted/60 p-1 min-w-max sm:min-w-0">
+          {TABS.map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              onClick={() => setActiveTab(id)}
+              className={cn(
+                'flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-all duration-200 whitespace-nowrap',
+                activeTab === id
+                  ? 'bg-white shadow-sm text-primary'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              <Icon className="h-3.5 w-3.5 shrink-0" />
+              <span>{label}</span>
+              {id === 'policies' && eligibleCount > 0 && (
+                <span className="rounded-full bg-primary text-primary-foreground text-[9px] font-bold px-1.5 py-0.5 leading-none">
+                  {eligibleCount}
+                </span>
+              )}
+              {id === 'notifications' && notifications.length > 0 && (
+                <span className="rounded-full bg-destructive text-destructive-foreground text-[9px] font-bold px-1.5 py-0.5 leading-none">
+                  {notifications.length}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* 탭 콘텐츠 */}
@@ -176,6 +185,9 @@ export function Dashboard({ result, profileSummary, userName = '사용자', onRe
             <RpaDocumentPanel userName={userName} />
           </div>
         )}
+        {activeTab === 'apply' && <ApplyPanel policies={eligible_policies} userName={userName} />}
+        {activeTab === 'calculator' && <WelfareCalculator />}
+        {activeTab === 'local' && <LocalOfficeInfo />}
         {activeTab === 'tracker' && <TrackerTab applications={tracked_applications} />}
         {activeTab === 'notifications' && <NotificationsTab notifications={notifications} />}
       </div>
@@ -361,15 +373,25 @@ function NotificationsTab({ notifications }: { notifications: AnalysisResult['no
                   </span>
                 </div>
                 {n.trigger && (
-                  <p className="text-xs text-muted-foreground mb-2">이벤트: {n.trigger}</p>
+                  <p className="text-xs text-muted-foreground mb-1">이벤트: {n.trigger}</p>
                 )}
-                <div className="flex flex-wrap gap-1">
+                {(n as { deadline?: string }).deadline && (
+                  <p className="text-xs text-amber-700 font-medium mb-1.5">
+                    ⏰ {(n as { deadline?: string }).deadline}
+                  </p>
+                )}
+                <div className="flex flex-wrap gap-1 mb-2">
                   {n.recommended_policies.map((p) => (
                     <span key={p} className="inline-flex rounded-full bg-white/80 border border-white text-foreground/70 px-2 py-0.5 text-[11px] font-medium shadow-sm">
                       {p}
                     </span>
                   ))}
                 </div>
+                {(n as { action?: string }).action && (
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    📋 {(n as { action?: string }).action}
+                  </p>
+                )}
               </div>
             </div>
           </div>

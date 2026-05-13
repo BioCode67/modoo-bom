@@ -1,6 +1,6 @@
 """Node 3: eligibility_check — Claude 기반 자격 판별 (Mock 폴백 포함)"""
 import json
-from agents.utils import extract_json
+from agents.utils import extract_json, safe_json_dumps, sanitize_text
 from ..state import AgentState, NodeEvent
 from ..mock_responses import is_mock_mode, mock_eligibility
 
@@ -48,7 +48,7 @@ async def eligibility_check_node(state: AgentState) -> dict:
         from langchain_core.messages import SystemMessage, HumanMessage
         import os
 
-        profile_text = (
+        profile_text = sanitize_text(
             f"나이: {profile.age}세, 성별: {profile.gender}, 지역: {profile.region}\n"
             f"가구유형: {profile.household_type}, 소득수준: 중위소득 {profile.income_percentile}%\n"
             f"장애: {'있음 (' + profile.disability_grade + ')' if profile.disability else '없음'}\n"
@@ -56,9 +56,9 @@ async def eligibility_check_node(state: AgentState) -> dict:
             f"자녀: {profile.children_ages if profile.has_children else '없음'}, 임신: {profile.is_pregnant}\n"
             f"생애이벤트: {', '.join(profile.life_events) if profile.life_events else '없음'}"
         )
-        policies_text = json.dumps(
+        policies_text = safe_json_dumps(
             [{"id": p["id"], "name": p["name"], "document": p["document"]} for p in policies],
-            ensure_ascii=False, indent=2,
+            indent=2,
         )
 
         model = os.getenv("CLAUDE_MODEL", "claude-opus-4-7")

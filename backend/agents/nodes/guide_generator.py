@@ -1,6 +1,6 @@
 """Node 5: guide_generator — 신청 가이드 생성 (Mock 폴백 포함)"""
 import json
-from agents.utils import extract_json
+from agents.utils import extract_json, safe_json_dumps
 from ..state import AgentState, NodeEvent
 from ..mock_responses import is_mock_mode, mock_guides
 
@@ -44,7 +44,7 @@ async def guide_generator_node(state: AgentState) -> dict:
         llm = ChatAnthropic(model=model, temperature=0.3, max_tokens=2048)
         response = await llm.ainvoke([
             SystemMessage(content=_SYSTEM_PROMPT),
-            HumanMessage(content=f"정책 목록:\n{json.dumps(enriched, ensure_ascii=False, indent=2)}"),
+            HumanMessage(content=f"정책 목록:\n{safe_json_dumps(enriched, indent=2)}"),
         ])
         result = extract_json(str(response.content))
 

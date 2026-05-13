@@ -144,20 +144,46 @@ export function PolicyList({ policies, guides }: Props) {
                         처리 기간 약 {guide.estimated_days}일
                       </div>
                     )}
-                    {policy.application && (
-                      <div className="flex items-center gap-1.5 text-xs text-primary">
-                        <ExternalLink className="h-3.5 w-3.5" />
-                        {policy.application}
-                      </div>
-                    )}
+                    </div>
+
+                  {/* 신청 버튼 */}
+                  <div className="flex gap-2 pt-1">
+                    <a
+                      href="https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-primary text-primary-foreground py-2.5 text-xs font-semibold hover:bg-primary/90 transition-colors shadow-sm shadow-primary/20"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      복지로에서 신청하기
+                    </a>
+                    <a
+                      href="tel:129"
+                      className="flex items-center justify-center gap-1.5 rounded-xl border border-border px-4 py-2.5 text-xs font-semibold hover:bg-muted/50 transition-colors"
+                    >
+                      ☎ 129 상담
+                    </a>
                   </div>
                 </div>
               )}
 
               {expanded && !guide && (
-                <div className="mt-3 rounded-xl bg-muted/40 px-3 py-2.5 text-xs text-muted-foreground animate-fade-in">
-                  신청 가이드 정보가 준비 중입니다.
-                  {policy.application && <span className="ml-1 text-primary">{policy.application}</span>}
+                <div className="mt-3 space-y-3 animate-fade-in">
+                  <div className="rounded-xl bg-muted/40 px-3 py-2.5 text-xs text-muted-foreground">
+                    신청 가이드 정보가 준비 중입니다.
+                    {policy.application && <span className="ml-1 text-primary">{policy.application}</span>}
+                  </div>
+                  <div className="flex gap-2">
+                    <a
+                      href="https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-primary text-primary-foreground py-2.5 text-xs font-semibold hover:bg-primary/90 transition-colors"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      복지로에서 신청하기
+                    </a>
+                  </div>
                 </div>
               )}
             </CardContent>

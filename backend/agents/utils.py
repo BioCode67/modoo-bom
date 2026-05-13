@@ -3,6 +3,20 @@ import json
 import re
 
 
+def sanitize_text(text: str) -> str:
+    """lone surrogate(깨진 유니코드)를 제거해 JSON 직렬화 오류를 방지."""
+    return re.sub(r"[\ud800-\udfff]", "�", text)
+
+
+def safe_json_dumps(obj, **kwargs) -> str:
+    """ensure_ascii=False로 직렬화하되, lone surrogate가 있으면 sanitize 후 재시도."""
+    try:
+        return json.dumps(obj, ensure_ascii=False, **kwargs)
+    except (ValueError, UnicodeEncodeError):
+        text = json.dumps(obj, ensure_ascii=True, **kwargs)
+        return sanitize_text(text)
+
+
 def extract_json(text: str) -> dict:
     """
     Claude가 ```json ... ``` 마크다운으로 감싸거나 앞뒤에 설명 텍스트를

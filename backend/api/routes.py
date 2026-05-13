@@ -41,7 +41,7 @@ async def health():
         "chromadb": {
             "ok": chroma_ok,
             "document_count": doc_count,
-            "seeded": doc_count >= 50,
+            "seeded": doc_count >= 60,
         },
     }
 
@@ -135,6 +135,44 @@ async def rpa_issue(req: DocRequest):
 @router.get("/documents/rpa-status/{task_id}")
 async def rpa_status(task_id: str):
     """RPA 태스크 현재 상태 조회"""
+    from rpa.manager import get_task
+    task = get_task(task_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail="태스크를 찾을 수 없습니다.")
+    if hasattr(task, "to_dict"):
+        return task.to_dict()
+    return task
+
+
+class ApplyRequest(BaseModel):
+    service_name: str
+    user_name: str = "홍길동"
+    profile: dict = {}
+
+
+@router.get("/apply/supported")
+async def apply_supported():
+    """복지 신청 자동화 지원 서비스 목록"""
+    from rpa.manager import SUPPORTED_SERVICE_NAMES
+    return {"supported": SUPPORTED_SERVICE_NAMES}
+
+
+@router.post("/apply/start")
+async def apply_start(req: ApplyRequest):
+    """복지 서비스 신청 RPA 시작"""
+    from rpa.manager import start_apply_task, SUPPORTED_SERVICE_NAMES
+    if req.service_name not in SUPPORTED_SERVICE_NAMES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"지원하지 않는 서비스: {req.service_name}\n지원 목록: {', '.join(SUPPORTED_SERVICE_NAMES)}",
+        )
+    task_id = start_apply_task(req.service_name, req.user_name, req.profile)
+    return {"task_id": task_id, "status": "started", "service_name": req.service_name}
+
+
+@router.get("/apply/status/{task_id}")
+async def apply_status(task_id: str):
+    """신청 RPA 태스크 상태 조회"""
     from rpa.manager import get_task
     task = get_task(task_id)
     if task is None:

@@ -28,10 +28,12 @@ interface RpaStatus {
 interface Props { userName: string }
 
 const SUPPORTED_DOCS = [
-  { name: '주민등록등본', site: '정부24', color: 'bg-blue-600 hover:bg-blue-700' },
-  { name: '주민등록초본', site: '정부24', color: 'bg-blue-500 hover:bg-blue-600' },
-  { name: '건강보험 자격득실확인서', site: '건강보험공단', color: 'bg-green-600 hover:bg-green-700' },
-  { name: '고용보험 피보험자격 이력내역서', site: '고용24', color: 'bg-orange-600 hover:bg-orange-700' },
+  { name: '주민등록등본', site: '정부24', emoji: '🏠', desc: '현재 주소·세대원 확인', color: 'bg-blue-600 hover:bg-blue-700' },
+  { name: '주민등록초본', site: '정부24', emoji: '📋', desc: '주소변동 이력 포함', color: 'bg-blue-500 hover:bg-blue-600' },
+  { name: '가족관계증명서', site: '정부24', emoji: '👨‍👩‍👧', desc: '가족 구성원 증명', color: 'bg-indigo-600 hover:bg-indigo-700' },
+  { name: '장애인증명서', site: '정부24', emoji: '♿', desc: '장애등급 공인 증명', color: 'bg-purple-600 hover:bg-purple-700' },
+  { name: '건강보험 자격득실확인서', site: '건강보험공단', emoji: '🏥', desc: '보험 자격 이력 확인', color: 'bg-green-600 hover:bg-green-700' },
+  { name: '고용보험 피보험자격 이력내역서', site: '고용24', emoji: '💼', desc: '취업·실직 이력 증명', color: 'bg-orange-600 hover:bg-orange-700' },
 ]
 
 const STATUS_LABEL: Record<string, string> = {
@@ -110,24 +112,25 @@ export function RpaDocumentPanel({ userName }: Props) {
   const isRunning = status && !isDone
 
   return (
-    <Card className="border-2 border-dashed border-blue-200 bg-blue-50/30">
-      <CardHeader className="pb-3">
+    <Card className="border border-blue-200 bg-gradient-to-br from-blue-50/60 to-indigo-50/30 overflow-hidden">
+      <CardHeader className="pb-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
         <div className="flex items-center justify-between flex-wrap gap-2">
-          <div className="flex items-center gap-2">
-            <Monitor className="h-5 w-5 text-blue-600" />
-            <CardTitle className="text-base text-blue-800">실제 서류 자동 취득 (RPA)</CardTitle>
-            <Badge variant="secondary" className="text-xs">LIVE</Badge>
+          <div className="flex items-center gap-2.5">
+            <div className="h-8 w-8 rounded-xl bg-white/20 flex items-center justify-center">
+              <Monitor className="h-4 w-4" />
+            </div>
+            <div>
+              <CardTitle className="text-sm font-bold text-white">실제 서류 자동 취득 RPA</CardTitle>
+              <p className="text-[11px] text-blue-200 mt-0.5">정부 사이트 자동화 · 카카오 간편인증</p>
+            </div>
+            <span className="text-[10px] bg-white/20 text-white rounded-full px-2 py-0.5 font-bold">LIVE</span>
           </div>
           {status && (
-            <Badge variant={STATUS_VARIANT[status.status]}>
+            <Badge variant={STATUS_VARIANT[status.status]} className="shrink-0">
               {STATUS_LABEL[status.status]}
             </Badge>
           )}
         </div>
-        <p className="text-xs text-muted-foreground mt-1">
-          실제 정부 사이트에서 카카오 간편인증으로 로그인 후 서류를 자동으로 발급합니다.
-          로그인만 직접 하시면 이후는 자동 진행됩니다.
-        </p>
       </CardHeader>
 
       <CardContent className="space-y-4">
@@ -139,15 +142,15 @@ export function RpaDocumentPanel({ userName }: Props) {
                 key={doc.name}
                 onClick={() => handleStart(doc.name)}
                 disabled={loading}
-                className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-white text-sm font-medium disabled:opacity-50 transition-colors ${doc.color}`}
+                className={`flex items-center gap-3 px-3 py-3 rounded-xl text-white text-sm font-medium disabled:opacity-50 transition-all hover:-translate-y-0.5 hover:shadow-md ${doc.color}`}
               >
                 {loading && selectedDoc === doc.name
-                  ? <Loader2 className="h-4 w-4 animate-spin shrink-0" />
-                  : <FileText className="h-4 w-4 shrink-0" />
+                  ? <Loader2 className="h-5 w-5 animate-spin shrink-0" />
+                  : <span className="text-lg shrink-0">{doc.emoji}</span>
                 }
-                <span className="text-left leading-tight">
-                  <span className="block">{doc.name}</span>
-                  <span className="block text-[10px] opacity-80">{doc.site}</span>
+                <span className="text-left leading-tight min-w-0">
+                  <span className="block font-semibold truncate">{doc.name}</span>
+                  <span className="block text-[10px] opacity-75">{doc.site} · {doc.desc}</span>
                 </span>
               </button>
             ))}

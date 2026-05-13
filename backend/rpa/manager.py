@@ -51,11 +51,36 @@ def get_task(task_id: str) -> Optional[dict]:
 _SUPPORTED_DOCS = {
     "주민등록등본": ("gov24", "정부24"),
     "주민등록초본": ("gov24", "정부24"),
+    "가족관계증명서": ("gov24", "정부24"),
+    "장애인증명서": ("gov24", "정부24"),
     "건강보험 자격득실확인서": ("nhis", "국민건강보험공단"),
     "고용보험 피보험자격 이력내역서": ("work24", "고용24"),
 }
 
 SUPPORTED_DOC_NAMES = list(_SUPPORTED_DOCS.keys())
+
+_SUPPORTED_SERVICES = [
+    "기초연금", "아동수당", "부모급여", "청년 내일저축계좌", "첫만남이용권", "기초생활 생계급여",
+]
+SUPPORTED_SERVICE_NAMES = _SUPPORTED_SERVICES
+
+
+def start_apply_task(service_name: str, user_name: str, profile: dict) -> str:
+    """복지 서비스 신청 RPA 태스크 시작"""
+    task_id = uuid.uuid4().hex[:10]
+    task = RPATask(task_id, service_name, user_name)
+    _rpa_tasks[task_id] = task.to_dict()
+
+    loop = asyncio.get_event_loop()
+
+    async def _run():
+        _rpa_tasks[task_id] = task
+        from rpa.apply_rpa import run_apply_rpa
+        await run_apply_rpa(task, service_name, profile)
+        _rpa_tasks[task_id] = task.to_dict()
+
+    loop.create_task(_run())
+    return task_id
 
 
 def start_rpa_task(doc_name: str, user_name: str) -> str:

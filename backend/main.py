@@ -9,15 +9,17 @@ from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from api.routes import router
 from api.websocket import websocket_endpoint
+from api.chat import chat_websocket_endpoint
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # 서버 시작 시 ChromaDB 샘플 데이터 자동 시딩 (sentence-transformers 내장 임베딩 사용)
     try:
-        from rag.embedder import seed_chromadb
+        from rag.embedder import seed_chromadb, warmup
         count = seed_chromadb()
         print(f"[ModooBom] ChromaDB 초기화 완료 — {count}건 임베딩")
+        warmup()
     except Exception as e:
         print(f"[ModooBom] ChromaDB 초기화 스킵: {e}")
     yield
@@ -45,6 +47,11 @@ app.include_router(router)
 @app.websocket("/ws/analyze")
 async def ws_analyze(ws: WebSocket):
     await websocket_endpoint(ws)
+
+
+@app.websocket("/ws/chat")
+async def ws_chat(ws: WebSocket):
+    await chat_websocket_endpoint(ws)
 
 
 if __name__ == "__main__":

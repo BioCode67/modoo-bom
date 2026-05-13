@@ -1,6 +1,6 @@
 """Node 1: profile_analyzer — 사용자 프로필 분석 및 검색 키워드 추출 (Claude)"""
 import json
-from agents.utils import extract_json
+from agents.utils import extract_json, sanitize_text
 from ..state import AgentState, NodeEvent
 from ..mock_responses import is_mock_mode, mock_profile_analysis
 
@@ -25,7 +25,7 @@ async def profile_analyzer_node(state: AgentState) -> dict:
         from langchain_core.messages import SystemMessage, HumanMessage
         import os
 
-        profile_text = (
+        profile_text = sanitize_text(
             f"이름: {profile.name}, 나이: {profile.age}세, 성별: {profile.gender}\n"
             f"거주지역: {profile.region}, 가구유형: {profile.household_type}\n"
             f"소득수준: 기준중위소득 {profile.income_percentile}%\n"

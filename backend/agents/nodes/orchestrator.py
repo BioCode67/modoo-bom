@@ -1,5 +1,6 @@
 """Node 10: orchestrator — 최종 응답 조합 (Mock 폴백 포함)"""
 import json
+from agents.utils import safe_json_dumps
 from ..state import AgentState, NodeEvent
 from ..mock_responses import is_mock_mode, mock_final_response
 
@@ -40,7 +41,7 @@ async def orchestrator_node(state: AgentState) -> dict:
         llm = ChatAnthropic(model=model, temperature=0.5, max_tokens=1024)
         response = await llm.ainvoke([
             SystemMessage(content=_SYSTEM_PROMPT),
-            HumanMessage(content=f"분석 결과:\n{json.dumps(summary, ensure_ascii=False, indent=2)}"),
+            HumanMessage(content=f"분석 결과:\n{safe_json_dumps(summary, indent=2)}"),
         ])
         final_response = response.content
 

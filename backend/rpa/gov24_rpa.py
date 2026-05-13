@@ -24,13 +24,23 @@ from rpa.base import (
 WWW_GOV_LOGIN_URL = "https://www.gov.kr/portal/login/memberLogin"
 
 # 서비스 안내 페이지 (로그인 후 접속)
-_BASE_DOC_URL = (
+_JUMIN_URL = (
     "https://www.gov.kr/mw/AA020InfoCappView.do"
     "?CappBizCD=13100000015&HighCtgCD=A01010001&tp_seq=01&Mcode=10200"
 )
+_FAMILY_URL = (
+    "https://www.gov.kr/mw/AA020InfoCappView.do"
+    "?CappBizCD=14100000017&HighCtgCD=A01010001&tp_seq=01&Mcode=10200"
+)
+_DISABLED_URL = (
+    "https://www.gov.kr/mw/AA020InfoCappView.do"
+    "?CappBizCD=11100000006&HighCtgCD=A01010001&tp_seq=01&Mcode=10200"
+)
 DOC_URLS = {
-    "주민등록등본": _BASE_DOC_URL,
-    "주민등록초본": _BASE_DOC_URL,
+    "주민등록등본": _JUMIN_URL,
+    "주민등록초본": _JUMIN_URL,
+    "가족관계증명서": _FAMILY_URL,
+    "장애인증명서": _DISABLED_URL,
 }
 
 # www.gov.kr 간편인증 탭 선택자
@@ -154,7 +164,7 @@ async def _handle_apply_popup(context, page, task, doc_name) -> bool:
         ss = await take_screenshot(target_page)
         task.update("running", "신청 팝업 창 감지 — 양식 작성 중...", ss)
 
-    # 초본 신청 시 '초본' 선택
+    # 문서 유형별 선택 처리
     if doc_name == "주민등록초본":
         try:
             await target_page.evaluate("""
@@ -180,6 +190,25 @@ async def _handle_apply_popup(context, page, task, doc_name) -> bool:
             await asyncio.sleep(0.5)
             ss = await take_screenshot(target_page)
             task.update("running", "초본 선택 완료", ss)
+        except Exception:
+            pass
+
+    # 가족관계증명서 유형 선택 (일반증명서 기본)
+    if doc_name == "가족관계증명서":
+        try:
+            await target_page.evaluate("""
+                () => {
+                    const labels = Array.from(document.querySelectorAll('label, span, td'));
+                    const label = labels.find(el => el.textContent.trim().includes('일반'));
+                    if (label) { label.click(); return; }
+                    const selects = document.querySelectorAll('select');
+                    selects.forEach(sel => {
+                        const opt = Array.from(sel.options).find(o => o.text.includes('일반'));
+                        if (opt) sel.value = opt.value;
+                    });
+                }
+            """)
+            await asyncio.sleep(0.5)
         except Exception:
             pass
 
