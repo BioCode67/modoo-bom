@@ -14,6 +14,40 @@ KAKAO_SELECTORS = [
     "a[href*='kakao']",
 ]
 
+# ★ 카카오톡(TALK) 전용 선택자 — 카카오뱅크/카카오스토리와 구분
+KAKAOTALK_SELECTORS = [
+    "a[title='카카오톡']",
+    "img[alt='카카오톡']",
+    "a:has-text('카카오톡')",
+    "li:has-text('카카오톡') a",
+    "button:has-text('카카오톡')",
+    ".kakao-talk",
+    "[class*='kakaotalk']",
+    "[data-id='kakaotalk']",
+    "[data-provider='kakaotalk']",
+]
+
+# 본인인증 정보 입력 폼 감지 선택자 (anyid 인증 요청 폼)
+AUTH_FORM_SELECTORS = [
+    "button:has-text('인증 요청')",
+    "button:has-text('인증요청')",
+    "input[placeholder*='생년월일']",
+    "input[placeholder*='이름']",
+    "button:has-text('전체동의')",
+    "label:has-text('전체동의')",
+    "input[type='checkbox']",
+]
+
+AUTH_FORM_USER_GUIDE = (
+    "📋 카카오톡 본인인증 정보 입력 폼이 열렸습니다.\n\n"
+    "1️⃣  이름 입력\n"
+    "2️⃣  생년월일 입력 (예: 19900101)\n"
+    "3️⃣  휴대폰 번호 입력\n"
+    "4️⃣  '전체동의' 체크박스 선택\n"
+    "5️⃣  '인증 요청' 버튼 클릭\n\n"
+    "📱 이후 카카오톡 알림에서 [본인인증 허용] 을 누르면 자동으로 진행됩니다."
+)
+
 # 로그인 완료 감지 선택자
 LOGIN_SUCCESS_SELECTORS = [
     "a[href*='logout']",
@@ -30,6 +64,94 @@ LOGIN_SUCCESS_SELECTORS = [
 # 공통 로그인 완료 URL 패턴
 LOGIN_DONE_URL_KEYWORDS = ["main", "mypage", "portal/service", "index", "dashboard"]
 LOGIN_PAGE_URL_KEYWORDS = ["login", "member/join", "auth", "personalLoginPage", "openLginPage"]
+
+
+async def click_kakaotalk_in_anyid(page) -> bool:
+    """
+    anyid 모달에서 카카오톡을 정확히 클릭.
+    카카오뱅크/카카오스토리와 혼동하지 않도록 '톡'/'kakaotalk' 텍스트만 매칭.
+    """
+    # 1단계: Playwright 선택자
+    for sel in KAKAOTALK_SELECTORS:
+        try:
+            el = page.locator(sel).first
+            if await el.count() > 0:
+                await el.scroll_into_view_if_needed()
+                await el.click()
+                await asyncio.sleep(1.5)
+                return True
+        except Exception:
+            continue
+
+    # 2단계: JS — '카카오톡'/'kakaotalk' 포함, '뱅크'/'bank' 제외
+    try:
+        result = await page.evaluate("""
+            () => {
+                const all = [...document.querySelectorAll('a, button, li, span, img, div')];
+                const candidates = all.filter(el => {
+                    const text = (
+                        (el.textContent || '') +
+                        (el.getAttribute('alt') || '') +
+                        (el.getAttribute('title') || '') +
+                        (el.getAttribute('data-id') || '') +
+                        (el.getAttribute('data-provider') || '') +
+                        el.className
+                    ).toLowerCase();
+                    return (text.includes('카카오톡') || text.includes('kakaotalk')) &&
+                           !text.includes('뱅크') && !text.includes('bank');
+                });
+                if (candidates.length > 0) {
+                    const el = candidates[0];
+                    const clickTarget = el.tagName === 'IMG'
+                        ? (el.closest('a') || el.closest('button') || el)
+                        : el;
+                    clickTarget.click();
+                    return true;
+                }
+                return false;
+            }
+        """)
+        if result:
+            await asyncio.sleep(1.5)
+            return True
+    except Exception:
+        pass
+
+    # 3단계: JS — anyid 리스트에서 마지막 카카오 항목 (카카오톡이 보통 하단)
+    try:
+        result = await page.evaluate("""
+            () => {
+                const all = [...document.querySelectorAll('a, button, li')];
+                const kakaoItems = all.filter(el => {
+                    const t = (el.textContent + el.className).toLowerCase();
+                    return t.includes('카카오') || t.includes('kakao');
+                });
+                if (kakaoItems.length > 0) {
+                    kakaoItems[kakaoItems.length - 1].click();
+                    return kakaoItems.length;
+                }
+                return 0;
+            }
+        """)
+        if result:
+            await asyncio.sleep(1.5)
+            return True
+    except Exception:
+        pass
+
+    return False
+
+
+async def detect_auth_form(page) -> bool:
+    """본인인증 정보 입력 폼이 열렸는지 감지"""
+    for sel in AUTH_FORM_SELECTORS:
+        try:
+            el = page.locator(sel).first
+            if await el.count() > 0:
+                return True
+        except Exception:
+            continue
+    return False
 
 
 async def take_screenshot(page) -> str:

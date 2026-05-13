@@ -8,6 +8,7 @@ import asyncio
 from rpa.base import (
     take_screenshot, wait_for_login,
     click_first_matching, make_browser_context_args,
+    click_kakaotalk_in_anyid, detect_auth_form, AUTH_FORM_USER_GUIDE,
 )
 
 NHIS_MAIN = "https://www.nhis.or.kr"
@@ -123,7 +124,6 @@ async def run_nhis_rpa(task) -> None:
             await asyncio.sleep(1)
 
             # 간편인증 링크 클릭 (class: login-link — NHIS 확인 완료)
-            # 클릭 시 카카오뱅크/카카오톡/카카오스토리 목록이 펼쳐짐
             simple_auth = [
                 "a.login-link",
                 "a:has-text('간편 인증')",
@@ -132,31 +132,16 @@ async def run_nhis_rpa(task) -> None:
             await click_first_matching(page, simple_auth)
             await asyncio.sleep(2)
 
-            # 카카오톡 선택 (li 요소: JS 클릭 필요 — playwright visibility 우회)
-            kakao_clicked = False
-            try:
-                kakao_clicked = await page.evaluate("""
-                    () => {
-                        // 카카오톡 li 직접 클릭 (anyid 처리)
-                        const lis = Array.from(document.querySelectorAll('li'));
-                        const kaTalk = lis.find(li => li.textContent.trim().includes('카카오톡'));
-                        if (kaTalk) { kaTalk.click(); return true; }
-                        // 폴백: 카카오 관련 a 태그
-                        const kas = Array.from(document.querySelectorAll('a, button'))
-                            .filter(el => el.textContent.includes('카카오'));
-                        if (kas.length > 0) { kas[0].click(); return true; }
-                        return false;
-                    }
-                """)
-            except Exception:
-                pass
+            # 카카오톡 선택 (뱅크/스토리 제외 — 공통 헬퍼 사용)
+            kakao_clicked = await click_kakaotalk_in_anyid(page)
 
-            if not kakao_clicked:
-                kakao_clicked = await click_first_matching(page, KAKAO_SELECTORS)
-
+            await asyncio.sleep(2)
             ss = await take_screenshot(page)
 
-            if kakao_clicked:
+            # 본인인증 폼이 열렸는지 감지
+            if await detect_auth_form(page):
+                task.update("waiting_login", AUTH_FORM_USER_GUIDE, ss)
+            elif kakao_clicked:
                 task.update(
                     "waiting_login",
                     "📱 카카오 간편인증 화면이 열렸습니다.\n"
@@ -174,11 +159,11 @@ async def run_nhis_rpa(task) -> None:
 
             # ⑤ 로그인 완료 대기
             login_ok = await wait_for_login(
-                page, task, timeout_sec=180, login_url=NHIS_LOGIN_URL
+                page, task, timeout_sec=300, login_url=NHIS_LOGIN_URL
             )
             if not login_ok:
                 ss = await take_screenshot(page)
-                task.update("error", "로그인 대기 시간 초과 (3분). 다시 시도해주세요.", ss)
+                task.update("error", "로그인 대기 시간 초과 (5분). 다시 시도해주세요.", ss)
                 await browser.close()
                 return
 

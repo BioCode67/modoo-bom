@@ -7,6 +7,7 @@ import asyncio
 from rpa.base import (
     take_screenshot, wait_for_login,
     click_first_matching, make_browser_context_args,
+    click_kakaotalk_in_anyid, detect_auth_form, AUTH_FORM_USER_GUIDE,
 )
 
 WORK24_MAIN = "https://www.work24.go.kr/cm/main.do"
@@ -47,14 +48,10 @@ ISSUE_SELECTORS = [
     ".btn-print",
 ]
 
-# 간편인증 선택자 (work24 로그인 페이지)
+# 간편인증 탭 선택자 (work24 로그인 페이지)
 SIMPLE_AUTH_SELECTORS = [
-    "a:has-text('카카오')",
-    "button:has-text('카카오')",
-    "img[alt*='카카오']",
-    "[class*='kakao']",
-    "a[href*='kakao']",
-    # anyid 방식 (work24 공통)
+    "a.link-easy-anyId",
+    "a[class*='easy-anyId']",
     "a[onclick*='anyidAdaptor']",
     ".btn_quick_login",
     "a:has-text('간편인증')",
@@ -159,11 +156,10 @@ async def run_work24_rpa(task) -> None:
             ss = await take_screenshot(page)
             task.update("running", f"로그인 페이지 이동\n현재 URL: {page.url}", ss)
 
-            # ③ 간편인증 클릭 → 카카오 선택
+            # ③ 간편인증 클릭 → 카카오톡 선택
             await asyncio.sleep(1)
 
             # 간편인증 링크 클릭 (class: link-easy-anyId — Work24 확인 완료)
-            # 클릭 시 anyid 모달이 열려 카카오/네이버/KB 등 선택 가능
             easy_auth_clicked = await click_first_matching(page, [
                 "a.link-easy-anyId",
                 "a[class*='easy-anyId']",
@@ -172,30 +168,16 @@ async def run_work24_rpa(task) -> None:
             if easy_auth_clicked:
                 await asyncio.sleep(3)  # anyid 모달 로드 대기
 
-            # anyid 모달 내 카카오톡 버튼 클릭
-            kakao_clicked = False
-            try:
-                kakao_clicked = await page.evaluate("""
-                    () => {
-                        // anyid 모달 내 카카오톡 버튼 (실제 브라우저에서 렌더링됨)
-                        const keywords = ['카카오톡으로 인증', '카카오톡', 'kakao'];
-                        for (const kw of keywords) {
-                            const els = Array.from(document.querySelectorAll('a, button, li, span'));
-                            const el = els.find(e => e.textContent.trim().toLowerCase().includes(kw.toLowerCase()));
-                            if (el) { el.click(); return true; }
-                        }
-                        return false;
-                    }
-                """)
-            except Exception:
-                pass
-
-            if not kakao_clicked:
-                kakao_clicked = await click_first_matching(page, SIMPLE_AUTH_SELECTORS)
+            # anyid 모달 내 카카오톡 클릭 (뱅크/스토리 제외 — 공통 헬퍼 사용)
+            kakao_clicked = await click_kakaotalk_in_anyid(page)
 
             await asyncio.sleep(2)
             ss = await take_screenshot(page)
-            if kakao_clicked or easy_auth_clicked:
+
+            # 본인인증 폼이 열렸는지 감지
+            if await detect_auth_form(page):
+                task.update("waiting_login", AUTH_FORM_USER_GUIDE, ss)
+            elif kakao_clicked or easy_auth_clicked:
                 task.update(
                     "waiting_login",
                     "📱 카카오 간편인증 화면이 열렸습니다.\n"
@@ -213,11 +195,11 @@ async def run_work24_rpa(task) -> None:
 
             # ④ 로그인 완료 대기
             login_ok = await wait_for_login(
-                page, task, timeout_sec=180, login_url=WORK24_LOGIN_URL
+                page, task, timeout_sec=300, login_url=WORK24_LOGIN_URL
             )
             if not login_ok:
                 ss = await take_screenshot(page)
-                task.update("error", "로그인 대기 시간 초과 (3분). 다시 시도해주세요.", ss)
+                task.update("error", "로그인 대기 시간 초과 (5분). 다시 시도해주세요.", ss)
                 await browser.close()
                 return
 
