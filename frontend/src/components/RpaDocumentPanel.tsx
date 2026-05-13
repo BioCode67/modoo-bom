@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import {
   Monitor, Loader2, CheckCircle2, XCircle, AlertTriangle,
-  ChevronDown, ChevronUp, FileText,
+  ChevronDown, ChevronUp, FileText, User, Phone, Calendar,
 } from 'lucide-react'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? `http://${window.location.hostname}:8000`
@@ -46,12 +46,43 @@ const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'destructive' | '
   waiting_login: 'outline', done: 'secondary', error: 'destructive',
 }
 
+function InfoField({
+  icon: Icon, label, value, onChange, placeholder, type = 'text',
+}: {
+  icon: React.ElementType
+  label: string
+  value: string
+  onChange: (v: string) => void
+  placeholder: string
+  type?: string
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <Icon className="h-3.5 w-3.5 text-blue-400 shrink-0" />
+      <span className="text-xs text-blue-200 w-16 shrink-0">{label}</span>
+      <input
+        type={type}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="flex-1 rounded-lg bg-white/10 border border-white/20 text-white placeholder-blue-300/60
+                   text-xs px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-white/40"
+      />
+    </div>
+  )
+}
+
 export function RpaDocumentPanel({ userName }: Props) {
   const [selectedDoc, setSelectedDoc] = useState<string | null>(null)
   const [taskId, setTaskId] = useState<string | null>(null)
   const [status, setStatus] = useState<RpaStatus | null>(null)
   const [loading, setLoading] = useState(false)
   const [showSteps, setShowSteps] = useState(true)
+
+  // 사용자 인증 정보
+  const [birthDate, setBirthDate] = useState('')
+  const [phone, setPhone] = useState('')
+
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const stopPolling = useCallback(() => {
@@ -82,7 +113,12 @@ export function RpaDocumentPanel({ userName }: Props) {
       const res = await fetch(`${API_BASE}/api/documents/rpa-issue`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ doc_name: docName, user_name: userName }),
+        body: JSON.stringify({
+          doc_name: docName,
+          user_name: userName,
+          birth_date: birthDate.replace(/[^0-9]/g, ''),
+          phone: phone.replace(/[^0-9]/g, ''),
+        }),
       })
       if (!res.ok) {
         const err = await res.json()
@@ -111,6 +147,10 @@ export function RpaDocumentPanel({ userName }: Props) {
   const isWaiting = status?.status === 'waiting_login'
   const isRunning = status && !isDone
 
+  // 자동 입력 가능 여부 판단
+  const hasAutoInfo = birthDate.replace(/[^0-9]/g, '').length === 8 &&
+                      phone.replace(/[^0-9]/g, '').length >= 10
+
   return (
     <Card className="border border-blue-200 bg-gradient-to-br from-blue-50/60 to-indigo-50/30 overflow-hidden">
       <CardHeader className="pb-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
@@ -131,6 +171,37 @@ export function RpaDocumentPanel({ userName }: Props) {
             </Badge>
           )}
         </div>
+
+        {/* 인증 정보 입력 — 진행 중이 아닐 때만 표시 */}
+        {!taskId && (
+          <div className="mt-3 space-y-2 border-t border-white/20 pt-3">
+            <p className="text-[11px] text-blue-100 font-semibold mb-1.5">
+              🤖 아래 입력 시 카카오 인증 자동 진행 (선택)
+            </p>
+            <InfoField
+              icon={User} label="이름" value={userName}
+              onChange={() => {}} placeholder={userName}
+            />
+            <InfoField
+              icon={Calendar} label="생년월일" value={birthDate}
+              onChange={setBirthDate} placeholder="19901231 (8자리)"
+            />
+            <InfoField
+              icon={Phone} label="휴대폰" value={phone}
+              onChange={setPhone} placeholder="01012345678"
+            />
+            {hasAutoInfo && (
+              <p className="text-[10px] text-green-300 font-semibold">
+                ✅ 자동 입력 준비 완료 — 카카오톡 알림 승인만 하면 됩니다
+              </p>
+            )}
+            {!hasAutoInfo && (
+              <p className="text-[10px] text-blue-300">
+                입력 없이도 사용 가능 (직접 로그인 방식으로 진행)
+              </p>
+            )}
+          </div>
+        )}
       </CardHeader>
 
       <CardContent className="space-y-4">
@@ -138,7 +209,7 @@ export function RpaDocumentPanel({ userName }: Props) {
         {!taskId && (
           <div className="rounded-xl bg-amber-50 border border-amber-200 px-3 py-2.5 text-xs text-amber-800 leading-relaxed">
             <p className="font-semibold mb-1">⚠️ 카카오톡 본인인증이 필요합니다</p>
-            <p>버튼 클릭 시 실제 브라우저가 열립니다. 화면 안내에 따라 간편인증을 진행하면 자동으로 서류가 발급됩니다.</p>
+            <p>위에 개인정보를 입력하면 카카오 인증 폼을 자동으로 채워드립니다. 폰에서 카카오톡 알림만 승인하면 끝!</p>
             <p className="mt-1 text-amber-700 font-medium">🏥 건강보험 자격득실확인서가 가장 안정적으로 동작합니다.</p>
           </div>
         )}

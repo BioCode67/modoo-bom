@@ -83,7 +83,7 @@ def start_apply_task(service_name: str, user_name: str, profile: dict) -> str:
     return task_id
 
 
-def start_rpa_task(doc_name: str, user_name: str) -> str:
+def start_rpa_task(doc_name: str, user_name: str, user_info: dict = None) -> str:
     """RPA 태스크를 비동기 시작하고 task_id 반환"""
     if doc_name not in _SUPPORTED_DOCS:
         raise ValueError(f"지원하지 않는 문서: {doc_name}. 지원 목록: {SUPPORTED_DOC_NAMES}")
@@ -91,6 +91,7 @@ def start_rpa_task(doc_name: str, user_name: str) -> str:
     task_id = uuid.uuid4().hex[:10]
     task = RPATask(task_id, doc_name, user_name)
     _rpa_tasks[task_id] = task.to_dict()
+    _info = user_info or {}
 
     loop = asyncio.get_event_loop()
 
@@ -103,7 +104,7 @@ def start_rpa_task(doc_name: str, user_name: str) -> str:
             await run_gov24_rpa(task, doc_name)
         elif rpa_type == "nhis":
             from rpa.nhis_rpa import run_nhis_rpa
-            await run_nhis_rpa(task)
+            await run_nhis_rpa(task, _info)
         elif rpa_type == "work24":
             from rpa.work24_rpa import run_work24_rpa
             await run_work24_rpa(task)
