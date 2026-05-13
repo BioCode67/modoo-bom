@@ -3,9 +3,9 @@ import { Progress } from '@/components/ui/progress'
 import { NODE_ORDER, NODE_LABELS } from '@/types'
 import type { NodeState } from '@/hooks/useAgentWebSocket'
 import {
-  CheckCircle2, Circle, Loader2, XCircle,
+  CheckCircle2, Loader2, XCircle,
   Brain, Search, ShieldCheck, RefreshCw,
-  BookOpen, FileText, BarChart3, Bell, ClipboardList, Cpu,
+  BookOpen, FileText, BarChart3, Bell, ClipboardList, Cpu, Circle,
 } from 'lucide-react'
 
 const NODE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -21,40 +21,13 @@ const NODE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = 
   orchestrator: Cpu,
 }
 
-const NODE_COLORS = {
-  running: {
-    border: 'border-blue-300',
-    bg: 'bg-blue-50',
-    text: 'text-blue-700',
-    badge: 'bg-blue-500 text-white',
-  },
-  done: {
-    border: 'border-green-200',
-    bg: 'bg-green-50',
-    text: 'text-green-700',
-    badge: 'bg-green-100 text-green-700',
-  },
-  error: {
-    border: 'border-red-200',
-    bg: 'bg-red-50',
-    text: 'text-red-700',
-    badge: 'bg-red-100 text-red-700',
-  },
-  pending: {
-    border: 'border-border',
-    bg: 'bg-background',
-    text: 'text-muted-foreground',
-    badge: '',
-  },
-}
-
 interface Props {
   nodeStates: Record<string, NodeState>
   progress: number
   doneCount: number
 }
 
-function elapsedMs(state: NodeState): string | null {
+function elapsedLabel(state: NodeState): string | null {
   if (state.status === 'running' && state.startedAt) {
     const ms = Date.now() - state.startedAt
     return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`
@@ -68,73 +41,81 @@ function elapsedMs(state: NodeState): string | null {
 
 export function NodeStatusPanel({ nodeStates, progress, doneCount }: Props) {
   return (
-    <div className="space-y-4">
-      {/* 진행 헤더 */}
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-medium">에이전트 진행 상태</span>
-        <span className="text-sm font-bold text-primary tabular-nums">
-          {doneCount} / {NODE_ORDER.length}
-        </span>
+    <div className="space-y-5">
+      {/* 진행률 헤더 */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-sm font-semibold">에이전트 진행 상태</span>
+          <span className="text-sm font-bold text-primary tabular-nums">
+            {doneCount} <span className="text-muted-foreground font-normal">/ {NODE_ORDER.length}</span>
+          </span>
+        </div>
+        <Progress value={progress} className="h-2 rounded-full" />
       </div>
-      <Progress value={progress} className="h-2" />
 
-      {/* 노드 목록 */}
+      {/* 노드 리스트 */}
       <div className="space-y-1.5">
         {NODE_ORDER.map((nodeKey, idx) => {
           const state = nodeStates[nodeKey]
           const status = state?.status ?? 'pending'
-          const colors = NODE_COLORS[status]
           const Icon = NODE_ICONS[nodeKey] ?? Circle
-          const elapsed = state ? elapsedMs(state) : null
+          const elapsed = state ? elapsedLabel(state) : null
 
           return (
             <div
               key={nodeKey}
               className={cn(
-                'flex items-start gap-2.5 rounded-lg border px-3 py-2.5 transition-all duration-300',
-                colors.border,
-                colors.bg,
-                status === 'pending' && 'opacity-40',
-                status === 'running' && 'node-running shadow-sm',
+                'flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all duration-300',
+                status === 'running' && 'bg-blue-50 border border-blue-200 node-running',
+                status === 'done'    && 'bg-emerald-50/60 border border-emerald-100',
+                status === 'error'   && 'bg-red-50 border border-red-200',
+                status === 'pending' && 'bg-muted/30 border border-transparent opacity-50',
               )}
             >
-              {/* 번호 */}
-              <span className="w-4 shrink-0 text-[11px] font-bold text-muted-foreground mt-0.5">
-                {idx + 1}
-              </span>
-
               {/* 상태 아이콘 */}
-              <div className="shrink-0 mt-0.5">
-                {status === 'running' && <Loader2 className="h-3.5 w-3.5 text-blue-500 animate-spin" />}
-                {status === 'done'    && <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />}
-                {status === 'error'   && <XCircle className="h-3.5 w-3.5 text-red-500" />}
-                {status === 'pending' && <Icon className="h-3.5 w-3.5 text-muted-foreground" />}
+              <div className="shrink-0 w-5 flex items-center justify-center">
+                {status === 'running' && <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />}
+                {status === 'done'    && <CheckCircle2 className="h-4 w-4 text-emerald-600" />}
+                {status === 'error'   && <XCircle className="h-4 w-4 text-red-500" />}
+                {status === 'pending' && (
+                  <span className="text-[10px] font-bold text-muted-foreground/50">{idx + 1}</span>
+                )}
+              </div>
+
+              {/* 노드 아이콘 */}
+              <div className={cn(
+                'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg',
+                status === 'running' ? 'bg-blue-100' : status === 'done' ? 'bg-emerald-100' : status === 'error' ? 'bg-red-100' : 'bg-muted',
+              )}>
+                <Icon className={cn(
+                  'h-3.5 w-3.5',
+                  status === 'running' ? 'text-blue-600' : status === 'done' ? 'text-emerald-600' : status === 'error' ? 'text-red-600' : 'text-muted-foreground/40',
+                )} />
               </div>
 
               {/* 본문 */}
               <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-1">
-                  <span className={cn('text-xs font-semibold truncate', colors.text)}>
+                <div className="flex items-center justify-between gap-2">
+                  <span className={cn(
+                    'text-xs font-semibold truncate',
+                    status === 'running' ? 'text-blue-700' : status === 'done' ? 'text-emerald-700' : status === 'error' ? 'text-red-700' : 'text-muted-foreground/50',
+                  )}>
                     {NODE_LABELS[nodeKey] ?? nodeKey}
                   </span>
-                  {/* 실행 시간 */}
                   {elapsed && (
                     <span className={cn(
-                      'text-[10px] font-mono shrink-0 px-1.5 py-0.5 rounded-full',
+                      'shrink-0 text-[10px] font-mono rounded-full px-1.5 py-0.5',
                       status === 'running' ? 'bg-blue-100 text-blue-600' : 'bg-muted text-muted-foreground',
                     )}>
                       {elapsed}
                     </span>
                   )}
                 </div>
-
-                {state?.message && (
-                  <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
+                {state?.message && status !== 'pending' && (
+                  <p className="text-[11px] text-muted-foreground mt-0.5 leading-tight truncate">
                     {state.message}
                   </p>
                 )}
-
-                {/* 데이터 칩 */}
                 {status === 'done' && state?.data && <DataChips data={state.data} />}
               </div>
             </div>
@@ -154,12 +135,10 @@ function DataChips({ data }: { data: Record<string, unknown> }) {
   if (typeof data.success === 'number')        chips.push(`취득 ${data.success}건`)
   if (typeof data.failed === 'number' && data.failed > 0) chips.push(`수동 ${data.failed}건`)
   if (typeof data.total === 'number')          chips.push(`총 ${data.total}건`)
-  if (typeof data.high === 'number')           chips.push(`우선순위高 ${data.high}건`)
-  if (typeof data.tracked === 'number' || Array.isArray(data.tracked))
-    chips.push(`추적 ${Array.isArray(data.tracked) ? data.tracked.length : data.tracked}건`)
-  if (typeof data.passed === 'boolean')        chips.push(data.passed ? '검증 통과' : '재검토')
+  if (typeof data.high === 'number')           chips.push(`우선高 ${data.high}건`)
+  if (typeof data.passed === 'boolean')        chips.push(data.passed ? '✓ 검증 통과' : '재검토')
   if (Array.isArray(data.keywords) && (data.keywords as string[]).length > 0) {
-    ;(data.keywords as string[]).slice(0, 3).forEach((k) => chips.push(k))
+    ;(data.keywords as string[]).slice(0, 2).forEach((k) => chips.push(k))
   }
   if (Array.isArray(data.notifications))
     chips.push(`알림 ${(data.notifications as unknown[]).length}건`)
@@ -169,10 +148,7 @@ function DataChips({ data }: { data: Record<string, unknown> }) {
   return (
     <div className="flex flex-wrap gap-1 mt-1">
       {chips.map((chip, i) => (
-        <span
-          key={i}
-          className="inline-flex rounded-full bg-white border border-border px-1.5 py-0.5 text-[10px] text-foreground"
-        >
+        <span key={i} className="inline-flex rounded-full bg-white/80 border border-border/60 px-1.5 py-0.5 text-[10px] text-foreground/60 font-medium">
           {chip}
         </span>
       ))}

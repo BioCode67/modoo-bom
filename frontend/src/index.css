@@ -37,16 +37,61 @@
 
 /* 노드 상태 애니메이션 */
 @keyframes node-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4); }
-  50% { box-shadow: 0 0 0 8px rgba(59, 130, 246, 0); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.3); }
+  50% { box-shadow: 0 0 0 6px rgba(59, 130, 246, 0); }
 }
 
 .node-running {
-  animation: node-pulse 1.5s ease-in-out infinite;
+  animation: node-pulse 1.8s ease-in-out infinite;
+}
+
+/* 페이드인 */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.35s ease-out forwards;
+}
+
+/* 슬라이드업 */
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.4s ease-out forwards;
+}
+
+/* 스켈레톤 shimmer */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #f0f4f8 25%, #e8edf2 50%, #f0f4f8 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
 }
 
 /* 스크롤바 스타일 */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { @apply bg-muted rounded-full; }
-::-webkit-scrollbar-thumb { @apply bg-muted-foreground/30 rounded-full; }
-::-webkit-scrollbar-thumb:hover { @apply bg-muted-foreground/50; }
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { @apply bg-transparent; }
+::-webkit-scrollbar-thumb { @apply bg-border rounded-full; }
+::-webkit-scrollbar-thumb:hover { @apply bg-muted-foreground/40 rounded-full; }
+
+/* 카드 호버 효과 */
+.card-hover {
+  @apply transition-all duration-200;
+}
+.card-hover:hover {
+  @apply shadow-md -translate-y-0.5;
+}
+
+/* 그라디언트 텍스트 */
+.gradient-text {
+  @apply bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent;
+}
