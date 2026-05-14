@@ -8,7 +8,9 @@ import { Badge } from '@/components/ui/badge'
 import {
   Monitor, Loader2, CheckCircle2, XCircle, AlertTriangle,
   ChevronDown, ChevronUp, FileText, User, Phone, Calendar,
+  Mic, MicOff,
 } from 'lucide-react'
+import { useSpeechInput } from '@/hooks/useSpeechInput'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? `http://${window.location.hostname}:8000`
 
@@ -46,8 +48,42 @@ const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'destructive' | '
   waiting_login: 'outline', done: 'secondary', error: 'destructive',
 }
 
+function MicButton({ onResult, minDigits, hint }: {
+  onResult: (digits: string) => void
+  minDigits: number
+  hint: string
+}) {
+  const { status, start, stop } = useSpeechInput({ onResult, minDigits })
+
+  if (status === 'unsupported') return null
+
+  const listening = status === 'listening'
+  const done      = status === 'done'
+  const error     = status === 'error'
+
+  return (
+    <button
+      type="button"
+      onClick={listening ? stop : start}
+      title={listening ? '음성 인식 중지' : hint}
+      className={`shrink-0 h-7 w-7 rounded-lg flex items-center justify-center transition-all
+        ${listening ? 'bg-red-500/80 animate-pulse' : done ? 'bg-green-500/80' : error ? 'bg-red-400/60' : 'bg-white/15 hover:bg-white/25'}`}
+    >
+      {listening
+        ? <MicOff className="h-3.5 w-3.5 text-white" />
+        : done
+        ? <CheckCircle2 className="h-3.5 w-3.5 text-white" />
+        : error
+        ? <XCircle className="h-3.5 w-3.5 text-white" />
+        : <Mic className="h-3.5 w-3.5 text-white" />
+      }
+    </button>
+  )
+}
+
 function InfoField({
   icon: Icon, label, value, onChange, placeholder, type = 'text',
+  voiceMinDigits, voiceHint,
 }: {
   icon: React.ElementType
   label: string
@@ -55,6 +91,8 @@ function InfoField({
   onChange: (v: string) => void
   placeholder: string
   type?: string
+  voiceMinDigits?: number
+  voiceHint?: string
 }) {
   return (
     <div className="flex items-center gap-2">
@@ -68,6 +106,9 @@ function InfoField({
         className="flex-1 rounded-lg bg-white/10 border border-white/20 text-white placeholder-blue-300/60
                    text-xs px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-white/40"
       />
+      {voiceMinDigits && voiceHint && (
+        <MicButton onResult={onChange} minDigits={voiceMinDigits} hint={voiceHint} />
+      )}
     </div>
   )
 }
@@ -188,10 +229,12 @@ export function RpaDocumentPanel({ userName }: Props) {
             <InfoField
               icon={Calendar} label="생년월일" value={birthDate}
               onChange={setBirthDate} placeholder="19901231 (8자리)"
+              voiceMinDigits={8} voiceHint="🎤 생년월일 8자리를 말씀해주세요 (예: 이구구공일이삼일)"
             />
             <InfoField
               icon={Phone} label="휴대폰" value={phone}
               onChange={setPhone} placeholder="01012345678"
+              voiceMinDigits={10} voiceHint="🎤 전화번호를 말씀해주세요 (예: 공일공 일이삼사 오육칠팔)"
             />
             <div className="flex items-center gap-2">
               <Phone className="h-3.5 w-3.5 text-blue-400 shrink-0" />
