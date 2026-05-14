@@ -395,8 +395,33 @@ async def _fill_kakao_form(page, name: str, birth: str, prefix: str, suffix: str
     return False
 
 
+async def _dismiss_security_popups(page) -> None:
+    """AhnLab Safe Transaction 등 보안 프로그램 설치 팝업 → '취소' 클릭"""
+    cancel_keywords = ['AhnLab', '방화벽', '보안', '설치되어 있지 않습니다']
+    for f in page.frames:
+        try:
+            await f.evaluate("""
+                (keywords) => {
+                    const dialogs = document.querySelectorAll(
+                        '.confirm, .dialog, .modal, .popup, .layer, [role="dialog"], [role="alertdialog"]'
+                    );
+                    for (const dlg of dialogs) {
+                        const txt = dlg.textContent || '';
+                        if (!keywords.some(k => txt.includes(k))) continue;
+                        // '취소' 버튼 클릭 (설치 거부)
+                        const cancelBtn = Array.from(dlg.querySelectorAll('button, a'))
+                            .find(b => ['취소', '닫기', '아니오', 'Cancel'].includes(b.textContent.trim()));
+                        if (cancelBtn) { cancelBtn.click(); return true; }
+                    }
+                    return false;
+                }
+            """, cancel_keywords)
+        except Exception:
+            pass
+
+
 async def _click_auth_request(page) -> bool:
-    """'인증 요청' 버튼 클릭 — 모든 프레임 전수 탐색"""
+    """'인증 요청' 버튼 클릭 — 모든 프레임 전수 탐색, 보안 팝업 자동 처리"""
     for f in page.frames:
         try:
             result = await f.evaluate("""
@@ -413,6 +438,9 @@ async def _click_auth_request(page) -> bool:
                 }
             """)
             if result:
+                # 클릭 후 AhnLab 등 보안 팝업 자동 취소
+                await asyncio.sleep(1.5)
+                await _dismiss_security_popups(page)
                 return True
         except Exception:
             continue
@@ -424,6 +452,8 @@ async def _click_auth_request(page) -> bool:
                 el = f.locator(sel).first
                 if await el.count() > 0:
                     await el.click(force=True)
+                    await asyncio.sleep(1.5)
+                    await _dismiss_security_popups(page)
                     return True
             except Exception:
                 continue
