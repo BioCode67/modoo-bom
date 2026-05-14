@@ -171,43 +171,38 @@ async def _open_easy_auth_widget(page, task) -> bool:
 # ── Step 3: 카카오톡 클릭 ─────────────────────────────────────────────────────
 
 async def _click_kakao(page, task) -> bool:
-    """anyid 위젯에서 카카오톡 클릭 — Playwright 네이티브 click() 사용"""
-    # dispatchEvent 는 anyid 위젯의 이벤트 리스너를 트리거하지 않음
-    # Playwright locator.click() 이 실제 브라우저 클릭을 발생시킴
-    kakao_sels = [
-        "i.ico.certificate.kakao-talk",   # 아이콘 직접
-        "li:has-text('카카오톡')",           # li 전체
-        ".kakao-talk",
-    ]
-
-    for attempt in range(15):
+    """anyid 위젯에서 카카오톡 클릭 — mouse.click() 좌표 방식"""
+    for attempt in range(20):
         # 보안 팝업 먼저 처리
         dismissed = await page.evaluate(_JS_DISMISS_SECURITY)
         if dismissed:
             task.update("running", f"보안 팝업 {dismissed}개 닫음")
             await asyncio.sleep(0.5)
 
-        for sel in kakao_sels:
-            try:
-                el = page.locator(sel).first
-                if await el.count() > 0:
-                    await el.scroll_into_view_if_needed()
-                    await el.click(force=True, timeout=3000)
-                    await asyncio.sleep(1.5)
+        # JS로 카카오톡 요소 좌표 획득
+        rect = await page.evaluate("""
+            () => {
+                const el = document.querySelector('i.ico.certificate.kakao-talk');
+                const li = el ? (el.closest('li') || el)
+                           : Array.from(document.querySelectorAll('li'))
+                               .find(l => l.textContent.trim() === '카카오톡');
+                if (!li) return null;
+                const r = li.getBoundingClientRect();
+                if (r.width === 0) return null;
+                return {x: r.left + r.width / 2, y: r.top + r.height / 2};
+            }
+        """)
 
-                    # 선택 확인: li.active 에 카카오톡 포함 여부
-                    selected = await page.evaluate("""
-                        () => Array.from(document.querySelectorAll('li.active, li.selected, li.on, li[class*="active"]'))
-                            .some(l => l.textContent.trim() === '카카오톡')
-                    """)
-                    if selected:
-                        task.update("running", f"카카오톡 선택 확인 ✅ ({sel})")
-                        return True
-                    # 선택 확인 안 되도 클릭은 됐으므로 계속 진행
-                    task.update("running", f"카카오톡 클릭 완료 ({sel}) — 선택 상태 미확인, 계속 진행")
-                    return True
-            except Exception:
-                continue
+        if rect:
+            await page.mouse.click(rect['x'], rect['y'])
+            await asyncio.sleep(1.5)
+            task.update("running", f"카카오톡 mouse.click 완료 ({rect['x']:.0f},{rect['y']:.0f})")
+            return True
+
+        # 좌표를 못 얻으면 스크린샷 찍고 재시도
+        if attempt == 0:
+            ss = await take_screenshot(page)
+            task.update("running", "카카오톡 좌표 탐색 중...", ss)
 
         await asyncio.sleep(1)
     return False
