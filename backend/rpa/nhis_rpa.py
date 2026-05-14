@@ -442,35 +442,153 @@ _JS_FILL_FORM_V2 = """
 """
 
 
-async def _fill_kakao_form(page, name: str, birth: str, prefix: str, suffix: str, carrier: str, task) -> bool:
-    """카카오 인증 폼 자동 입력 — 최대 15초 재시도, 구조 무관 다중 전략"""
-    args = {'nameVal': name, 'birthVal': birth, 'phoneSuffix': suffix, 'phonePrefix': prefix, 'carrierVal': carrier}
+_JS_DUMP_FORM = """
+() => {
+    const inputs = Array.from(document.querySelectorAll(
+        'input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"])'
+    )).filter(el => { const s = getComputedStyle(el); return s.display !== 'none' && s.visibility !== 'hidden' && el.offsetParent !== null; });
+    const selects = Array.from(document.querySelectorAll('select')).filter(el => {
+        const s = getComputedStyle(el); return s.display !== 'none' && s.visibility !== 'hidden';
+    });
+    return {
+        url: location.href.slice(-50),
+        inputs: inputs.map(el => ({
+            name: el.name, id: el.id, placeholder: el.placeholder, value: el.value,
+            ctx: (el.closest('tr,li,div,dl,td')?.textContent || '').trim().replace(/\\s+/g,' ').slice(0,50)
+        })),
+        selects: selects.map(el => ({
+            name: el.name, id: el.id, value: el.value,
+            opts: Array.from(el.options).map(o => o.value + '=' + o.text.trim()).join('|').slice(0,120),
+            ctx: (el.closest('tr,li,div,dl,td')?.textContent || '').trim().replace(/\\s+/g,' ').slice(0,50)
+        }))
+    };
+}
+"""
 
-    for attempt in range(15):
-        # 보안 팝업이 떠 있으면 먼저 닫기
-        dismissed = await _dismiss_security_popups(page)
-        if dismissed:
-            task.update("running", f"보안 팝업 {dismissed}개 자동 닫음, 폼 입력 재시도...")
-            await asyncio.sleep(1)
 
-        if attempt == 3:
-            dump = await _dump_inputs(page)
-            task.update("running", f"폼 DOM 구조 분석:\n{dump[:600]}")
-
+async def _find_form_frame(page, task) -> tuple:
+    """가시적 text input이 1개 이상 있는 프레임 탐색. (frame, dump_info) 반환."""
+    for attempt in range(20):
+        await _dismiss_security_popups(page)
         for f in page.frames:
             try:
-                result = await f.evaluate(_JS_FILL_FORM_V2, args)
-                if result:
-                    task.update("running",
-                        f"폼 입력 완료 ({result})\n"
-                        f"이름: {name} / 생년월일: {birth} / 통신사: {carrier} / 전화: {prefix}-{suffix}")
-                    await asyncio.sleep(0.5)
-                    return True
+                info = await f.evaluate(_JS_DUMP_FORM)
+                if info and info.get('inputs'):
+                    return f, info
             except Exception:
                 continue
         await asyncio.sleep(1)
+    return None, None
 
-    return False
+
+async def _fill_kakao_form(page, name: str, birth: str, prefix: str, suffix: str, carrier: str, task) -> bool:
+    """카카오 인증 폼 자동 입력 — 정확한 프레임 탐색 후 단계별 입력 + 스크린샷"""
+    args = {'nameVal': name, 'birthVal': birth, 'phoneSuffix': suffix, 'phonePrefix': prefix, 'carrierVal': carrier}
+
+    # 1) 폼이 있는 프레임 탐색 (보안 팝업도 동시에 처리)
+    form_frame, form_info = await _find_form_frame(page, task)
+
+    if not form_frame:
+        task.update("running", "⚠️ 폼 프레임을 찾지 못했습니다. 수동 입력 필요.")
+        return False
+
+    # 2) 폼 구조 로깅 (디버그용)
+    debug = f"✅ 폼 프레임 발견: {form_info.get('url','')}\n"
+    debug += f"텍스트 input {len(form_info['inputs'])}개:\n"
+    for inp in form_info['inputs']:
+        debug += f"  name={inp['name']!r} ph={inp['placeholder']!r} ctx={inp['ctx']!r}\n"
+    debug += f"select {len(form_info['selects'])}개:\n"
+    for sel in form_info['selects']:
+        debug += f"  name={sel['name']!r} opts={sel['opts']!r}\n"
+    ss = await take_screenshot(page)
+    task.update("running", debug[:800], ss)
+
+    # 3) 해당 프레임에서 JS 폼 입력
+    result = await form_frame.evaluate(_JS_FILL_FORM_V2, args)
+
+    if not result:
+        # 폴백: 순서 기반 강제 입력
+        task.update("running", "레이블 기반 입력 실패 → 순서 기반 강제 입력 시도...")
+        result = await form_frame.evaluate("""
+            (args) => {
+                const {nameVal, birthVal, phoneSuffix, phonePrefix, carrierVal} = args;
+                function setInput(el, val) {
+                    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+                    if (setter) setter.call(el, val); else el.value = val;
+                    ['input','change','keyup'].forEach(ev => el.dispatchEvent(new Event(ev, {bubbles:true})));
+                }
+                function setSelectOpt(sel, val) {
+                    // value 직접 매칭
+                    for (const o of sel.options) {
+                        if (o.value === val || o.text.trim().includes(val)) {
+                            sel.value = o.value;
+                            sel.dispatchEvent(new Event('change', {bubbles:true}));
+                            return o.value;
+                        }
+                    }
+                    // LGT 변형 매칭 (LGU+, LG U+, LG유플러스 등)
+                    const lgAliases = ['LGT','LGU','LGU+','LG','LG U+','유플러스'];
+                    const sktAliases = ['SKT','SK텔레콤','SK'];
+                    const ktAliases = ['KTF','KT'];
+                    const carrierAliases = val === 'LGT' ? lgAliases : val === 'SKT' ? sktAliases : ktAliases;
+                    for (const o of sel.options) {
+                        if (carrierAliases.some(a => o.value.includes(a) || o.text.includes(a))) {
+                            sel.value = o.value;
+                            sel.dispatchEvent(new Event('change', {bubbles:true}));
+                            return o.value;
+                        }
+                    }
+                    return null;
+                }
+
+                const inputs = Array.from(document.querySelectorAll(
+                    'input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"])'
+                )).filter(el => { const s = getComputedStyle(el); return s.display !== 'none' && s.visibility !== 'hidden' && el.offsetParent !== null; });
+                const selects = Array.from(document.querySelectorAll('select')).filter(el => {
+                    const s = getComputedStyle(el); return s.display !== 'none' && s.visibility !== 'hidden';
+                });
+
+                const filled = [];
+                // 통신사 select (가장 많은 옵션을 가진 select가 통신사일 가능성)
+                let carrierSet = false;
+                for (const sel of selects) {
+                    const opts = Array.from(sel.options).map(o => o.value + o.text).join('');
+                    if (opts.includes('SKT') || opts.includes('KT') || opts.includes('LG')) {
+                        const r = setSelectOpt(sel, carrierVal);
+                        if (r) { filled.push('carrier:'+r); carrierSet = true; break; }
+                    }
+                }
+                // 010 select
+                for (const sel of selects) {
+                    const opts = Array.from(sel.options);
+                    if (opts.some(o => o.value === '010' || o.text.includes('010'))) {
+                        sel.value = '010';
+                        sel.dispatchEvent(new Event('change', {bubbles:true}));
+                        filled.push('prefix:010');
+                        break;
+                    }
+                }
+                // inputs 순서대로: 이름, 생년월일, 전화번호
+                if (inputs.length >= 1) { setInput(inputs[0], nameVal);  filled.push('name[0]'); }
+                if (inputs.length >= 2) { setInput(inputs[1], birthVal); filled.push('birth[1]'); }
+                if (inputs.length >= 3) { setInput(inputs[2], phoneSuffix); filled.push('phone[2]'); }
+
+                // 전체동의 체크박스
+                for (const chk of document.querySelectorAll('input[type="checkbox"]')) {
+                    if (!chk.checked) chk.click();
+                }
+                return filled.length > 0 ? filled.join(',') : null;
+            }
+        """, args)
+
+    await asyncio.sleep(0.5)
+    ss = await take_screenshot(page)
+    task.update("running",
+        f"폼 입력 결과: {result}\n"
+        f"이름={name} / 생년월일={birth} / 통신사={carrier} / 전화={prefix}-{suffix}",
+        ss,
+    )
+    return bool(result)
 
 
 async def _dismiss_security_popups(page) -> int:
