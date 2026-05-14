@@ -179,16 +179,17 @@ async def _click_kakao(page, task) -> bool:
             task.update("running", f"보안 팝업 {dismissed}개 닫음")
             await asyncio.sleep(0.5)
 
-        # JS로 카카오톡 요소 좌표 획득
+        # JS로 카카오톡 요소 좌표 획득 — width>0 인 li만 선택
         rect = await page.evaluate("""
             () => {
-                const el = document.querySelector('i.ico.certificate.kakao-talk');
-                const li = el ? (el.closest('li') || el)
-                           : Array.from(document.querySelectorAll('li'))
-                               .find(l => l.textContent.trim() === '카카오톡');
+                // 숨겨진 중복 요소를 피하기 위해 width>0 조건 필수
+                const li = Array.from(document.querySelectorAll('li')).find(l => {
+                    if (l.textContent.trim() !== '카카오톡') return false;
+                    const r = l.getBoundingClientRect();
+                    return r.width > 0 && r.height > 0;
+                });
                 if (!li) return null;
                 const r = li.getBoundingClientRect();
-                if (r.width === 0) return null;
                 return {x: r.left + r.width / 2, y: r.top + r.height / 2};
             }
         """)
