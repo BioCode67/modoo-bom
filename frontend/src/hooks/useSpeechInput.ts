@@ -7,6 +7,8 @@ import { useState, useRef, useCallback } from 'react'
 
 // 한국어 숫자 단어 → 아라비아 숫자 (개별 자리 발음 기준)
 function koreanDigitsToArabic(text: string): string {
+  // 한국어 숫자 단어를 먼저 아라비아 숫자로 치환한 뒤 비숫자 제거
+  // ⚠️ '일'을 먼저 제거하면 안 됨 — '일'은 숫자 1이기도 함
   const map: [string, string][] = [
     ['영', '0'], ['공', '0'],
     ['일', '1'],
@@ -20,12 +22,10 @@ function koreanDigitsToArabic(text: string): string {
     ['구', '9'],
   ]
   let result = text
-  // 구분자·단위 제거
-  result = result.replace(/[년월일번호\-\s·,]/g, '')
   for (const [kr, digit] of map) {
     result = result.replaceAll(kr, digit)
   }
-  // 숫자만 남기기
+  // 단위·공백·구분자 제거 (숫자로 변환된 이후에 제거)
   return result.replace(/[^0-9]/g, '')
 }
 
@@ -82,9 +82,10 @@ export function useSpeechInput({ onResult, minDigits = 1 }: Options) {
       setTimeout(() => setStatus('idle'), 2000)
     }
 
-    rec.onerror = () => {
+    rec.onerror = (e: any) => {
+      console.warn('[SpeechInput] error:', e.error)
       setStatus('error')
-      setTimeout(() => setStatus('idle'), 2000)
+      setTimeout(() => setStatus('idle'), 2500)
     }
 
     rec.onend = () => {
