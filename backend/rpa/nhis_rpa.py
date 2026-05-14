@@ -43,7 +43,18 @@ def _normalize_user_info(user_info: dict) -> tuple:
     phone_raw = re.sub(r"[^0-9]", "", user_info.get("phone", ""))
     phone_prefix = phone_raw[:3] if len(phone_raw) >= 3 else "010"
     phone_suffix = phone_raw[3:] if len(phone_raw) > 3 else ""
-    return name, birth_raw, phone_prefix, phone_suffix
+    # 통신사 → anyid select option value 매핑
+    carrier_input = user_info.get("carrier", "").upper().replace(" ", "")
+    carrier_map = {
+        "SKT": "SKT", "SK": "SKT",
+        "KT": "KTF", "KTF": "KTF",
+        "LGU+": "LGT", "LGT": "LGT", "LG": "LGT", "LGU": "LGT",
+        "SKM": "SKM",   # SKT 알뜰폰
+        "KTM": "KTM",   # KT 알뜰폰
+        "LGM": "LGM",   # LGU+ 알뜰폰
+    }
+    carrier = carrier_map.get(carrier_input, "")
+    return name, birth_raw, phone_prefix, phone_suffix, carrier
 
 
 # ─── Step 1: 팝업 닫기 + 간편인증 탭 활성화 ──────────────────────────────────
@@ -296,22 +307,83 @@ async def _dump_inputs(page) -> str:
 
 _JS_FILL_FORM_V2 = """
 (args) => {
-    const {nameVal, birthVal, phoneSuffix, phonePrefix} = args;
+    const {nameVal, birthVal, phoneSuffix, phonePrefix, carrierVal} = args;
 
     function setInput(el, val) {
         const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
         if (setter) setter.call(el, val); else el.value = val;
         ['input','change','keyup'].forEach(ev => el.dispatchEvent(new Event(ev, {bubbles:true})));
     }
-    function setSelect(el, val) {
-        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
-        if (setter) setter.call(el, val); else el.value = val;
-        el.dispatchEvent(new Event('change', {bubbles:true}));
+    function setSelectByValue(sel, val) {
+        if (!sel || !val) return false;
+        // option value 직접 매칭
+        for (const opt of sel.options) {
+            if (opt.value === val) {
+                const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+                if (setter) setter.call(sel, val); else sel.value = val;
+                sel.dispatchEvent(new Event('change', {bubbles:true}));
+                return true;
+            }
+        }
+        // option text 부분 매칭 (LG U+, LGT, SKT 등 다양한 표기)
+        const valUp = val.toUpperCase();
+        const textMap = {
+            'SKT': ['SKT', 'SK텔레콤', 'SK'],
+            'KTF': ['KT', 'KTF'],
+            'LGT': ['LGT', 'LG', 'LGU', 'LG U+', 'LGU+', '유플러스'],
+            'SKM': ['SKM', 'SK알뜰', 'SK 알뜰'],
+            'KTM': ['KTM', 'KT알뜰', 'KT 알뜰'],
+            'LGM': ['LGM', 'LG알뜰', 'LG 알뜰'],
+        };
+        const aliases = textMap[valUp] || [val];
+        for (const opt of sel.options) {
+            if (aliases.some(a => opt.text.includes(a) || opt.value.toUpperCase().includes(a.toUpperCase()))) {
+                const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+                if (setter) setter.call(sel, opt.value); else sel.value = opt.value;
+                sel.dispatchEvent(new Event('change', {bubbles:true}));
+                return true;
+            }
+        }
+        return false;
     }
 
     const filled = [];
 
-    // ① 부모 텍스트/placeholder/name/id 기반 탐색 (구조 무관)
+    // ── 통신사(carrier) select 탐색 ──────────────────────────────────────────
+    if (carrierVal) {
+        const allSelects = Array.from(document.querySelectorAll('select'));
+        for (const sel of allSelects) {
+            const ctx = (sel.closest('tr,li,div,dl')?.textContent || '').toLowerCase();
+            const nm  = (sel.name || sel.id || '').toLowerCase();
+            const isCarrierCtx = ctx.includes('통신사') || ctx.includes('이동통신') ||
+                                  nm.includes('telecom') || nm.includes('carrier') || nm.includes('통신');
+            // option 3~5개이고 'SKT', 'KT', 'LG' 등 포함 시 통신사 select로 판단
+            const hasCarrierOpts = Array.from(sel.options).some(o =>
+                ['SKT','KTF','LGT','KT','LG'].some(c => o.value.includes(c) || o.text.includes(c))
+            );
+            if (isCarrierCtx || (sel.options.length >= 3 && sel.options.length <= 10 && hasCarrierOpts)) {
+                if (setSelectByValue(sel, carrierVal)) {
+                    filled.push('carrier');
+                    break;
+                }
+            }
+        }
+    }
+
+    // ── 전화번호 앞자리(010) select ──────────────────────────────────────────
+    const allSelects2 = Array.from(document.querySelectorAll('select'));
+    for (const sel of allSelects2) {
+        const hasPhoneOpts = Array.from(sel.options).some(o =>
+            o.value === '010' || o.text.includes('010')
+        );
+        if (hasPhoneOpts && !filled.includes('phone_prefix')) {
+            setSelectByValue(sel, phonePrefix);
+            filled.push('phone_prefix');
+            break;
+        }
+    }
+
+    // ── text input 탐색 ─────────────────────────────────────────────────────
     const allInputs = Array.from(document.querySelectorAll(
         'input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"])'
     ));
@@ -334,33 +406,34 @@ _JS_FILL_FORM_V2 = """
             setInput(inp, birthVal); filled.push('birth'); continue;
         }
         if (!filled.includes('phone') &&
-            (ph.includes('12341234') || ph.includes('번호') ||
+            (ph.includes('12341234') || ph.includes('번호') || ph.includes('숫자만') ||
              nm.includes('phone') || nm.includes('tel') || nm.includes('mphno') || nm.includes('hpno') ||
              ctx.includes('번호') || ctx.includes('전화') || ctx.includes('휴대'))) {
             setInput(inp, phoneSuffix);
-            const sel = inp.closest('tr,li,div')?.querySelector('select');
-            if (sel) setSelect(sel, phonePrefix);
             filled.push('phone'); continue;
         }
     }
 
-    // ② 못 찾으면 가시적 텍스트 input 순서대로 채우기 (최후 수단)
-    if (filled.length === 0) {
+    // ── 폴백: 가시적 input 순서대로 ──────────────────────────────────────────
+    if (!filled.includes('name') || !filled.includes('birth') || !filled.includes('phone')) {
         const visible = allInputs.filter(el => {
             const s = getComputedStyle(el);
             return s.display !== 'none' && s.visibility !== 'hidden' && el.offsetParent !== null;
         });
-        if (visible.length >= 1) { setInput(visible[0], nameVal);  filled.push('name_order'); }
-        if (visible.length >= 2) { setInput(visible[1], birthVal); filled.push('birth_order'); }
-        if (visible.length >= 3) { setInput(visible[2], phoneSuffix); filled.push('phone_order');
-            const sel = visible[2].closest('tr,li,div')?.querySelector('select');
-            if (sel) setSelect(sel, phonePrefix);
+        if (!filled.includes('name') && visible.length >= 1) {
+            setInput(visible[0], nameVal); filled.push('name_order');
+        }
+        if (!filled.includes('birth') && visible.length >= 2) {
+            setInput(visible[1], birthVal); filled.push('birth_order');
+        }
+        if (!filled.includes('phone') && visible.length >= 3) {
+            setInput(visible[2], phoneSuffix); filled.push('phone_order');
         }
     }
 
     if (filled.length === 0) return null;
 
-    // 전체동의 체크박스
+    // ── 전체동의 체크박스 ────────────────────────────────────────────────────
     const chks = document.querySelectorAll('input[type="checkbox"]');
     for (const chk of chks) { if (!chk.checked) chk.click(); }
 
@@ -369,15 +442,20 @@ _JS_FILL_FORM_V2 = """
 """
 
 
-async def _fill_kakao_form(page, name: str, birth: str, prefix: str, suffix: str, task) -> bool:
-    """카카오 인증 폼 자동 입력 — 최대 12초 재시도, 구조 무관 다중 전략"""
-    args = {'nameVal': name, 'birthVal': birth, 'phoneSuffix': suffix, 'phonePrefix': prefix}
+async def _fill_kakao_form(page, name: str, birth: str, prefix: str, suffix: str, carrier: str, task) -> bool:
+    """카카오 인증 폼 자동 입력 — 최대 15초 재시도, 구조 무관 다중 전략"""
+    args = {'nameVal': name, 'birthVal': birth, 'phoneSuffix': suffix, 'phonePrefix': prefix, 'carrierVal': carrier}
 
-    for attempt in range(12):
+    for attempt in range(15):
+        # 보안 팝업이 떠 있으면 먼저 닫기
+        dismissed = await _dismiss_security_popups(page)
+        if dismissed:
+            task.update("running", f"보안 팝업 {dismissed}개 자동 닫음, 폼 입력 재시도...")
+            await asyncio.sleep(1)
+
         if attempt == 3:
-            # 3초 후 DOM 덤프로 구조 확인
             dump = await _dump_inputs(page)
-            task.update("running", f"폼 DOM 구조 분석:\n{dump[:500]}")
+            task.update("running", f"폼 DOM 구조 분석:\n{dump[:600]}")
 
         for f in page.frames:
             try:
@@ -385,7 +463,7 @@ async def _fill_kakao_form(page, name: str, birth: str, prefix: str, suffix: str
                 if result:
                     task.update("running",
                         f"폼 입력 완료 ({result})\n"
-                        f"이름: {name} / 생년월일: {birth} / 전화: {prefix}-{suffix}")
+                        f"이름: {name} / 생년월일: {birth} / 통신사: {carrier} / 전화: {prefix}-{suffix}")
                     await asyncio.sleep(0.5)
                     return True
             except Exception:
@@ -395,29 +473,55 @@ async def _fill_kakao_form(page, name: str, birth: str, prefix: str, suffix: str
     return False
 
 
-async def _dismiss_security_popups(page) -> None:
-    """AhnLab Safe Transaction 등 보안 프로그램 설치 팝업 → '취소' 클릭"""
-    cancel_keywords = ['AhnLab', '방화벽', '보안', '설치되어 있지 않습니다']
+async def _dismiss_security_popups(page) -> int:
+    """키보드 보안·AhnLab·PC방화벽 등 설치 팝업을 모두 찾아 '취소' 클릭. 닫은 팝업 수 반환."""
+    security_keywords = [
+        'AhnLab', 'Safe Transaction', '방화벽', 'PC방화벽',
+        '키보드 보안', '보안 프로그램', '설치되어 있지 않습니다',
+        '보안프로그램', '키보드보안', '다운로드',
+    ]
+    dismissed = 0
     for f in page.frames:
         try:
-            await f.evaluate("""
+            count = await f.evaluate("""
                 (keywords) => {
-                    const dialogs = document.querySelectorAll(
-                        '.confirm, .dialog, .modal, .popup, .layer, [role="dialog"], [role="alertdialog"]'
+                    let closed = 0;
+                    // 1) 명시적 dialog/modal 컨테이너
+                    const containers = document.querySelectorAll(
+                        '.confirm, .dialog, .modal, .popup, .layer, .alert, .dimm, .dimmed,' +
+                        '[role="dialog"], [role="alertdialog"], [class*="modal"], [class*="popup"],' +
+                        '[class*="dialog"], [class*="layer"], [class*="alert"]'
                     );
-                    for (const dlg of dialogs) {
+                    for (const dlg of containers) {
                         const txt = dlg.textContent || '';
                         if (!keywords.some(k => txt.includes(k))) continue;
-                        // '취소' 버튼 클릭 (설치 거부)
-                        const cancelBtn = Array.from(dlg.querySelectorAll('button, a'))
-                            .find(b => ['취소', '닫기', '아니오', 'Cancel'].includes(b.textContent.trim()));
-                        if (cancelBtn) { cancelBtn.click(); return true; }
+                        const cancelBtn = Array.from(dlg.querySelectorAll('button, a, input[type=button]'))
+                            .find(b => ['취소', '닫기', '아니오', 'Cancel', '확인 안함'].includes(
+                                (b.textContent || b.value || '').trim()
+                            ));
+                        if (cancelBtn) { cancelBtn.click(); closed++; }
                     }
-                    return false;
+                    // 2) 폴백: 화면에 보이는 '취소' 버튼 중 보안 키워드 포함 부모 탐색
+                    if (closed === 0) {
+                        const allBtns = Array.from(document.querySelectorAll('button, input[type=button]'));
+                        for (const btn of allBtns) {
+                            const label = (btn.textContent || btn.value || '').trim();
+                            if (label !== '취소') continue;
+                            const style = getComputedStyle(btn);
+                            if (style.display === 'none' || style.visibility === 'hidden') continue;
+                            const parentTxt = (btn.closest('div, section, article, form')?.textContent || '');
+                            if (keywords.some(k => parentTxt.includes(k))) {
+                                btn.click(); closed++;
+                            }
+                        }
+                    }
+                    return closed;
                 }
-            """, cancel_keywords)
+            """, security_keywords)
+            dismissed += count or 0
         except Exception:
             pass
+    return dismissed
 
 
 async def _click_auth_request(page) -> bool:
@@ -438,9 +542,12 @@ async def _click_auth_request(page) -> bool:
                 }
             """)
             if result:
-                # 클릭 후 AhnLab 등 보안 팝업 자동 취소
-                await asyncio.sleep(1.5)
-                await _dismiss_security_popups(page)
+                # 클릭 후 보안 팝업 반복 감지 → 최대 4회 취소 시도
+                for _ in range(4):
+                    await asyncio.sleep(1)
+                    dismissed = await _dismiss_security_popups(page)
+                    if not dismissed:
+                        break
                 return True
         except Exception:
             continue
@@ -452,8 +559,11 @@ async def _click_auth_request(page) -> bool:
                 el = f.locator(sel).first
                 if await el.count() > 0:
                     await el.click(force=True)
-                    await asyncio.sleep(1.5)
-                    await _dismiss_security_popups(page)
+                    for _ in range(4):
+                        await asyncio.sleep(1)
+                        dismissed = await _dismiss_security_popups(page)
+                        if not dismissed:
+                            break
                     return True
             except Exception:
                 continue
@@ -631,7 +741,7 @@ async def run_nhis_rpa(task, user_info: dict = None) -> None:
         return
 
     info = user_info or {}
-    name, birth, ph_prefix, ph_suffix = _normalize_user_info(info)
+    name, birth, ph_prefix, ph_suffix, carrier = _normalize_user_info(info)
     has_user_info = bool(name and birth and ph_suffix)
 
     try:
@@ -689,13 +799,13 @@ async def run_nhis_rpa(task, user_info: dict = None) -> None:
 
                             # ⑥ 모든 프레임에서 폼 탐색 (카카오 클릭 후 폼이 어느 frame에 뜰지 모름)
                             await asyncio.sleep(2)
-                            filled = await _fill_kakao_form(page, name, birth, ph_prefix, ph_suffix, task)
+                            filled = await _fill_kakao_form(page, name, birth, ph_prefix, ph_suffix, carrier, task)
 
                             if filled:
                                 ss = await take_screenshot(page)
                                 task.update("running",
                                     f"개인정보 입력 완료\n"
-                                    f"이름: {name} / 생년월일: {birth} / 전화: {ph_prefix}-{ph_suffix}\n"
+                                    f"이름: {name} / 생년월일: {birth} / 통신사: {carrier} / 전화: {ph_prefix}-{ph_suffix}\n"
                                     "'인증 요청' 클릭 중...",
                                     ss,
                                 )

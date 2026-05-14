@@ -82,6 +82,7 @@ export function RpaDocumentPanel({ userName }: Props) {
   // 사용자 인증 정보
   const [birthDate, setBirthDate] = useState('')
   const [phone, setPhone] = useState('')
+  const [carrier, setCarrier] = useState('LGU+')
 
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -118,6 +119,7 @@ export function RpaDocumentPanel({ userName }: Props) {
           user_name: userName,
           birth_date: birthDate.replace(/[^0-9]/g, ''),
           phone: phone.replace(/[^0-9]/g, ''),
+          carrier,
         }),
       })
       if (!res.ok) {
@@ -149,7 +151,8 @@ export function RpaDocumentPanel({ userName }: Props) {
 
   // 자동 입력 가능 여부 판단
   const hasAutoInfo = birthDate.replace(/[^0-9]/g, '').length === 8 &&
-                      phone.replace(/[^0-9]/g, '').length >= 10
+                      phone.replace(/[^0-9]/g, '').length >= 10 &&
+                      carrier !== ''
 
   return (
     <Card className="border border-blue-200 bg-gradient-to-br from-blue-50/60 to-indigo-50/30 overflow-hidden">
@@ -190,6 +193,22 @@ export function RpaDocumentPanel({ userName }: Props) {
               icon={Phone} label="휴대폰" value={phone}
               onChange={setPhone} placeholder="01012345678"
             />
+            <div className="flex items-center gap-2">
+              <Phone className="h-3.5 w-3.5 text-blue-400 shrink-0" />
+              <span className="text-xs text-blue-200 w-16 shrink-0">통신사</span>
+              <select
+                value={carrier}
+                onChange={e => setCarrier(e.target.value)}
+                className="flex-1 rounded-lg bg-white/10 border border-white/20 text-white text-xs px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-white/40"
+              >
+                <option value="SKT" className="text-black">SKT (SK텔레콤)</option>
+                <option value="KT" className="text-black">KT (KT)</option>
+                <option value="LGU+" className="text-black">LGU+ (LG유플러스)</option>
+                <option value="SKM" className="text-black">SKT 알뜰폰</option>
+                <option value="KTM" className="text-black">KT 알뜰폰</option>
+                <option value="LGM" className="text-black">LGU+ 알뜰폰</option>
+              </select>
+            </div>
             {hasAutoInfo && (
               <p className="text-[10px] text-green-300 font-semibold">
                 ✅ 자동 입력 준비 완료 — 카카오톡 알림 승인만 하면 됩니다
