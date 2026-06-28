@@ -40,7 +40,7 @@ async def guide_generator_node(state: AgentState) -> dict:
         top = sorted(eligible, key=lambda x: x.get("confidence", 0), reverse=True)[:5]
         enriched = [{**ep, **policy_map.get(ep.get("id", ""), {})} for ep in top]
 
-        model = os.getenv("CLAUDE_MODEL", "claude-opus-4-7")
+        model = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-6")
         llm = ChatAnthropic(model=model, temperature=0.3, max_tokens=2048)
         response = await llm.ainvoke([
             SystemMessage(content=_SYSTEM_PROMPT),

@@ -248,7 +248,7 @@ async def estimate_benefits(req: EstimateRequest):
 async def env_check():
     """환경변수 상태 확인 (키 값은 마스킹)"""
     anthropic_key = os.getenv("ANTHROPIC_API_KEY", "")
-    claude_model = os.getenv("CLAUDE_MODEL", "claude-opus-4-7")
+    claude_model = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-6")
     return {
         "ANTHROPIC_API_KEY": f"{'set (' + anthropic_key[:10] + '...)' if anthropic_key else 'not set'}",
         "CLAUDE_MODEL": claude_model,

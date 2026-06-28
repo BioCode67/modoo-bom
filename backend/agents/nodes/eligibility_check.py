@@ -61,7 +61,7 @@ async def eligibility_check_node(state: AgentState) -> dict:
             indent=2,
         )
 
-        model = os.getenv("CLAUDE_MODEL", "claude-opus-4-7")
+        model = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-6")
         llm = ChatAnthropic(model=model, temperature=0, max_tokens=2048)
         response = await llm.ainvoke([
             SystemMessage(content=_SYSTEM_PROMPT),

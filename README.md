@@ -11,7 +11,7 @@
 
 - Python 3.11+
 - Node.js 20+
-- (선택) OpenAI API 키 — **없어도 Mock 모드로 전체 동작함**
+- (선택) Anthropic(Claude) API 키 — **없어도 Mock 모드로 전체 동작함**
 
 ---
 
@@ -29,7 +29,7 @@ pip install -r requirements.txt
 
 # 환경변수 설정
 cp .env.example .env
-# .env 파일 열어서 OPENAI_API_KEY 입력 (없으면 그냥 두면 Mock 모드 자동 동작)
+# .env 파일 열어서 ANTHROPIC_API_KEY 입력 (없으면 그냥 두면 Mock 모드 자동 동작)
 
 # 서버 실행
 uvicorn main:app --reload --port 8000
@@ -55,14 +55,14 @@ npm run dev
 
 ---
 
-### Mock 모드 (OpenAI 키 없이 테스트)
+### Mock 모드 (Anthropic 키 없이 테스트)
 
-`.env`에 `OPENAI_API_KEY`를 설정하지 않으면 자동으로 **Mock 모드** 동작:
+`.env`에 `ANTHROPIC_API_KEY`를 설정하지 않으면 자동으로 **Mock 모드** 동작:
 
 | 노드 | Mock 동작 |
 |------|-----------|
 | profile_analyzer | 키워드 규칙 기반 추출 |
-| policy_search | 샘플 50건에서 키워드 매칭 |
+| policy_search | 샘플 120건에서 키워드 매칭 |
 | eligibility_check | 연령·소득·장애 규칙 판별 |
 | reflection_check | 규칙 기반 검증 |
 | guide_generator | 템플릿 가이드 |
@@ -94,8 +94,8 @@ pytest tests/test_mock_mode.py::test_full_graph_mock_elderly -v
 ```bash
 cd modoo-bom
 
-# OPENAI_API_KEY 없으면 Mock 모드로 자동 동작
-OPENAI_API_KEY=sk-... docker compose up --build
+# ANTHROPIC_API_KEY 없으면 Mock 모드로 자동 동작
+ANTHROPIC_API_KEY=sk-ant-... docker compose up --build
 
 # 또는 Mock 모드
 docker compose up --build
@@ -125,7 +125,7 @@ docker compose up --build
          ↕ WebSocket (실시간 노드 이벤트 스트리밍)
 [FastAPI + LangGraph 10노드 StateGraph]
          ↕
-[ChromaDB RAG (50건)] + [GPT-4o / Mock] + [정부24 API Mock]
+[ChromaDB RAG (120건)] + [Claude / Mock] + [정부24 API Mock]
 ```
 
 ### LangGraph 10노드 플로우
@@ -133,7 +133,7 @@ docker compose up --build
 ```
 ① profile_analyzer   → 프로필 분석 + 키워드 추출
 ② policy_search      → ChromaDB RAG 검색 (Mock: 키워드 매칭)
-③ eligibility_check  → GPT-4o 자격 판별 (Mock: 규칙 기반)
+③ eligibility_check  → Claude 자격 판별 (Mock: 규칙 기반)
 ④ reflection_check   ⇆ ③ (검증 실패 시 최대 2회 재판별)
 ⑤ guide_generator   → 신청 가이드 생성
 ⑥ doc_retrieval      → 정부24 API Mock 서류 자동 취득
@@ -182,7 +182,7 @@ modoo-bom/
 │   ├── agents/
 │   │   ├── state.py                 # AgentState (Pydantic + operator.add)
 │   │   ├── graph.py                 # LangGraph StateGraph 조립
-│   │   ├── mock_responses.py        # OpenAI 없이 동작하는 Mock
+│   │   ├── mock_responses.py        # Anthropic API 없이 동작하는 Mock
 │   │   └── nodes/                   # 10개 노드 (각 파일)
 │   ├── rag/
 │   │   ├── sample_data.py           # 복지 정책 50건

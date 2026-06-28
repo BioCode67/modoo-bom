@@ -37,7 +37,7 @@ async def orchestrator_node(state: AgentState) -> dict:
             "portfolio": state.portfolio_summary,
         }
 
-        model = os.getenv("CLAUDE_MODEL", "claude-opus-4-7")
+        model = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-6")
         llm = ChatAnthropic(model=model, temperature=0.5, max_tokens=1024)
         response = await llm.ainvoke([
             SystemMessage(content=_SYSTEM_PROMPT),

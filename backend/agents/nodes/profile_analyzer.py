@@ -36,7 +36,7 @@ async def profile_analyzer_node(state: AgentState) -> dict:
             f"최근 생애이벤트: {', '.join(profile.life_events) if profile.life_events else '없음'}"
         )
 
-        model = os.getenv("CLAUDE_MODEL", "claude-opus-4-7")
+        model = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-6")
         llm = ChatAnthropic(model=model, temperature=0, max_tokens=1024)
         response = await llm.ainvoke([
             SystemMessage(content=_SYSTEM_PROMPT),
