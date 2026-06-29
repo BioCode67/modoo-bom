@@ -1,202 +1,175 @@
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.css');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* 모두봄 — 따뜻한 봄/새싹 라이트 테마 */
+    --background: 40 100% 98.5%;       /* 크림 */
+    --foreground: 150 25% 18%;         /* 깊은 숲 그린 */
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 150 25% 18%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
-    --radius: 0.75rem;
+    --popover-foreground: 150 25% 18%;
+    --primary: 145 63% 42%;            /* 새싹 그린 */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 28 100% 95%;          /* 복숭아빛 */
+    --secondary-foreground: 24 70% 32%;
+    --muted: 145 30% 96%;
+    --muted-foreground: 150 12% 42%;
+    --accent: 199 90% 94%;             /* 하늘빛 */
+    --accent-foreground: 200 70% 28%;
+    --destructive: 0 75% 58%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 145 25% 90%;
+    --input: 145 25% 90%;
+    --ring: 145 63% 42%;
+    --radius: 1.1rem;
   }
 
   * { @apply border-border box-border; }
 
-  html { scroll-behavior: smooth; -webkit-tap-highlight-color: transparent; }
+  html { scroll-behavior: smooth; -webkit-tap-highlight-color: transparent; -webkit-text-size-adjust: 100%; }
 
   body {
-    @apply bg-background text-foreground antialiased;
-    font-family: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont,
-      'Segoe UI', sans-serif;
-    line-height: 1.6;
+    @apply bg-background text-foreground antialiased font-sans;
+    line-height: 1.65;
+    margin: 0;
+    overflow-x: hidden;
   }
 
   input, button, select, textarea { font-family: inherit; }
+
+  /* 모션 최소화 사용자 존중 */
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    *, *::before, *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+    }
+  }
 }
 
-/* ── 애니메이션 ── */
-@keyframes fade-in {
-  from { opacity: 0; transform: translateY(10px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-@keyframes fade-in-scale {
-  from { opacity: 0; transform: scale(0.97); }
-  to   { opacity: 1; transform: scale(1); }
-}
-@keyframes slide-up {
-  from { opacity: 0; transform: translateY(20px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-@keyframes slide-in-right {
-  from { opacity: 0; transform: translateX(16px); }
-  to   { opacity: 1; transform: translateX(0); }
-}
-@keyframes shimmer {
-  0%   { background-position: -200% 0; }
-  100% { background-position:  200% 0; }
-}
-@keyframes node-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(59,130,246,0.3); }
-  50%       { box-shadow: 0 0 0 6px rgba(59,130,246,0); }
-}
-@keyframes progress-bar {
-  from { width: 0%; }
-}
-@keyframes bounce-in {
-  0%   { transform: scale(0.8); opacity: 0; }
-  60%  { transform: scale(1.05); }
-  100% { transform: scale(1);    opacity: 1; }
-}
-@keyframes spin-slow {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
+@layer components {
+  /* 키보드 스킵 링크 */
+  .skip-link {
+    position: fixed; top: 0.75rem; left: 50%; z-index: 100;
+    transform: translate(-50%, -150%);
+    @apply rounded-xl bg-sprout-500 text-white px-4 py-2 text-sm font-bold shadow-soft;
+    transition: transform 0.2s ease;
+  }
+  .skip-link:focus { transform: translate(-50%, 0); outline: 3px solid #fff; outline-offset: 2px; }
+
+  /* 글래스 카드 */
+  .glass {
+    background: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    @apply border border-white/60;
+  }
+
+  /* 둥근 카툰 카드 */
+  .card-cute {
+    @apply rounded-3xl bg-white border border-sprout-100 shadow-soft;
+  }
+  .card-hover { @apply transition-all duration-300; }
+  .card-hover:hover { @apply shadow-cute -translate-y-1; }
+
+  /* 그라데이션 텍스트 */
+  .gradient-text { @apply bg-gradient-to-r from-sprout-500 via-sprout-600 to-emerald-500 bg-clip-text text-transparent; }
+  .gradient-text-warm { @apply bg-gradient-to-r from-peach-400 via-peach-500 to-rose-400 bg-clip-text text-transparent; }
+  .gradient-text-sky { @apply bg-gradient-to-r from-sky2-400 to-sprout-400 bg-clip-text text-transparent; }
+
+  /* 친근한 버튼 */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl bg-sprout-500 text-white
+           px-6 py-3 text-sm font-bold shadow-soft
+           hover:bg-sprout-600 hover:-translate-y-0.5 active:scale-95 active:translate-y-0
+           transition-all duration-200 disabled:opacity-50 disabled:pointer-events-none;
+  }
+  .btn-warm {
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl bg-peach-400 text-white
+           px-6 py-3 text-sm font-bold shadow-cute
+           hover:bg-peach-500 hover:-translate-y-0.5 active:scale-95 transition-all duration-200;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl border-2 border-sprout-200 bg-white
+           px-6 py-3 text-sm font-bold text-sprout-700 hover:bg-sprout-50 hover:border-sprout-300
+           active:scale-95 transition-all duration-200;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold
+           text-muted-foreground hover:bg-muted hover:text-foreground transition-colors;
+  }
+
+  /* 칩/태그 */
+  .chip { @apply inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold; }
+  .chip-sprout { @apply chip bg-sprout-100 text-sprout-700; }
+  .chip-peach  { @apply chip bg-peach-100 text-peach-600; }
+  .chip-sky    { @apply chip bg-sky2-100 text-sky2-600; }
+  .chip-sun    { @apply chip bg-sun-100 text-yellow-700; }
+
+  /* 우선순위 배지 */
+  .priority-high   { @apply text-rose-600 bg-rose-50 border border-rose-200; }
+  .priority-medium { @apply text-amber-600 bg-amber-50 border border-amber-200; }
+  .priority-low    { @apply text-sprout-600 bg-sprout-50 border border-sprout-200; }
+
+  .page-container { @apply max-w-6xl mx-auto px-4 sm:px-6 lg:px-8; }
+  .section-pad { @apply py-16 sm:py-24; }
+
+  /* 스켈레톤 */
+  .skeleton {
+    background: linear-gradient(90deg, #f1f7f2 25%, #e6f2e9 50%, #f1f7f2 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    @apply rounded-xl;
+  }
+
+  /* 모달 */
+  .modal-overlay {
+    @apply fixed inset-0 bg-sprout-900/30 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4;
+  }
+  .modal-content {
+    @apply card-cute w-full max-w-lg max-h-[90vh] overflow-y-auto;
+  }
+
+  /* 점선 구분선(귀여운) */
+  .dotted-divider { @apply border-t-2 border-dotted border-sprout-200; }
 }
 
-.animate-fade-in       { animation: fade-in 0.35s ease-out forwards; }
-.animate-fade-in-scale { animation: fade-in-scale 0.3s ease-out forwards; }
-.animate-slide-up      { animation: slide-up 0.4s ease-out forwards; }
-.animate-slide-right   { animation: slide-in-right 0.3s ease-out forwards; }
-.animate-bounce-in     { animation: bounce-in 0.4s ease-out forwards; }
-.animate-spin-slow     { animation: spin-slow 3s linear infinite; }
+@layer utilities {
+  @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
 
-.node-running { animation: node-pulse 1.8s ease-in-out infinite; }
+  .animate-fade-in { animation: fade-in 0.5s ease-out forwards; }
+  .animate-slide-up { animation: slide-up 0.5s ease-out forwards; }
+  .animate-bounce-in { animation: bounce-in 0.5s cubic-bezier(0.34,1.56,0.64,1) forwards; }
 
-/* ── 스켈레톤 ── */
-.skeleton {
-  background: linear-gradient(90deg,#f0f4f8 25%,#e2e8f0 50%,#f0f4f8 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
-  border-radius: 0.5rem;
-}
+  /* 입력 포커스 링 */
+  .focus-ring:focus-visible,
+  input:focus-visible, select:focus-visible, textarea:focus-visible {
+    @apply outline-none ring-4 ring-sprout-200 border-sprout-400;
+  }
 
-/* ── 텍스트 ── */
-.gradient-text {
-  @apply bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent;
-}
-.gradient-text-warm {
-  @apply bg-gradient-to-r from-orange-500 to-rose-500 bg-clip-text text-transparent;
-}
+  /* 스크롤바 */
+  .nice-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+  .nice-scroll::-webkit-scrollbar-track { background: transparent; }
+  .nice-scroll::-webkit-scrollbar-thumb { @apply bg-sprout-200 rounded-full; }
+  .nice-scroll::-webkit-scrollbar-thumb:hover { @apply bg-sprout-300; }
 
-/* ── 카드 ── */
-.card-hover {
-  @apply transition-all duration-200 cursor-pointer;
-}
-.card-hover:hover {
-  @apply shadow-lg -translate-y-0.5;
-}
-.glass-card {
-  background: rgba(255,255,255,0.8);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255,255,255,0.6);
+  /* 모바일 safe area */
+  @supports (padding-bottom: env(safe-area-inset-bottom)) {
+    .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+  }
+
+  .text-balance { text-wrap: balance; }
 }
 
-/* ── 스크롤바 ── */
-::-webkit-scrollbar       { width: 4px; height: 4px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { @apply bg-border rounded-full; }
-::-webkit-scrollbar-thumb:hover { @apply bg-muted-foreground/40; }
-
-/* ── 버튼 ── */
-.btn-primary {
-  @apply inline-flex items-center justify-center gap-2 rounded-xl bg-primary text-primary-foreground
-         px-5 py-2.5 text-sm font-semibold shadow-sm shadow-primary/20
-         hover:bg-primary/90 active:scale-95 transition-all duration-150 disabled:opacity-50;
-}
-.btn-secondary {
-  @apply inline-flex items-center justify-center gap-2 rounded-xl border border-input bg-background
-         px-5 py-2.5 text-sm font-semibold hover:bg-accent active:scale-95 transition-all duration-150;
-}
-
-/* ── 입력 필드 focus ring ── */
-input:focus-visible, select:focus-visible, textarea:focus-visible {
-  @apply outline-none ring-2 ring-primary/40 ring-offset-1;
-}
-
-/* ── 반응형 패딩 ── */
-.page-container {
-  @apply max-w-6xl mx-auto px-4 sm:px-6 lg:px-8;
-}
-
-/* ── 모바일 bottom safe area ── */
-@supports (padding-bottom: env(safe-area-inset-bottom)) {
-  .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
-}
-
-/* ── 진행 바 ── */
-.progress-bar-animated {
-  animation: progress-bar 0.6s ease-out;
-}
-
-/* ── 스텝 인디케이터 ── */
-.step-dot {
-  @apply w-2 h-2 rounded-full transition-all duration-300;
-}
-.step-dot.active   { @apply w-5 bg-primary; }
-.step-dot.done     { @apply bg-primary; }
-.step-dot.inactive { @apply bg-border; }
-
-/* ── 태그/칩 ── */
-.chip {
-  @apply inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium;
-}
-
-/* ── 우선순위 색상 ── */
-.priority-high   { @apply text-red-600   bg-red-50   border-red-200; }
-.priority-medium { @apply text-amber-600 bg-amber-50 border-amber-200; }
-.priority-low    { @apply text-emerald-600 bg-emerald-50 border-emerald-200; }
-
-/* ── 고령자/접근성 모드 ── */
-.elderly-mode {
-  line-height: 1.8;
-}
-.elderly-mode .text-xs    { font-size: 0.875rem !important; line-height: 1.5 !important; }
-.elderly-mode .text-\[10px\], .elderly-mode .text-\[11px\] { font-size: 0.8125rem !important; }
-.elderly-mode .text-sm    { font-size: 1.0625rem !important; }
-.elderly-mode .text-base  { font-size: 1.1875rem !important; }
-.elderly-mode input, .elderly-mode button, .elderly-mode select {
-  min-height: 48px !important;
-  font-size: 1rem !important;
-}
-.elderly-mode input[type="range"],
-.elderly-mode input[type="checkbox"] {
-  min-height: unset !important;
-}
-.elderly-mode .rounded-xl  { border-radius: 1rem !important; }
-.elderly-mode .rounded-2xl { border-radius: 1.25rem !important; }
-
-/* ── 모달 오버레이 ── */
-.modal-overlay {
-  @apply fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4;
-  animation: fade-in 0.2s ease-out;
-}
-.modal-content {
-  @apply bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto;
-  animation: slide-up 0.3s ease-out;
-}
+/* 큰글씨(어르신) 모드 */
+.elderly-mode { line-height: 1.85; }
+.elderly-mode .text-xs { font-size: 0.9rem !important; }
+.elderly-mode .text-sm { font-size: 1.05rem !important; }
+.elderly-mode .text-base { font-size: 1.2rem !important; }
+.elderly-mode button, .elderly-mode input, .elderly-mode select { min-height: 50px; }
