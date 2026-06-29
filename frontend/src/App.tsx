@@ -7,6 +7,7 @@ import { Explore } from '@/sections/Explore'
 import { My } from '@/sections/My'
 import { ChatWidget } from '@/components/ChatWidget'
 import { PrintSummary } from '@/components/PrintSummary'
+import { Onboarding } from '@/components/Onboarding'
 import { loadExternalCatalog } from '@/data/catalog'
 import { useAppStore } from '@/store/useAppStore'
 import { cn } from '@/lib/utils'
@@ -46,6 +47,7 @@ export default function App() {
       </main>
 
       <div className="no-print"><ChatWidget /></div>
+      <div className="no-print"><Onboarding /></div>
       <PrintSummary />
     </div>
   )

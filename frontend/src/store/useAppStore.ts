@@ -31,6 +31,10 @@ interface AppState {
   highContrast: boolean
   toggleHighContrast: () => void
 
+  // 첫 방문 온보딩 1회 노출
+  onboarded: boolean
+  setOnboarded: () => void
+
   // RPA 자동입력용 추가정보(선택) — 본인인증 폼 자동 작성에만 사용, 내 기기에만 저장
   rpaInfo: { birth_date: string; phone: string; carrier: string }
   setRpaInfo: (patch: Partial<{ birth_date: string; phone: string; carrier: string }>) => void
@@ -64,6 +68,8 @@ export const useAppStore = create<AppState>()(
       toggleElderly: () => set((s) => ({ elderly: !s.elderly })),
       highContrast: false,
       toggleHighContrast: () => set((s) => ({ highContrast: !s.highContrast })),
+      onboarded: false,
+      setOnboarded: () => set({ onboarded: true }),
 
       rpaInfo: { birth_date: '', phone: '', carrier: '' },
       setRpaInfo: (patch) => set((s) => ({ rpaInfo: { ...s.rpaInfo, ...patch } })),
@@ -109,7 +115,7 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'modoobom-store',
-      partialize: (s) => ({ tracked: s.tracked, elderly: s.elderly, highContrast: s.highContrast, profile: s.profile, result: s.result, rpaInfo: s.rpaInfo }),
+      partialize: (s) => ({ tracked: s.tracked, elderly: s.elderly, highContrast: s.highContrast, onboarded: s.onboarded, profile: s.profile, result: s.result, rpaInfo: s.rpaInfo }),
     },
   ),
 )
