@@ -36,10 +36,15 @@ def mock_profile_analysis(profile) -> dict:
             keywords += ["아동", "교육급여"]
     if profile.employment_status == "unemployed":
         keywords += ["실업급여", "취업지원", "구직", "국민취업지원제도"]
-    if profile.income_percentile <= 30:
-        keywords += ["기초생활", "생계급여", "의료급여", "저소득"]
-    elif profile.income_percentile <= 50:
-        keywords += ["차상위", "저소득", "주거급여"]
+    # 소득 기반 급여 — 2026 정밀 선정기준(생계32·의료40·주거48·교육/차상위50). 프론트 엔진과 일치.
+    if profile.income_percentile <= 50:
+        keywords += ["저소득", "교육급여", "차상위"]
+        if profile.income_percentile <= 48:
+            keywords += ["주거급여"]
+        if profile.income_percentile <= 40:
+            keywords += ["의료급여"]
+        if profile.income_percentile <= 32:
+            keywords += ["기초생활", "생계급여"]
     if profile.household_type in ("한부모가족", "조손가구"):
         keywords += ["한부모", "양육비"]
     if profile.household_type == "다문화가족":
@@ -152,24 +157,40 @@ def _check_policy(doc: str, name: str, pid: str, profile) -> tuple[bool, str, st
             return True, "출산(예정) 가정 조건 충족", "high", 0.94
         return False, "", "low", 0.0
 
-    # ── 저소득·기초생활 계열 ──────────────────────────────────────────────
-    if any(k in doc for k in ["기초생활수급자", "의료급여 수급자", "중위소득 30%"]):
-        if profile.income_percentile <= 30:
-            return True, f"소득 중위소득 {profile.income_percentile}%로 기초생활 기준 충족", "high", 0.87
-        return False, "", "low", 0.0
-
-    if any(k in doc for k in ["기초생활수급자 및 차상위", "차상위계층"]):
+    # ── 저소득·기초생활 계열 (2026 정밀 선정기준: 생계32·의료40·주거48·교육/차상위50) ──
+    # 여러 급여를 동시에 언급하는 포괄형은 가장 넓은 기준이 적용되도록 넓은 순서로 검사. 프론트 엔진과 일치.
+    if any(k in doc for k in ["교육급여", "차상위", "중위소득 50%"]):
         if profile.income_percentile <= 50:
-            return True, f"소득 중위소득 {profile.income_percentile}%로 차상위 기준 충족", "medium", 0.85
+            return True, f"소득 중위소득 {profile.income_percentile}%로 교육급여·차상위 기준 충족", "medium", 0.84
         return False, "", "low", 0.0
 
-    if any(k in doc for k in ["중위소득 48%", "중위소득 50%"]):
-        if profile.income_percentile <= 50:
-            return True, f"소득 중위소득 {profile.income_percentile}%로 기준 충족", "medium", 0.84
+    if any(k in doc for k in ["주거급여", "중위소득 48%"]):
+        if profile.income_percentile <= 48:
+            return True, f"소득 중위소득 {profile.income_percentile}%로 주거급여 기준 충족", "medium", 0.85
         return False, "", "low", 0.0
 
-    if any(k in doc for k in ["중위소득 60%", "중위소득 63%"]):
+    if any(k in doc for k in ["의료급여", "중위소득 40%"]):
+        if profile.income_percentile <= 40:
+            return True, f"소득 중위소득 {profile.income_percentile}%로 의료급여 기준 충족", "high", 0.86
+        return False, "", "low", 0.0
+
+    if any(k in doc for k in ["생계급여", "기초생활수급자", "중위소득 30%", "중위소득 32%"]):
+        if profile.income_percentile <= 32:
+            return True, f"소득 중위소득 {profile.income_percentile}%로 생계급여(기초생활) 기준 충족", "high", 0.87
+        return False, "", "low", 0.0
+
+    if any(k in doc for k in ["중위소득 65%"]):
+        if profile.income_percentile <= 65:
+            return True, f"소득 중위소득 {profile.income_percentile}%로 기준 충족", "medium", 0.82
+        return False, "", "low", 0.0
+
+    if any(k in doc for k in ["중위소득 63%"]):
         if profile.income_percentile <= 63:
+            return True, f"소득 중위소득 {profile.income_percentile}%로 기준 충족", "medium", 0.82
+        return False, "", "low", 0.0
+
+    if any(k in doc for k in ["중위소득 60%"]):
+        if profile.income_percentile <= 60:
             return True, f"소득 중위소득 {profile.income_percentile}%로 기준 충족", "medium", 0.82
         return False, "", "low", 0.0
 

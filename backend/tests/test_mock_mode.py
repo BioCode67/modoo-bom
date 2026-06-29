@@ -165,3 +165,26 @@ async def test_full_graph_mock_youth():
 
     assert final_state is not None
     assert final_state.get("profile_summary", "") != ""
+
+
+def _is_eligible(document: str, pct: int) -> bool:
+    """주어진 자격 문구·소득%로 mock 자격판정 결과(적격 여부)를 반환."""
+    from agents.mock_responses import mock_eligibility
+    from agents.state import UserProfile
+
+    r = mock_eligibility([{"id": "T", "name": "테스트", "document": document}],
+                         UserProfile(age=40, income_percentile=pct))
+    return any(p["eligible"] for p in r["eligible_policies"])
+
+
+def test_mock_eligibility_income_precision():
+    """2026 정밀 선정기준(생계32·의료40·주거48·교육/차상위50)이 프론트 엔진과 일치하는지."""
+    # 의료급여: 40% 적격, 41% 부적격 (이전엔 30% 초과 시 누락되던 구간)
+    assert _is_eligible("자격요건: 의료급여 수급자", 40) is True
+    assert _is_eligible("자격요건: 의료급여 수급자", 41) is False
+    # 주거급여: 48% 적격, 49% 부적격
+    assert _is_eligible("자격요건: 주거급여 대상", 48) is True
+    assert _is_eligible("자격요건: 주거급여 대상", 49) is False
+    # 생계급여: 32% 적격, 33% 부적격
+    assert _is_eligible("자격요건: 생계급여 수급자", 32) is True
+    assert _is_eligible("자격요건: 생계급여 수급자", 33) is False
