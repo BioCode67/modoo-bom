@@ -6,6 +6,7 @@ import type { EligiblePolicy } from '@/lib/welfare-engine'
 import { TrackedCard, STATUS_META } from '@/components/TrackedCard'
 import { PolicyDetailDrawer } from '@/components/PolicyDetailDrawer'
 import { CompareModal } from '@/components/CompareModal'
+import { DocumentCenter } from '@/components/DocumentCenter'
 import { useAppStore, type AppStatus } from '@/store/useAppStore'
 import { parseMonthly, formatWon } from '@/lib/format'
 import { StaticMascot } from '@/three/MascotCanvas'
@@ -92,6 +93,8 @@ export function My() {
         </AnimatePresence>
       </div>
       {shown.length === 0 && <p className="py-12 text-center text-muted-foreground">해당 상태의 복지가 없어요.</p>}
+
+      <DocumentCenter />
 
       <PolicyDetailDrawer policy={selected} onClose={() => setSelected(null)} />
       {compare && <CompareModal policies={comparePolicies} onClose={() => setCompare(false)} />}

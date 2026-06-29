@@ -4,6 +4,7 @@ import type { Policy } from '@/data/policies'
 import type { EligiblePolicy } from '@/lib/welfare-engine'
 import { generateGuides } from '@/lib/welfare-engine'
 import { categoryMeta, parseMonthly, formatWon, PRIORITY_META } from '@/lib/format'
+import { docLink, applyLink } from '@/lib/officialLinks'
 import { useAppStore } from '@/store/useAppStore'
 import { cn } from '@/lib/utils'
 
@@ -137,11 +138,18 @@ function DrawerBody({
         {policy.required_docs?.length > 0 && (
           <Section title="📑 필요 서류">
             <ul className="space-y-1.5">
-              {policy.required_docs.map((d: string) => (
-                <li key={d} className="flex items-center gap-2 text-sm text-foreground/80">
-                  <FileText className="h-4 w-4 text-sky2-500 shrink-0" /> {d}
-                </li>
-              ))}
+              {policy.required_docs.map((d: string) => {
+                const dl = docLink(d)
+                return (
+                  <li key={d} className="flex items-center gap-2 text-sm text-foreground/80">
+                    <FileText className="h-4 w-4 text-sky2-500 shrink-0" />
+                    <span className="flex-1">{d}</span>
+                    <a href={dl.url} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-sky2-600 hover:underline inline-flex items-center gap-0.5 shrink-0">
+                      발급 <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </li>
+                )
+              })}
             </ul>
           </Section>
         )}
@@ -164,11 +172,11 @@ function DrawerBody({
           <Rocket className="h-4 w-4" /> 신청 준비하기
         </button>
         <a
-          href="https://www.bokjiro.go.kr"
+          href={applyLink(policy.application).url}
           target="_blank"
           rel="noopener noreferrer"
           className="btn-warm !px-4"
-          title="복지로에서 신청"
+          title={applyLink(policy.application).label}
         >
           <ExternalLink className="h-4 w-4" />
         </a>
