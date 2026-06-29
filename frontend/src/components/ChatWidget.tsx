@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { MessageCircleHeart, X, Send, Mic } from 'lucide-react'
+import { MessageCircleHeart, X, Send, Mic, Compass, Sparkles, ArrowRight } from 'lucide-react'
 import type { Policy } from '@/data/policies'
 import { getCatalog } from '@/data/catalog'
 import { parseMonthly, formatWon } from '@/lib/format'
 import { applyLink } from '@/lib/officialLinks'
 import { useSpeech } from '@/lib/useSpeech'
+import { GUIDE_STEPS, recommend, type GuideAnswers } from '@/lib/guidedChat'
+import { useAppStore } from '@/store/useAppStore'
 import { SproutLogo } from '@/ui/SproutLogo'
 import { cn } from '@/lib/utils'
 
@@ -49,18 +51,52 @@ function answer(q: string): string {
 
 export function ChatWidget() {
   const [open, setOpen] = useState(false)
-  const [msgs, setMsgs] = useState<Msg[]>([{ role: 'bot', text: '안녕하세요! 복지 도우미예요 🌱\n궁금한 복지를 물어보거나 아래 추천을 눌러보세요.' }])
+  const [msgs, setMsgs] = useState<Msg[]>([{ role: 'bot', text: '안녕하세요! 복지 도우미예요 🌱\n"🧭 맞춤 상담"으로 몇 가지만 답하면 딱 맞는 복지를 찾아드려요.' }])
   const [input, setInput] = useState('')
+  const [step, setStep] = useState(-1) // -1: 가이드 비활성
+  const [answers, setAnswers] = useState<GuideAnswers>({ situations: [] })
+  const [multiSel, setMultiSel] = useState<{ v: string; l: string }[]>([])
+  const setView = useAppStore((s) => s.setView)
   const endRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [msgs, open])
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [msgs, open, step])
+
+  const botSay = (text: string) => setMsgs((m) => [...m, { role: 'bot', text }])
 
   const send = (text: string) => {
     const q = text.trim()
     if (!q) return
     setMsgs((m) => [...m, { role: 'user', text: q }])
     setInput('')
-    setTimeout(() => setMsgs((m) => [...m, { role: 'bot', text: answer(q) }]), 350)
+    setTimeout(() => botSay(answer(q)), 350)
+  }
+
+  // ── 가이드형 상담 ──
+  const startGuide = () => {
+    setAnswers({ situations: [] }); setMultiSel([]); setStep(0)
+    setMsgs((m) => [...m, { role: 'user', text: '맞춤 상담 시작' }, { role: 'bot', text: GUIDE_STEPS[0].question }])
+  }
+  const stopGuide = () => { setStep(-1); setMultiSel([]); botSay('상담을 멈췄어요. 언제든 다시 시작할 수 있어요. 🙂') }
+
+  const advance = (next: GuideAnswers) => {
+    const ns = step + 1
+    if (ns < GUIDE_STEPS.length) { setStep(ns); setMultiSel([]); setTimeout(() => botSay(GUIDE_STEPS[ns].question), 300) }
+    else { setStep(-1); const { text } = recommend(next); setTimeout(() => botSay(text), 300) }
+  }
+  const pickSingle = (o: { value: string; label: string }) => {
+    const cur = GUIDE_STEPS[step]
+    const next: GuideAnswers = { ...answers }
+    if (cur.id === 'age') next.age = Number(o.value)
+    else if (cur.id === 'income') next.income = Number(o.value)
+    setAnswers(next)
+    setMsgs((m) => [...m, { role: 'user', text: o.label }])
+    advance(next)
+  }
+  const confirmMulti = () => {
+    const next: GuideAnswers = { ...answers, situations: multiSel.map((x) => x.v) }
+    setAnswers(next)
+    setMsgs((m) => [...m, { role: 'user', text: multiSel.length ? multiSel.map((x) => x.l).join(', ') : '해당 없음' }])
+    advance(next)
   }
 
   // 음성으로 질문 → 바로 전송
@@ -106,10 +142,30 @@ export function ChatWidget() {
               <div ref={endRef} />
             </div>
 
-            <div className="px-3 pt-2 flex gap-1.5 flex-wrap border-t border-sprout-100">
-              {SUGGESTIONS.map((s) => (
-                <button key={s} onClick={() => send(s)} className="chip-sprout hover:bg-sprout-200 transition-colors">{s}</button>
-              ))}
+            <div className="px-3 pt-2 flex gap-1.5 flex-wrap border-t border-sprout-100 max-h-28 overflow-y-auto nice-scroll">
+              {step >= 0 ? (
+                <>
+                  {GUIDE_STEPS[step].options.map((o) => {
+                    const sel = multiSel.some((x) => x.v === o.value)
+                    return GUIDE_STEPS[step].multi ? (
+                      <button key={o.value} onClick={() => setMultiSel((s) => (sel ? s.filter((x) => x.v !== o.value) : [...s, { v: o.value, l: o.label }]))}
+                        aria-pressed={sel} className={cn('chip transition-colors', sel ? 'bg-sprout-500 text-white' : 'bg-muted hover:bg-sprout-100')}>{o.label}</button>
+                    ) : (
+                      <button key={o.value} onClick={() => pickSingle({ value: o.value, label: o.label })} className="chip bg-muted hover:bg-sprout-100 transition-colors">{o.label}</button>
+                    )
+                  })}
+                  {GUIDE_STEPS[step].multi && <button onClick={confirmMulti} className="chip bg-sprout-600 text-white font-bold">다음 <ArrowRight className="h-3.5 w-3.5" /></button>}
+                  <button onClick={stopGuide} className="chip bg-white border border-sprout-100 text-muted-foreground">그만두기</button>
+                </>
+              ) : (
+                <>
+                  <button onClick={startGuide} className="chip-peach font-bold"><Compass className="h-3.5 w-3.5" /> 맞춤 상담</button>
+                  {SUGGESTIONS.map((s) => (
+                    <button key={s} onClick={() => send(s)} className="chip-sprout hover:bg-sprout-200 transition-colors">{s}</button>
+                  ))}
+                  <button onClick={() => { setView('analyze'); setOpen(false) }} className="chip bg-muted hover:bg-sprout-100"><Sparkles className="h-3.5 w-3.5" /> 정밀 분석</button>
+                </>
+              )}
             </div>
 
             <form onSubmit={(e) => { e.preventDefault(); send(input) }} className="p-3 flex gap-2">
