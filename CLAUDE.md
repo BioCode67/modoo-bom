@@ -87,8 +87,12 @@ src/
   **결과 인쇄/PDF**·**이미지 카드 공유**(Web Share), **복지 캘린더 .ics**, 생애주기 시뮬레이터, 가구분석,
   긴급복지 진단, 복지 점수·TOP3, **대표문의 전화 tel: 연결**, **포트폴리오 차트**(SVG), 온보딩,
   **PWA**(설치형·오프라인·autoUpdate·beforeinstallprompt), 큰글씨·고대비·ESC·ARIA·focus-visible 접근성, ErrorBoundary.
-- **품질 게이트(모두 통과)**: `npm run lint`(eslint9 flat, react-hooks, 0건) · `npm test`(vitest **33**) ·
+- **품질 게이트(모두 통과)**: `npm run lint`(eslint9 flat, react-hooks, 0건) · `npm test`(vitest **81**) ·
   `tsc --noEmit` · `npm run build` / 백엔드 `pytest`(12). 변경마다 브라우저 회귀 검증.
+- **데이터 정확성(2026 검증)**: 기초연금·장애인연금·아동수당(9세 확대)·생계급여(32%)·한부모(23만/65%)·
+  청년도약(33,000)·교육급여·보육료·긴급복지·노인일자리·국가장학금을 보건복지부 등 공식 출처로 검증·정정.
+  엔진 소득 자격판정은 2026 정밀 선정기준(생계32·의료40·주거48·교육/차상위50)으로 동작.
+  `parseMonthly`는 '월 N만원' 표기까지 환산(원-우선)해 합계·정렬·현금성 필터가 정확.
 - **scripts**(frontend): `dev` `build` `preview` `lint` `test` `deploy`.
 - 데이터 확장은 `backend/etl/ingest_welfare.py`(CSV/--api/--local) → `public/policies.json`(런타임 병합).
   지자체 데이터는 data.go.kr 세션 게이트로 자동 다운로드 불가 → 사용자 다운로드 또는 무료 OpenAPI 키 필요.
