@@ -9,6 +9,7 @@ import { PolicyDetailDrawer } from '@/components/PolicyDetailDrawer'
 import { BenefitBreakdown, CategoryDistribution } from '@/components/BenefitCharts'
 import { FutureWelfare } from '@/components/FutureWelfare'
 import { WelfareScore } from '@/components/WelfareScore'
+import { ShareButton } from '@/components/ShareButton'
 import { formatWon } from '@/lib/format'
 import { useAppStore } from '@/store/useAppStore'
 
@@ -57,6 +58,7 @@ export function ResultsView({ result, profile, onReset }: { result: AnalysisResu
                 {tts.speaking ? <Square className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />} {tts.speaking ? '중지' : '읽어주기'}
               </button>
             )}
+            <ShareButton count={eligible.length} monthlyText={monthly > 0 ? formatWon(monthly) : ''} />
           </div>
         </div>
       </motion.div>
