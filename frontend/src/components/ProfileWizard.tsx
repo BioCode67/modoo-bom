@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowRight, ArrowLeft, Sparkles, Check } from 'lucide-react'
+import { ArrowRight, ArrowLeft, Sparkles, Check, Calculator } from 'lucide-react'
 import type { UserProfile } from '@/lib/welfare-engine'
+import { IncomeCalculator } from '@/components/IncomeCalculator'
 import { cn } from '@/lib/utils'
 
 const EMPTY: UserProfile = {
@@ -32,6 +33,7 @@ const INCOME_STEPS = [
 export function ProfileWizard({ onSubmit }: { onSubmit: (p: UserProfile) => void }) {
   const [step, setStep] = useState(0)
   const [p, setP] = useState<UserProfile>(EMPTY)
+  const [showCalc, setShowCalc] = useState(false)
   const set = (patch: Partial<UserProfile>) => setP((prev) => ({ ...prev, ...patch }))
 
   const STEPS = ['기본 정보', '가구·소득', '나의 상황']
@@ -108,13 +110,20 @@ export function ProfileWizard({ onSubmit }: { onSubmit: (p: UserProfile) => void
                   ))}
                 </div>
               </Field>
-              <Field label="소득 수준 (기준 중위소득)">
+              <Field label={`소득 수준 (기준 중위소득${p.income_percentile ? ` · 현재 ${p.income_percentile}%` : ''})`}>
                 <div className="flex flex-wrap gap-2">
                   {INCOME_STEPS.map((s) => (
                     <Choice key={s.v} active={p.income_percentile === s.v} onClick={() => set({ income_percentile: s.v })} small>{s.l}</Choice>
                   ))}
                 </div>
-                <p className="text-xs text-muted-foreground mt-2">잘 모르시면 대략적인 수준을 선택하세요. 정확한 값은 신청 시 확인돼요.</p>
+                <button onClick={() => setShowCalc((v) => !v)} className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-sky2-600 hover:underline">
+                  <Calculator className="h-3.5 w-3.5" /> 내 소득 %를 모르겠어요 (계산기)
+                </button>
+                {showCalc && (
+                  <div className="mt-2">
+                    <IncomeCalculator onApply={(pct) => { set({ income_percentile: pct }); setShowCalc(false) }} />
+                  </div>
+                )}
               </Field>
               <Field label="거주 지역 (선택)">
                 <input value={p.region} onChange={(e) => set({ region: e.target.value })} placeholder="예: 서울특별시" className="input-cute" />
