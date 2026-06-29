@@ -23,6 +23,8 @@ const BUCKETS: { key: string; label: string; emoji: string; match?: string[] }[]
   { key: 'job', label: '고용', emoji: '💼', match: ['고용', '취업', '일자리'] },
   { key: 'edu', label: '교육', emoji: '📚', match: ['교육', '학'] },
   { key: 'family', label: '가족', emoji: '👨‍👩‍👧', match: ['한부모', '가족', '다문화'] },
+  { key: 'veteran', label: '보훈', emoji: '🎖️', match: ['보훈'] },
+  { key: 'farm', label: '농어민', emoji: '🌾', match: ['농어'] },
 ]
 
 type SortKey = 'default' | 'amount' | 'name'

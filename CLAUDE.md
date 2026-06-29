@@ -77,15 +77,21 @@ src/
   `gh-pages` 브랜치 + Pages REST API 방식으로 배포함.
 
 ### 기능·품질 현황 (전문화 완료)
-- **기능**: 3D 카툰 히어로(지연 마운트), 프로필 위저드+분석, 정책 탐색(검색/필터), 나의 복지
-  (관심·상태관리·혜택계산·비교·**사후관리 모니터링**), 서류 준비 도우미, 에이전트 신청(백엔드 시),
-  복지 챗봇, **음성 입력**(Web Speech), **결과 인쇄/PDF**("내 복지 안내서"), **포트폴리오 차트**(SVG),
-  **PWA**(설치형·오프라인·autoUpdate), 큰글씨·ESC·ARIA·focus-visible 접근성, ErrorBoundary.
-- **품질 게이트(모두 통과)**: `npm run lint`(eslint9 flat, react-hooks, 0건) · `npm test`(vitest 12) ·
-  `tsc --noEmit` · `npm run build` / 백엔드 `pytest`(12).
+- **데이터**: 시드 120건(정밀 규칙·검증 금액) + 한국사회보장정보원 복지서비스 공공데이터 367건(실데이터,
+  대표문의 전화 포함)을 런타임 병합 → 총 **472건**. 이름 기준 디듑(시드 우선). 가짜 데이터 미생성 원칙.
+- **분석 엔진**: 시드는 키워드/규칙 기반 정밀 자격판정, 공공데이터(요약형)는 자연어 신호 추론으로
+  '관련 복지'를 낮은 신뢰도로 제시(`inferFromText`). 결과는 핵심(POL-)·관련(GOV/LOC-)으로 분리 표시.
+- **기능**: 3D 카툰 히어로(지연 마운트), 프로필 위저드+분석, **기준중위소득 계산기**(2026, 가구원수→소득%),
+  정책 탐색(검색·정렬·금액필터·증분렌더), 나의 복지(관심·상태관리·혜택계산·비교·**사후관리 모니터링**),
+  서류 준비 도우미, 에이전트 신청(백엔드 시), 가이드형 복지 챗봇, **음성 입력**(Web Speech)·**TTS 읽어주기**,
+  **결과 인쇄/PDF**·**이미지 카드 공유**(Web Share), **복지 캘린더 .ics**, 생애주기 시뮬레이터, 가구분석,
+  긴급복지 진단, 복지 점수·TOP3, **대표문의 전화 tel: 연결**, **포트폴리오 차트**(SVG), 온보딩,
+  **PWA**(설치형·오프라인·autoUpdate·beforeinstallprompt), 큰글씨·고대비·ESC·ARIA·focus-visible 접근성, ErrorBoundary.
+- **품질 게이트(모두 통과)**: `npm run lint`(eslint9 flat, react-hooks, 0건) · `npm test`(vitest **33**) ·
+  `tsc --noEmit` · `npm run build` / 백엔드 `pytest`(12). 변경마다 브라우저 회귀 검증.
 - **scripts**(frontend): `dev` `build` `preview` `lint` `test` `deploy`.
-- 데이터 확장은 `backend/etl/ingest_welfare.py` → `public/policies.json`(런타임 병합). 라이브 카탈로그는
-  실데이터 적재 전까지 시드 120건(가짜 데이터 미생성 원칙).
+- 데이터 확장은 `backend/etl/ingest_welfare.py`(CSV/--api/--local) → `public/policies.json`(런타임 병합).
+  지자체 데이터는 data.go.kr 세션 게이트로 자동 다운로드 불가 → 사용자 다운로드 또는 무료 OpenAPI 키 필요.
 
 ---
 
