@@ -138,6 +138,12 @@
 
   /* 점선 구분선(귀여운) */
   .dotted-divider { @apply border-t-2 border-dotted border-sprout-200; }
+
+  /* 입력 필드 */
+  .input-cute {
+    @apply w-full rounded-2xl border-2 border-sprout-100 bg-white px-4 py-3 text-sm font-medium
+           placeholder:text-muted-foreground/60 transition-colors;
+  }
 }
 
 @layer utilities {
