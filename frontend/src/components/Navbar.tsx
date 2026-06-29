@@ -1,5 +1,6 @@
-import { Home, Search, Compass, Heart, Eye, Sparkles, Contrast } from 'lucide-react'
+import { Home, Search, Compass, Heart, Eye, Sparkles, Contrast, Download } from 'lucide-react'
 import { useAppStore, type View } from '@/store/useAppStore'
+import { useInstallPrompt } from '@/lib/useInstallPrompt'
 import { SproutLogo } from '@/ui/SproutLogo'
 import { cn } from '@/lib/utils'
 
@@ -12,6 +13,7 @@ const NAV: { view: View; label: string; icon: typeof Home }[] = [
 
 export function Navbar() {
   const { view, setView, elderly, toggleElderly, highContrast, toggleHighContrast, tracked } = useAppStore()
+  const { canInstall, promptInstall } = useInstallPrompt()
   const savedCount = tracked.length
 
   return (
@@ -70,6 +72,12 @@ export function Navbar() {
               <Contrast className="h-4 w-4" />
               <span className="hidden sm:inline">고대비</span>
             </button>
+            {canInstall && (
+              <button onClick={promptInstall} title="앱으로 설치" className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold border-2 bg-white border-sprout-100 text-sprout-700 hover:border-sprout-300">
+                <Download className="h-4 w-4" />
+                <span className="hidden sm:inline">앱 설치</span>
+              </button>
+            )}
             <button onClick={() => setView('analyze')} className="btn-primary !px-4 !py-2 hidden sm:inline-flex">
               <Sparkles className="h-4 w-4" />
               내 복지 찾기
