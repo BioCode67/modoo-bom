@@ -183,17 +183,27 @@ async def run_apply_rpa(task, service_name: str, profile: dict) -> None:
 
             await asyncio.sleep(2)
 
-            # ⑥ 기본 양식 자동 작성 (이름, 연락처 등)
+            # ⑥ 기본 양식 자동 작성 (이름·생년월일·연락처)
+            import re as _re
             name = profile.get("name", "")
-            if name:
-                for name_sel in ["input[name='aplcntNm']", "input[placeholder*='이름']", "#aplcntNm"]:
+            birth = _re.sub(r"[^0-9]", "", str(profile.get("birth_date", "")))
+            phone = _re.sub(r"[^0-9]", "", str(profile.get("phone", "")))
+
+            async def _fill(selectors, value):
+                if not value:
+                    return
+                for sel in selectors:
                     try:
-                        el = target_page.locator(name_sel).first
+                        el = target_page.locator(sel).first
                         if await el.count() > 0:
-                            await el.fill(name)
-                            break
+                            await el.fill(value)
+                            return
                     except Exception:
                         pass
+
+            await _fill(["input[name='aplcntNm']", "input[placeholder*='이름']", "#aplcntNm"], name)
+            await _fill(["input[placeholder*='생년월일']", "input[name*='brthdy']", "input[name*='birth']"], birth)
+            await _fill(["input[placeholder*='휴대폰']", "input[placeholder*='연락처']", "input[name*='telno']", "input[name*='phone']"], phone)
 
             await asyncio.sleep(1)
             ss = await take_screenshot(target_page)

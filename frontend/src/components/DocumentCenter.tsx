@@ -5,11 +5,12 @@ import { getPolicyMap } from '@/data/catalog'
 import { useAppStore } from '@/store/useAppStore'
 import { docLink, isRpaSupported } from '@/lib/officialLinks'
 import { checkBackend, API_BASE } from '@/lib/backend'
+import { RpaInfoForm } from '@/components/RpaInfoForm'
 
 type RpaState = { status: string; step: string } | null
 
 export function DocumentCenter() {
-  const { tracked, profile } = useAppStore()
+  const { tracked, profile, rpaInfo } = useAppStore()
   const [backend, setBackend] = useState<boolean | null>(null)
   const [rpa, setRpa] = useState<Record<string, RpaState>>({})
 
@@ -30,7 +31,10 @@ export function DocumentCenter() {
     try {
       const res = await fetch(`${API_BASE}/api/documents/rpa-issue`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ doc_name: doc, user_name: profile?.name || '사용자' }),
+        body: JSON.stringify({
+          doc_name: doc, user_name: profile?.name || '사용자',
+          birth_date: rpaInfo.birth_date, phone: rpaInfo.phone, carrier: rpaInfo.carrier,
+        }),
       })
       if (!res.ok) throw new Error('지원하지 않는 서류')
       const { task_id } = await res.json()
@@ -59,6 +63,7 @@ export function DocumentCenter() {
         담은 복지에 필요한 서류 {docs.length}종이에요. 발급처로 바로 이동하거나{backend ? ' 에이전트로 자동 발급하세요.' : ' 직접 발급하세요.'}
         {backend && <span className="block mt-0.5 text-xs">🔒 카카오 본인인증은 보안을 위해 본인이 직접 진행해요.</span>}
       </p>
+      {backend && <RpaInfoForm />}
 
       <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
         {docs.map((doc) => {

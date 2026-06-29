@@ -29,6 +29,10 @@ interface AppState {
   elderly: boolean
   toggleElderly: () => void
 
+  // RPA 자동입력용 추가정보(선택) — 본인인증 폼 자동 작성에만 사용, 내 기기에만 저장
+  rpaInfo: { birth_date: string; phone: string; carrier: string }
+  setRpaInfo: (patch: Partial<{ birth_date: string; phone: string; carrier: string }>) => void
+
   // 최근 프로필 + 분석 결과 캐시 (오랜만에 들어와도 바로 보이게)
   profile: UserProfile | null
   result: AnalysisResult | null
@@ -56,6 +60,9 @@ export const useAppStore = create<AppState>()(
 
       elderly: false,
       toggleElderly: () => set((s) => ({ elderly: !s.elderly })),
+
+      rpaInfo: { birth_date: '', phone: '', carrier: '' },
+      setRpaInfo: (patch) => set((s) => ({ rpaInfo: { ...s.rpaInfo, ...patch } })),
 
       profile: null,
       result: null,
@@ -98,7 +105,7 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'modoobom-store',
-      partialize: (s) => ({ tracked: s.tracked, elderly: s.elderly, profile: s.profile, result: s.result }),
+      partialize: (s) => ({ tracked: s.tracked, elderly: s.elderly, profile: s.profile, result: s.result, rpaInfo: s.rpaInfo }),
     },
   ),
 )

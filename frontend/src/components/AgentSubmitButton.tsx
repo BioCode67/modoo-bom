@@ -5,6 +5,7 @@ import type { EligiblePolicy } from '@/lib/welfare-engine'
 import { useBackend } from '@/lib/useBackend'
 import { isApplyAutomatable, applyLink } from '@/lib/officialLinks'
 import { API_BASE } from '@/lib/backend'
+import { RpaInfoForm } from '@/components/RpaInfoForm'
 import { useAppStore } from '@/store/useAppStore'
 
 type RunState = { status: string; step: string; shot?: string } | null
@@ -16,6 +17,7 @@ type RunState = { status: string; step: string; shot?: string } | null
 export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy }) {
   const backend = useBackend()
   const profile = useAppStore((s) => s.profile)
+  const rpaInfo = useAppStore((s) => s.rpaInfo)
   const [run, setRun] = useState<RunState>(null)
   const automatable = isApplyAutomatable(policy.name)
 
@@ -42,7 +44,7 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
     try {
       const res = await fetch(`${API_BASE}/api/apply/start`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ service_name: policy.name, user_name: profile?.name || '사용자', profile: profile || {} }),
+        body: JSON.stringify({ service_name: policy.name, user_name: profile?.name || '사용자', profile: { ...(profile || {}), ...rpaInfo } }),
       })
       if (!res.ok) throw new Error('이 서비스는 자동 신청을 지원하지 않아요')
       const { task_id } = await res.json()
@@ -68,7 +70,10 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
       </p>
 
       {!run ? (
-        <button onClick={start} className="btn-primary !py-2 mt-3 text-xs"><Bot className="h-4 w-4" /> 에이전트로 신청 시작</button>
+        <>
+          <RpaInfoForm />
+          <button onClick={start} className="btn-primary !py-2 mt-3 text-xs"><Bot className="h-4 w-4" /> 에이전트로 신청 시작</button>
+        </>
       ) : (
         <div className="mt-3">
           <p className="text-xs flex items-center gap-1.5">
