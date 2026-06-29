@@ -142,19 +142,35 @@ function DrawerBody({
           </div>
         )}
 
-        {/* 혜택 */}
-        <Section title="💰 혜택 내용">
-          {monthly > 0 && <p className="text-2xl font-extrabold text-sprout-600 mb-1">월 {formatWon(monthly)}까지</p>}
-          <p className="text-sm text-foreground/80 leading-relaxed">{policy.benefit}</p>
-        </Section>
-
-        <Section title="🎯 지원 대상">
-          <p className="text-sm text-foreground/80 leading-relaxed">{policy.target}</p>
-        </Section>
-
-        <Section title="📋 자격 요건">
-          <p className="text-sm text-foreground/80 leading-relaxed">{policy.eligibility}</p>
-        </Section>
+        {(() => {
+          // 공공데이터 요약본(대상=혜택=자격이 동일)이면 한 섹션으로 깔끔하게
+          const summaryOnly = policy.target === policy.benefit && policy.benefit === policy.eligibility
+          if (summaryOnly) {
+            return (
+              <Section title="📋 서비스 안내">
+                <p className="text-sm text-foreground/80 leading-relaxed">{policy.benefit}</p>
+                <a href={applyLink(policy.application).url} target="_blank" rel="noopener noreferrer"
+                  className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-sprout-600 hover:underline">
+                  복지로에서 자세한 자격·금액 확인 <ExternalLink className="h-3.5 w-3.5" />
+                </a>
+              </Section>
+            )
+          }
+          return (
+            <>
+              <Section title="💰 혜택 내용">
+                {monthly > 0 && <p className="text-2xl font-extrabold text-sprout-600 mb-1">월 {formatWon(monthly)}까지</p>}
+                <p className="text-sm text-foreground/80 leading-relaxed">{policy.benefit}</p>
+              </Section>
+              <Section title="🎯 지원 대상">
+                <p className="text-sm text-foreground/80 leading-relaxed">{policy.target}</p>
+              </Section>
+              <Section title="📋 자격 요건">
+                <p className="text-sm text-foreground/80 leading-relaxed">{policy.eligibility}</p>
+              </Section>
+            </>
+          )
+        })()}
 
         {/* 신청 단계 */}
         {guide && (
