@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { useReducedMotion } from 'framer-motion'
 import { SproutLogo } from '@/ui/SproutLogo'
 
@@ -22,17 +22,52 @@ function StaticMascot({ animate = true }: { animate?: boolean }) {
   )
 }
 
+/** 브라우저가 한가해지고(idle) 요소가 화면에 보일 때만 true → 3D 청크 지연 로드 */
+function useDeferredMount(ref: React.RefObject<HTMLElement>) {
+  const [ready, setReady] = useState(false)
+  useEffect(() => {
+    let done = false
+    const trigger = () => { if (!done) { done = true; setReady(true) } }
+
+    // 화면에 보일 때만 (홈 히어로는 보통 즉시 보임)
+    let io: IntersectionObserver | null = null
+    if (ref.current && 'IntersectionObserver' in window) {
+      io = new IntersectionObserver((entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          // 보이면 유휴 시점에 마운트(첫 페인트/상호작용을 막지 않음)
+          const ric = (window as unknown as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback
+          if (ric) ric(trigger, { timeout: 1800 })
+          else setTimeout(trigger, 600)
+        }
+      }, { rootMargin: '120px' })
+      io.observe(ref.current)
+    } else {
+      setTimeout(trigger, 800)
+    }
+    return () => io?.disconnect()
+  }, [ref])
+  return ready
+}
+
 /**
- * 히어로 3D 캔버스. reduced-motion이면 3D를 아예 마운트하지 않고 정적 마스코트 표시.
- * 그 외엔 코드 분할된 HeroScene을 lazy 로드(폴백: 정적 마스코트).
+ * 히어로 3D 캔버스. reduced-motion이면 3D를 마운트하지 않고 정적 마스코트 표시.
+ * 그 외엔 유휴+가시 시점에 코드 분할된 HeroScene을 지연 로드(그 전엔 정적 마스코트).
  */
 export function MascotCanvas() {
   const reduce = useReducedMotion()
-  if (reduce) return <StaticMascot animate={false} />
+  const ref = useRef<HTMLDivElement>(null)
+  const ready = useDeferredMount(ref)
+
   return (
-    <Suspense fallback={<StaticMascot />}>
-      <HeroScene animate />
-    </Suspense>
+    <div ref={ref} className="h-full w-full">
+      {reduce || !ready ? (
+        <StaticMascot animate={!reduce} />
+      ) : (
+        <Suspense fallback={<StaticMascot />}>
+          <HeroScene animate />
+        </Suspense>
+      )}
+    </div>
   )
 }
 
