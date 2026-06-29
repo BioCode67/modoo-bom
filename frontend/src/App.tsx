@@ -12,17 +12,18 @@ import { useAppStore } from '@/store/useAppStore'
 import { cn } from '@/lib/utils'
 
 export default function App() {
-  const { view, elderly } = useAppStore()
+  const { view, elderly, highContrast } = useAppStore()
 
   // 외부 정책 카탈로그(public/policies.json) 런타임 병합 — 있으면 자동 확장
   useEffect(() => {
     loadExternalCatalog()
   }, [])
 
-  // 큰글씨 모드 → <html>에 클래스 토글
+  // 접근성 모드 → <html>에 클래스 토글
   useEffect(() => {
     document.documentElement.classList.toggle('elderly-mode', elderly)
-  }, [elderly])
+    document.documentElement.classList.toggle('high-contrast', highContrast)
+  }, [elderly, highContrast])
 
   return (
     <div className={cn('min-h-screen bg-background')}>

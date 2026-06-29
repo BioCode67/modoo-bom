@@ -203,6 +203,23 @@
   .print-foot { margin-top: 14px; border-top: 1px solid #cbd5e1; padding-top: 8px; font-size: 11px; color: #666; }
 }
 
+/* 고대비(저시력) 모드 — 텍스트/테두리 대비 강화 */
+.high-contrast {
+  --foreground: 0 0% 8%;
+  --muted-foreground: 0 0% 22%;
+  --border: 150 20% 55%;
+  --primary: 145 80% 28%;
+}
+.high-contrast .text-muted-foreground { color: hsl(0 0% 25%) !important; }
+.high-contrast a { text-decoration: underline; }
+.high-contrast .card-cute,
+.high-contrast .glass { border-width: 2px !important; border-color: hsl(0 0% 35%) !important; background: #fff !important; }
+.high-contrast .btn-primary { background: #0a6b2f !important; }
+.high-contrast .chip,
+.high-contrast .chip-sprout, .high-contrast .chip-peach, .high-contrast .chip-sky, .high-contrast .chip-sun {
+  border: 1.5px solid currentColor;
+}
+
 /* 큰글씨(어르신) 모드 */
 .elderly-mode { line-height: 1.85; }
 .elderly-mode .text-xs { font-size: 0.9rem !important; }

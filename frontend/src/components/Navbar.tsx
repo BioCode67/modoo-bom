@@ -1,4 +1,4 @@
-import { Home, Search, Compass, Heart, Eye, Sparkles } from 'lucide-react'
+import { Home, Search, Compass, Heart, Eye, Sparkles, Contrast } from 'lucide-react'
 import { useAppStore, type View } from '@/store/useAppStore'
 import { SproutLogo } from '@/ui/SproutLogo'
 import { cn } from '@/lib/utils'
@@ -11,7 +11,7 @@ const NAV: { view: View; label: string; icon: typeof Home }[] = [
 ]
 
 export function Navbar() {
-  const { view, setView, elderly, toggleElderly, tracked } = useAppStore()
+  const { view, setView, elderly, toggleElderly, highContrast, toggleHighContrast, tracked } = useAppStore()
   const savedCount = tracked.length
 
   return (
@@ -57,6 +57,18 @@ export function Navbar() {
             >
               <Eye className="h-4 w-4" />
               <span className="hidden sm:inline">{elderly ? '큰글씨 ON' : '큰글씨'}</span>
+            </button>
+            <button
+              onClick={toggleHighContrast}
+              title={highContrast ? '일반 대비' : '고대비(저시력용)'}
+              aria-pressed={highContrast}
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold border-2 transition-colors',
+                highContrast ? 'bg-foreground text-background border-foreground' : 'bg-white border-sprout-100 text-muted-foreground hover:border-sprout-200',
+              )}
+            >
+              <Contrast className="h-4 w-4" />
+              <span className="hidden sm:inline">고대비</span>
             </button>
             <button onClick={() => setView('analyze')} className="btn-primary !px-4 !py-2 hidden sm:inline-flex">
               <Sparkles className="h-4 w-4" />
