@@ -14,6 +14,10 @@ export interface TrackedItem {
   savedAt: number
   /** 사용자가 직접 체크한 준비 완료 서류 */
   checkedDocs: string[]
+  /** 신청 완료(applied)로 표시한 시점 — 심사 기간/기한 계산 기준 */
+  appliedAt?: number
+  /** 마지막으로 진행상황을 점검한 시점 — 재점검 알림 계산 기준 */
+  lastChecked?: number
 }
 
 interface AppState {
@@ -37,6 +41,7 @@ interface AppState {
   toggleSaved: (p: { id: string; name: string; category: string }) => void
   setStatus: (policyId: string, status: AppStatus) => void
   toggleDoc: (policyId: string, doc: string) => void
+  markChecked: (policyId: string) => void
   removeTracked: (policyId: string) => void
 }
 
@@ -71,7 +76,14 @@ export const useAppStore = create<AppState>()(
           }
         }),
       setStatus: (policyId, status) =>
-        set((s) => ({ tracked: s.tracked.map((t) => (t.policyId === policyId ? { ...t, status } : t)) })),
+        set((s) => ({
+          tracked: s.tracked.map((t) => {
+            if (t.policyId !== policyId) return t
+            // 신청 완료로 바뀌는 순간 신청일을 기록(심사 기간/기한 계산 기준)
+            const appliedAt = status === 'applied' && !t.appliedAt ? Date.now() : t.appliedAt
+            return { ...t, status, appliedAt }
+          }),
+        })),
       toggleDoc: (policyId, doc) =>
         set((s) => ({
           tracked: s.tracked.map((t) => {
@@ -80,6 +92,8 @@ export const useAppStore = create<AppState>()(
             return { ...t, checkedDocs: has ? t.checkedDocs.filter((d) => d !== doc) : [...t.checkedDocs, doc] }
           }),
         })),
+      markChecked: (policyId) =>
+        set((s) => ({ tracked: s.tracked.map((t) => (t.policyId === policyId ? { ...t, lastChecked: Date.now() } : t)) })),
       removeTracked: (policyId) => set((s) => ({ tracked: s.tracked.filter((t) => t.policyId !== policyId) })),
     }),
     {

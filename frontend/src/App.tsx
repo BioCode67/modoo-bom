@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { Navbar } from '@/components/Navbar'
 import { Home } from '@/sections/Home'
 import { Analyze } from '@/sections/Analyze'
@@ -23,20 +23,18 @@ export default function App() {
       <Navbar />
 
       <main id="main" className="pb-20 md:pb-0">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={view}
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.3 }}
-          >
-            {view === 'home' && <Home />}
-            {view === 'analyze' && <Analyze />}
-            {view === 'explore' && <Explore />}
-            {view === 'my' && <My />}
-          </motion.div>
-        </AnimatePresence>
+        {/* 뷰 전환: key 변경으로 새 뷰를 즉시 마운트(enter-only). exit 대기 deadlock 방지. */}
+        <motion.div
+          key={view}
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          {view === 'home' && <Home />}
+          {view === 'analyze' && <Analyze />}
+          {view === 'explore' && <Explore />}
+          {view === 'my' && <My />}
+        </motion.div>
       </main>
 
       <ChatWidget />

@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Trash2, ChevronDown, FileText, ExternalLink, Info } from 'lucide-react'
+import { ExternalLink as ExtLink, RefreshCw } from 'lucide-react'
 import type { Policy } from '@/data/policies'
 import { useAppStore, type AppStatus, type TrackedItem } from '@/store/useAppStore'
 import { categoryMeta, parseMonthly, formatWon } from '@/lib/format'
+import { monitorItem } from '@/lib/monitoring'
 import { cn } from '@/lib/utils'
 
 export const STATUS_META: Record<AppStatus, { label: string; cls: string; emoji: string }> = {
@@ -15,12 +17,13 @@ export const STATUS_META: Record<AppStatus, { label: string; cls: string; emoji:
 const STATUS_ORDER: AppStatus[] = ['idle', 'tracking', 'applied', 'done']
 
 export function TrackedCard({ item, policy, onOpen }: { item: TrackedItem; policy: Policy | undefined; onOpen: () => void }) {
-  const { setStatus, toggleDoc, removeTracked } = useAppStore()
+  const { setStatus, toggleDoc, removeTracked, markChecked } = useAppStore()
   const [open, setOpen] = useState(false)
   const meta = categoryMeta(item.category)
   const monthly = policy ? parseMonthly(policy.benefit) : 0
   const docs = policy?.required_docs ?? []
   const doneDocs = docs.filter((d) => item.checkedDocs.includes(d)).length
+  const mon = monitorItem(item, policy)
 
   return (
     <motion.div layout initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} className="card-cute p-4">
@@ -49,6 +52,24 @@ export function TrackedCard({ item, policy, onOpen }: { item: TrackedItem; polic
             {STATUS_META[s].emoji}<br />{STATUS_META[s].label}
           </button>
         ))}
+      </div>
+
+      {/* 다음 할 일 */}
+      <div className="mt-3 rounded-xl bg-sprout-50 px-3 py-2">
+        <p className="text-[11px] font-bold text-sprout-700">다음 할 일</p>
+        <p className="text-xs text-sprout-700/90 mt-0.5 leading-relaxed">{mon.nextAction}</p>
+        {item.status === 'applied' && (
+          <a
+            href={mon.statusCheck.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => markChecked(item.policyId)}
+            className={cn('mt-2 inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-bold transition-colors',
+              mon.reCheckDue ? 'bg-amber-400 text-white hover:bg-amber-500' : 'bg-white border border-sprout-200 text-sprout-700 hover:bg-sprout-50')}
+          >
+            <RefreshCw className="h-3 w-3" /> {mon.reCheckDue ? '지금 점검하기' : '진행상황 점검'} <ExtLink className="h-3 w-3" />
+          </a>
+        )}
       </div>
 
       <div className="mt-3 flex items-center justify-between text-sm">

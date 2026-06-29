@@ -7,6 +7,7 @@ import { TrackedCard, STATUS_META } from '@/components/TrackedCard'
 import { PolicyDetailDrawer } from '@/components/PolicyDetailDrawer'
 import { CompareModal } from '@/components/CompareModal'
 import { DocumentCenter } from '@/components/DocumentCenter'
+import { MonitorFeed } from '@/components/MonitorFeed'
 import { useAppStore, type AppStatus } from '@/store/useAppStore'
 import { parseMonthly, formatWon } from '@/lib/format'
 import { StaticMascot } from '@/three/MascotCanvas'
@@ -63,6 +64,11 @@ export function My() {
           <SummaryCard icon={<span className="text-lg">📮</span>} value={`${applied}개`} label="신청 진행" />
         </div>
       </motion.div>
+
+      {/* 복지 비서 알림 (사후관리/점검) */}
+      <div className="mt-6">
+        <MonitorFeed onOpenItem={(id) => setSelected(POLICY_MAP[id] ?? null)} />
+      </div>
 
       {/* 필터 + 비교 */}
       <div className="mt-6 flex items-center gap-2 overflow-x-auto nice-scroll pb-1">
