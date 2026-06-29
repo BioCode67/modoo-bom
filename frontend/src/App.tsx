@@ -5,6 +5,7 @@ import { Home } from '@/sections/Home'
 import { Analyze } from '@/sections/Analyze'
 import { Explore } from '@/sections/Explore'
 import { My } from '@/sections/My'
+import { ChatWidget } from '@/components/ChatWidget'
 import { useAppStore } from '@/store/useAppStore'
 import { cn } from '@/lib/utils'
 
@@ -37,6 +38,8 @@ export default function App() {
           </motion.div>
         </AnimatePresence>
       </main>
+
+      <ChatWidget />
     </div>
   )
 }
