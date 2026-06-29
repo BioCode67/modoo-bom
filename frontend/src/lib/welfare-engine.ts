@@ -247,8 +247,19 @@ function checkPolicyDoc(doc: string, name: string, p: UserProfile): CheckResult 
       return { eligible: true, reason: `소득 중위소득 ${p.income_percentile}%로 생계급여(기초생활) 기준 충족`, priority: 'high', confidence: 0.87 }
     return NO
   }
-  if (anyIn(doc, ['중위소득 60%', '중위소득 63%'])) {
+  // 중위소득 65/63/60% — 한부모(2026년 65%로 확대) 등. 넓은 기준 순서로 정밀 검사.
+  if (anyIn(doc, ['중위소득 65%'])) {
+    if (p.income_percentile <= 65)
+      return { eligible: true, reason: `소득 중위소득 ${p.income_percentile}%로 기준 충족`, priority: 'medium', confidence: 0.82 }
+    return NO
+  }
+  if (anyIn(doc, ['중위소득 63%'])) {
     if (p.income_percentile <= 63)
+      return { eligible: true, reason: `소득 중위소득 ${p.income_percentile}%로 기준 충족`, priority: 'medium', confidence: 0.82 }
+    return NO
+  }
+  if (anyIn(doc, ['중위소득 60%'])) {
+    if (p.income_percentile <= 60)
       return { eligible: true, reason: `소득 중위소득 ${p.income_percentile}%로 기준 충족`, priority: 'medium', confidence: 0.82 }
     return NO
   }

@@ -81,6 +81,14 @@ describe('checkPolicy 소득 정밀 선정기준 (2026: 생계32·의료40·주�
     expect(checkPolicy(mk('생계·의료·주거·교육급여 수급자'), at(50)).eligible).toBe(true)
     expect(checkPolicy(mk('생계·의료·주거·교육급여 수급자'), at(51)).eligible).toBe(false)
   })
+  it('한부모(중위 65%, 2026 확대): 65% 적격, 66% 부적격', () => {
+    expect(checkPolicy(mk('중위소득 65% 이하 한부모'), at(65)).eligible).toBe(true)
+    expect(checkPolicy(mk('중위소득 65% 이하 한부모'), at(66)).eligible).toBe(false)
+  })
+  it('중위 60% 정책: 60% 적격, 61% 부적격(63%로 과대포함하던 것 정밀화)', () => {
+    expect(checkPolicy(mk('중위소득 60% 이하'), at(60)).eligible).toBe(true)
+    expect(checkPolicy(mk('중위소득 60% 이하'), at(61)).eligible).toBe(false)
+  })
 })
 
 describe('searchPolicies', () => {
