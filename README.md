@@ -10,10 +10,15 @@
 (OpenAI/Claude 키와 FastAPI 백엔드를 연결하면 LLM 분석·RPA 자동발급 등 고급 기능이 활성화됩니다.)
 
 **주요 기능**
-- 🔎 **확인/조회** — 1분 프로필 위저드 + AI 자격 판정, 120여 종 정책 탐색·검색
-- 🧮 **선택/관리** — 관심목록·신청 상태 관리·혜택 계산기·정책 비교(나의 복지)
-- 🚀 **신청** — 단계별 가이드, 서류 준비 도우미, 정부24·복지로 스마트 연동
-- 🎨 **3D 카툰 UI** — 새싹 마스코트(React Three Fiber) + framer-motion, 반응형·큰글씨·reduced-motion 대응
+- 🔎 **확인/조회** — 1분 프로필 위저드 + 자격 판정, 120여 종 정책 탐색·검색, **대화형 AI 상담 챗봇**(연령·상황·소득으로 좁혀 추천)
+- 🧮 **선택/관리** — 관심목록·신청 상태 관리·혜택 계산기·정책 비교, **복지 수혜 점수**(미수령 사각지대 +지금 챙길 TOP3)
+- 📅 **사후관리** — 신청 준비·진행 점검·갱신 자동 알림(복지 비서), **복지 캘린더 + .ics 내보내기**
+- 🚀 **신청** — 단계별 가이드, 서류 준비 도우미, 정부24·복지로 스마트 연동, **에이전트 반자동 신청**(백엔드 시, 인증·최종제출은 본인)
+- 🔮 **혁신** — **생애주기 시뮬레이터**(미래 받을 복지), **긴급복지 빠른 진단**(위기 상황), **우리 가족 복지 한눈에**(가구 단위), **결과 공유**(이미지 카드)
+- ♿ **접근성** — **음성 입력·음성 안내(TTS)**, 큰글씨, 인쇄/PDF("내 복지 안내서"), reduced-motion
+- 🎨 **3D 카툰 UI / PWA** — 새싹 마스코트(React Three Fiber, 지연 로딩) + framer-motion, 반응형, **설치형·오프라인 PWA**
+
+**품질**: ESLint(0) · 단위 테스트(vitest 15 + pytest 12) · TypeScript · ErrorBoundary
 
 ### 배포 (정적 사이트)
 
@@ -155,15 +160,25 @@ docker compose up --build
 
 ## 아키텍처
 
+**이중 모드** — 배포(정적)에서는 백엔드 없이 완전 동작, 백엔드 연결 시 LLM·RPA 고급 기능 활성화.
+
 ```
-[React 18 + Vite + shadcn/ui]
-         ↕ WebSocket (실시간 노드 이벤트 스트리밍)
-[FastAPI + LangGraph 10노드 StateGraph]
-         ↕
-[ChromaDB RAG (120건)] + [Claude / Mock] + [정부24 API Mock]
+[프론트엔드 — 항상 동작 / GitHub Pages]
+  React 18 + Vite + TypeScript + TailwindCSS
+  React Three Fiber(3D) · framer-motion · zustand(persist) · PWA
+  └ 클라이언트 복지 엔진(welfare-engine.ts) + 정책 카탈로그(catalog.ts)
+        ↕  (백엔드 감지 시에만)
+[백엔드 — 선택 / 로컬·서버]
+  FastAPI + LangGraph 10노드 + Claude(langchain-anthropic) + ChromaDB RAG
+  + Playwright RPA(정부24·복지로·건보·고용24)
+        ↕
+[공공데이터 ETL] 한국사회보장정보원 복지서비스 → public/policies.json
 ```
 
-### LangGraph 10노드 플로우
+- **클라이언트 엔진**: 백엔드 `mock_responses.py`의 자격판정·키워드·가이드·혜택계산을 TS로 포팅 → 브라우저에서 즉시 실행.
+- **백엔드(선택)**: 아래 LangGraph 10노드 파이프라인 + 실제 RPA. 프론트가 `useBackend`로 감지해 있으면 연결.
+
+### (선택 백엔드) LangGraph 10노드 플로우
 
 ```
 ① profile_analyzer   → 프로필 분석 + 키워드 추출
@@ -202,7 +217,7 @@ docker compose up --build
 | `GET` | `/api/health` | 서버 상태 + DB 정보 |
 | `POST` | `/api/search` | 복지 정책 RAG 검색 |
 | `POST` | `/api/documents/issue` | 서류 발급 (Mock) |
-| `POST` | `/api/admin/seed` | ChromaDB 50건 시딩 |
+| `POST` | `/api/admin/seed` | ChromaDB 120건 시딩 |
 | `GET` | `/api/admin/env` | 환경변수 상태 확인 |
 
 ---
@@ -211,37 +226,29 @@ docker compose up --build
 
 ```
 modoo-bom/
-├── backend/
-│   ├── main.py                      # FastAPI 진입점
-│   ├── requirements.txt
-│   ├── agents/
-│   │   ├── state.py                 # AgentState (Pydantic + operator.add)
-│   │   ├── graph.py                 # LangGraph StateGraph 조립
-│   │   ├── mock_responses.py        # Anthropic API 없이 동작하는 Mock
-│   │   └── nodes/                   # 10개 노드 (각 파일)
-│   ├── rag/
-│   │   ├── sample_data.py           # 복지 정책 50건
-│   │   ├── embedder.py              # ChromaDB 임베딩 + 검색
-│   │   └── chromadb_client.py
-│   ├── api/
-│   │   ├── routes.py                # REST API
-│   │   └── websocket.py             # WebSocket 스트리밍
-│   ├── mocks/gov24_api.py           # 정부24 API Mock
-│   └── tests/
-│       ├── conftest.py
-│       └── test_mock_mode.py        # 유닛 + 통합 테스트
-└── frontend/
+├── backend/                         # 선택 — FastAPI + LangGraph + RPA
+│   ├── main.py                      # FastAPI 진입점 (REST + WebSocket)
+│   ├── agents/                      # state.py, graph.py, mock_responses.py, nodes/(10노드)
+│   ├── rag/sample_data.py           # 복지 정책 120건 (+ embedder/chromadb)
+│   ├── api/                         # routes.py(REST), websocket.py, chat.py
+│   ├── rpa/                         # Playwright 자동화: gov24/nhis/work24/apply + base/manager
+│   ├── etl/ingest_welfare.py        # 공공데이터 → policies.json (중앙 --api / 지자체 --local / CSV)
+│   └── tests/test_mock_mode.py      # pytest 12
+└── frontend/                        # 메인 — 백엔드 없이 동작 (정적 배포)
     ├── src/
-    │   ├── App.tsx                  # 3단계 상태: idle→running→complete
-    │   ├── hooks/useAgentWebSocket.ts
-    │   ├── components/
-    │   │   ├── NodeStatusPanel.tsx  # 실시간 노드 상태 + 실행시간
-    │   │   ├── ProfileForm.tsx      # 4종 데모 프로필
-    │   │   ├── Dashboard.tsx        # 탭형 결과 대시보드
-    │   │   ├── PolicyList.tsx
-    │   │   └── DocumentList.tsx
-    │   └── types/index.ts
-    └── package.json
+    │   ├── App.tsx                  # 셸 + 상태기반 뷰(home/analyze/explore/my) + 챗봇/공유/인쇄
+    │   ├── data/                    # policies.ts(120건 시드), catalog.ts(런타임 병합), useCatalog
+    │   ├── lib/                     # welfare-engine, simulate, monitoring, calendar, emergency,
+    │   │                            #   guidedChat, share, useSpeech, useTTS, useBackend, format …
+    │   ├── store/useAppStore.ts     # zustand persist (관심·상태·프로필·rpaInfo)
+    │   ├── three/                   # SproutMascot, HeroScene, MascotCanvas(지연 로딩)
+    │   ├── sections/                # Home(Hero/HowItWorks/Features/Faq), Analyze, Explore, My
+    │   ├── components/              # ProfileWizard, ResultsView, WelfareScore, FutureWelfare,
+    │   │                            #   MonitorFeed, WelfareCalendar, HouseholdAnalyzer,
+    │   │                            #   EmergencyHelp, DocumentCenter, AgentSubmitButton,
+    │   │                            #   PolicyCard/Drawer, BenefitCharts, ChatWidget, ShareButton …
+    │   └── lib/*.test.ts            # vitest 15 (engine/simulate)
+    └── public/                      # favicon, 404.html, robots.txt, (policies.json: ETL 생성)
 ```
 
 ---
