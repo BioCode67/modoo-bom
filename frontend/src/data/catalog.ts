@@ -60,10 +60,13 @@ export async function loadExternalCatalog(): Promise<number> {
     const list: unknown[] = Array.isArray(data) ? data : Array.isArray(data?.policies) ? data.policies : []
     const merged = new Map<string, Policy>(Object.entries(MAP))
     const before = merged.size
+    // 시드(큐레이션·상세)가 외부(요약)보다 우선 — 같은 이름은 시드 유지
+    const seedNames = new Set([...merged.values()].map((p) => p.name.replace(/\s/g, '')))
     for (const item of list) {
       if (!item || typeof item !== 'object') continue
       const p = normalize(item as Record<string, unknown>)
       if (!p.id || !p.name) continue
+      if (seedNames.has(p.name.replace(/\s/g, ''))) continue // 시드와 이름 중복 → 스킵
       merged.set(p.id, p)
     }
     if (merged.size !== before) {
