@@ -30,7 +30,7 @@ def mock_profile_analysis(profile) -> dict:
         ages = profile.children_ages or []
         if any(a < 2 for a in ages):
             keywords += ["영아", "부모급여", "아동수당"]
-        elif any(a < 8 for a in ages):
+        elif any(a < 9 for a in ages):
             keywords += ["아동수당", "보육료", "유아학비"]
         if any(a < 18 for a in ages):
             keywords += ["아동", "교육급여"]
@@ -126,9 +126,10 @@ def _check_policy(doc: str, name: str, pid: str, profile) -> tuple[bool, str, st
         return False, "", "low", 0.0
 
     # ── 아동·영유아 계열 ──────────────────────────────────────────────────
-    if "만 8세 미만" in doc or "0세~7세" in doc or "만 0~7세" in doc:
-        if profile.has_children and any(a < 8 for a in (profile.children_ages or [])):
-            return True, "만 8세 미만 자녀 보유", "high", 0.97
+    if any(k in doc for k in ["만 9세 미만", "만 0~8세", "만 8세 미만", "0세~7세", "만 0~7세"]):
+        # 아동수당: 2026년 만 8세 미만 → 9세 미만으로 확대(매년 1세씩 상향)
+        if profile.has_children and any(a < 9 for a in (profile.children_ages or [])):
+            return True, "만 9세 미만 자녀 보유", "high", 0.97
         return False, "", "low", 0.0
 
     if any(k in doc for k in ["만 0~5세", "만 0~2세", "영아", "만 24개월"]):
