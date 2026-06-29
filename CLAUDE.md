@@ -55,6 +55,13 @@ src/
 └── ui/                     # SproutLogo, SectionHeading
 ```
 
+### 복지정책 카탈로그 (확장 가능)
+- 프론트는 **동적 카탈로그**(`src/data/catalog.ts`): 내장 시드 120건 + 런타임에 `public/policies.json` 병합
+  (`useCatalog` 훅으로 자동 리렌더). 엔진/탐색기/챗봇/대시보드/모니터링 모두 `getCatalog()`/`getPolicyMap()` 사용.
+- **ETL**(`backend/etl/ingest_welfare.py`): 공공데이터(한국사회보장정보원 중앙부처 복지서비스)를 Policy 스키마로
+  정규화해 `frontend/public/policies.json` 생성. CSV 모드(키 불필요, 367건) / OpenAPI 모드(B554287, 1,600+건).
+  실데이터만 처리(가짜 미생성). 확장 후 `npm run deploy`로 반영. → "사이트마다 흩어진 정책" 문제 해결책.
+
 ### 에이전트 자동화 / 사후관리 — 정직한 현실 (중요)
 실제 동작 범위를 과장하지 말 것. 코드 검증 기준:
 - **서류 발급/신청 RPA**(`backend/rpa/*.py`, Playwright): 정부24·복지로·건보·고용24 **실제 페이지 자동화**. chromium 설치됨, 스택 구동 확인. 단 **headed 모드 + 카카오 본인인증은 사용자가 직접**, **최종 제출도 사용자 확인**(비가역·법적 행위라 의도된 안전장치). `apply_rpa`는 이름만 자동 입력 후 멈춤. **정적 배포 사이트에선 백엔드가 없어 미동작** → 공식 링크 안내로 폴백.

@@ -22,6 +22,22 @@ cd frontend
 npm run deploy   # 빌드 후 gh-pages 브랜치로 배포 → GitHub Pages
 ```
 
+### 복지정책 카탈로그 확장 (전체 정책 담기)
+
+내장 정책(120건) 외에 **정부 공식 공개데이터**로 카탈로그를 수백~수천 건까지 확장할 수 있어요.
+프론트가 `public/policies.json`을 런타임에 자동 병합하므로 **코드 수정 없이** 늘어납니다.
+
+```bash
+cd backend && source venv/bin/activate
+# (쉬움) 키 없이 — 복지로 중앙부처 367건 CSV를 받아서:
+#   https://www.data.go.kr/data/15083323/fileData.do → 다운로드
+python etl/ingest_welfare.py --csv ~/Downloads/한국사회보장정보원_복지서비스정보_*.csv
+# (포괄) 무료 키로 — 중앙부처 1,600+건:
+#   export DATA_GO_KR_SERVICE_KEY=발급키 ; python etl/ingest_welfare.py --api
+cd ../frontend && npm run deploy
+```
+자세한 안내: [backend/etl/README.md](backend/etl/README.md)
+
 ---
 
 ## 지금 바로 실행하기 (풀스택 로컬 개발)
