@@ -55,6 +55,13 @@ src/
 └── ui/                     # SproutLogo, SectionHeading
 ```
 
+### 에이전트 자동화 / 사후관리 — 정직한 현실 (중요)
+실제 동작 범위를 과장하지 말 것. 코드 검증 기준:
+- **서류 발급/신청 RPA**(`backend/rpa/*.py`, Playwright): 정부24·복지로·건보·고용24 **실제 페이지 자동화**. chromium 설치됨, 스택 구동 확인. 단 **headed 모드 + 카카오 본인인증은 사용자가 직접**, **최종 제출도 사용자 확인**(비가역·법적 행위라 의도된 안전장치). `apply_rpa`는 이름만 자동 입력 후 멈춤. **정적 배포 사이트에선 백엔드가 없어 미동작** → 공식 링크 안내로 폴백.
+- **완전 무인 자동 제출은 설계상 불가**(정부 본인인증 필수 + 비가역). human-in-the-loop가 정답.
+- **사후관리/모니터링**: 과거 `result_tracker`는 `random.choice`로 가짜 상태를 날조 → **제거함**. 이제 정직한 안내만. 실제 추적은 **프론트 `나의 복지`의 모니터링 엔진**(`src/lib/monitoring.ts`)이 사용자 기록(신청일/점검일)+정책 갱신주기로 서류미비·신청권유·진행점검·갱신임박을 산출(배포에서도 동작). 정부 서버 실시간 상태조회는 사용자 세션 없이는 불가 → 공식 조회 링크로 안내.
+- 프론트 자동화 게이팅: `src/lib/useBackend.ts`(백엔드 감지) → 있으면 RPA(`AgentSubmitButton`/`DocumentCenter`), 없으면 가이드.
+
 ### 배포 — GitHub Pages (정적)
 - **라이브: https://biocode67.github.io/modoo-bom/** · `gh-pages` 브랜치 서빙(legacy build)
 - 재배포: `cd frontend && npm run deploy` (build → gh-pages 푸시)
