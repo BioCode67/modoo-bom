@@ -85,10 +85,12 @@ export function extractKeywords(p: UserProfile): { summary: string; keywords: st
   if (p.employment_status === 'unemployed') {
     keywords = keywords.concat(['실업급여', '취업지원', '구직', '국민취업지원제도'])
   }
-  if (p.income_percentile <= 30) {
-    keywords = keywords.concat(['기초생활', '생계급여', '의료급여', '저소득'])
-  } else if (p.income_percentile <= 50) {
-    keywords = keywords.concat(['차상위', '저소득', '주거급여'])
+  // 소득 기반 급여 — 2026 정밀 선정기준(생계32·의료40·주거48·교육50·차상위50, medianIncome.ts 기준)
+  if (p.income_percentile <= 50) {
+    keywords = keywords.concat(['저소득', '교육급여', '차상위'])
+    if (p.income_percentile <= 48) keywords = keywords.concat(['주거급여'])
+    if (p.income_percentile <= 40) keywords = keywords.concat(['의료급여'])
+    if (p.income_percentile <= 32) keywords = keywords.concat(['기초생활', '생계급여'])
   }
   if (p.household_type === '한부모가족' || p.household_type === '조손가구') {
     keywords = keywords.concat(['한부모', '양육비'])
@@ -223,20 +225,26 @@ function checkPolicyDoc(doc: string, name: string, p: UserProfile): CheckResult 
     return NO
   }
 
-  // ── 저소득·기초생활 계열 ──
-  if (anyIn(doc, ['기초생활수급자', '의료급여 수급자', '중위소득 30%'])) {
-    if (p.income_percentile <= 30)
-      return { eligible: true, reason: `소득 중위소득 ${p.income_percentile}%로 기초생활 기준 충족`, priority: 'high', confidence: 0.87 }
+  // ── 저소득·기초생활 계열 (2026 정밀 선정기준: 생계32·의료40·주거48·교육/차상위50, medianIncome.ts) ──
+  // 여러 급여를 동시에 언급하는 포괄형 정책은 가장 넓은 기준이 적용되도록 넓은 순서로 검사.
+  if (anyIn(doc, ['교육급여', '차상위', '중위소득 50%'])) {
+    if (p.income_percentile <= 50)
+      return { eligible: true, reason: `소득 중위소득 ${p.income_percentile}%로 교육급여·차상위 기준 충족`, priority: 'medium', confidence: 0.84 }
     return NO
   }
-  if (anyIn(doc, ['기초생활수급자 및 차상위', '차상위계층'])) {
-    if (p.income_percentile <= 50)
-      return { eligible: true, reason: `소득 중위소득 ${p.income_percentile}%로 차상위 기준 충족`, priority: 'medium', confidence: 0.85 }
+  if (anyIn(doc, ['주거급여', '중위소득 48%'])) {
+    if (p.income_percentile <= 48)
+      return { eligible: true, reason: `소득 중위소득 ${p.income_percentile}%로 주거급여 기준 충족`, priority: 'medium', confidence: 0.85 }
     return NO
   }
-  if (anyIn(doc, ['중위소득 48%', '중위소득 50%'])) {
-    if (p.income_percentile <= 50)
-      return { eligible: true, reason: `소득 중위소득 ${p.income_percentile}%로 기준 충족`, priority: 'medium', confidence: 0.84 }
+  if (anyIn(doc, ['의료급여', '중위소득 40%'])) {
+    if (p.income_percentile <= 40)
+      return { eligible: true, reason: `소득 중위소득 ${p.income_percentile}%로 의료급여 기준 충족`, priority: 'high', confidence: 0.86 }
+    return NO
+  }
+  if (anyIn(doc, ['생계급여', '기초생활수급자', '중위소득 30%', '중위소득 32%'])) {
+    if (p.income_percentile <= 32)
+      return { eligible: true, reason: `소득 중위소득 ${p.income_percentile}%로 생계급여(기초생활) 기준 충족`, priority: 'high', confidence: 0.87 }
     return NO
   }
   if (anyIn(doc, ['중위소득 60%', '중위소득 63%'])) {

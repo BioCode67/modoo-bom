@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import {
   extractKeywords, getEligiblePolicies, searchPolicies,
-  estimateBenefits, runAnalysis, type UserProfile,
+  estimateBenefits, runAnalysis, checkPolicy, type UserProfile,
 } from './welfare-engine'
+import type { Policy } from '@/data/policies'
 
 const base: UserProfile = {
   name: '', age: 30, gender: 'other', region: '', household_type: '',
@@ -51,6 +52,34 @@ describe('getEligiblePolicies', () => {
   })
   it('연령 미달이면 노인 정책 제외(35세는 기초연금 아님)', () => {
     expect(getEligiblePolicies({ ...base, age: 35 }).some((p) => p.id === 'POL-001')).toBe(false)
+  })
+})
+
+describe('checkPolicy 소득 정밀 선정기준 (2026: 생계32·의료40·주거48·교육/차상위50)', () => {
+  const at = (pct: number): UserProfile => ({ ...base, income_percentile: pct })
+  const mk = (eligibility: string): Policy => ({
+    id: 'T', name: '테스트복지', category: '저소득', target: eligibility, benefit: '',
+    eligibility, required_docs: [], application: '', department: '', renewal: '',
+  })
+  it('생계급여(32%): 32% 적격, 33% 부적격', () => {
+    expect(checkPolicy(mk('중위소득 32% 이하'), at(32)).eligible).toBe(true)
+    expect(checkPolicy(mk('중위소득 32% 이하'), at(33)).eligible).toBe(false)
+  })
+  it('의료급여(40%): 40% 적격, 41% 부적격 (이전엔 30% 초과면 누락되던 구간)', () => {
+    expect(checkPolicy(mk('의료급여 수급자'), at(40)).eligible).toBe(true)
+    expect(checkPolicy(mk('의료급여 수급자'), at(41)).eligible).toBe(false)
+  })
+  it('주거급여(48%): 48% 적격, 49% 부적격', () => {
+    expect(checkPolicy(mk('주거급여 대상'), at(48)).eligible).toBe(true)
+    expect(checkPolicy(mk('주거급여 대상'), at(49)).eligible).toBe(false)
+  })
+  it('교육급여·차상위(50%): 50% 적격, 51% 부적격', () => {
+    expect(checkPolicy(mk('차상위계층'), at(50)).eligible).toBe(true)
+    expect(checkPolicy(mk('차상위계층'), at(51)).eligible).toBe(false)
+  })
+  it('포괄형(생계·의료·주거·교육급여)은 가장 넓은 50% 기준 적용', () => {
+    expect(checkPolicy(mk('생계·의료·주거·교육급여 수급자'), at(50)).eligible).toBe(true)
+    expect(checkPolicy(mk('생계·의료·주거·교육급여 수급자'), at(51)).eligible).toBe(false)
   })
 })
 
