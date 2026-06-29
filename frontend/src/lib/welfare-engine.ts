@@ -296,13 +296,50 @@ export function checkPolicy(policy: Policy, p: UserProfile): CheckResult {
   return checkPolicyDoc(doc, policy.name, p)
 }
 
+// 요약본(공공데이터) 정책은 정밀 룰의 정형 문구가 없어 룰 매칭이 어렵다.
+// 프로필 '상황 신호'와 자연어 키워드가 맞으면 저신뢰(검토) 후보로 surfacing — 과장 없이.
+const TEXT_SIGNALS: { id: string; match: (p: UserProfile) => boolean; kw: RegExp; reason: string }[] = [
+  { id: 'senior', match: (p) => p.age >= 65, kw: /노인|어르신|고령|경로|장기요양/, reason: '어르신 대상' },
+  { id: 'youth', match: (p) => p.age >= 19 && p.age <= 34, kw: /청년|대학생|구직|취업준비/, reason: '청년 대상' },
+  { id: 'child', match: (p) => p.has_children, kw: /아동|영유아|보육|어린이|유아|육아|자녀/, reason: '자녀 양육 가구' },
+  { id: 'teen', match: (p) => p.children_ages.some((a) => a >= 7 && a <= 18), kw: /청소년|학생|교육|학습|방과후/, reason: '학령기 자녀' },
+  { id: 'birth', match: (p) => p.is_pregnant || p.children_ages.some((a) => a <= 1), kw: /임신|임산부|출산|산모|영아|난임/, reason: '임신·출산 가구' },
+  { id: 'disability', match: (p) => p.disability, kw: /장애/, reason: '등록 장애인' },
+  { id: 'lowincome', match: (p) => p.income_percentile <= 50, kw: /저소득|기초생활|차상위|수급|긴급복지/, reason: '저소득 가구' },
+  { id: 'single', match: (p) => p.household_type.includes('한부모'), kw: /한부모|모자|부자가정|조손/, reason: '한부모·조손 가구' },
+  { id: 'jobless', match: (p) => p.employment_status === 'unemployed', kw: /실업|실직|구직|일자리|재취업|고용/, reason: '구직 중' },
+  { id: 'multi', match: (p) => p.household_type.includes('다문화'), kw: /다문화|결혼이민|외국인주민|북한이탈/, reason: '다문화 가구' },
+]
+
+function inferFromText(policy: Policy, p: UserProfile): CheckResult | null {
+  const text = `${policy.name} ${policy.category} ${policy.benefit}`
+  const matched = TEXT_SIGNALS.filter((s) => s.match(p) && s.kw.test(text))
+  if (matched.length === 0) return null
+  return {
+    eligible: true,
+    reason: `${matched.map((m) => m.reason).join('·')} 관련 복지예요. 자세한 자격은 상세에서 확인하세요.`,
+    priority: 'low',
+    confidence: Math.min(0.5 + matched.length * 0.06, 0.68),
+  }
+}
+
+/** 요약본(공공데이터) 정책 여부 — 정밀 룰 대신 텍스트 신호로 보조 매칭 */
+function isSummaryPolicy(policy: Policy): boolean {
+  return /^(GOV|LOC)-/.test(policy.id) && policy.target === policy.eligibility
+}
+
 const PRIORITY_RANK: Record<'high' | 'medium' | 'low', number> = { high: 3, medium: 2, low: 1 }
 
 // 전체 적격 정책 리스트 — priority(high>medium>low) → confidence desc 정렬
 export function getEligiblePolicies(p: UserProfile): EligiblePolicy[] {
   const result: EligiblePolicy[] = []
   for (const policy of getCatalog()) {
-    const c = checkPolicy(policy, p)
+    let c = checkPolicy(policy, p)
+    // 정밀 룰이 못 잡은 요약본(공공데이터) 정책은 상황 신호로 보조 매칭
+    if (!c.eligible && isSummaryPolicy(policy)) {
+      const inferred = inferFromText(policy, p)
+      if (inferred) c = inferred
+    }
     if (c.eligible) {
       result.push({ ...policy, reason: c.reason, priority: c.priority, confidence: c.confidence })
     }
