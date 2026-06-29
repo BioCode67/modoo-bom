@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Search, X } from 'lucide-react'
+import { Search, X, Mic } from 'lucide-react'
+import { useSpeech } from '@/lib/useSpeech'
+import { cn } from '@/lib/utils'
 import type { Policy } from '@/data/policies'
 import { useCatalog } from '@/data/useCatalog'
 import type { EligiblePolicy } from '@/lib/welfare-engine'
@@ -27,6 +29,7 @@ export function Explore() {
   const [bucket, setBucket] = useState('all')
   const [selected, setSelected] = useState<Policy | EligiblePolicy | null>(null)
   const catalog = useCatalog()
+  const { supported: micOk, listening, toggle: toggleMic } = useSpeech((text) => setQ(text))
 
   const filtered = useMemo(() => {
     const query = q.trim().toLowerCase()
@@ -55,8 +58,14 @@ export function Explore() {
             aria-label="정책 검색"
           />
           {q && (
-            <button onClick={() => setQ('')} aria-label="검색어 지우기" className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1.5 hover:bg-muted">
+            <button onClick={() => setQ('')} aria-label="검색어 지우기" className="absolute right-12 top-1/2 -translate-y-1/2 rounded-full p-1.5 hover:bg-muted">
               <X className="h-4 w-4" />
+            </button>
+          )}
+          {micOk && (
+            <button onClick={toggleMic} aria-label={listening ? '음성 입력 중지' : '음성으로 검색'}
+              className={cn('absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-2 transition-colors', listening ? 'bg-rose-500 text-white animate-pulse' : 'text-sprout-600 hover:bg-sprout-50')}>
+              <Mic className="h-4 w-4" />
             </button>
           )}
         </div>

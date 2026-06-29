@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { MessageCircleHeart, X, Send } from 'lucide-react'
+import { MessageCircleHeart, X, Send, Mic } from 'lucide-react'
 import type { Policy } from '@/data/policies'
 import { getCatalog } from '@/data/catalog'
 import { parseMonthly, formatWon } from '@/lib/format'
 import { applyLink } from '@/lib/officialLinks'
+import { useSpeech } from '@/lib/useSpeech'
 import { SproutLogo } from '@/ui/SproutLogo'
+import { cn } from '@/lib/utils'
 
 interface Msg { role: 'user' | 'bot'; text: string }
 
@@ -61,6 +63,9 @@ export function ChatWidget() {
     setTimeout(() => setMsgs((m) => [...m, { role: 'bot', text: answer(q) }]), 350)
   }
 
+  // 음성으로 질문 → 바로 전송
+  const { supported: micOk, listening, toggle: toggleMic } = useSpeech((text) => send(text))
+
   return (
     <>
       <button
@@ -109,9 +114,15 @@ export function ChatWidget() {
 
             <form onSubmit={(e) => { e.preventDefault(); send(input) }} className="p-3 flex gap-2">
               <input
-                value={input} onChange={(e) => setInput(e.target.value)} placeholder="복지 질문을 입력하세요"
+                value={input} onChange={(e) => setInput(e.target.value)} placeholder={listening ? '듣고 있어요…' : '복지 질문을 입력하세요'}
                 className="flex-1 rounded-xl border-2 border-sprout-100 bg-white px-3 py-2 text-sm focus-ring" aria-label="질문 입력"
               />
+              {micOk && (
+                <button type="button" onClick={toggleMic} aria-label={listening ? '음성 입력 중지' : '음성으로 질문'}
+                  className={cn('rounded-xl px-3 border-2 transition-colors', listening ? 'bg-rose-500 border-rose-500 text-white animate-pulse' : 'bg-white border-sprout-100 text-sprout-600 hover:border-sprout-300')}>
+                  <Mic className="h-4 w-4" />
+                </button>
+              )}
               <button type="submit" className="btn-primary !px-3" aria-label="전송"><Send className="h-4 w-4" /></button>
             </form>
           </motion.div>
