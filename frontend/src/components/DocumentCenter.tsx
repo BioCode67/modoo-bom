@@ -16,15 +16,26 @@ export function DocumentCenter() {
 
   useEffect(() => { checkBackend().then(setBackend) }, [])
 
-  // 담은 정책들의 필요 서류 합집합
-  const docs = useMemo(() => {
+  // 담은 정책들의 필요 서류 → 어떤 복지들에 필요한지까지 집계 (공통 서류 우선 준비)
+  const docNeeds = useMemo(() => {
     const map = getPolicyMap()
-    const set = new Set<string>()
-    tracked.forEach((t) => map[t.policyId]?.required_docs.forEach((d) => set.add(d)))
-    return [...set]
+    const m = new Map<string, string[]>()
+    tracked.forEach((t) => map[t.policyId]?.required_docs.forEach((d) => {
+      const arr = m.get(d) ?? []
+      const nm = map[t.policyId]?.name
+      if (nm && !arr.includes(nm)) arr.push(nm)
+      m.set(d, arr)
+    }))
+    // 여러 복지에 공통으로 필요한 서류를 위로 정렬
+    return [...m.entries()].sort((a, b) => b[1].length - a[1].length)
   }, [tracked])
 
-  if (docs.length === 0) return null
+  if (docNeeds.length === 0) return null
+  const docs = docNeeds.map(([d]) => d)
+  const needText = (doc: string) => {
+    const ns = docNeeds.find(([d]) => d === doc)?.[1] ?? []
+    return ns.length > 1 ? `${ns[0]} 외 ${ns.length - 1}곳에 필요` : `${ns[0]}에 필요`
+  }
 
   const startRpa = async (doc: string) => {
     setRpa((s) => ({ ...s, [doc]: { status: 'running', step: '시작 중…' } }))
@@ -83,7 +94,10 @@ export function DocumentCenter() {
                     <span className="text-muted-foreground truncate">{st.step || st.status}</span>
                   </p>
                 ) : (
-                  <p className="text-xs text-muted-foreground truncate">{link.label}</p>
+                  <>
+                    <p className="text-xs text-sprout-600 font-semibold truncate">{needText(doc)}</p>
+                    <p className="text-[11px] text-muted-foreground truncate">{link.label}</p>
+                  </>
                 )}
               </div>
               <div className="flex shrink-0 gap-1.5">
