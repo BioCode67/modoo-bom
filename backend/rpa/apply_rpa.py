@@ -17,7 +17,7 @@
 import asyncio
 from rpa.base import (
     take_screenshot, wait_for_login,
-    click_first_matching, make_browser_context_args,
+    click_first_matching, click_by_text, make_browser_context_args,
     click_kakaotalk_in_anyid, detect_auth_form, AUTH_FORM_USER_GUIDE,
     LOGIN_PAGE_URL_KEYWORDS,
 )
@@ -68,6 +68,8 @@ async def _login_bokjiro(page, task) -> bool:
         "[onclick*='easy']", "[data-tab='easy']",
     ]
     clicked_simple = await click_first_matching(page, simple_selectors)
+    if not clicked_simple:
+        clicked_simple = await click_by_text(page, ["간편인증", "간편 인증", "간편로그인", "간편 로그인"])
     if clicked_simple:
         await asyncio.sleep(2)
 

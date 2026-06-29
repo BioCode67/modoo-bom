@@ -15,7 +15,7 @@
 import asyncio
 from rpa.base import (
     take_screenshot, wait_for_login,
-    click_first_matching, make_browser_context_args,
+    click_first_matching, click_by_text, make_browser_context_args,
     click_kakaotalk_in_anyid, detect_auth_form, AUTH_FORM_USER_GUIDE,
     LOGIN_PAGE_URL_KEYWORDS,
 )
@@ -95,9 +95,11 @@ async def _login_on_www_gov(page, task) -> bool:
     ss = await take_screenshot(page)
     task.update("running", "www.gov.kr 로그인 페이지 — 간편인증 탭 선택 중...", ss)
 
-    # 간편인증 탭 클릭
+    # 간편인증 탭 클릭 (CSS 셀렉터 → role/text 폴백)
     await asyncio.sleep(1.5)
     simple_clicked = await click_first_matching(page, SIMPLE_AUTH_SELECTORS)
+    if not simple_clicked:
+        simple_clicked = await click_by_text(page, ["간편인증", "간편 인증", "간편로그인", "간편 로그인"])
     if simple_clicked:
         await asyncio.sleep(2)
         ss = await take_screenshot(page)

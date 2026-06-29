@@ -235,6 +235,33 @@ async def wait_for_login(
     return False
 
 
+async def click_by_text(page, texts: list, roles=("link", "button", "tab", "menuitem", "listitem")) -> bool:
+    """
+    역할(role)·텍스트 기반으로 요소를 찾아 클릭. CSS 클래스 변경에 강함.
+    정부 사이트가 마크업을 바꿔도 '간편인증' 같은 표시 텍스트로 탐색.
+    """
+    for t in texts:
+        for role in roles:
+            try:
+                el = page.get_by_role(role, name=t)
+                if await el.count() > 0:
+                    await el.first.scroll_into_view_if_needed()
+                    await el.first.click()
+                    await asyncio.sleep(1)
+                    return True
+            except Exception:
+                continue
+        try:
+            el = page.get_by_text(t, exact=False)
+            if await el.count() > 0:
+                await el.first.click()
+                await asyncio.sleep(1)
+                return True
+        except Exception:
+            continue
+    return False
+
+
 async def click_first_matching(page, selectors: list) -> bool:
     """선택자 목록 중 첫 번째로 찾은 요소 클릭. 성공 여부 반환."""
     for sel in selectors:
