@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Heart, Wallet, Scale, Sparkles, Compass } from 'lucide-react'
-import { WELFARE_POLICIES, type Policy } from '@/data/policies'
+import type { Policy } from '@/data/policies'
+import { getPolicyMap } from '@/data/catalog'
 import type { EligiblePolicy } from '@/lib/welfare-engine'
 import { TrackedCard, STATUS_META } from '@/components/TrackedCard'
 import { PolicyDetailDrawer } from '@/components/PolicyDetailDrawer'
@@ -12,8 +13,6 @@ import { useAppStore, type AppStatus } from '@/store/useAppStore'
 import { parseMonthly, formatWon } from '@/lib/format'
 import { StaticMascot } from '@/three/MascotCanvas'
 import { cn } from '@/lib/utils'
-
-const POLICY_MAP: Record<string, Policy> = Object.fromEntries(WELFARE_POLICIES.map((p) => [p.id, p]))
 
 const FILTERS: { key: AppStatus | 'all'; label: string }[] = [
   { key: 'all', label: '전체' },
@@ -28,6 +27,7 @@ export function My() {
   const [filter, setFilter] = useState<AppStatus | 'all'>('all')
   const [selected, setSelected] = useState<Policy | EligiblePolicy | null>(null)
   const [compare, setCompare] = useState(false)
+  const POLICY_MAP = getPolicyMap()
 
   const totalMonthly = useMemo(
     () => tracked.reduce((sum, t) => sum + (POLICY_MAP[t.policyId] ? parseMonthly(POLICY_MAP[t.policyId].benefit) : 0), 0),

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { MessageCircleHeart, X, Send } from 'lucide-react'
-import { WELFARE_POLICIES, type Policy } from '@/data/policies'
+import type { Policy } from '@/data/policies'
+import { getCatalog } from '@/data/catalog'
 import { parseMonthly, formatWon } from '@/lib/format'
 import { applyLink } from '@/lib/officialLinks'
 import { SproutLogo } from '@/ui/SproutLogo'
@@ -14,7 +15,7 @@ const SUGGESTIONS = ['기초연금', '출산·육아', '청년', '실업급여']
 function tokenSearch(q: string, limit = 3): Policy[] {
   const tokens = (q.toLowerCase().match(/[가-힣a-z0-9]+/g) || []).filter((t) => t.length >= 2)
   if (tokens.length === 0) return []
-  const scored = WELFARE_POLICIES.map((p) => {
+  const scored = getCatalog().map((p) => {
     const hay = (p.name + ' ' + p.category + ' ' + p.target + ' ' + p.eligibility + ' ' + p.benefit).toLowerCase()
     let score = 0
     for (const t of tokens) {

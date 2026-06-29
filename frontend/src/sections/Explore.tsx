@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Search, X } from 'lucide-react'
-import { WELFARE_POLICIES, type Policy } from '@/data/policies'
+import type { Policy } from '@/data/policies'
+import { useCatalog } from '@/data/useCatalog'
 import type { EligiblePolicy } from '@/lib/welfare-engine'
 import { PolicyCard } from '@/components/PolicyCard'
 import { PolicyDetailDrawer } from '@/components/PolicyDetailDrawer'
@@ -25,22 +26,23 @@ export function Explore() {
   const [q, setQ] = useState('')
   const [bucket, setBucket] = useState('all')
   const [selected, setSelected] = useState<Policy | EligiblePolicy | null>(null)
+  const catalog = useCatalog()
 
   const filtered = useMemo(() => {
     const query = q.trim().toLowerCase()
     const b = BUCKETS.find((x) => x.key === bucket)
-    return WELFARE_POLICIES.filter((p) => {
+    return catalog.filter((p) => {
       if (b?.match && !b.match.some((m) => p.category.includes(m))) return false
       if (!query) return true
       return (p.name + p.category + p.target + p.eligibility + p.benefit).toLowerCase().includes(query)
     })
-  }, [q, bucket])
+  }, [q, bucket, catalog])
 
   return (
     <div className="page-container py-8 sm:py-10">
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
         <h1 className="text-2xl sm:text-3xl font-extrabold">정책 탐색 <span className="gradient-text">🧭</span></h1>
-        <p className="text-muted-foreground mt-1">120여 개 복지 정책을 검색하고 둘러보세요.</p>
+        <p className="text-muted-foreground mt-1">{catalog.length.toLocaleString()}개 복지 정책을 검색하고 둘러보세요.</p>
 
         {/* 검색 */}
         <div className="mt-5 relative max-w-xl">

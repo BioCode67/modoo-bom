@@ -1,12 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { FileText, ExternalLink, Bot, Loader2, CheckCircle2, AlertCircle } from 'lucide-react'
-import { WELFARE_POLICIES, type Policy } from '@/data/policies'
+import { getPolicyMap } from '@/data/catalog'
 import { useAppStore } from '@/store/useAppStore'
 import { docLink, isRpaSupported } from '@/lib/officialLinks'
 import { checkBackend, API_BASE } from '@/lib/backend'
-
-const POLICY_MAP: Record<string, Policy> = Object.fromEntries(WELFARE_POLICIES.map((p) => [p.id, p]))
 
 type RpaState = { status: string; step: string } | null
 
@@ -19,8 +17,9 @@ export function DocumentCenter() {
 
   // 담은 정책들의 필요 서류 합집합
   const docs = useMemo(() => {
+    const map = getPolicyMap()
     const set = new Set<string>()
-    tracked.forEach((t) => POLICY_MAP[t.policyId]?.required_docs.forEach((d) => set.add(d)))
+    tracked.forEach((t) => map[t.policyId]?.required_docs.forEach((d) => set.add(d)))
     return [...set]
   }, [tracked])
 

@@ -6,11 +6,17 @@ import { Analyze } from '@/sections/Analyze'
 import { Explore } from '@/sections/Explore'
 import { My } from '@/sections/My'
 import { ChatWidget } from '@/components/ChatWidget'
+import { loadExternalCatalog } from '@/data/catalog'
 import { useAppStore } from '@/store/useAppStore'
 import { cn } from '@/lib/utils'
 
 export default function App() {
   const { view, elderly } = useAppStore()
+
+  // 외부 정책 카탈로그(public/policies.json) 런타임 병합 — 있으면 자동 확장
+  useEffect(() => {
+    loadExternalCatalog()
+  }, [])
 
   // 큰글씨 모드 → <html>에 클래스 토글
   useEffect(() => {

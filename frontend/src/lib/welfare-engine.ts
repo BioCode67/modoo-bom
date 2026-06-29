@@ -1,6 +1,7 @@
 // 클라이언트 사이드 복지 엔진 — backend/agents/mock_responses.py + api/routes.py(/estimate) 포팅.
 // 백엔드 없이 브라우저에서 동일한 키워드·규칙 기반 로직을 재현한다. 순수 함수, 외부 의존성 없음.
-import { Policy, WELFARE_POLICIES } from '@/data/policies'
+import type { Policy } from '@/data/policies'
+import { getCatalog } from '@/data/catalog'
 
 export interface UserProfile {
   name: string
@@ -300,7 +301,7 @@ const PRIORITY_RANK: Record<'high' | 'medium' | 'low', number> = { high: 3, medi
 // 전체 적격 정책 리스트 — priority(high>medium>low) → confidence desc 정렬
 export function getEligiblePolicies(p: UserProfile): EligiblePolicy[] {
   const result: EligiblePolicy[] = []
-  for (const policy of WELFARE_POLICIES) {
+  for (const policy of getCatalog()) {
     const c = checkPolicy(policy, p)
     if (c.eligible) {
       result.push({ ...policy, reason: c.reason, priority: c.priority, confidence: c.confidence })
@@ -559,7 +560,7 @@ export function searchPolicies(query: string, opts?: { category?: string; limit?
   const category = opts?.category
   const limit = opts?.limit
 
-  let pool = WELFARE_POLICIES
+  let pool = getCatalog()
   if (category) {
     pool = pool.filter((p) => p.category === category)
   }

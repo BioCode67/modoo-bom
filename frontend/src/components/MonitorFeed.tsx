@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion'
 import { Bell, FileText, Rocket, RefreshCw, CalendarClock, ExternalLink, CheckCircle2 } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
-import { POLICY_MAP } from '@/lib/policyMap'
+import { getPolicyMap } from '@/data/catalog'
 import { buildActionFeed, type Alert } from '@/lib/monitoring'
 import { applyLink } from '@/lib/officialLinks'
 import { cn } from '@/lib/utils'
@@ -17,7 +17,7 @@ const LEVEL_CLS: Record<Alert['level'], string> = {
 
 export function MonitorFeed({ onOpenItem }: { onOpenItem: (policyId: string) => void }) {
   const { tracked, markChecked, setStatus } = useAppStore()
-  const feed = buildActionFeed(tracked, POLICY_MAP)
+  const feed = buildActionFeed(tracked, getPolicyMap())
 
   return (
     <motion.section initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="card-cute p-5 sm:p-6 bg-gradient-to-br from-sprout-50 via-white to-sky2-50">
