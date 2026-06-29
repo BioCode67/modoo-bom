@@ -6,6 +6,7 @@ import type { Policy } from '@/data/policies'
 import { PolicyCard } from '@/components/PolicyCard'
 import { PolicyDetailDrawer } from '@/components/PolicyDetailDrawer'
 import { BenefitBreakdown, CategoryDistribution } from '@/components/BenefitCharts'
+import { FutureWelfare } from '@/components/FutureWelfare'
 import { formatWon } from '@/lib/format'
 import { useAppStore } from '@/store/useAppStore'
 
@@ -84,6 +85,9 @@ export function ResultsView({ result, profile, onReset }: { result: AnalysisResu
           </div>
         </>
       )}
+
+      {/* 생애주기 시뮬레이터 — 앞으로 받을 복지 미리보기 */}
+      <FutureWelfare profile={profile} onOpen={setSelected} />
 
       <PolicyDetailDrawer policy={selected} onClose={() => setSelected(null)} />
     </div>
