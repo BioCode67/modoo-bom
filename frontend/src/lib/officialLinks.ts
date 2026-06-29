@@ -30,6 +30,16 @@ export function docLink(doc: string): OfficialLink {
 /** 정책 신청 채널 → 공식 신청 링크 */
 export function applyLink(application: string): OfficialLink {
   const a = application || ''
+  // 공공데이터 정책은 application 자체가 복지로 상세 딥링크(…?wlfareInfoId=WLF…)인 경우가 많다.
+  // 일반 홈으로 보내지 말고 해당 복지의 정확한 상세/신청 페이지로 바로 연결한다.
+  const m = a.match(/https?:\/\/\S+/)
+  if (m) {
+    const url = m[0]
+    if (url.includes('bokjiro')) return { label: '복지로 상세페이지에서 신청', url }
+    if (url.includes('work24')) return { label: '고용24에서 신청', url }
+    if (url.includes('gov.kr')) return { label: '정부24에서 신청', url }
+    return { label: '공식 사이트에서 신청', url }
+  }
   if (a.includes('복지로')) return { label: '복지로에서 신청', url: 'https://www.bokjiro.go.kr' }
   if (a.includes('고용24') || a.includes('고용센터') || a.includes('work'))
     return { label: '고용24에서 신청', url: 'https://www.work24.go.kr' }
