@@ -5,6 +5,7 @@ import type { EligiblePolicy } from '@/lib/welfare-engine'
 import { generateGuides } from '@/lib/welfare-engine'
 import { categoryMeta, parseMonthly, formatWon, PRIORITY_META } from '@/lib/format'
 import { docLink, applyLink } from '@/lib/officialLinks'
+import { AgentSubmitButton } from '@/components/AgentSubmitButton'
 import { useAppStore } from '@/store/useAppStore'
 import { cn } from '@/lib/utils'
 
@@ -133,6 +134,9 @@ function DrawerBody({
             {guide.tips && <p className="mt-3 rounded-xl bg-sun-100 px-3 py-2 text-xs text-yellow-800">💡 {guide.tips}</p>}
           </Section>
         )}
+
+        {/* 에이전트 자동 신청 (지원 서비스 + 백엔드 있을 때) */}
+        <AgentSubmitButton policy={policy} />
 
         {/* 필요 서류 */}
         {policy.required_docs?.length > 0 && (

@@ -47,3 +47,12 @@ export function isRpaSupported(doc: string): boolean {
   const d = doc.replace(/\s/g, '')
   return RPA_SUPPORTED_DOCS.some((s) => d.includes(s.replace(/\s/g, '')) || s.replace(/\s/g, '').includes(d))
 }
+
+/** 에이전트(RPA) 신청 자동화 지원 서비스 (백엔드 manager.py SUPPORTED_SERVICE_NAMES와 일치) */
+export const APPLY_AUTOMATABLE = [
+  '기초연금', '아동수당', '부모급여', '청년 내일저축계좌', '첫만남이용권', '기초생활 생계급여',
+]
+export function isApplyAutomatable(name: string): boolean {
+  const n = (name || '').replace(/\s/g, '')
+  return APPLY_AUTOMATABLE.some((s) => n.includes(s.replace(/\s/g, '')) || s.replace(/\s/g, '').includes(n))
+}

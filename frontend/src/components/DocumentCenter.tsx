@@ -56,7 +56,10 @@ export function DocumentCenter() {
           <span className="chip-sky">공식 사이트 바로가기</span>
         )}
       </div>
-      <p className="text-sm text-muted-foreground mt-1">담은 복지에 필요한 서류 {docs.length}종이에요. 발급처로 바로 이동하거나 자동으로 발급하세요.</p>
+      <p className="text-sm text-muted-foreground mt-1">
+        담은 복지에 필요한 서류 {docs.length}종이에요. 발급처로 바로 이동하거나{backend ? ' 에이전트로 자동 발급하세요.' : ' 직접 발급하세요.'}
+        {backend && <span className="block mt-0.5 text-xs">🔒 카카오 본인인증은 보안을 위해 본인이 직접 진행해요.</span>}
+      </p>
 
       <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
         {docs.map((doc) => {
