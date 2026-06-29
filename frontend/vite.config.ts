@@ -1,12 +1,44 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
 
 // GitHub Pages(project site)는 /modoo-bom/ 하위에 서빙되므로 빌드 시 base를 맞춘다.
 // 개발 서버는 루트('/')를 사용.
 export default defineConfig(({ command }) => ({
   base: command === 'build' ? '/modoo-bom/' : '/',
-  plugins: [react()],
+  plugins: [
+    react(),
+    VitePWA({
+      registerType: 'autoUpdate',
+      includeAssets: ['favicon.svg'],
+      // 해시 자산만 precache(안전), 새 배포 시 자동 갱신. policies.json은 항상 네트워크 우선.
+      workbox: {
+        cleanupOutdatedCaches: true,
+        navigateFallbackDenylist: [/policies\.json$/],
+        runtimeCaching: [
+          {
+            urlPattern: /policies\.json$/,
+            handler: 'NetworkFirst',
+            options: { cacheName: 'policies', expiration: { maxEntries: 2, maxAgeSeconds: 86400 } },
+          },
+        ],
+      },
+      manifest: {
+        name: '모두봄 — 내 복지 혜택 찾기',
+        short_name: '모두봄',
+        description: 'AI가 찾아주는 맞춤 복지. 확인부터 신청·관리까지.',
+        theme_color: '#22c55e',
+        background_color: '#fffaf3',
+        display: 'standalone',
+        lang: 'ko',
+        icons: [
+          { src: 'favicon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
+          { src: 'favicon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'maskable' },
+        ],
+      },
+    }),
+  ],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
