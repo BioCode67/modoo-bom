@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { RotateCcw, Heart, TrendingUp, Bell, PartyPopper, Printer } from 'lucide-react'
+import { RotateCcw, Heart, TrendingUp, Bell, PartyPopper, Printer, Volume2, Square } from 'lucide-react'
+import { useTTS } from '@/lib/useTTS'
 import type { AnalysisResult, UserProfile, EligiblePolicy } from '@/lib/welfare-engine'
 import type { Policy } from '@/data/policies'
 import { PolicyCard } from '@/components/PolicyCard'
@@ -16,6 +17,16 @@ export function ResultsView({ result, profile, onReset }: { result: AnalysisResu
   const eligible = result.eligible_policies
   const monthly = result.portfolio_summary.total_monthly ?? 0
   const highCount = eligible.filter((p) => p.priority === 'high').length
+  const tts = useTTS()
+
+  const speakSummary = () => {
+    const names = eligible.slice(0, 5).map((p) => p.name).join(', ')
+    tts.toggle(
+      `${profile.name || '회원'}님이 받을 수 있는 복지는 ${eligible.length}개입니다. ` +
+      (monthly > 0 ? `예상 월 합계는 ${formatWon(monthly)}입니다. ` : '') +
+      (names ? `주요 혜택은 ${names} 등입니다. 자세한 내용은 각 항목을 눌러 확인하세요.` : ''),
+    )
+  }
 
   return (
     <div className="page-container py-8 sm:py-10">
@@ -40,6 +51,11 @@ export function ResultsView({ result, profile, onReset }: { result: AnalysisResu
             <button onClick={onReset} className="btn-secondary !py-2.5"><RotateCcw className="h-4 w-4" /> 다시 분석</button>
             <button onClick={() => setView('my')} className="btn-primary !py-2.5"><Heart className="h-4 w-4" /> 나의 복지에서 관리</button>
             <button onClick={() => window.print()} className="btn-secondary !py-2.5"><Printer className="h-4 w-4" /> 인쇄·저장</button>
+            {tts.supported && (
+              <button onClick={speakSummary} className="btn-secondary !py-2.5" aria-label={tts.speaking ? '읽기 중지' : '결과 읽어주기'}>
+                {tts.speaking ? <Square className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />} {tts.speaking ? '중지' : '읽어주기'}
+              </button>
+            )}
           </div>
         </div>
       </motion.div>

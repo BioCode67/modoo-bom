@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Heart, ExternalLink, FileText, CheckCircle2, Building2, RefreshCw, Rocket } from 'lucide-react'
+import { X, Heart, ExternalLink, FileText, CheckCircle2, Building2, RefreshCw, Rocket, Volume2, Square } from 'lucide-react'
+import { useTTS } from '@/lib/useTTS'
 import type { Policy } from '@/data/policies'
 import type { EligiblePolicy } from '@/lib/welfare-engine'
 import { generateGuides } from '@/lib/welfare-engine'
@@ -85,6 +86,11 @@ function DrawerBody({
   const saved = ctx.isSaved(policy.id)
   const guide = generateGuides([toEligible(policy)])[0]
   const eligible = 'priority' in policy ? (policy as EligiblePolicy) : null
+  const tts = useTTS()
+
+  const speakPolicy = () => tts.toggle(
+    `${policy.name}. 혜택 내용. ${policy.benefit}. 지원 대상. ${policy.target}. 자격 요건. ${policy.eligibility}. 신청 방법. ${policy.application}.`,
+  )
 
   const startApply = () => {
     if (!saved) ctx.toggleSaved({ id: policy.id, name: policy.name, category: policy.category })
@@ -103,7 +109,14 @@ function DrawerBody({
             <span className="text-xs font-semibold text-muted-foreground">{policy.category} · {policy.department}</span>
             <h2 className="text-xl font-extrabold leading-tight mt-0.5">{policy.name}</h2>
           </div>
-          <button onClick={onClose} aria-label="닫기" className="rounded-full p-2 hover:bg-muted"><X className="h-5 w-5" /></button>
+          <div className="flex items-center gap-1 shrink-0">
+            {tts.supported && (
+              <button onClick={speakPolicy} aria-label={tts.speaking ? '읽기 중지' : '정책 읽어주기'} className="rounded-full p-2 hover:bg-muted text-sprout-600">
+                {tts.speaking ? <Square className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
+              </button>
+            )}
+            <button onClick={onClose} aria-label="닫기" className="rounded-full p-2 hover:bg-muted"><X className="h-5 w-5" /></button>
+          </div>
         </div>
         {eligible && eligible.priority && (
           <span className={cn('chip mt-3 inline-flex border', PRIORITY_META[eligible.priority].cls)}>
