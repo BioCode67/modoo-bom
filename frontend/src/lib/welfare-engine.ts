@@ -382,7 +382,7 @@ interface GuideTemplate {
 
 const GUIDE_TEMPLATES: Record<string, GuideTemplate> = {
   기초연금: {
-    desc: '만 65세 이상 소득 하위 70% 어르신께 매월 최대 334,810원을 지급하는 국가 연금입니다.',
+    desc: '만 65세 이상 소득 하위 70% 어르신께 매월 최대 349,700원(2026년)을 지급하는 국가 연금입니다.',
     steps: [
       '1단계: 주민등록증 지참, 가까운 주민센터·국민연금공단 방문',
       '2단계: 기초연금 수급 신청서 및 금융정보 제공 동의서 작성',
@@ -457,13 +457,19 @@ export function generateGuides(eligible: EligiblePolicy[]): ApplicationGuide[] {
 // ── 월 지급액 파싱: benefit 문자열에서 "월 ... 334,810원" 형태 첫 금액 추출 ──
 function parseMonthlyAmount(benefit: string): number | null {
   if (!benefit.includes('월')) return null
-  // '월'이 등장한 이후 텍스트에서 첫 번째 "숫자(,숫자)*원" 패턴을 찾는다.
+  // '월' 이후 텍스트에서 '원' 단위를 우선, 없으면 '만원' 단위를 환산해 첫 금액을 찾는다.
   const after = benefit.slice(benefit.indexOf('월'))
-  const m = after.match(/([0-9][0-9,]*)\s*원/)
-  if (!m) return null
-  const n = parseInt(m[1].replace(/,/g, ''), 10)
-  if (Number.isNaN(n)) return null
-  return n
+  const won = after.match(/([0-9][0-9,]*)\s*원/)
+  if (won) {
+    const n = parseInt(won[1].replace(/,/g, ''), 10)
+    if (!Number.isNaN(n)) return n
+  }
+  const man = after.match(/([0-9]+(?:\.[0-9]+)?)\s*만\s*원/)
+  if (man) {
+    const n = Math.round(parseFloat(man[1]) * 10000)
+    if (!Number.isNaN(n)) return n
+  }
+  return null
 }
 
 function buildPortfolio(eligible: EligiblePolicy[]): AnalysisResult['portfolio_summary'] {

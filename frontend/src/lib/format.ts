@@ -31,9 +31,13 @@ export function categoryMeta(category: string): { emoji: string; cls: string } {
   return { emoji: '🌼', cls: 'bg-sprout-100 text-sprout-700' }
 }
 
-/** 혜택 문구에서 월 금액 추정(엔진과 동일 규칙) — 카드 배지용 */
+/** 혜택 문구에서 월 금액 추정(엔진과 동일 규칙) — 카드 배지용.
+ *  '원' 단위(예: 349,700원)를 우선 매칭하고, 없으면 '만원' 단위(예: 23만원, 63.4만원)를 환산.
+ *  원-우선이라 "월 최대 70만원 납입 … 월 최대 33,000원"은 실제 혜택 33,000원으로 잡힌다. */
 export function parseMonthly(benefit: string): number {
-  const m = benefit.match(/월\s*(?:최대\s*)?([0-9,]+)\s*원/)
-  if (m) return parseInt(m[1].replace(/,/g, ''), 10)
+  const won = benefit.match(/월\s*(?:최대\s*)?([0-9,]+)\s*원/)
+  if (won) return parseInt(won[1].replace(/,/g, ''), 10)
+  const man = benefit.match(/월\s*(?:최대\s*)?([0-9]+(?:\.[0-9]+)?)\s*만\s*원/)
+  if (man) return Math.round(parseFloat(man[1]) * 10000)
   return 0
 }
