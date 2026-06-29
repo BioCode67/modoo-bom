@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Search, X, Mic } from 'lucide-react'
+import { Search, X, Mic, ArrowDownWideNarrow } from 'lucide-react'
 import { useSpeech } from '@/lib/useSpeech'
+import { parseMonthly } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import type { Policy } from '@/data/policies'
 import { useCatalog } from '@/data/useCatalog'
@@ -24,9 +25,13 @@ const BUCKETS: { key: string; label: string; emoji: string; match?: string[] }[]
   { key: 'family', label: '가족', emoji: '👨‍👩‍👧', match: ['한부모', '가족', '다문화'] },
 ]
 
+type SortKey = 'default' | 'amount' | 'name'
+
 export function Explore() {
   const [q, setQ] = useState('')
   const [bucket, setBucket] = useState('all')
+  const [sort, setSort] = useState<SortKey>('default')
+  const [onlyCash, setOnlyCash] = useState(false)
   const [selected, setSelected] = useState<Policy | EligiblePolicy | null>(null)
   const catalog = useCatalog()
   const { supported: micOk, listening, toggle: toggleMic } = useSpeech((text) => setQ(text))
@@ -34,12 +39,16 @@ export function Explore() {
   const filtered = useMemo(() => {
     const query = q.trim().toLowerCase()
     const b = BUCKETS.find((x) => x.key === bucket)
-    return catalog.filter((p) => {
+    const list = catalog.filter((p) => {
       if (b?.match && !b.match.some((m) => p.category.includes(m))) return false
+      if (onlyCash && parseMonthly(p.benefit) <= 0) return false
       if (!query) return true
       return (p.name + p.category + p.target + p.eligibility + p.benefit).toLowerCase().includes(query)
     })
-  }, [q, bucket, catalog])
+    if (sort === 'amount') return [...list].sort((a, b2) => parseMonthly(b2.benefit) - parseMonthly(a.benefit))
+    if (sort === 'name') return [...list].sort((a, b2) => a.name.localeCompare(b2.name, 'ko'))
+    return list
+  }, [q, bucket, catalog, sort, onlyCash])
 
   return (
     <div className="page-container py-8 sm:py-10">
@@ -84,10 +93,24 @@ export function Explore() {
             </button>
           ))}
         </div>
+        {/* 정렬·필터 */}
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <ArrowDownWideNarrow className="h-4 w-4 text-muted-foreground" />
+          {([['default', '기본순'], ['amount', '금액 높은순'], ['name', '이름순']] as [SortKey, string][]).map(([k, l]) => (
+            <button key={k} onClick={() => setSort(k)}
+              className={cn('rounded-full px-3 py-1.5 text-xs font-semibold border transition-colors', sort === k ? 'bg-sprout-500 border-sprout-500 text-white' : 'bg-white border-sprout-100 text-muted-foreground hover:border-sprout-200')}>
+              {l}
+            </button>
+          ))}
+          <button onClick={() => setOnlyCash((v) => !v)}
+            className={cn('ml-1 rounded-full px-3 py-1.5 text-xs font-semibold border transition-colors', onlyCash ? 'bg-peach-400 border-peach-400 text-white' : 'bg-white border-sprout-100 text-muted-foreground hover:border-sprout-200')}>
+            💰 현금성만
+          </button>
+        </div>
       </motion.div>
 
       <p className="mt-5 text-sm text-muted-foreground">
-        총 <b className="text-foreground">{filtered.length}</b>개 정책
+        총 <b className="text-foreground">{filtered.length}</b>개 정책{onlyCash ? ' · 현금성' : ''}{sort === 'amount' ? ' · 금액순' : sort === 'name' ? ' · 이름순' : ''}
       </p>
 
       {filtered.length === 0 ? (
@@ -103,7 +126,7 @@ export function Explore() {
         </div>
       )}
 
-      <PolicyDetailDrawer policy={selected} onClose={() => setSelected(null)} />
+      <PolicyDetailDrawer policy={selected} onClose={() => setSelected(null)} onOpen={setSelected} />
     </div>
   )
 }

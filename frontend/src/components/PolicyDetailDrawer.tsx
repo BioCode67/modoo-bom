@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { X, Heart, ExternalLink, FileText, CheckCircle2, Building2, RefreshCw, Rocket, Volume2, Square } from 'lucide-react'
 import { useTTS } from '@/lib/useTTS'
 import type { Policy } from '@/data/policies'
+import { getCatalog } from '@/data/catalog'
 import type { EligiblePolicy } from '@/lib/welfare-engine'
 import { generateGuides } from '@/lib/welfare-engine'
 import { categoryMeta, parseMonthly, formatWon, PRIORITY_META } from '@/lib/format'
@@ -19,9 +20,11 @@ function toEligible(p: Policy | EligiblePolicy): EligiblePolicy {
 export function PolicyDetailDrawer({
   policy,
   onClose,
+  onOpen,
 }: {
   policy: Policy | EligiblePolicy | null
   onClose: () => void
+  onOpen?: (p: Policy | EligiblePolicy) => void
 }) {
   const { isSaved, toggleSaved, setStatus, setView } = useAppStore()
 
@@ -59,7 +62,7 @@ export function PolicyDetailDrawer({
             aria-modal="true"
             aria-label={`${policy.name} 상세`}
           >
-            <DrawerBody policy={policy} onClose={onClose} ctx={{ isSaved, toggleSaved, setStatus, setView }} />
+            <DrawerBody policy={policy} onClose={onClose} onOpen={onOpen} ctx={{ isSaved, toggleSaved, setStatus, setView }} />
           </motion.aside>
         </>
       )}
@@ -70,10 +73,12 @@ export function PolicyDetailDrawer({
 function DrawerBody({
   policy,
   onClose,
+  onOpen,
   ctx,
 }: {
   policy: Policy | EligiblePolicy
   onClose: () => void
+  onOpen?: (p: Policy | EligiblePolicy) => void
   ctx: {
     isSaved: (id: string) => boolean
     toggleSaved: (p: { id: string; name: string; category: string }) => void
@@ -87,6 +92,10 @@ function DrawerBody({
   const guide = generateGuides([toEligible(policy)])[0]
   const eligible = 'priority' in policy ? (policy as EligiblePolicy) : null
   const tts = useTTS()
+  const related = onOpen
+    ? getCatalog().filter((p) => p.category === policy.category && p.id !== policy.id)
+        .sort((a, b) => parseMonthly(b.benefit) - parseMonthly(a.benefit)).slice(0, 3)
+    : []
 
   const speakPolicy = () => tts.toggle(
     `${policy.name}. 혜택 내용. ${policy.benefit}. 지원 대상. ${policy.target}. 자격 요건. ${policy.eligibility}. 신청 방법. ${policy.application}.`,
@@ -189,6 +198,26 @@ function DrawerBody({
           <span className="inline-flex items-center gap-1.5"><Building2 className="h-3.5 w-3.5" /> {policy.department}</span>
           <span className="inline-flex items-center gap-1.5"><RefreshCw className="h-3.5 w-3.5" /> 갱신: {policy.renewal}</span>
         </div>
+
+        {/* 함께 보면 좋은 복지 */}
+        {related.length > 0 && onOpen && (
+          <Section title="🔗 함께 보면 좋은 복지">
+            <ul className="space-y-1.5">
+              {related.map((r) => {
+                const rm = parseMonthly(r.benefit)
+                return (
+                  <li key={r.id}>
+                    <button onClick={() => onOpen(r)} className="w-full flex items-center gap-2 rounded-xl border border-sprout-100 px-3 py-2 text-left hover:bg-sprout-50 transition-colors">
+                      <span>{categoryMeta(r.category).emoji}</span>
+                      <span className="flex-1 text-sm font-semibold truncate">{r.name}</span>
+                      {rm > 0 && <span className="text-xs font-bold text-sprout-600 shrink-0">월 {formatWon(rm)}</span>}
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          </Section>
+        )}
       </div>
 
       {/* 하단 고정 액션 */}

@@ -111,7 +111,7 @@ export function ResultsView({ result, profile, onReset }: { result: AnalysisResu
       {/* 생애주기 시뮬레이터 — 앞으로 받을 복지 미리보기 */}
       <FutureWelfare profile={profile} onOpen={setSelected} />
 
-      <PolicyDetailDrawer policy={selected} onClose={() => setSelected(null)} />
+      <PolicyDetailDrawer policy={selected} onClose={() => setSelected(null)} onOpen={setSelected} />
     </div>
   )
 }

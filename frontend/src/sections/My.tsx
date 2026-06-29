@@ -111,7 +111,7 @@ export function My() {
 
       <DocumentCenter />
 
-      <PolicyDetailDrawer policy={selected} onClose={() => setSelected(null)} />
+      <PolicyDetailDrawer policy={selected} onClose={() => setSelected(null)} onOpen={setSelected} />
       {compare && <CompareModal policies={comparePolicies} onClose={() => setCompare(false)} />}
     </div>
   )
