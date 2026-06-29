@@ -76,6 +76,17 @@ src/
 - ⚠️ 푸시 토큰에 `workflow` 스코프가 없어 `.github/workflows`는 푸시 불가 → Actions 대신
   `gh-pages` 브랜치 + Pages REST API 방식으로 배포함.
 
+### 기능·품질 현황 (전문화 완료)
+- **기능**: 3D 카툰 히어로(지연 마운트), 프로필 위저드+분석, 정책 탐색(검색/필터), 나의 복지
+  (관심·상태관리·혜택계산·비교·**사후관리 모니터링**), 서류 준비 도우미, 에이전트 신청(백엔드 시),
+  복지 챗봇, **음성 입력**(Web Speech), **결과 인쇄/PDF**("내 복지 안내서"), **포트폴리오 차트**(SVG),
+  **PWA**(설치형·오프라인·autoUpdate), 큰글씨·ESC·ARIA·focus-visible 접근성, ErrorBoundary.
+- **품질 게이트(모두 통과)**: `npm run lint`(eslint9 flat, react-hooks, 0건) · `npm test`(vitest 12) ·
+  `tsc --noEmit` · `npm run build` / 백엔드 `pytest`(12).
+- **scripts**(frontend): `dev` `build` `preview` `lint` `test` `deploy`.
+- 데이터 확장은 `backend/etl/ingest_welfare.py` → `public/policies.json`(런타임 병합). 라이브 카탈로그는
+  실데이터 적재 전까지 시드 120건(가짜 데이터 미생성 원칙).
+
 ---
 
 ## 실행 방법
