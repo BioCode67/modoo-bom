@@ -210,6 +210,21 @@ function DrawerBody({
           </Section>
         )}
 
+        {/* 문의처 — 실사용자가 바로 전화할 수 있게 */}
+        {policy.contact && (() => {
+          const tel = (policy.contact.match(/[\d]{2,4}[-\s]?[\d]{3,4}[-\s]?[\d]{4}|[\d]{3,4}[-\s]?[\d]{4}/) || [])[0]?.replace(/\s/g, '')
+          return (
+            <a
+              href={tel ? `tel:${tel}` : undefined}
+              className="flex items-center gap-2 rounded-2xl bg-sky2-50 border border-sky2-100 px-4 py-3 text-sm font-semibold text-sky2-700"
+            >
+              <Phone className="h-4 w-4 shrink-0" />
+              <span className="flex-1">{policy.contact}</span>
+              {tel && <span className="chip-sky shrink-0">전화걸기</span>}
+            </a>
+          )
+        })()}
+
         <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
           <span className="inline-flex items-center gap-1.5"><Building2 className="h-3.5 w-3.5" /> {policy.department}</span>
           <span className="inline-flex items-center gap-1.5"><RefreshCw className="h-3.5 w-3.5" /> 갱신: {policy.renewal}</span>
