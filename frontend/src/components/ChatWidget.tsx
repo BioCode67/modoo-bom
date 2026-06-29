@@ -95,7 +95,7 @@ export function ChatWidget() {
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto nice-scroll p-3 space-y-2.5 bg-sprout-50/30">
+            <div className="flex-1 overflow-y-auto nice-scroll p-3 space-y-2.5 bg-sprout-50/30" role="log" aria-live="polite" aria-label="대화 내용">
               {msgs.map((m, i) => (
                 <div key={i} className={m.role === 'user' ? 'flex justify-end' : 'flex justify-start'}>
                   <div className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm whitespace-pre-line leading-relaxed ${m.role === 'user' ? 'bg-sprout-500 text-white rounded-br-sm' : 'bg-white border border-sprout-100 rounded-bl-sm'}`}>

@@ -1,9 +1,18 @@
+import { useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X } from 'lucide-react'
 import type { Policy } from '@/data/policies'
 import { parseMonthly, formatWon, categoryMeta } from '@/lib/format'
 
 export function CompareModal({ policies, onClose }: { policies: Policy[]; onClose: () => void }) {
+  useEffect(() => {
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', onKey)
+    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = prevOverflow }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const rows: { label: string; get: (p: Policy) => string }[] = [
     { label: '카테고리', get: (p) => p.category },
     { label: '예상 월 혜택', get: (p) => { const m = parseMonthly(p.benefit); return m > 0 ? `월 ${formatWon(m)}` : '상세 확인' } },

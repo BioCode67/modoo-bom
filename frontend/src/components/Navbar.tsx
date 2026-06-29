@@ -29,6 +29,7 @@ export function Navbar() {
               <button
                 key={v}
                 onClick={() => setView(v)}
+                aria-current={view === v ? 'page' : undefined}
                 className={cn(
                   'relative inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-semibold transition-colors',
                   view === v ? 'bg-sprout-100 text-sprout-700' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
@@ -75,6 +76,7 @@ export function Navbar() {
             <button
               key={v}
               onClick={() => setView(v)}
+              aria-current={view === v ? 'page' : undefined}
               className={cn(
                 'relative flex flex-col items-center gap-0.5 py-2.5 text-[11px] font-semibold transition-colors',
                 view === v ? 'text-sprout-600' : 'text-muted-foreground',

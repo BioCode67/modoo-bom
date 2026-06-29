@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Heart, ExternalLink, FileText, CheckCircle2, Building2, RefreshCw, Rocket } from 'lucide-react'
 import type { Policy } from '@/data/policies'
@@ -22,6 +23,19 @@ export function PolicyDetailDrawer({
   onClose: () => void
 }) {
   const { isSaved, toggleSaved, setStatus, setView } = useAppStore()
+
+  // ESC로 닫기 + 열려있는 동안 배경 스크롤 잠금 (포커스 트랩 없이 안전하게)
+  const open = policy != null
+  useEffect(() => {
+    if (!open) return
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', onKey)
+    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = prevOverflow }
+    // open만 의존: onClose는 매 렌더 새 함수라 deps에 넣으면 churn 발생
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
 
   return (
     <AnimatePresence>
