@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { RotateCcw, Heart, TrendingUp, Bell, PartyPopper } from 'lucide-react'
+import { RotateCcw, Heart, TrendingUp, Bell, PartyPopper, Printer } from 'lucide-react'
 import type { AnalysisResult, UserProfile, EligiblePolicy } from '@/lib/welfare-engine'
 import type { Policy } from '@/data/policies'
 import { PolicyCard } from '@/components/PolicyCard'
@@ -38,6 +38,7 @@ export function ResultsView({ result, profile, onReset }: { result: AnalysisResu
           <div className="mt-5 flex flex-wrap gap-2">
             <button onClick={onReset} className="btn-secondary !py-2.5"><RotateCcw className="h-4 w-4" /> 다시 분석</button>
             <button onClick={() => setView('my')} className="btn-primary !py-2.5"><Heart className="h-4 w-4" /> 나의 복지에서 관리</button>
+            <button onClick={() => window.print()} className="btn-secondary !py-2.5"><Printer className="h-4 w-4" /> 인쇄·저장</button>
           </div>
         </div>
       </motion.div>

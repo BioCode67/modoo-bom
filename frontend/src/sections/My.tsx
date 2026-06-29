@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Heart, Wallet, Scale, Sparkles, Compass } from 'lucide-react'
+import { Heart, Wallet, Scale, Sparkles, Compass, Printer } from 'lucide-react'
 import type { Policy } from '@/data/policies'
 import { getPolicyMap } from '@/data/catalog'
 import type { EligiblePolicy } from '@/lib/welfare-engine'
@@ -85,9 +85,12 @@ export function My() {
             </button>
           )
         })}
-        {comparePolicies.length >= 2 && (
-          <button onClick={() => setCompare(true)} className="shrink-0 ml-auto btn-secondary !py-2 !px-3 text-xs"><Scale className="h-4 w-4" /> 비교</button>
-        )}
+        <div className="shrink-0 ml-auto flex gap-2">
+          {comparePolicies.length >= 2 && (
+            <button onClick={() => setCompare(true)} className="btn-secondary !py-2 !px-3 text-xs"><Scale className="h-4 w-4" /> 비교</button>
+          )}
+          <button onClick={() => window.print()} className="btn-secondary !py-2 !px-3 text-xs"><Printer className="h-4 w-4" /> 인쇄·저장</button>
+        </div>
       </div>
 
       {/* 목록 */}

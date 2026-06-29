@@ -173,6 +173,28 @@
   .text-balance { text-wrap: balance; }
 }
 
+/* ── 인쇄(PDF 저장) ── */
+.print-only { display: none; }
+@media print {
+  .no-print { display: none !important; }
+  .print-only { display: block !important; }
+  html, body { background: #fff !important; }
+  @page { margin: 14mm; }
+  .print-doc { color: #111; font-size: 12px; line-height: 1.5; }
+  .print-head { border-bottom: 2px solid #16a34a; padding-bottom: 8px; margin-bottom: 12px; }
+  .print-head h1 { font-size: 18px; font-weight: 800; margin: 0; color: #15803d; }
+  .print-sub { font-size: 12px; color: #444; margin-top: 2px; }
+  .print-list { list-style: none; padding: 0; margin: 0; }
+  .print-item { border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; page-break-inside: avoid; }
+  .print-item p { margin: 2px 0; }
+  .print-item-head { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px dashed #cbd5e1; padding-bottom: 3px; margin-bottom: 4px; }
+  .print-name { font-weight: 800; font-size: 14px; }
+  .print-cat { font-size: 11px; color: #555; }
+  .print-amount { font-weight: 700; color: #15803d !important; }
+  .print-dept { font-size: 11px; color: #666; margin-top: 3px; }
+  .print-foot { margin-top: 14px; border-top: 1px solid #cbd5e1; padding-top: 8px; font-size: 11px; color: #666; }
+}
+
 /* 큰글씨(어르신) 모드 */
 .elderly-mode { line-height: 1.85; }
 .elderly-mode .text-xs { font-size: 0.9rem !important; }

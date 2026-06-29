@@ -6,6 +6,7 @@ import { Analyze } from '@/sections/Analyze'
 import { Explore } from '@/sections/Explore'
 import { My } from '@/sections/My'
 import { ChatWidget } from '@/components/ChatWidget'
+import { PrintSummary } from '@/components/PrintSummary'
 import { loadExternalCatalog } from '@/data/catalog'
 import { useAppStore } from '@/store/useAppStore'
 import { cn } from '@/lib/utils'
@@ -25,10 +26,10 @@ export default function App() {
 
   return (
     <div className={cn('min-h-screen bg-background')}>
-      <a href="#main" className="skip-link">본문 바로가기</a>
-      <Navbar />
+      <a href="#main" className="skip-link no-print">본문 바로가기</a>
+      <div className="no-print"><Navbar /></div>
 
-      <main id="main" className="pb-20 md:pb-0">
+      <main id="main" className="pb-20 md:pb-0 no-print">
         {/* 뷰 전환: key 변경으로 새 뷰를 즉시 마운트(enter-only). exit 대기 deadlock 방지. */}
         <motion.div
           key={view}
@@ -43,7 +44,8 @@ export default function App() {
         </motion.div>
       </main>
 
-      <ChatWidget />
+      <div className="no-print"><ChatWidget /></div>
+      <PrintSummary />
     </div>
   )
 }
