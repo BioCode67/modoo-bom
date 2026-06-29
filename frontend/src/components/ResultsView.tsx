@@ -5,6 +5,7 @@ import type { AnalysisResult, UserProfile, EligiblePolicy } from '@/lib/welfare-
 import type { Policy } from '@/data/policies'
 import { PolicyCard } from '@/components/PolicyCard'
 import { PolicyDetailDrawer } from '@/components/PolicyDetailDrawer'
+import { BenefitBreakdown, CategoryDistribution } from '@/components/BenefitCharts'
 import { formatWon } from '@/lib/format'
 import { useAppStore } from '@/store/useAppStore'
 
@@ -55,6 +56,14 @@ export function ResultsView({ result, profile, onReset }: { result: AnalysisResu
             </motion.div>
           ))}
         </div>
+      )}
+
+      {/* 포트폴리오 분석 (전문 시각화) */}
+      {eligible.length > 0 && (
+        <section className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <BenefitBreakdown policies={eligible} />
+          <CategoryDistribution policies={eligible} />
+        </section>
       )}
 
       {/* 정책 목록 */}
