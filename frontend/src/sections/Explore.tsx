@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Search, X, Mic, ArrowDownWideNarrow } from 'lucide-react'
 import { useSpeech } from '@/lib/useSpeech'
@@ -26,6 +26,7 @@ const BUCKETS: { key: string; label: string; emoji: string; match?: string[] }[]
 ]
 
 type SortKey = 'default' | 'amount' | 'name'
+const PAGE = 60
 
 export function Explore() {
   const [q, setQ] = useState('')
@@ -33,8 +34,12 @@ export function Explore() {
   const [sort, setSort] = useState<SortKey>('default')
   const [onlyCash, setOnlyCash] = useState(false)
   const [selected, setSelected] = useState<Policy | EligiblePolicy | null>(null)
+  const [visible, setVisible] = useState(PAGE)
   const catalog = useCatalog()
   const { supported: micOk, listening, toggle: toggleMic } = useSpeech((text) => setQ(text))
+
+  // 필터/검색/정렬 변경 시 노출 개수 초기화(점진 렌더링)
+  useEffect(() => { setVisible(PAGE) }, [q, bucket, sort, onlyCash])
 
   const filtered = useMemo(() => {
     const query = q.trim().toLowerCase()
@@ -119,11 +124,20 @@ export function Explore() {
           검색 결과가 없어요. 다른 키워드로 찾아보세요.
         </div>
       ) : (
-        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((p, i) => (
-            <PolicyCard key={p.id} policy={p} index={i} onOpen={setSelected} />
-          ))}
-        </div>
+        <>
+          <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filtered.slice(0, visible).map((p, i) => (
+              <PolicyCard key={p.id} policy={p} index={Math.min(i, 12)} onOpen={setSelected} />
+            ))}
+          </div>
+          {visible < filtered.length && (
+            <div className="mt-6 text-center">
+              <button onClick={() => setVisible((v) => v + PAGE)} className="btn-secondary">
+                더 보기 ({filtered.length - visible}건 남음)
+              </button>
+            </div>
+          )}
+        </>
       )}
 
       <PolicyDetailDrawer policy={selected} onClose={() => setSelected(null)} onOpen={setSelected} />
