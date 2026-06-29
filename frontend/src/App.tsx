@@ -4,7 +4,7 @@ import { Navbar } from '@/components/Navbar'
 import { Home } from '@/sections/Home'
 import { Analyze } from '@/sections/Analyze'
 import { Explore } from '@/sections/Explore'
-import { Placeholder } from '@/sections/Placeholder'
+import { My } from '@/sections/My'
 import { useAppStore } from '@/store/useAppStore'
 import { cn } from '@/lib/utils'
 
@@ -33,7 +33,7 @@ export default function App() {
             {view === 'home' && <Home />}
             {view === 'analyze' && <Analyze />}
             {view === 'explore' && <Explore />}
-            {view === 'my' && <Placeholder title="나의 복지" desc="관심 정책과 신청 현황을 관리하세요." />}
+            {view === 'my' && <My />}
           </motion.div>
         </AnimatePresence>
       </main>
