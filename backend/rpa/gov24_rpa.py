@@ -106,7 +106,7 @@ async def _login_on_www_gov(page, task) -> bool:
         task.update("running", "간편인증 탭 선택 완료 — anyid 카카오톡 클릭 중...", ss)
     else:
         ss = await take_screenshot(page)
-        task.update("running", "간편인증 탭을 자동으로 못 찾음 — 수동으로 클릭해주세요.", ss)
+        task.update("running", "로그인 화면 진입 — 간편인증(카카오) 자동 선택을 시도합니다...", ss)
 
     # anyid 모달에서 카카오톡 클릭 (카카오뱅크 제외)
     await asyncio.sleep(1)
