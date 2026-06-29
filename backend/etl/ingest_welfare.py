@@ -71,7 +71,8 @@ def clean(s) -> str:
 
 def make_policy(*, sid: str, name: str, summary: str = "", target: str = "",
                 eligibility: str = "", benefit: str = "", application: str = "",
-                department: str = "", docs=None, url: str = "", region: str = "") -> dict:
+                department: str = "", docs=None, url: str = "", region: str = "",
+                contact: str = "") -> dict:
     """소스 필드를 우리 Policy 스키마로 정규화. 누락 필드는 보수적으로 채운다."""
     name = clean(name)
     summary = clean(summary)
@@ -90,6 +91,7 @@ def make_policy(*, sid: str, name: str, summary: str = "", target: str = "",
         "application": clean(application) or (clean(url) or "복지로(www.bokjiro.go.kr) 또는 주민센터"),
         "department": dept_full,
         "renewal": "기관 안내 확인",
+        "contact": clean(contact),
     }
 
 
@@ -133,6 +135,7 @@ def ingest_csv(path: Path) -> list[dict]:
             application=_pick(row, "신청방법"),
             url=_pick(row, "서비스URL", "상세조회URL"),
             region=region,
+            contact=_pick(row, "대표문의", "문의처", "전화번호"),
         ))
     return out
 

@@ -9,7 +9,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000022&wlfareInfoReldBztpCd=01",
     "department": "고용노동부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "근로복지공단 고객센터1588-0075"
   },
   {
     "id": "GOV-WLF00000023",
@@ -21,7 +22,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000023&wlfareInfoReldBztpCd=01",
     "department": "금융위원회",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "NH농협1661-2100 SH수협1588-1515 산림조합1544-4200"
   },
   {
     "id": "GOV-WLF00000024",
@@ -33,7 +35,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000024&wlfareInfoReldBztpCd=01",
     "department": "여성가족부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "아이돌봄 지원사업1577-8136"
   },
   {
     "id": "GOV-WLF00000025",
@@ -45,7 +48,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000025&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129"
   },
   {
     "id": "GOV-WLF00000026",
@@ -57,7 +61,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000026&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129 주소지 읍·면·동 주민센터주소지 읍·면·동 주민센터"
   },
   {
     "id": "GOV-WLF00000028",
@@ -69,7 +74,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000028&wlfareInfoReldBztpCd=01",
     "department": "여성가족부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "공동육아나눔터(전국 가족센터(건강가정지원센터))1577-9337"
   },
   {
     "id": "GOV-WLF00000030",
@@ -81,7 +87,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000030&wlfareInfoReldBztpCd=01",
     "department": "교육부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "중앙육아종합지원센터 센터지원팀02-6901-0202"
   },
   {
     "id": "GOV-WLF00000031",
@@ -93,7 +100,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000031&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "국민연금공단1355"
   },
   {
     "id": "GOV-WLF00000032",
@@ -105,7 +113,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000032&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "실종아동전문기관02-777-0182"
   },
   {
     "id": "GOV-WLF00000033",
@@ -117,7 +126,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000033&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129"
   },
   {
     "id": "GOV-WLF00000035",
@@ -129,7 +139,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000035&wlfareInfoReldBztpCd=01",
     "department": "국토교통부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "국토교통부1599-0001"
   },
   {
     "id": "GOV-WLF00000036",
@@ -141,7 +152,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000036&wlfareInfoReldBztpCd=01",
     "department": "국토교통부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "국토교통부 콜센터1599-0001 마이홈1600-0777"
   },
   {
     "id": "GOV-WLF00000037",
@@ -153,7 +165,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000037&wlfareInfoReldBztpCd=01",
     "department": "교육부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "시간제보육 상담1661-9361"
   },
   {
     "id": "GOV-WLF00000038",
@@ -165,7 +178,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000038&wlfareInfoReldBztpCd=01",
     "department": "국가보훈부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "국가보훈부 상담센터1577-0606"
   },
   {
     "id": "GOV-WLF00000040",
@@ -177,7 +191,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000040&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지부 콜센터129"
   },
   {
     "id": "GOV-WLF00000041",
@@ -189,7 +204,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000041&wlfareInfoReldBztpCd=01",
     "department": "해양수산부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "어선원 및 어선 재해보상보험02-1588-4119"
   },
   {
     "id": "GOV-WLF00000043",
@@ -201,7 +217,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000043&wlfareInfoReldBztpCd=01",
     "department": "국가보훈부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보훈상담센터1577-0606"
   },
   {
     "id": "GOV-WLF00000044",
@@ -213,7 +230,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000044&wlfareInfoReldBztpCd=01",
     "department": "고용노동부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "근로복지공단 고객센터1588-0075"
   },
   {
     "id": "GOV-WLF00000047",
@@ -225,7 +243,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000047&wlfareInfoReldBztpCd=01",
     "department": "질병관리청",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "질병관리청 1339 콜센터국번없이 1339"
   },
   {
     "id": "GOV-WLF00000048",
@@ -237,7 +256,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000048&wlfareInfoReldBztpCd=01",
     "department": "국가보훈부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "국가보훈부 국가보훈부 상담센터1577-0606"
   },
   {
     "id": "GOV-WLF00000049",
@@ -249,7 +269,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000049&wlfareInfoReldBztpCd=01",
     "department": "산업통상자원부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "전국 읍·면·동 주민센터전국 읍·면·동 주민센터 한국에너지재단(취약계층 LED 보급지원)02-6913-2145"
   },
   {
     "id": "GOV-WLF00000050",
@@ -261,7 +282,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000050&wlfareInfoReldBztpCd=01",
     "department": "국가보훈부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보훈상담센터1577-0606"
   },
   {
     "id": "GOV-WLF00000051",
@@ -273,7 +295,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000051&wlfareInfoReldBztpCd=01",
     "department": "국가보훈부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보훈상담센터1577-0606"
   },
   {
     "id": "GOV-WLF00000052",
@@ -285,7 +308,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000052&wlfareInfoReldBztpCd=01",
     "department": "교육부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "한국장학재단 상담센터1599-2290"
   },
   {
     "id": "GOV-WLF00000053",
@@ -297,7 +321,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000053&wlfareInfoReldBztpCd=01",
     "department": "행정안전부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "DB손해보험(풍수해보험)044-205-5990 KB손해보험(풍수해보험)044-205-5993 NH농협손해보험(풍수해보험)044-205-5994 메리츠화재해상보험(풍수해보험)044-205-5996 삼성화재(풍수해보험)044-205-5992 재난보험과044-205-5359 한화손해보험(풍수해보험)044-205-5995 현대해상(풍수해보험)044-205-5991"
   },
   {
     "id": "GOV-WLF00000054",
@@ -309,7 +334,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000054&wlfareInfoReldBztpCd=01",
     "department": "국가보훈부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보훈상담센터1577-0606"
   },
   {
     "id": "GOV-WLF00000055",
@@ -321,7 +347,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000055&wlfareInfoReldBztpCd=01",
     "department": "문화체육관광부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "문화누리카드1544-3412"
   },
   {
     "id": "GOV-WLF00000056",
@@ -333,7 +360,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000056&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129"
   },
   {
     "id": "GOV-WLF00000057",
@@ -345,7 +373,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000057&wlfareInfoReldBztpCd=01",
     "department": "국토교통부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "SH공사 홈페이지1600-3456 경기도시공사1588-0466 한국토지주택공사1600-1004"
   },
   {
     "id": "GOV-WLF00000058",
@@ -357,7 +386,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000058&wlfareInfoReldBztpCd=01",
     "department": "중소벤처기업부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "SC제일은행 고객 센터1588-1599 SH수협1588-1515 경남은행 고객 센터1588-8585 광주은행 고객 센터1588-3388 기업은행 고객센터1566-2566 농협 고객 센터1588-2100 대구은행 고객 센터1588-5050 부산은행 고객 센터1588-6200 상호저축은행 중앙회02-3978-600 소상공인시장진흥공단1357 신한은행 고객센터1599-8000 씨티은행 고객 센터1588-7000 외환은행 고객 센터1588-3500 우리은행 고객센터080-365-5000 전북은행 고객 센터1588-4477 제주은행 고객 센터1588-0079 하나은행 고객센터1599-1111"
   },
   {
     "id": "GOV-WLF00000059",
@@ -369,7 +399,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000059&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129"
   },
   {
     "id": "GOV-WLF00000060",
@@ -381,7 +412,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000060&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129 복지로 상담센터1566-0313 자산형성지원 콜센터1522-3690"
   },
   {
     "id": "GOV-WLF00000061",
@@ -393,7 +425,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000061&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129"
   },
   {
     "id": "GOV-WLF00000062",
@@ -405,7 +438,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000062&wlfareInfoReldBztpCd=01",
     "department": "국토교통부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "한국토지주택공사1600-1004"
   },
   {
     "id": "GOV-WLF00000063",
@@ -417,7 +451,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000063&wlfareInfoReldBztpCd=01",
     "department": "통일부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "남북하나재단02-3215-5793 북한이탈주민 종합상담 콜센터1577-6635"
   },
   {
     "id": "GOV-WLF00000064",
@@ -429,7 +464,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000064&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129 사회서비스전자바우처1566-3232"
   },
   {
     "id": "GOV-WLF00000065",
@@ -441,7 +477,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000065&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129"
   },
   {
     "id": "GOV-WLF00000066",
@@ -453,7 +490,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000066&wlfareInfoReldBztpCd=01",
     "department": "과학기술정보통신부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "17개 광역지자체시군구청 정보화담당관 연락처"
   },
   {
     "id": "GOV-WLF00000067",
@@ -465,7 +503,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000067&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129"
   },
   {
     "id": "GOV-WLF00000068",
@@ -477,7 +516,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000068&wlfareInfoReldBztpCd=01",
     "department": "고용노동부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "한국장애인고용공단1588-1519"
   },
   {
     "id": "GOV-WLF00000069",
@@ -489,7 +529,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000069&wlfareInfoReldBztpCd=01",
     "department": "국가보훈부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "한국보훈복지의료공단 보훈원031-250-1521"
   },
   {
     "id": "GOV-WLF00000071",
@@ -501,7 +542,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000071&wlfareInfoReldBztpCd=01",
     "department": "여성가족부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "새일센터 홈페이지(e새일)1544-1199 여성가족부02-2100-6000"
   },
   {
     "id": "GOV-WLF00000072",
@@ -513,7 +555,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000072&wlfareInfoReldBztpCd=01",
     "department": "산업통상자원부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "에너지바우처 콜센터1600-3190"
   },
   {
     "id": "GOV-WLF00000074",
@@ -525,7 +568,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000074&wlfareInfoReldBztpCd=01",
     "department": "농림축산식품부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "소관 행정복지센터소관 행정복지센터"
   },
   {
     "id": "GOV-WLF00000075",
@@ -537,7 +581,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000075&wlfareInfoReldBztpCd=01",
     "department": "중소벤처기업부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "여성기업종합지원센터 통합문의처02-369-0900 여성기업확인서 문의처02-2038-8953"
   },
   {
     "id": "GOV-WLF00000076",
@@ -549,7 +594,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000076&wlfareInfoReldBztpCd=01",
     "department": "문화체육관광부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "스포츠강좌이용권 상담 및 문의(국민체육진흥공단)1551-0078"
   },
   {
     "id": "GOV-WLF00000077",
@@ -561,7 +607,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000077&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "대한적십자사 고객센터02-3705-3705 보건복지부 콜센터129 한국원폭피해자협회055-933-1945"
   },
   {
     "id": "GOV-WLF00000078",
@@ -573,7 +620,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000078&wlfareInfoReldBztpCd=01",
     "department": "여성가족부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "여성가족부02-2100-6000"
   },
   {
     "id": "GOV-WLF00000086",
@@ -585,7 +633,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000086&wlfareInfoReldBztpCd=01",
     "department": "통일부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "북한이탈주민 종합상담 콜센터1577-6635 북한이탈주민지원재단 교육지원부02-3215-5793 통일부 정착지원과02-2100-5786"
   },
   {
     "id": "GOV-WLF00000087",
@@ -597,7 +646,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000087&wlfareInfoReldBztpCd=01",
     "department": "행정안전부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "행정안전부 고객센터02-2100-3399"
   },
   {
     "id": "GOV-WLF00000088",
@@ -609,7 +659,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000088&wlfareInfoReldBztpCd=01",
     "department": "환경부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "한국환경산업기술원 석면피해 구제팀1833-7690"
   },
   {
     "id": "GOV-WLF00000089",
@@ -621,7 +672,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000089&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129"
   },
   {
     "id": "GOV-WLF00000090",
@@ -633,7 +685,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000090&wlfareInfoReldBztpCd=01",
     "department": "교육부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "교육부 평생직업교육기획과044-203-6379"
   },
   {
     "id": "GOV-WLF00000091",
@@ -645,7 +698,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000091&wlfareInfoReldBztpCd=01",
     "department": "여성가족부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "가족상담전화1644-6621(내선2번) 강원특별자치도 여성청소년가족과033-249-2698 경기도 가족다문화과031-8008-3356 경상남도 여성가족과055-211-5245 경상남도 여성가족과055-211-5245 광주광역시 여성가족과062-613-2291 대구광역시 여성가족과053-803-6723 대전광역시 여성가족청소년과042-270-3167 부산광역시 여성가족과051-888-1601 서울특별시 가족담당관02-2133-6547 울산광역시 여성가족청소년과052-229-3483 인천광역시 인구가족과032-440-2872 전라남도 여성가족정책관061-286-5944 전북특별자치도 여성가족과063-280-2522 제주특별자치도 복지정책과064-710-2874 충청남도 여성가족정책관041-635-2042 충청북도 양성평등가족정책관043-220-3934"
   },
   {
     "id": "GOV-WLF00000092",
@@ -657,7 +711,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000092&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129 사회서비스 전자바우처1566-3232"
   },
   {
     "id": "GOV-WLF00000093",
@@ -669,7 +724,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000093&wlfareInfoReldBztpCd=01",
     "department": "금융위원회",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "주택도시보증공사1566-9009 한국주택금융공사1688-8114"
   },
   {
     "id": "GOV-WLF00000095",
@@ -681,7 +737,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000095&wlfareInfoReldBztpCd=01",
     "department": "고용노동부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "고용노동부 고객상담센터1350 국민연금공단1355 근로복지공단 콜센터1588-0075"
   },
   {
     "id": "GOV-WLF00000096",
@@ -693,7 +750,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000096&wlfareInfoReldBztpCd=01",
     "department": "국가보훈부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "강원제대군인지원센터1666-9279 경기남부제대군인지원센터1666-9279 경기북부제대군인지원센터1666-9279 경남제대군인지원센터1666-9279 광주제대군인지원센터1666-9279 대구제대군인지원센터1666-9279 대전제대군인지원센터1666-9279 보훈상담센터1577-0606 부산제대군인지원센터1666-9279 서울제대군인지원센터1666-9279 인천제대군인지원센터1666-9279 제대군인지원센터1666-9279"
   },
   {
     "id": "GOV-WLF00000097",
@@ -705,7 +763,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000097&wlfareInfoReldBztpCd=01",
     "department": "국가보훈부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보훈상담센터1577-0606"
   },
   {
     "id": "GOV-WLF00000098",
@@ -717,7 +776,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000098&wlfareInfoReldBztpCd=01",
     "department": "국가보훈부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보훈상담센터1577-0606"
   },
   {
     "id": "GOV-WLF00000099",
@@ -729,7 +789,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000099&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지부 보건복지부 콜센터129"
   },
   {
     "id": "GOV-WLF00000100",
@@ -741,7 +802,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000100&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129 자산형성지원 콜센터1522-3690"
   },
   {
     "id": "GOV-WLF00000101",
@@ -753,7 +815,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000101&wlfareInfoReldBztpCd=01",
     "department": "국가보훈부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보훈상담센터1577-0606"
   },
   {
     "id": "GOV-WLF00000102",
@@ -765,7 +828,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000102&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지부상담센터129"
   },
   {
     "id": "GOV-WLF00000103",
@@ -777,7 +841,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000103&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "국민건강보험공단 상담센터1577-1000"
   },
   {
     "id": "GOV-WLF00000104",
@@ -789,7 +854,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000104&wlfareInfoReldBztpCd=01",
     "department": "방송통신위원회",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "시청자미디어재단1688-4596"
   },
   {
     "id": "GOV-WLF00000747",
@@ -801,7 +867,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000747&wlfareInfoReldBztpCd=01",
     "department": "국가보훈부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "대한법률구조공단국번없이 132 보훈상담센터1577-0606 제대군인지원센터1666-9279"
   },
   {
     "id": "GOV-WLF00000750",
@@ -813,7 +880,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000750&wlfareInfoReldBztpCd=01",
     "department": "국가보훈부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보훈상담센터1577-0606"
   },
   {
     "id": "GOV-WLF00000751",
@@ -825,7 +893,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000751&wlfareInfoReldBztpCd=01",
     "department": "여성가족부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "청소년 상담전화1388 한국청소년상담복지개발원051-662-3230"
   },
   {
     "id": "GOV-WLF00000781",
@@ -837,7 +906,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000781&wlfareInfoReldBztpCd=01",
     "department": "여성가족부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "BC카드 1899-4651 KB국민카드1599-7900 거주지 관할 읍면동 주민센터 롯데카드1899-4282 사회서비스전자바우처1566-3232 삼성카드1566-3336 신한카드1544-8868"
   },
   {
     "id": "GOV-WLF00000782",
@@ -849,7 +919,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000782&wlfareInfoReldBztpCd=01",
     "department": "통일부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "북한이탈주민 종합상담 콜센터1577-6635"
   },
   {
     "id": "GOV-WLF00000807",
@@ -861,7 +932,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000807&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129"
   },
   {
     "id": "GOV-WLF00000812",
@@ -873,7 +945,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000812&wlfareInfoReldBztpCd=01",
     "department": "농림축산식품부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "농어촌희망재단02-509-2249"
   },
   {
     "id": "GOV-WLF00000814",
@@ -885,7 +958,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000814&wlfareInfoReldBztpCd=01",
     "department": "국토교통부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "한국토지주택공사1600-1004"
   },
   {
     "id": "GOV-WLF00000815",
@@ -897,7 +971,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000815&wlfareInfoReldBztpCd=01",
     "department": "통일부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "북한이탈주민 종합상담 콜센터1577-6635 북한이탈주민정착지원사무소031-670-9323, 9327"
   },
   {
     "id": "GOV-WLF00000837",
@@ -909,7 +984,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000837&wlfareInfoReldBztpCd=01",
     "department": "여성가족부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "다누리콜센터1577-1366 여성가족부02-2100-6000"
   },
   {
     "id": "GOV-WLF00000838",
@@ -921,7 +997,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000838&wlfareInfoReldBztpCd=01",
     "department": "고용노동부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "고용노동부 고객상담센터1350"
   },
   {
     "id": "GOV-WLF00000842",
@@ -933,7 +1010,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000842&wlfareInfoReldBztpCd=01",
     "department": "교육부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "교육부 민원 전화 상담실02-6222-6060"
   },
   {
     "id": "GOV-WLF00000864",
@@ -945,7 +1023,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000864&wlfareInfoReldBztpCd=01",
     "department": "질병관리청",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "희귀질환헬프라인043-719-8778"
   },
   {
     "id": "GOV-WLF00000867",
@@ -957,7 +1036,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000867&wlfareInfoReldBztpCd=01",
     "department": "교육부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "교육비 원클릭 신청 시스템 상담센터1544-9654"
   },
   {
     "id": "GOV-WLF00000888",
@@ -969,7 +1049,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000888&wlfareInfoReldBztpCd=01",
     "department": "국토교통부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "LH 공사1600-1004 LH콜센터1600-1004 거주지 관할 읍면동 주민센터 마이홈1600-0777 한국토지주택공사1600-1004"
   },
   {
     "id": "GOV-WLF00000892",
@@ -981,7 +1062,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000892&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지부상담센터129"
   },
   {
     "id": "GOV-WLF00000896",
@@ -993,7 +1075,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000896&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지부 콜센터129"
   },
   {
     "id": "GOV-WLF00000917",
@@ -1005,7 +1088,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000917&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지부상담센터129"
   },
   {
     "id": "GOV-WLF00000921",
@@ -1017,7 +1101,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000921&wlfareInfoReldBztpCd=01",
     "department": "통일부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "북한이탈주민 종합상담 콜센터1577-6635"
   },
   {
     "id": "GOV-WLF00000922",
@@ -1029,7 +1114,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000922&wlfareInfoReldBztpCd=01",
     "department": "중소벤처기업부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "한국여성경제인협회02-369-0966"
   },
   {
     "id": "GOV-WLF00000923",
@@ -1041,7 +1127,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000923&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지부 콜센터129"
   },
   {
     "id": "GOV-WLF00000946",
@@ -1053,7 +1140,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000946&wlfareInfoReldBztpCd=01",
     "department": "산림청",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "한국산림복지진흥원1544-3228"
   },
   {
     "id": "GOV-WLF00000948",
@@ -1065,7 +1153,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000948&wlfareInfoReldBztpCd=01",
     "department": "여성가족부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "학교 밖 청소년지원센터 홈페이지"
   },
   {
     "id": "GOV-WLF00000968",
@@ -1077,7 +1166,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000968&wlfareInfoReldBztpCd=01",
     "department": "국가보훈부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보훈상담센터1577-0606"
   },
   {
     "id": "GOV-WLF00000969",
@@ -1089,7 +1179,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000969&wlfareInfoReldBztpCd=01",
     "department": "교육부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "교육부02-6222-6060 한국교육학술정보원 (0079에듀콜)1544-0079"
   },
   {
     "id": "GOV-WLF00000975",
@@ -1101,7 +1192,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000975&wlfareInfoReldBztpCd=01",
     "department": "중소벤처기업부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "(재)여성기업종합지원센터02-369-0935"
   },
   {
     "id": "GOV-WLF00000998",
@@ -1113,7 +1205,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000998&wlfareInfoReldBztpCd=01",
     "department": "국가보훈부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보훈상담센터1577-0606"
   },
   {
     "id": "GOV-WLF00001020",
@@ -1125,7 +1218,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001020&wlfareInfoReldBztpCd=01",
     "department": "통일부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "남북하나재단02-3215-5792 북한이탈주민 종합상담 콜센터1577-6635"
   },
   {
     "id": "GOV-WLF00001021",
@@ -1137,7 +1231,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001021&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129"
   },
   {
     "id": "GOV-WLF00001059",
@@ -1149,7 +1244,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001059&wlfareInfoReldBztpCd=01",
     "department": "국가보훈부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보훈상담센터1577-0606"
   },
   {
     "id": "GOV-WLF00001060",
@@ -1161,7 +1257,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001060&wlfareInfoReldBztpCd=01",
     "department": "교육부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "한국장학재단 상담센터1599-2290"
   },
   {
     "id": "GOV-WLF00001061",
@@ -1173,7 +1270,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001061&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "사회서비스전자바우처1566-3232"
   },
   {
     "id": "GOV-WLF00001062",
@@ -1185,7 +1283,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001062&wlfareInfoReldBztpCd=01",
     "department": "과학기술정보통신부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "한국지능정보사회진흥원1588-2670"
   },
   {
     "id": "GOV-WLF00001063",
@@ -1197,7 +1296,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001063&wlfareInfoReldBztpCd=01",
     "department": "국토교통부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "주택도시기금1566-9009"
   },
   {
     "id": "GOV-WLF00001064",
@@ -1209,7 +1309,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001064&wlfareInfoReldBztpCd=01",
     "department": "국가보훈부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "국가보훈부 보훈상담센터1577-0606"
   },
   {
     "id": "GOV-WLF00001065",
@@ -1221,7 +1322,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001065&wlfareInfoReldBztpCd=01",
     "department": "국가보훈부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "국가보훈부 보훈상담센터1577-0606"
   },
   {
     "id": "GOV-WLF00001066",
@@ -1233,7 +1335,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001066&wlfareInfoReldBztpCd=01",
     "department": "국가보훈부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보훈상담센터1577-0606"
   },
   {
     "id": "GOV-WLF00001067",
@@ -1245,7 +1348,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001067&wlfareInfoReldBztpCd=01",
     "department": "교육부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "교육부 민원 전화 상담실02-6222-6060"
   },
   {
     "id": "GOV-WLF00001068",
@@ -1257,7 +1361,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001068&wlfareInfoReldBztpCd=01",
     "department": "여성가족부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "여성가족부02-2100-6000 한부모가족상담전화1577-4206"
   },
   {
     "id": "GOV-WLF00001069",
@@ -1269,7 +1374,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001069&wlfareInfoReldBztpCd=01",
     "department": "고용노동부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "근로복지공단 고객센터1588-0075"
   },
   {
     "id": "GOV-WLF00001070",
@@ -1281,7 +1387,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001070&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "한국척수장애인협회02-786-8483"
   },
   {
     "id": "GOV-WLF00001071",
@@ -1293,7 +1400,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001071&wlfareInfoReldBztpCd=01",
     "department": "과학기술정보통신부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "한국장학재단 상담센터1599-2290"
   },
   {
     "id": "GOV-WLF00001072",
@@ -1305,7 +1413,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001072&wlfareInfoReldBztpCd=01",
     "department": "여성가족부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "(사)한국성폭력위기센터 02-883-9285 대한법률구조공단국번없이 132 대한변협법률구조재단02-3476-6515 한국가정법률상담소1644-7077"
   },
   {
     "id": "GOV-WLF00001073",
@@ -1317,7 +1426,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001073&wlfareInfoReldBztpCd=01",
     "department": "국가보훈부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보훈상담센터1577-0606 제대군인지원센터1666-9279"
   },
   {
     "id": "GOV-WLF00001074",
@@ -1329,7 +1439,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001074&wlfareInfoReldBztpCd=01",
     "department": "국가보훈부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보훈상담센터1577-0606"
   },
   {
     "id": "GOV-WLF00001075",
@@ -1341,7 +1452,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001075&wlfareInfoReldBztpCd=01",
     "department": "교육부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "국립특수교육원041-537-1485 에듀에이블041-537-1485"
   },
   {
     "id": "GOV-WLF00001076",
@@ -1353,7 +1465,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001076&wlfareInfoReldBztpCd=01",
     "department": "금융위원회",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "기업은행 고객센터1566-2566 서민금융콜센터1397 신한은행 고객센터1599-8000 전북은행 고객 센터1588-4477"
   },
   {
     "id": "GOV-WLF00001077",
@@ -1365,7 +1478,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001077&wlfareInfoReldBztpCd=01",
     "department": "여성가족부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "1366센터1366"
   },
   {
     "id": "GOV-WLF00001079",
@@ -1377,7 +1491,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001079&wlfareInfoReldBztpCd=01",
     "department": "금융위원회",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "한국주택금융공사1688-8114"
   },
   {
     "id": "GOV-WLF00001080",
@@ -1389,7 +1504,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001080&wlfareInfoReldBztpCd=01",
     "department": "고용노동부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "근로복지공단 고객센터1588-0075"
   },
   {
     "id": "GOV-WLF00001083",
@@ -1401,7 +1517,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001083&wlfareInfoReldBztpCd=01",
     "department": "과학기술정보통신부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "한국지능정보사회진흥원1800-0096"
   },
   {
     "id": "GOV-WLF00001084",
@@ -1413,7 +1530,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001084&wlfareInfoReldBztpCd=01",
     "department": "여성가족부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "1366센터1366"
   },
   {
     "id": "GOV-WLF00001085",
@@ -1425,7 +1543,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001085&wlfareInfoReldBztpCd=01",
     "department": "고용노동부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "근로복지공단 고객센터1588-0075"
   },
   {
     "id": "GOV-WLF00001086",
@@ -1437,7 +1556,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001086&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "국민건강보험공단 장기요양보험1577-1000"
   },
   {
     "id": "GOV-WLF00001087",
@@ -1449,7 +1569,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001087&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129 사회서비스전자바우처1566-3232"
   },
   {
     "id": "GOV-WLF00001088",
@@ -1461,7 +1582,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001088&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지부 콜센터129"
   },
   {
     "id": "GOV-WLF00001089",
@@ -1473,7 +1595,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001089&wlfareInfoReldBztpCd=01",
     "department": "교육부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129 한국장학재단 고객센터1599-2000"
   },
   {
     "id": "GOV-WLF00001090",
@@ -1485,7 +1608,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001090&wlfareInfoReldBztpCd=01",
     "department": "고용노동부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "한국장애인고용공단1588-1519"
   },
   {
     "id": "GOV-WLF00001091",
@@ -1497,7 +1621,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001091&wlfareInfoReldBztpCd=01",
     "department": "국가보훈부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "국가보훈부 상담센터1577-0606"
   },
   {
     "id": "GOV-WLF00001092",
@@ -1509,7 +1634,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001092&wlfareInfoReldBztpCd=01",
     "department": "고용노동부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "근로복지공단 고객센터1588-0075"
   },
   {
     "id": "GOV-WLF00001093",
@@ -1521,7 +1647,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001093&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지부 콜센터129 한국사회보장정보원 사례관리정보부02-6360-5497"
   },
   {
     "id": "GOV-WLF00001094",
@@ -1533,7 +1660,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001094&wlfareInfoReldBztpCd=01",
     "department": "교육부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "교육부 민원 전화 상담실02-6222-6060"
   },
   {
     "id": "GOV-WLF00001096",
@@ -1545,7 +1673,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001096&wlfareInfoReldBztpCd=01",
     "department": "농림축산식품부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "한국장학재단 고객센터1599-2000"
   },
   {
     "id": "GOV-WLF00001097",
@@ -1557,7 +1686,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001097&wlfareInfoReldBztpCd=01",
     "department": "농림축산식품부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "국민연금공단1355"
   },
   {
     "id": "GOV-WLF00001098",
@@ -1569,7 +1699,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001098&wlfareInfoReldBztpCd=01",
     "department": "여성가족부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "한국건강가정진흥원 가족센터협력부02-3479-7716"
   },
   {
     "id": "GOV-WLF00001099",
@@ -1581,7 +1712,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001099&wlfareInfoReldBztpCd=01",
     "department": "농림축산식품부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "국민건강보험공단 상담센터1577-1000"
   },
   {
     "id": "GOV-WLF00001100",
@@ -1593,7 +1725,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001100&wlfareInfoReldBztpCd=01",
     "department": "문화체육관광부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "문화체육관광부 도서관정책기획단044-203-2619 한국도서관협회02-535-4480"
   },
   {
     "id": "GOV-WLF00001101",
@@ -1605,7 +1738,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001101&wlfareInfoReldBztpCd=01",
     "department": "여성가족부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "여성긴급전화1366"
   },
   {
     "id": "GOV-WLF00001103",
@@ -1617,7 +1751,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001103&wlfareInfoReldBztpCd=01",
     "department": "교육부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "강원특별자치도교육청(교육비, 교육정보화)033-259-0883 경기도교육청 교육정보화 담당자031-820-0554 경남교육청055-210-5179 경북교육청(고교학비,교육급여)054-805-3806 광주광역시교육청(교육급여,교육비)062-380-4010~4011 교육비 원클릭 신청 시스템 상담센터1544-9654 대구광역시교육청053-231-0752 대전광역시교육청042-616-8802~3,5 부산시교육청 교육정보화담당051-860-0764 서울특별시교육청02-1396 세종시교육청044-320-3313 울산광역시교육청1588-9496 인천광역시교육청032-420-8445 전남교육청061-260-0076 전북교육청(교육비,교육정보화)063-239-3364 제주교육청(교육급여,고교학비)064-710-0604 충남교육청(교육정보화)041-640-6933 충북교육청(교육정보화)043-290-2888"
   },
   {
     "id": "GOV-WLF00001104",
@@ -1629,7 +1764,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001104&wlfareInfoReldBztpCd=01",
     "department": "교육부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "교육비 원클릭 신청 시스템 상담센터1544-9654"
   },
   {
     "id": "GOV-WLF00001105",
@@ -1641,7 +1777,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001105&wlfareInfoReldBztpCd=01",
     "department": "여성가족부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "각 지방자치단체각 기관 120 센터 여성긴급전화1366"
   },
   {
     "id": "GOV-WLF00001106",
@@ -1653,7 +1790,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001106&wlfareInfoReldBztpCd=01",
     "department": "여성가족부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "여성가족부02-2100-6000"
   },
   {
     "id": "GOV-WLF00001107",
@@ -1665,7 +1803,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001107&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129"
   },
   {
     "id": "GOV-WLF00001108",
@@ -1677,7 +1816,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001108&wlfareInfoReldBztpCd=01",
     "department": "금융위원회",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "한국주택금융공사1688-8114"
   },
   {
     "id": "GOV-WLF00001109",
@@ -1689,7 +1829,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001109&wlfareInfoReldBztpCd=01",
     "department": "여성가족부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "가족상담전화1577-4206 여성가족부02-2100-6000"
   },
   {
     "id": "GOV-WLF00001111",
@@ -1701,7 +1842,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001111&wlfareInfoReldBztpCd=01",
     "department": "문화체육관광부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "한국문화원연합회 지역문화사업팀02-704-4338"
   },
   {
     "id": "GOV-WLF00001112",
@@ -1713,7 +1855,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001112&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지부상담센터129"
   },
   {
     "id": "GOV-WLF00001113",
@@ -1725,7 +1868,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001113&wlfareInfoReldBztpCd=01",
     "department": "교육부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "교육부02-6222-6060"
   },
   {
     "id": "GOV-WLF00001114",
@@ -1737,7 +1881,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001114&wlfareInfoReldBztpCd=01",
     "department": "여성가족부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "이주배경청소년지원센터02-733-7587"
   },
   {
     "id": "GOV-WLF00001115",
@@ -1749,7 +1894,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001115&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129 한국실명예방재단02- 718-1102"
   },
   {
     "id": "GOV-WLF00001116",
@@ -1761,7 +1907,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001116&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129"
   },
   {
     "id": "GOV-WLF00001117",
@@ -1773,7 +1920,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001117&wlfareInfoReldBztpCd=01",
     "department": "문화체육관광부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "한국장애인문화예술원02-760-9700"
   },
   {
     "id": "GOV-WLF00001118",
@@ -1785,7 +1933,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001118&wlfareInfoReldBztpCd=01",
     "department": "교육부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "교육부02-6222-6060"
   },
   {
     "id": "GOV-WLF00001119",
@@ -1797,7 +1946,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001119&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "국민건강보험공단 국민건강보험공단 상담센터1577-1000"
   },
   {
     "id": "GOV-WLF00001120",
@@ -1809,7 +1959,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001120&wlfareInfoReldBztpCd=01",
     "department": "교육부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "교육부 학생맞춤통합지원과044-203-6536"
   },
   {
     "id": "GOV-WLF00001121",
@@ -1821,7 +1972,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001121&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129"
   },
   {
     "id": "GOV-WLF00001122",
@@ -1833,7 +1985,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001122&wlfareInfoReldBztpCd=01",
     "department": "국가보훈부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "국가보훈부 보훈상담센터1577-0606"
   },
   {
     "id": "GOV-WLF00001124",
@@ -1845,7 +1998,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001124&wlfareInfoReldBztpCd=01",
     "department": "고용노동부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "근로복지공단 고객센터1588-0075"
   },
   {
     "id": "GOV-WLF00001125",
@@ -1857,7 +2011,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001125&wlfareInfoReldBztpCd=01",
     "department": "고용노동부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "근로복지공단 고객센터1588-0075"
   },
   {
     "id": "GOV-WLF00001126",
@@ -1869,7 +2024,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001126&wlfareInfoReldBztpCd=01",
     "department": "금융위원회",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "SH수협1588-1515 농협 고객 센터1588-2100 산림조합1544-4200 삼성생명 콜센터1577-7272 새마을금고 금융문의1599-9000, 1588-8801 서민금융콜센터1397 신협 전자금융 콜센터1644-6000, 1566-6000 저축은행중앙회 대표전화02-3978-600"
   },
   {
     "id": "GOV-WLF00001127",
@@ -1881,7 +2037,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001127&wlfareInfoReldBztpCd=01",
     "department": "국가보훈부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보훈상담센터1577-0606"
   },
   {
     "id": "GOV-WLF00001128",
@@ -1893,7 +2050,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001128&wlfareInfoReldBztpCd=01",
     "department": "산업통상자원부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "한국에너지재단1670-7653"
   },
   {
     "id": "GOV-WLF00001130",
@@ -1905,7 +2063,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001130&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지부 콜센터129"
   },
   {
     "id": "GOV-WLF00001131",
@@ -1917,7 +2076,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001131&wlfareInfoReldBztpCd=01",
     "department": "국가보훈부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "국가보훈부 상담센터1577-0606"
   },
   {
     "id": "GOV-WLF00001132",
@@ -1929,7 +2089,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001132&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지부 콜센터129"
   },
   {
     "id": "GOV-WLF00001133",
@@ -1941,7 +2102,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001133&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129"
   },
   {
     "id": "GOV-WLF00001134",
@@ -1953,7 +2115,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001134&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지부 장애인건강과044-202-3191/3193"
   },
   {
     "id": "GOV-WLF00001135",
@@ -1965,7 +2128,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001135&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129"
   },
   {
     "id": "GOV-WLF00001136",
@@ -1977,7 +2141,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001136&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "국민건강보험공단 상담센터1577-1000 보건복지부 콜센터129"
   },
   {
     "id": "GOV-WLF00001137",
@@ -1989,7 +2154,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001137&wlfareInfoReldBztpCd=01",
     "department": "국가보훈부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보훈상담센터1577-0606"
   },
   {
     "id": "GOV-WLF00001138",
@@ -2001,7 +2167,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001138&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129"
   },
   {
     "id": "GOV-WLF00001139",
@@ -2013,7 +2180,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001139&wlfareInfoReldBztpCd=01",
     "department": "여성가족부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "중앙센터(한국여성인권진흥원)02-6363-8405"
   },
   {
     "id": "GOV-WLF00001140",
@@ -2025,7 +2193,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001140&wlfareInfoReldBztpCd=01",
     "department": "교육부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "교육부02-6222-6060 아이사랑 헬프데스크1566-3232(단축번호 1번)"
   },
   {
     "id": "GOV-WLF00001141",
@@ -2037,7 +2206,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001141&wlfareInfoReldBztpCd=01",
     "department": "여성가족부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "여성가족부 청소년자립지원과02-2100-6277"
   },
   {
     "id": "GOV-WLF00001142",
@@ -2049,7 +2219,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001142&wlfareInfoReldBztpCd=01",
     "department": "교육부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "탈북청소년교육지원센터043-530-9481"
   },
   {
     "id": "GOV-WLF00001143",
@@ -2061,7 +2232,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001143&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "실로암시각장애인복지관02-880-0801"
   },
   {
     "id": "GOV-WLF00001145",
@@ -2073,7 +2245,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001145&wlfareInfoReldBztpCd=01",
     "department": "여성가족부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "한국청소년상담복지개발원051-662-3230 헬프콜 청소년전화1388"
   },
   {
     "id": "GOV-WLF00001146",
@@ -2085,7 +2258,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001146&wlfareInfoReldBztpCd=01",
     "department": "여성가족부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "청소년 상담전화1388 (휴대전화 : 지역번호+1388)"
   },
   {
     "id": "GOV-WLF00001147",
@@ -2097,7 +2271,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001147&wlfareInfoReldBztpCd=01",
     "department": "교육부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "교육부02-6222-6060 아이사랑 헬프데스크1566-3232(단축번호 1번) 아이사랑보육포털1661-9361"
   },
   {
     "id": "GOV-WLF00001148",
@@ -2109,7 +2284,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001148&wlfareInfoReldBztpCd=01",
     "department": "기획재정부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "국세청 근로장려세제126"
   },
   {
     "id": "GOV-WLF00001149",
@@ -2121,7 +2297,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001149&wlfareInfoReldBztpCd=01",
     "department": "산림청",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "강원 산림소득과033-249-3130 경기 산림과031-8030-3562 경남 산림녹지과055-211-4285 경북 공원녹지과053-950-2872 남부지방청 산림경영과054-850-7751 동부지방청 산림경영과033-640-8621 북부지방청 산림경영과033-738-6281 산림청1588-3249 서부지방청 산림경영과063-620-4661 일자리사업통합정보시스템(일모아) 전남 산림산업과061-286-6631 전북 산림녹지과063-280-2681 제주 녹지환경과064-710-6773 중부지방청 산림경영과041-850-4052 충남 산림녹지과041-635-4509 충북 산림녹지과043-220-3784"
   },
   {
     "id": "GOV-WLF00001150",
@@ -2133,7 +2310,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001150&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지부 콜센터129"
   },
   {
     "id": "GOV-WLF00001151",
@@ -2145,7 +2323,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001151&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "한국시각장애인연합회02-799-1054"
   },
   {
     "id": "GOV-WLF00001152",
@@ -2157,7 +2336,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001152&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129"
   },
   {
     "id": "GOV-WLF00001153",
@@ -2169,7 +2349,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001153&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "한국장애인도우미견협회031-691-7782"
   },
   {
     "id": "GOV-WLF00001154",
@@ -2181,7 +2362,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001154&wlfareInfoReldBztpCd=01",
     "department": "고용노동부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "한국장애인고용공단1588-1519"
   },
   {
     "id": "GOV-WLF00001155",
@@ -2193,7 +2375,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001155&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129 한국노인인력개발원1544-3388"
   },
   {
     "id": "GOV-WLF00001156",
@@ -2205,7 +2388,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001156&wlfareInfoReldBztpCd=01",
     "department": "고용노동부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "고용노동부044-202-7465"
   },
   {
     "id": "GOV-WLF00001157",
@@ -2217,7 +2401,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001157&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129"
   },
   {
     "id": "GOV-WLF00001159",
@@ -2229,7 +2414,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001159&wlfareInfoReldBztpCd=01",
     "department": "질병관리청",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "질병관리청 콜센터1339"
   },
   {
     "id": "GOV-WLF00001160",
@@ -2241,7 +2427,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001160&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129"
   },
   {
     "id": "GOV-WLF00001161",
@@ -2253,7 +2440,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001161&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지부 콜센터129"
   },
   {
     "id": "GOV-WLF00001162",
@@ -2265,7 +2453,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001162&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129"
   },
   {
     "id": "GOV-WLF00001163",
@@ -2277,7 +2466,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001163&wlfareInfoReldBztpCd=01",
     "department": "고용노동부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "근로복지공단 직장보육지원센터02-2670-0410~9"
   },
   {
     "id": "GOV-WLF00001164",
@@ -2289,7 +2479,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001164&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "국민연금공단1355 보건복지상담센터129"
   },
   {
     "id": "GOV-WLF00001165",
@@ -2301,7 +2492,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001165&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129"
   },
   {
     "id": "GOV-WLF00001166",
@@ -2313,7 +2505,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001166&wlfareInfoReldBztpCd=01",
     "department": "여성가족부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "여성가족부 여성긴급전화1366"
   },
   {
     "id": "GOV-WLF00001167",
@@ -2325,7 +2518,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001167&wlfareInfoReldBztpCd=01",
     "department": "중소벤처기업부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "장애인기업종합지원센터 문의전화02-2181-6500"
   },
   {
     "id": "GOV-WLF00001168",
@@ -2337,7 +2531,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001168&wlfareInfoReldBztpCd=01",
     "department": "통일부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "남북하나재단02-3215-5776,5885 북한이탈주민 종합상담 콜센터1577-6635"
   },
   {
     "id": "GOV-WLF00001169",
@@ -2349,7 +2544,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001169&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "건강보험심사평가원1644-2000 보건복지부기초의료보장과044-202-3098 보건복지상담센터129"
   },
   {
     "id": "GOV-WLF00001170",
@@ -2361,7 +2557,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001170&wlfareInfoReldBztpCd=01",
     "department": "국가보훈부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보훈상담센터1577-0606"
   },
   {
     "id": "GOV-WLF00001171",
@@ -2373,7 +2570,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001171&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지부상담센터129"
   },
   {
     "id": "GOV-WLF00001172",
@@ -2385,7 +2583,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001172&wlfareInfoReldBztpCd=01",
     "department": "고용노동부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "고용노동부 고객상담센터1350"
   },
   {
     "id": "GOV-WLF00001173",
@@ -2397,7 +2596,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001173&wlfareInfoReldBztpCd=01",
     "department": "교육부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "교육부 특수교육정책과044-203-6569"
   },
   {
     "id": "GOV-WLF00001175",
@@ -2409,7 +2609,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001175&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129"
   },
   {
     "id": "GOV-WLF00001176",
@@ -2421,7 +2622,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001176&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "국민건강보험1577-1000 보건복지상담센터129"
   },
   {
     "id": "GOV-WLF00001177",
@@ -2433,7 +2635,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001177&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "국민건강보험공단 상담센터1577-1000"
   },
   {
     "id": "GOV-WLF00001178",
@@ -2445,7 +2648,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001178&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129"
   },
   {
     "id": "GOV-WLF00001179",
@@ -2457,7 +2661,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001179&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "노인의료나눔재단02-585-6595"
   },
   {
     "id": "GOV-WLF00001180",
@@ -2469,7 +2674,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001180&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129"
   },
   {
     "id": "GOV-WLF00001181",
@@ -2481,7 +2687,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001181&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "독거노인종합지원센터1661-2129"
   },
   {
     "id": "GOV-WLF00001182",
@@ -2493,7 +2700,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001182&wlfareInfoReldBztpCd=01",
     "department": "농림축산식품부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "농림축산식품부044-201-2341 학교우유급식지원 상담센터044-330-1114"
   },
   {
     "id": "GOV-WLF00001183",
@@ -2505,7 +2713,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001183&wlfareInfoReldBztpCd=01",
     "department": "교육부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "교육부 민원 전화 상담실02-6222-6060"
   },
   {
     "id": "GOV-WLF00001184",
@@ -2517,7 +2726,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001184&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "국가암센터 암환자의료비사업 담당자031-920-2029, 2045 보건복지부 질병정책과044-202-2513 보건복지상담센터129"
   },
   {
     "id": "GOV-WLF00001185",
@@ -2529,7 +2739,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001185&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "국민건강보험공단1577-1000 보건복지상담센터129"
   },
   {
     "id": "GOV-WLF00001186",
@@ -2541,7 +2752,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001186&wlfareInfoReldBztpCd=01",
     "department": "여성가족부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "전국 가족센터(건강가정지원센터)1577-9337"
   },
   {
     "id": "GOV-WLF00001187",
@@ -2553,7 +2765,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001187&wlfareInfoReldBztpCd=01",
     "department": "고용노동부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "한국장애인고용공단1588-1519"
   },
   {
     "id": "GOV-WLF00001188",
@@ -2565,7 +2778,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001188&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129 사회서비스전자바우처1566-3232"
   },
   {
     "id": "GOV-WLF00003168",
@@ -2577,7 +2791,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003168&wlfareInfoReldBztpCd=01",
     "department": "통일부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "북한이탈주민 종합상담 콜센터1577-6635 통일부 북한이탈주민정착지원사무소 교육기획과031-670-9300(내선1,2번)"
   },
   {
     "id": "GOV-WLF00003169",
@@ -2589,7 +2804,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003169&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "24시간 자살예방상담전화109 대한정신건강의학과의사회02-3446-3153 보건복지상담센터129 시도 및 시군구 정신건강복지센터 담당부서 한국자살예방협회02-413-0892~3 한국정신건강전문요원협회02-712-0386"
   },
   {
     "id": "GOV-WLF00003170",
@@ -2601,7 +2817,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003170&wlfareInfoReldBztpCd=01",
     "department": "중소벤처기업부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "장애인기업종합지원센터 문의전화02-2181-6500"
   },
   {
     "id": "GOV-WLF00003171",
@@ -2613,7 +2830,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003171&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지부 콜센터129"
   },
   {
     "id": "GOV-WLF00003172",
@@ -2625,7 +2843,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003172&wlfareInfoReldBztpCd=01",
     "department": "통일부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "북한이탈주민 종합상담 콜센터1577-6635 북한이탈주민정착지원사무소(장려금)031-670-9325 북한이탈주민정착지원사무소(정착금 기본금, 정착금 연령·장애가산금, 주거지원금)031-670-9323 북한이탈주민지원재단(정착금 장애·장기치료·제3국출생아동양육가산금)02-3215-5792"
   },
   {
     "id": "GOV-WLF00003173",
@@ -2637,7 +2856,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003173&wlfareInfoReldBztpCd=01",
     "department": "문화체육관광부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "장애인스포츠강좌이용권 상담 문의(국민체육진흥공단)1551-0078"
   },
   {
     "id": "GOV-WLF00003174",
@@ -2649,7 +2869,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003174&wlfareInfoReldBztpCd=01",
     "department": "중소벤처기업부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "장애인기업종합지원센터 문의전화02-2181-6500"
   },
   {
     "id": "GOV-WLF00003175",
@@ -2661,7 +2882,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003175&wlfareInfoReldBztpCd=01",
     "department": "여성가족부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "다누리콜센터1577-1366"
   },
   {
     "id": "GOV-WLF00003176",
@@ -2673,7 +2895,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003176&wlfareInfoReldBztpCd=01",
     "department": "농림축산식품부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "농식품바우처 콜센터1551-0857"
   },
   {
     "id": "GOV-WLF00003177",
@@ -2685,7 +2908,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003177&wlfareInfoReldBztpCd=01",
     "department": "교육부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "한국장학재단 상담센터1599-2290"
   },
   {
     "id": "GOV-WLF00003178",
@@ -2697,7 +2921,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003178&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지부상담센터129"
   },
   {
     "id": "GOV-WLF00003179",
@@ -2709,7 +2934,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003179&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지부상담센터129"
   },
   {
     "id": "GOV-WLF00003180",
@@ -2721,7 +2947,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003180&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지부상담센터129"
   },
   {
     "id": "GOV-WLF00003181",
@@ -2733,7 +2960,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003181&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지부 상담센터129"
   },
   {
     "id": "GOV-WLF00003182",
@@ -2745,7 +2973,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003182&wlfareInfoReldBztpCd=01",
     "department": "산림청",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "강원 산림소득과033-249-3130 경기 산림과031-8030-3562 경남 산림녹지과055-211-4285 경북 공원녹지과053-950-2872 광주 공원녹지과062-613-4242~3 국립수목원 연구기획팀031-540-2035 남부지방청 산림경영과054-850-7751 대구 공원녹지과053-803-4401~2 대전 푸른도시과042-600-3697 동부지방청 산림경영과033-640-8621 부산 산림정책과051-888-4251, 4252 북부지방청 산림경영과033-738-6281 산림과학원 연구기획과02-961-2573 산림교육원 산불훈련기획과031-570-7413 산림청1588-3249 산림품종관리센터 종묘관리과043-850-3345 서부지방청 산림경영과063-620-4641 서울 자연생태과02-2115-7560, 7563 세종시 산림축산과044-300-4411 울산 녹지공원과052-229-3352, 3355 인천 공원녹지(조경)과032-440-3684 일자리사업통합정보시스템(일모아) 전남 산림산업과061-286-6631 전북 산림녹지과063-280-2681 제주 녹지환경과064-710-6763 중부지방청 산림경영과041-850-4052 충남 산림녹지과041-635-4509 충북 산림녹지과043-220-3984, 3985 휴양림관리소 휴양경영과042-580-5538"
   },
   {
     "id": "GOV-WLF00003183",
@@ -2757,7 +2986,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003183&wlfareInfoReldBztpCd=01",
     "department": "고용노동부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "고용노동부 종합상담센터1544-1350 한국장애인고용공단1588-1519"
   },
   {
     "id": "GOV-WLF00003184",
@@ -2769,7 +2999,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003184&wlfareInfoReldBztpCd=01",
     "department": "교육부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "교육부02-6222-6060"
   },
   {
     "id": "GOV-WLF00003185",
@@ -2781,7 +3012,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003185&wlfareInfoReldBztpCd=01",
     "department": "여성가족부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "국립대구청소년디딤센터053-665-6900 국립중앙청소년디딤센터031-333-1900"
   },
   {
     "id": "GOV-WLF00003186",
@@ -2793,7 +3025,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003186&wlfareInfoReldBztpCd=01",
     "department": "여성가족부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "양육비이행관리원1644-6621"
   },
   {
     "id": "GOV-WLF00003188",
@@ -2805,7 +3038,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003188&wlfareInfoReldBztpCd=01",
     "department": "교육부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "교육부 이주배경학생지원팀044-203-6195 한국장학재단 고객센터1599-2000"
   },
   {
     "id": "GOV-WLF00003189",
@@ -2817,7 +3051,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003189&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지부 콜센터129 한국장애인개발원02-3433-0660"
   },
   {
     "id": "GOV-WLF00003190",
@@ -2829,7 +3064,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003190&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지부 콜센터129"
   },
   {
     "id": "GOV-WLF00003191",
@@ -2841,7 +3077,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003191&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129"
   },
   {
     "id": "GOV-WLF00003192",
@@ -2853,7 +3090,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003192&wlfareInfoReldBztpCd=01",
     "department": "여성가족부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "다누리콜센터1577-1366 한국건강가정진흥원02-3479-7600"
   },
   {
     "id": "GOV-WLF00003193",
@@ -2865,7 +3103,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003193&wlfareInfoReldBztpCd=01",
     "department": "국가보훈부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보훈상담센터1577-0606 제대군인지원센터1666-9279"
   },
   {
     "id": "GOV-WLF00003194",
@@ -2877,7 +3116,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003194&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "국민건강보험공단 장기요양보험1577-1000"
   },
   {
     "id": "GOV-WLF00003195",
@@ -2889,7 +3129,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003195&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129 사회서비스전자바우처1566-3232"
   },
   {
     "id": "GOV-WLF00003196",
@@ -2901,7 +3142,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003196&wlfareInfoReldBztpCd=01",
     "department": "해양수산부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "경기도 해양수산과031-8008-4513 경상남도 해양항만과055-211-3933 경상북도 독도해양정책과054-880-7758 인천광역시 섬해양정책과032-440-4895 전라남도 해운항만과061-286-6832 전북특별자치도 해양항만과063-280-3377 충청남도 해운항만과041-635-4826 해양수산부콜센터110"
   },
   {
     "id": "GOV-WLF00003197",
@@ -2913,7 +3155,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003197&wlfareInfoReldBztpCd=01",
     "department": "교육부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "한국장학재단 고객센터1599-2000"
   },
   {
     "id": "GOV-WLF00003198",
@@ -2925,7 +3168,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003198&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129 전국 읍·면·동 주민센터전국 읍·면·동 주민센터"
   },
   {
     "id": "GOV-WLF00003199",
@@ -2937,7 +3181,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003199&wlfareInfoReldBztpCd=01",
     "department": "문화체육관광부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "한국예술인복지재단02-3668-0200"
   },
   {
     "id": "GOV-WLF00003200",
@@ -2949,7 +3194,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003200&wlfareInfoReldBztpCd=01",
     "department": "여성가족부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "여성가족부 청소년자립지원과02-2100-6276 여성가족부 청소년자립지원과02-2100-6280 청소년1388(청소년상담전화)1388(지역번호+1388)"
   },
   {
     "id": "GOV-WLF00003201",
@@ -2961,7 +3207,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003201&wlfareInfoReldBztpCd=01",
     "department": "국토교통부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "마이홈1600-0777"
   },
   {
     "id": "GOV-WLF00003202",
@@ -2973,7 +3220,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003202&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지부 콜센터129"
   },
   {
     "id": "GOV-WLF00003203",
@@ -2985,7 +3233,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003203&wlfareInfoReldBztpCd=01",
     "department": "국가보훈부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보훈상담센터1577-0606"
   },
   {
     "id": "GOV-WLF00003204",
@@ -2997,7 +3246,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003204&wlfareInfoReldBztpCd=01",
     "department": "여성가족부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "청소년1388(청소년상담전화)1388(지역번호+1388) 한국청소년상담복지개발원051-662-3230"
   },
   {
     "id": "GOV-WLF00003205",
@@ -3009,7 +3259,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003205&wlfareInfoReldBztpCd=01",
     "department": "중소벤처기업부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "K-스타트업1357(내선번호 3번)"
   },
   {
     "id": "GOV-WLF00003206",
@@ -3021,7 +3272,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003206&wlfareInfoReldBztpCd=01",
     "department": "통일부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "북한이탈주민 종합상담 콜센터1577-6635 북한이탈주민지원재단02-3215-5815"
   },
   {
     "id": "GOV-WLF00003207",
@@ -3033,7 +3285,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003207&wlfareInfoReldBztpCd=01",
     "department": "농림축산식품부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "농협중앙회 지역사회공헌부02-2080-5424"
   },
   {
     "id": "GOV-WLF00003208",
@@ -3045,7 +3298,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003208&wlfareInfoReldBztpCd=01",
     "department": "국가보훈부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "강원제대군인지원센터1666-9279 경기남부제대군인지원센터1666-9279 경기북부제대군인지원센터1666-9279 경남제대군인지원센터1666-9279 광주제대군인지원센터1666-9279 국가보훈부 대구제대군인지원센터1666-9279 대전제대군인지원센터1666-9279 보훈상담센터1577-0606 부산제대군인지원센터1666-9279 서울제대군인지원센터1666-9279 인천제대군인지원센터1666-9279 제대군인지원센터"
   },
   {
     "id": "GOV-WLF00003209",
@@ -3057,7 +3311,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003209&wlfareInfoReldBztpCd=01",
     "department": "국가보훈부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보훈상담센터1577-0606"
   },
   {
     "id": "GOV-WLF00003210",
@@ -3069,7 +3324,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003210&wlfareInfoReldBztpCd=01",
     "department": "중소벤처기업부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "장애인기업종합지원센터 문의전화02-2181-6500"
   },
   {
     "id": "GOV-WLF00003211",
@@ -3081,7 +3337,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003211&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지부 콜센터129 중앙보조기기센터1670-5529"
   },
   {
     "id": "GOV-WLF00003212",
@@ -3093,7 +3350,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003212&wlfareInfoReldBztpCd=01",
     "department": "통일부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "통일부 납북자대책팀02-2100-5595 한국토지주택공사031-738-7114"
   },
   {
     "id": "GOV-WLF00003213",
@@ -3105,7 +3363,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003213&wlfareInfoReldBztpCd=01",
     "department": "질병관리청",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "질병관리청 1339 콜센터국번없이 1339 질병관리청 예방접종관리과043-719-8398~8399"
   },
   {
     "id": "GOV-WLF00003214",
@@ -3117,7 +3376,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003214&wlfareInfoReldBztpCd=01",
     "department": "국가보훈부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보훈상담센터1577-0606"
   },
   {
     "id": "GOV-WLF00003215",
@@ -3129,7 +3389,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003215&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지부 콜센터129"
   },
   {
     "id": "GOV-WLF00003216",
@@ -3141,7 +3402,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003216&wlfareInfoReldBztpCd=01",
     "department": "국가보훈부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "국가보훈부 보훈상담센터1577-0606"
   },
   {
     "id": "GOV-WLF00003217",
@@ -3153,7 +3415,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003217&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지부 장애인정책과044-202-3184"
   },
   {
     "id": "GOV-WLF00003218",
@@ -3165,7 +3428,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003218&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지부 콜센터129"
   },
   {
     "id": "GOV-WLF00003219",
@@ -3177,7 +3441,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003219&wlfareInfoReldBztpCd=01",
     "department": "과학기술정보통신부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "한국지능정보사회진흥원 손말이음센터107"
   },
   {
     "id": "GOV-WLF00003220",
@@ -3189,7 +3454,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003220&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129"
   },
   {
     "id": "GOV-WLF00003222",
@@ -3201,7 +3467,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003222&wlfareInfoReldBztpCd=01",
     "department": "국토교통부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "주택도시기금1566-9009"
   },
   {
     "id": "GOV-WLF00003223",
@@ -3213,7 +3480,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003223&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129 아동권리보장원(경계선지능아동 사례관리 담당)02-6454-8500"
   },
   {
     "id": "GOV-WLF00003224",
@@ -3225,7 +3493,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003224&wlfareInfoReldBztpCd=01",
     "department": "고용노동부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "고용노동부 고객상담센터1350"
   },
   {
     "id": "GOV-WLF00003225",
@@ -3237,7 +3506,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003225&wlfareInfoReldBztpCd=01",
     "department": "환경부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "환경보건이용권 콜센터1544-0331"
   },
   {
     "id": "GOV-WLF00003226",
@@ -3249,7 +3519,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003226&wlfareInfoReldBztpCd=01",
     "department": "고용노동부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "고용노동부 고객상담센터1350"
   },
   {
     "id": "GOV-WLF00003227",
@@ -3261,7 +3532,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003227&wlfareInfoReldBztpCd=01",
     "department": "교육부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "강원교육청033-259-0883 경기교육청031-1396 경남교육청055-210-5179 경북교육청054-805-3425 광주교육청062-380-4494 대구교육청053-231-0755 대전교육청042-616-8805 부산교육청051-1396 서울교육청02-1396 세종교육청044-320-3342 울산교육청1588-9496 인천교육청032-420-8299 전남교육청061-260-0313, 0316 ~ 0317(콜센터상담) 전북교육청063-239-0850~0851 제주교육청064-710-0605 중앙상담센터1544-9654 충남교육청041-640-7142 충북교육청043-290-2886"
   },
   {
     "id": "GOV-WLF00003228",
@@ -3273,7 +3545,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003228&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129"
   },
   {
     "id": "GOV-WLF00003229",
@@ -3285,7 +3558,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003229&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지부상담센터129"
   },
   {
     "id": "GOV-WLF00003230",
@@ -3297,7 +3571,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003230&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129 한국토지주택공사1600-1004"
   },
   {
     "id": "GOV-WLF00003231",
@@ -3309,7 +3584,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003231&wlfareInfoReldBztpCd=01",
     "department": "고용노동부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "한국장애인고용공단1588-1519"
   },
   {
     "id": "GOV-WLF00003232",
@@ -3321,7 +3597,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003232&wlfareInfoReldBztpCd=01",
     "department": "농림축산식품부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "NH농협생명1544-4000"
   },
   {
     "id": "GOV-WLF00003235",
@@ -3333,7 +3610,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003235&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129"
   },
   {
     "id": "GOV-WLF00003236",
@@ -3345,7 +3623,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003236&wlfareInfoReldBztpCd=01",
     "department": "여성가족부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "시도 및 시군구 청소년상담복지센터051-662-3120 청소년1388(청소년 상담센터)1388(지역번호+1388)"
   },
   {
     "id": "GOV-WLF00003237",
@@ -3357,7 +3636,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003237&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지부 콜센터129"
   },
   {
     "id": "GOV-WLF00003238",
@@ -3369,7 +3649,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003238&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "국민건강보험공단1577-1000 보건복지상담센터129"
   },
   {
     "id": "GOV-WLF00003239",
@@ -3381,7 +3662,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003239&wlfareInfoReldBztpCd=01",
     "department": "고용노동부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "고용노동부 고객상담센터1350"
   },
   {
     "id": "GOV-WLF00003240",
@@ -3393,7 +3675,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003240&wlfareInfoReldBztpCd=01",
     "department": "교육부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "평생교육 바우처 콜센터1600-3005"
   },
   {
     "id": "GOV-WLF00003241",
@@ -3405,7 +3688,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003241&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "국민연금공단1355"
   },
   {
     "id": "GOV-WLF00003242",
@@ -3417,7 +3701,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003242&wlfareInfoReldBztpCd=01",
     "department": "질병관리청",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "예방접종도우미누리집043-719-8398~8399 질병관리청 1339 콜센터국번없이 1339"
   },
   {
     "id": "GOV-WLF00003243",
@@ -3429,7 +3714,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003243&wlfareInfoReldBztpCd=01",
     "department": "국가보훈부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "광주보훈요양원062-602-5800 국가보훈부 상담센터1577-0606 김해보훈요양원055-340-8585 남양주보훈요양원031-579-7000 대구보훈요양원053-606-3000 대전보훈요양원042-829-3000 수원보훈요양원031-240-9000 원주보훈요양원033-769-2000 전주보훈요양원063-220-0777"
   },
   {
     "id": "GOV-WLF00003244",
@@ -3441,7 +3727,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003244&wlfareInfoReldBztpCd=01",
     "department": "국토교통부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "LH 공사 본사강원지역본부033)760-6242 LH 공사 본사경기지역본부031)250-8179 LH 공사 본사광주전남지역본부062)380-0420~1 LH 공사 본사대구경북지역본부053)603-2935-8 LH 공사 본사대전충남지역본부042)602-4128, 4286 LH 공사 본사부산지역본부051)890-0227~9 LH 공사 본사서울지역본부02)3416-3852, 3605 LH 공사 본사울산경남지역본부055)269-8457, 8462 LH 공사 본사인천지역본부032)450-8060 LH 공사 본사전북지역본부063)240-2536, 2539, 2544 LH 공사 본사제주지역본부064)710-1120 LH 공사 본사충북지역본부043)290-3261 마이홈1600-0777 한국토지주택공사1600-1004"
   },
   {
     "id": "GOV-WLF00003245",
@@ -3453,7 +3740,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003245&wlfareInfoReldBztpCd=01",
     "department": "고용노동부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "고용노동부 고객상담센터1350"
   },
   {
     "id": "GOV-WLF00003246",
@@ -3465,7 +3753,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003246&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129 사회서비스바우처1566-3232"
   },
   {
     "id": "GOV-WLF00003247",
@@ -3477,7 +3766,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003247&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "국민건강보험공단1577-1000"
   },
   {
     "id": "GOV-WLF00003248",
@@ -3489,7 +3779,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003248&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "국민건강보험공단 장기요양보험1577-1000"
   },
   {
     "id": "GOV-WLF00003249",
@@ -3501,7 +3792,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003249&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129"
   },
   {
     "id": "GOV-WLF00003250",
@@ -3513,7 +3805,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003250&wlfareInfoReldBztpCd=01",
     "department": "교육부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "교육부02-6222-6060"
   },
   {
     "id": "GOV-WLF00003251",
@@ -3525,7 +3818,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003251&wlfareInfoReldBztpCd=01",
     "department": "산림청",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "산림청 산림환경보호과042-481-4067"
   },
   {
     "id": "GOV-WLF00003252",
@@ -3537,7 +3831,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003252&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "노인보호전문기관1577-1389"
   },
   {
     "id": "GOV-WLF00003253",
@@ -3549,7 +3844,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003253&wlfareInfoReldBztpCd=01",
     "department": "교육부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "교육부 민원 전화 상담실02-6222-6060 복지로"
   },
   {
     "id": "GOV-WLF00003254",
@@ -3561,7 +3857,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003254&wlfareInfoReldBztpCd=01",
     "department": "여성가족부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "청소년방과후아카데미운영지원단02-330-2892~2895"
   },
   {
     "id": "GOV-WLF00003256",
@@ -3573,7 +3870,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003256&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "국립중앙의료원 공공의료사업지원팀02-6362-3751 보건복지상담센터129"
   },
   {
     "id": "GOV-WLF00003257",
@@ -3585,7 +3883,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003257&wlfareInfoReldBztpCd=01",
     "department": "과학기술정보통신부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "개별통신사 전용 ARS(이동전화로 국번없이) 1523 과학기술정보통신부 민원상담센터1335"
   },
   {
     "id": "GOV-WLF00003258",
@@ -3597,7 +3896,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003258&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129 아동권리보장원02-6454-8500"
   },
   {
     "id": "GOV-WLF00003259",
@@ -3609,7 +3909,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003259&wlfareInfoReldBztpCd=01",
     "department": "고용노동부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "고용노동부 종합상담센터1544-1350 한국장애인고용공단 강원지사033-737-6620 한국장애인고용공단 경기동부지사031-600-0209 한국장애인고용공단 경기북부지사031-850-4500 한국장애인고용공단 경기서부지사031-500-2410 한국장애인고용공단 경기지역본부031-300-0906 한국장애인고용공단 경남지사 055-225-8006 한국장애인고용공단 경북지사 054-450-3000 한국장애인고용공단 광주지역본부062-448-1155 한국장애인고용공단 대구지역본부053-288-1500 한국장애인고용공단 대전지역본부042-620-6200 한국장애인고용공단 부산지역본부051-640-9800 한국장애인고용공단 서울남부지사 02-6004-1005 한국장애인고용공단 서울동부지사02-2146-3500 한국장애인고용공단 서울북부지사02-6312-5300 한국장애인고용공단 서울지역본부02-6320-7000 한국장애인고용공단 울산지사 052-226-1004 한국장애인고용공단 인천지사032-242-1004 한국장애인고용공단 전남지사061-983-1800 한국장애인고용공단 전북지사063-240-2400 한국장애인고용공단 제주지사064-710-5010 한국장애인고용공단 충남지사 041-629-6000 한국장애인고용공단 충북지사 043-230-6400 한국장애인고용공단1588-1519"
   },
   {
     "id": "GOV-WLF00003260",
@@ -3621,7 +3922,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003260&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129 시·군·구 또는 읍·면·동 주민센터주소지 관할 시·군·구 또는 읍·면·동 주민센터"
   },
   {
     "id": "GOV-WLF00003261",
@@ -3633,7 +3935,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003261&wlfareInfoReldBztpCd=01",
     "department": "국가보훈부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보훈상담센터1577-0606"
   },
   {
     "id": "GOV-WLF00003262",
@@ -3645,7 +3948,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003262&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129"
   },
   {
     "id": "GOV-WLF00003263",
@@ -3657,7 +3961,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003263&wlfareInfoReldBztpCd=01",
     "department": "교육부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "학생안전통합시스템043)5309-182,184"
   },
   {
     "id": "GOV-WLF00003264",
@@ -3669,7 +3974,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003264&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지부129"
   },
   {
     "id": "GOV-WLF00003265",
@@ -3681,7 +3987,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003265&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129 전국 읍·면·동 주민센터전국 읍·면·동 주민센터"
   },
   {
     "id": "GOV-WLF00003266",
@@ -3693,7 +4000,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003266&wlfareInfoReldBztpCd=01",
     "department": "고용노동부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "근로복지공단1588-0075"
   },
   {
     "id": "GOV-WLF00003267",
@@ -3705,7 +4013,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003267&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129"
   },
   {
     "id": "GOV-WLF00003268",
@@ -3717,7 +4026,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003268&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "가정위탁지원센터1577-1406"
   },
   {
     "id": "GOV-WLF00003269",
@@ -3729,7 +4039,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003269&wlfareInfoReldBztpCd=01",
     "department": "국토교통부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "한국토지주택공사1600-1004"
   },
   {
     "id": "GOV-WLF00003270",
@@ -3741,7 +4052,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003270&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "가정위탁지원센터1577-1406 아동권리보장원02-6283-0200"
   },
   {
     "id": "GOV-WLF00003271",
@@ -3753,7 +4065,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003271&wlfareInfoReldBztpCd=01",
     "department": "국토교통부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "주택도시기금1566-9009"
   },
   {
     "id": "GOV-WLF00003272",
@@ -3765,7 +4078,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003272&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지부 사회서비스자원과044-202-3255 보건복지부 콜센터129"
   },
   {
     "id": "GOV-WLF00003273",
@@ -3777,7 +4091,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003273&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지부 콜센터129"
   },
   {
     "id": "GOV-WLF00003274",
@@ -3789,7 +4104,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003274&wlfareInfoReldBztpCd=01",
     "department": "국가보훈부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보훈상담센터1577-0606 한국보훈복지의료공단033-749-3600"
   },
   {
     "id": "GOV-WLF00003275",
@@ -3801,7 +4117,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003275&wlfareInfoReldBztpCd=01",
     "department": "대검찰청",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "범죄피해자 지원콜1577-2584"
   },
   {
     "id": "GOV-WLF00003276",
@@ -3813,7 +4130,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003276&wlfareInfoReldBztpCd=01",
     "department": "교육부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "한국장학재단 고객센터1599-2000"
   },
   {
     "id": "GOV-WLF00003277",
@@ -3825,7 +4143,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003277&wlfareInfoReldBztpCd=01",
     "department": "교육부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "한국장학재단 고객센터1599-2000"
   },
   {
     "id": "GOV-WLF00003278",
@@ -3837,7 +4156,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003278&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129"
   },
   {
     "id": "GOV-WLF00003279",
@@ -3849,7 +4169,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003279&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129 사회서비스 전자바우처15266-3232"
   },
   {
     "id": "GOV-WLF00003280",
@@ -3861,7 +4182,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003280&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "한국전립선관리협회02-534-2214"
   },
   {
     "id": "GOV-WLF00003281",
@@ -3873,7 +4195,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003281&wlfareInfoReldBztpCd=01",
     "department": "국가보훈부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "국가보훈부 상담센터1577-0606"
   },
   {
     "id": "GOV-WLF00003282",
@@ -3885,7 +4208,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003282&wlfareInfoReldBztpCd=01",
     "department": "여성가족부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "다누리콜센터1577-1366"
   },
   {
     "id": "GOV-WLF00003283",
@@ -3897,7 +4221,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003283&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129 아동권리보장원 발달지원부(드림스타트 담당)02-6454-8500"
   },
   {
     "id": "GOV-WLF00004647",
@@ -3909,7 +4234,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00004647&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "국민연금공단1355"
   },
   {
     "id": "GOV-WLF00004648",
@@ -3921,7 +4247,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00004648&wlfareInfoReldBztpCd=01",
     "department": "고용노동부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "경기케어센터031-359-0515 태백케어센터033-580-5262"
   },
   {
     "id": "GOV-WLF00004649",
@@ -3933,7 +4260,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00004649&wlfareInfoReldBztpCd=01",
     "department": "국토교통부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "SH공사 홈페이지1600-3456 국토교통부1599-0001 한국토지주택공사1600-1004"
   },
   {
     "id": "GOV-WLF00004650",
@@ -3945,7 +4273,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00004650&wlfareInfoReldBztpCd=01",
     "department": "여성가족부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "강릉시청소년성문화센터033-655-1318 강원이동형청소년성문화센터033-255-6651 강원특별자치도청소년성문화센터033-255-6651 경기도이동형청소년성문화센터031-475-3253 경기도청소년성문화센터031-475-3253 경기북부이동형청소년성문화센터031-954-8050 경기북부청소년성문화센터031-954-8050 경남이동형청소년성문화센터055-711-1341 경남이동형청소년성문화센터055-711-1341 경북이동형청소년성문화센터054-858-7179 경상북도북부청소년성문화센터054-858-7179 경상북도청소년성문화센터054-436-0218 광산구청소년성문화센터062-972-7955 광주광역시청소년성문화센터062-522-1388 광진청소년성문화센터02-2204-3170 군산시청소년성문화센터063-463-1230 늘함께청소년성문화센터051-558-1224 대구아름청소년성문화센터053-657-1388 대구청소년성문화센터053-653-7755 대전광역시청소년성문화센터042-222-8847 동작청소년성문화센터02-823-7942 드림청소년성문화센터02-2051-1375 목포시청소년성문화센터061-272-1318 부산광역시청소년성문화센터051-303-9622 부천시청소년성문화센터032-663-1318 부평구청소년성문화센터032-500-2252 서귀포시청소년성문화센터064-760-6451 성북청소년성문화센터02-2207-7480 송파청소년성문화센터02-3012-1318 수원시청소년성문화센터031-251-1590 순천시청소년성문화센터061-745-0222 아하!청소년성문화센터02-2677-9220 안양시청소년성문화센터(이동형)031-360-3088 여성가족부 아동청소년성보호과 청소년성문화센터 담당02-2100-6403 여수시청소년성문화센터070-7733-1320 용인시청소년성문화센터031-548-1318 울산시청소년성문화센터052-256-1318 원주시청소년성문화센터033-745-1318 은평청소년성문화센터02-6380-7480 익산시청소년성문화센터063-834-1399 인천광역시청소년성문화센터032-446-1318 전라남도청소년성문화센터061-554-1318 전주시청소년성문화센터063-251-1318 정읍시청소년성문화센터063-532-1388 제주시청소년성문화센터064-728-3486 창동청소년성문화센터02-950-9651 창원시청소년성문화센터055-716-0311 충남이동형청소년성문화센터041-337-1585 충주시청소년청소년성문화센터043-856-7816 충청남도청소년성문화센터041-592-1388 충청남도홍성청소년성문화센터041-406-7000 충청북도이동형청소년성문화센터043-258-8001 충청북도청소년성문화센터043-258-8001 탄생의신비관이동형청소년성문화센터이동형1) 051-508-1308, 이동형2) 051-508-1802 탄생의신비관청소년성문화센터051-508-1808 포항청소년성문화센터054-240-9184 화성시청소년성문화센터031-8015-3900"
   },
   {
     "id": "GOV-WLF00004651",
@@ -3957,7 +4286,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00004651&wlfareInfoReldBztpCd=01",
     "department": "고용노동부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "고용노동부 종합상담센터1544-1350 정부·공공부문 대비 온라인과정02-2262-0910, 0951 한국장애인고용공단1588-1519"
   },
   {
     "id": "GOV-WLF00004654",
@@ -3969,7 +4299,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00004654&wlfareInfoReldBztpCd=01",
     "department": "고용노동부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "한국장애인고용공단1588-1519"
   },
   {
     "id": "GOV-WLF00004655",
@@ -3981,7 +4312,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00004655&wlfareInfoReldBztpCd=01",
     "department": "고용노동부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "한국장애인고용공단1588-1519"
   },
   {
     "id": "GOV-WLF00004656",
@@ -3993,7 +4325,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00004656&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129 사회서비스 전자바우처1566-3232"
   },
   {
     "id": "GOV-WLF00004657",
@@ -4005,7 +4338,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00004657&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129"
   },
   {
     "id": "GOV-WLF00004658",
@@ -4017,7 +4351,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00004658&wlfareInfoReldBztpCd=01",
     "department": "과학기술정보통신부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "과학문화바우처 지원센터1551-0012"
   },
   {
     "id": "GOV-WLF00004659",
@@ -4029,7 +4364,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00004659&wlfareInfoReldBztpCd=01",
     "department": "고용노동부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "한국장애인고용공단1588-1519"
   },
   {
     "id": "GOV-WLF00004660",
@@ -4041,7 +4377,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00004660&wlfareInfoReldBztpCd=01",
     "department": "고용노동부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "고용노동부 고객상담센터1350"
   },
   {
     "id": "GOV-WLF00004661",
@@ -4053,7 +4390,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00004661&wlfareInfoReldBztpCd=01",
     "department": "국토교통부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "국토교통부1599-0001"
   },
   {
     "id": "GOV-WLF00004662",
@@ -4065,7 +4403,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00004662&wlfareInfoReldBztpCd=01",
     "department": "국가보훈부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보훈상담센터1577-0606"
   },
   {
     "id": "GOV-WLF00004663",
@@ -4077,7 +4416,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00004663&wlfareInfoReldBztpCd=01",
     "department": "국토교통부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "마이홈1600-0777"
   },
   {
     "id": "GOV-WLF00004669",
@@ -4089,7 +4429,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00004669&wlfareInfoReldBztpCd=01",
     "department": "외교부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "외교부 영사안전국 재외국민보호과02-2100-8208"
   },
   {
     "id": "GOV-WLF00004997",
@@ -4101,7 +4442,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00004997&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "국민건강보험공단1577-1000"
   },
   {
     "id": "GOV-WLF00005004",
@@ -4113,7 +4455,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00005004&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129 치매상담콜센터1899-9988"
   },
   {
     "id": "GOV-WLF00005023",
@@ -4125,7 +4468,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00005023&wlfareInfoReldBztpCd=01",
     "department": "여성가족부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "한부모가족상담전화1577-4206"
   },
   {
     "id": "GOV-WLF00005024",
@@ -4137,7 +4481,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00005024&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "한국장애인개발원 중앙장애인지역사회통합지원센터02-3433-4533"
   },
   {
     "id": "GOV-WLF00005026",
@@ -4149,7 +4494,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00005026&wlfareInfoReldBztpCd=01",
     "department": "해양수산부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "해양수산부콜센터110"
   },
   {
     "id": "GOV-WLF00005031",
@@ -4161,7 +4507,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00005031&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "광역지방자치단체(시.도)시.도청 장애인 관련 부서 보건복지상담센터129"
   },
   {
     "id": "GOV-WLF00005032",
@@ -4173,7 +4520,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00005032&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "가정위탁지원센터1577-1406 아동권리보장원02-6454-8500"
   },
   {
     "id": "GOV-WLF00005033",
@@ -4185,7 +4533,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00005033&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "가정위탁지원센터1577-1406 아동권리보장원02-6454-8500"
   },
   {
     "id": "GOV-WLF00005034",
@@ -4197,7 +4546,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00005034&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "국립재활원(중앙장애인보건의료센터)02-901-1305 국민건강보험공단1577-1000 보건복지부 장애인건강과044-202-3191/3193"
   },
   {
     "id": "GOV-WLF00005036",
@@ -4209,7 +4559,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00005036&wlfareInfoReldBztpCd=01",
     "department": "금융위원회",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "신용회복위원회 고객센터1600-5500"
   },
   {
     "id": "GOV-WLF00005360",
@@ -4221,7 +4572,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00005360&wlfareInfoReldBztpCd=01",
     "department": "금융위원회",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "서민금융콜센터1397"
   },
   {
     "id": "GOV-WLF00005411",
@@ -4233,7 +4585,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00005411&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "강원특별자치도 복지정책과033-249-3697 경기도 복지사업과031-8008-5218 경상남도 복지정책과055-211-4833 경상북도 사회복지과054-880-3738 광주광역시 돌봄정책과062-613-3224 대구광역시 복지정책과053-803-6931 대전광역시 복지정책과042-270-4624 보건복지부 사회서비스사업과044-202-3226 부산광역시 복지정책과051-888-3151 서울특별시 복지정책과02-2133-7346 울산광역시 복지정책과052-229-3426 인천광역시 복지정책과032-440-1552 전라남도 사회복지과061-286-5741 전북특별자치도 사회복지과063-280-4676 제주특별자치도 복지정책과064-710-2862 충청남도 복지보육정책과041-635-4281 충청북도 복지정책과043-220-3014"
   },
   {
     "id": "GOV-WLF00005440",
@@ -4245,7 +4598,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00005440&wlfareInfoReldBztpCd=01",
     "department": "국토교통부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "K-패스 고객센터031-427-4415 국토교통부1599-0001"
   },
   {
     "id": "GOV-WLF00005442",
@@ -4257,7 +4611,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00005442&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "긴급돌봄 서비스 대표번호1522-0365 보건복지부 사회서비스사업과044-202-3221 보건복지상담센터129"
   },
   {
     "id": "GOV-WLF00005444",
@@ -4269,7 +4624,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00005444&wlfareInfoReldBztpCd=01",
     "department": "산업통상자원부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "한국전력 고객센터1551-1212"
   },
   {
     "id": "GOV-WLF00005445",
@@ -4281,7 +4637,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00005445&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지부 보건복지부 콜센터129"
   },
   {
     "id": "GOV-WLF00005446",
@@ -4293,7 +4650,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00005446&wlfareInfoReldBztpCd=01",
     "department": "해양수산부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "수협02-2240-2114 어업인 안전보험1588-4119"
   },
   {
     "id": "GOV-WLF00005447",
@@ -4305,7 +4663,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00005447&wlfareInfoReldBztpCd=01",
     "department": "고용노동부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "근로복지공단 콜센터1588-0075"
   },
   {
     "id": "GOV-WLF00005448",
@@ -4317,7 +4676,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00005448&wlfareInfoReldBztpCd=01",
     "department": "여성가족부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "다누리콜센터1577-1366 여성가족부 다문화가족과02-2100-6369"
   },
   {
     "id": "GOV-WLF00005567",
@@ -4329,7 +4689,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00005567&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129 사회서비스전자바우처1566-3232"
   },
   {
     "id": "GOV-WLF00005631",
@@ -4341,7 +4702,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00005631&wlfareInfoReldBztpCd=01",
     "department": "과학기술정보통신부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "우체국보험 고객센터1599-0100"
   },
   {
     "id": "GOV-WLF00005852",
@@ -4353,7 +4715,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00005852&wlfareInfoReldBztpCd=01",
     "department": "고용노동부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "고용노동부 고객상담센터1350"
   },
   {
     "id": "GOV-WLF00005853",
@@ -4365,7 +4728,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00005853&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129"
   },
   {
     "id": "GOV-WLF00005856",
@@ -4377,7 +4741,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00005856&wlfareInfoReldBztpCd=01",
     "department": "여성가족부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "양육비이행관리원1644-6621"
   },
   {
     "id": "GOV-WLF00005858",
@@ -4389,7 +4754,8 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00005858&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129"
   },
   {
     "id": "GOV-WLF00005859",
@@ -4401,6 +4767,7 @@
     "required_docs": [],
     "application": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00005859&wlfareInfoReldBztpCd=01",
     "department": "보건복지부",
-    "renewal": "기관 안내 확인"
+    "renewal": "기관 안내 확인",
+    "contact": "보건복지상담센터129"
   }
 ]

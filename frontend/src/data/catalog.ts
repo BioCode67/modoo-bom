@@ -42,6 +42,7 @@ function normalize(raw: Record<string, unknown>): Policy {
     application: s(raw.application),
     department: s(raw.department),
     renewal: s(raw.renewal) || '기관 안내 확인',
+    contact: s(raw.contact) || undefined,
   }
 }
 

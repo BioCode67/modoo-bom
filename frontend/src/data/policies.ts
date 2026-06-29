@@ -12,6 +12,8 @@ export interface Policy {
   application: string
   department: string
   renewal: string
+  /** 대표 문의처(전화 등) — 공공데이터 출처 정책에 존재 */
+  contact?: string
 }
 
 export const WELFARE_POLICIES: Policy[] = [
