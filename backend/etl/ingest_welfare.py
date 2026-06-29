@@ -71,20 +71,24 @@ def clean(s) -> str:
 
 def make_policy(*, sid: str, name: str, summary: str = "", target: str = "",
                 eligibility: str = "", benefit: str = "", application: str = "",
-                department: str = "", docs=None, url: str = "") -> dict:
+                department: str = "", docs=None, url: str = "", region: str = "") -> dict:
     """소스 필드를 우리 Policy 스키마로 정규화. 누락 필드는 보수적으로 채운다."""
     name = clean(name)
     summary = clean(summary)
+    region = clean(region)
+    id_prefix = "LOC" if region else "GOV"
+    target_full = (f"[{region}] " if region else "") + (clean(target) or summary)
+    dept_full = clean(department) or (f"{region} 지자체" if region else "정부부처")
     return {
-        "id": f"GOV-{clean(sid)}" if sid else f"GOV-{abs(hash(name)) % 10_000_000}",
+        "id": f"{id_prefix}-{clean(sid)}" if sid else f"{id_prefix}-{abs(hash(region + name)) % 10_000_000}",
         "name": name,
         "category": infer_category(name + " " + summary + " " + clean(target)),
-        "target": clean(target) or summary,
+        "target": target_full,
         "benefit": clean(benefit) or summary,
         "eligibility": clean(eligibility) or clean(target) or summary,
         "required_docs": docs or [],
         "application": clean(application) or (clean(url) or "복지로(www.bokjiro.go.kr) 또는 주민센터"),
-        "department": clean(department) or "정부부처",
+        "department": dept_full,
         "renewal": "기관 안내 확인",
     }
 
@@ -117,13 +121,18 @@ def ingest_csv(path: Path) -> list[dict]:
         name = _pick(row, "서비스명", "급여명", "사업명")
         if not name:
             continue
+        sido = _pick(row, "시도명", "시도", "광역시도명")
+        sgg = _pick(row, "시군구명", "시군구")
+        region = clean(f"{sido} {sgg}").strip()
         out.append(make_policy(
             sid=_pick(row, "서비스아이디", "서비스ID", "서비스id"),
             name=name,
-            summary=_pick(row, "서비스요약", "요약", "서비스목적요약"),
-            department=_pick(row, "소관부처명", "소관기관명", "부서명"),
+            summary=_pick(row, "서비스요약", "요약", "서비스목적요약", "지원내용"),
+            target=_pick(row, "지원대상", "선정기준"),
+            department=_pick(row, "소관부처명", "소관기관명", "부서명", "담당부서"),
             application=_pick(row, "신청방법"),
             url=_pick(row, "서비스URL", "상세조회URL"),
+            region=region,
         ))
     return out
 
@@ -178,6 +187,45 @@ def ingest_api(service_key: str, max_pages: int = 60, rows: int = 100) -> list[d
     return out
 
 
+# ── API 모드 (지자체 복지서비스 B554287 LocalGovernment) ───────────────────────
+LOCAL_LIST_URL = "http://apis.data.go.kr/B554287/LocalGovernmentWelfareInformations/LcgvWelfarelist"
+
+
+def ingest_local_api(service_key: str, max_pages: int = 200, rows: int = 100) -> list[dict]:
+    import httpx
+    import xml.etree.ElementTree as ET
+
+    out: list[dict] = []
+    with httpx.Client(timeout=30.0) as client:
+        for page in range(1, max_pages + 1):
+            params = {"serviceKey": service_key, "pageNo": page, "numOfRows": rows}
+            try:
+                r = client.get(LOCAL_LIST_URL, params=params)
+                r.raise_for_status()
+                root = ET.fromstring(r.text)
+            except Exception as e:
+                print(f"[etl/local] page {page} 실패: {str(e)[:120]}")
+                break
+            items = root.findall(".//servList")
+            if not items:
+                if page == 1:
+                    print(f"[etl/local] 항목 없음. 메시지: {(root.findtext('.//errMsg') or r.text[:200])}")
+                break
+            for it in items:
+                def g(tag): return it.findtext(tag) or ""
+                region = clean(f"{g('ctpvNm')} {g('sggNm')}")
+                out.append(make_policy(
+                    sid=g("servId"), name=g("servNm"), summary=g("servDgst"),
+                    target=g("trgterIndvdlArray") or g("bizChrDeptNm"),
+                    application=g("aplyMtdNm"), department=g("bizChrDeptNm"),
+                    url=g("servDtlLink"), region=region,
+                ))
+            print(f"[etl/local] page {page}: 누적 {len(out)}건")
+            if len(items) < rows:
+                break
+    return out
+
+
 # ── 병합/저장 ─────────────────────────────────────────────────────────────────
 def dedupe(policies: list[dict]) -> list[dict]:
     seen, out = set(), []
@@ -192,8 +240,9 @@ def dedupe(policies: list[dict]) -> list[dict]:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="모두봄 복지정책 ETL")
-    ap.add_argument("--csv", type=str, help="공개 CSV 경로 (키 불필요)")
-    ap.add_argument("--api", action="store_true", help="공식 OpenAPI 사용 (DATA_GO_KR_SERVICE_KEY 필요)")
+    ap.add_argument("--csv", type=str, help="공개 CSV 경로 (키 불필요). 여러 개면 콤마로 구분")
+    ap.add_argument("--api", action="store_true", help="중앙부처 OpenAPI (DATA_GO_KR_SERVICE_KEY 필요)")
+    ap.add_argument("--local", action="store_true", help="지자체 OpenAPI (DATA_GO_KR_SERVICE_KEY 필요)")
     ap.add_argument("--out", type=str, default=str(DEFAULT_OUT), help="출력 JSON 경로")
     ap.add_argument("--max-pages", type=int, default=60)
     args = ap.parse_args()
@@ -201,23 +250,33 @@ def main() -> int:
     policies: list[dict] = []
 
     if args.csv:
-        path = Path(args.csv).expanduser()
-        if not path.exists():
-            print(f"[etl] CSV 없음: {path}")
-            return 1
-        policies = ingest_csv(path)
-        print(f"[etl] CSV에서 {len(policies)}건 정규화")
-    elif args.api:
+        for csv_path in args.csv.split(","):
+            path = Path(csv_path.strip()).expanduser()
+            if not path.exists():
+                print(f"[etl] CSV 없음: {path}")
+                continue
+            got = ingest_csv(path)
+            policies += got
+            print(f"[etl] CSV({path.name})에서 {len(got)}건")
+
+    if args.api or args.local:
         key = os.getenv("DATA_GO_KR_SERVICE_KEY", "").strip()
         if not key:
             print("[etl] DATA_GO_KR_SERVICE_KEY 환경변수가 필요합니다.\n"
-                  "      공공데이터포털에서 '한국사회보장정보원_중앙부처복지서비스' 활용신청 후 디코딩 키를 설정하세요.")
+                  "      공공데이터포털에서 중앙부처/지자체 복지서비스(B554287) 활용신청 후 디코딩 키를 설정하세요.")
             return 1
-        policies = ingest_api(key, max_pages=args.max_pages)
-        print(f"[etl] API에서 {len(policies)}건 정규화")
-    else:
+        if args.api:
+            got = ingest_api(key, max_pages=args.max_pages)
+            policies += got
+            print(f"[etl] 중앙부처 API에서 {len(got)}건")
+        if args.local:
+            got = ingest_local_api(key, max_pages=max(args.max_pages, 200))
+            policies += got
+            print(f"[etl] 지자체 API에서 {len(got)}건")
+
+    if not args.csv and not args.api and not args.local:
         print(__doc__)
-        print("\n[etl] 입력 모드를 지정하세요: --csv <파일>  또는  --api")
+        print("\n[etl] 입력 모드를 지정하세요: --csv <파일>  /  --api(중앙부처)  /  --local(지자체)")
         return 0
 
     policies = dedupe([p for p in policies if p["name"]])
