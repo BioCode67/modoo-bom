@@ -8,6 +8,7 @@ import { PolicyCard } from '@/components/PolicyCard'
 import { PolicyDetailDrawer } from '@/components/PolicyDetailDrawer'
 import { BenefitBreakdown, CategoryDistribution } from '@/components/BenefitCharts'
 import { FutureWelfare } from '@/components/FutureWelfare'
+import { WelfareScore } from '@/components/WelfareScore'
 import { formatWon } from '@/lib/format'
 import { useAppStore } from '@/store/useAppStore'
 
@@ -75,6 +76,9 @@ export function ResultsView({ result, profile, onReset }: { result: AnalysisResu
           ))}
         </div>
       )}
+
+      {/* 복지 수혜 점수 — 행동 유도 */}
+      <WelfareScore eligible={eligible} onOpen={setSelected} />
 
       {/* 포트폴리오 분석 (전문 시각화) */}
       {eligible.length > 0 && (
