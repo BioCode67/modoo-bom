@@ -31,7 +31,7 @@ export function My() {
 
   const totalMonthly = useMemo(
     () => tracked.reduce((sum, t) => sum + (POLICY_MAP[t.policyId] ? parseMonthly(POLICY_MAP[t.policyId].benefit) : 0), 0),
-    [tracked],
+    [tracked, POLICY_MAP],
   )
   const applied = tracked.filter((t) => t.status === 'applied' || t.status === 'done').length
   const shown = filter === 'all' ? tracked : tracked.filter((t) => t.status === filter)

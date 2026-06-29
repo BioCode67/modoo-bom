@@ -361,14 +361,6 @@ const GUIDE_TEMPLATES: Record<string, GuideTemplate> = {
   },
 }
 
-const DEFAULT_STEPS = [
-  '1단계: 주민센터 방문 또는 복지로(www.bokjiro.go.kr) 온라인 신청',
-  '2단계: 신분증 및 주민등록등본 지참',
-  '3단계: 담당자 상담 후 신청서 작성',
-  '4단계: 자격 심사 및 결정 통보 (약 2~4주)',
-  '5단계: 급여·서비스 지급 시작',
-]
-
 // mock_guides 포팅: 적격 정책 상위 5건. 전용 템플릿 없으면 정책 자체 정보로 fallback 가이드 생성.
 export function generateGuides(eligible: EligiblePolicy[]): ApplicationGuide[] {
   const guides: ApplicationGuide[] = []
