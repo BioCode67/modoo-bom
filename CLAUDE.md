@@ -29,12 +29,38 @@ OpenAI 키가 없어도 **Mock 모드**로 전체 파이프라인이 동작한�
 - **pydantic 2.10** — AgentState / UserProfile 스키마
 - **pytest / pytest-asyncio** — Mock 모드 유닛+통합 테스트
 
-### Frontend (`frontend/`) — Node 20+
-- **React 18** + **Vite 6** + **TypeScript 5.7**
-- **TailwindCSS 3.4** + **shadcn/ui** (Radix UI 프리미티브)
-- **zustand** — 상태관리 / **lucide-react** — 아이콘
-- WebSocket 훅으로 노드 이벤트 실시간 스트리밍 수신
-- **Web Speech API** — 생년월일·전화번호 음성 입력 (`hooks/useSpeechInput.ts`)
+### Frontend (`frontend/`) — Node 20+  ⚠️ 2026-06 전면 리디자인
+- **React 18** + **Vite 6** + **TypeScript 5.7** + **TailwindCSS 3.4**
+- **React Three Fiber / three / drei** — 3D 새싹 마스코트 히어로(코드 분할 lazy)
+- **framer-motion** — 진입/스크롤/페이지 전환 애니메이션
+- **zustand (persist)** — 뷰 라우팅·관심목록·신청상태·프로필/결과 캐시 (localStorage)
+- **lucide-react** — 아이콘 · Pretendard 폰트 · 봄/새싹 카툰 라이트 테마
+- **클라이언트 복지 엔진**(`src/lib/welfare-engine.ts`) + 정책 120건(`src/data/policies.ts`)으로
+  **백엔드 없이도 전 기능 동작**. 백엔드가 있으면(`src/lib/backend.ts` 감지) RPA 자동발급 등 활성화.
+- 구 컴포넌트/WebSocket 훅/shadcn ui는 리디자인하며 제거됨. (백엔드 WS 엔드포인트는 유지)
+
+#### 프론트 구조(신규)
+```
+src/
+├── App.tsx                 # 셸: Navbar + 상태기반 뷰(home/analyze/explore/my) + ChatWidget
+├── store/useAppStore.ts    # zustand persist 전역 상태
+├── data/policies.ts        # 복지 정책 120건 (sample_data.py 포팅)
+├── lib/
+│   ├── welfare-engine.ts   # 자격판정·키워드·가이드·혜택계산 (mock_responses.py 포팅)
+│   ├── format.ts · officialLinks.ts · backend.ts · utils.ts
+├── three/                  # SproutMascot, HeroScene, MascotCanvas(lazy+폴백)
+├── sections/               # Home(Hero/HowItWorks/Features/Faq/Footer), Analyze, Explore, My
+├── components/             # ProfileWizard, ResultsView, PolicyCard, PolicyDetailDrawer,
+│                           #   TrackedCard, CompareModal, DocumentCenter, ChatWidget, Navbar
+└── ui/                     # SproutLogo, SectionHeading
+```
+
+### 배포 — GitHub Pages (정적)
+- **라이브: https://biocode67.github.io/modoo-bom/** · `gh-pages` 브랜치 서빙(legacy build)
+- 재배포: `cd frontend && npm run deploy` (build → gh-pages 푸시)
+- Vite `base`는 빌드 시 `/modoo-bom/`, 개발 시 `/` (vite.config.ts)
+- ⚠️ 푸시 토큰에 `workflow` 스코프가 없어 `.github/workflows`는 푸시 불가 → Actions 대신
+  `gh-pages` 브랜치 + Pages REST API 방식으로 배포함.
 
 ---
 

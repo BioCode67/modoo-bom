@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "deploy": "npm run build && gh-pages -d dist -b gh-pages --nojekyll -m \"deploy: 모두봄 프론트엔드 정적 빌드\""
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.4",
@@ -34,6 +35,7 @@
     "@types/three": "^0.171.0",
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
+    "gh-pages": "^6.3.0",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.7.2",
