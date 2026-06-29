@@ -36,6 +36,10 @@ describe('getEligiblePolicies', () => {
   it('만 0세 자녀 → 아동수당(POL-004) 포함', () => {
     expect(getEligiblePolicies(newborn).some((p) => p.id === 'POL-004')).toBe(true)
   })
+  it('만 8세 자녀도 아동수당(POL-004) 포함 (2026년 9세 미만 확대)', () => {
+    const child8: UserProfile = { ...base, age: 38, has_children: true, children_ages: [8] }
+    expect(getEligiblePolicies(child8).some((p) => p.id === 'POL-004')).toBe(true)
+  })
   it('중증장애인 → 장애인연금(POL-003) 포함', () => {
     expect(getEligiblePolicies(disabled).some((p) => p.id === 'POL-003')).toBe(true)
   })

@@ -75,7 +75,7 @@ export function extractKeywords(p: UserProfile): { summary: string; keywords: st
     const ages = p.children_ages || []
     if (ages.some((a) => a < 2)) {
       keywords = keywords.concat(['영아', '부모급여', '아동수당'])
-    } else if (ages.some((a) => a < 8)) {
+    } else if (ages.some((a) => a < 9)) {
       keywords = keywords.concat(['아동수당', '보육료', '유아학비'])
     }
     if (ages.some((a) => a < 18)) {
@@ -190,9 +190,10 @@ function checkPolicyDoc(doc: string, name: string, p: UserProfile): CheckResult 
   }
 
   // ── 아동·영유아 계열 ──
-  if (doc.includes('만 8세 미만') || doc.includes('0세~7세') || doc.includes('만 0~7세')) {
-    if (p.has_children && (p.children_ages || []).some((a) => a < 8))
-      return { eligible: true, reason: '만 8세 미만 자녀 보유', priority: 'high', confidence: 0.97 }
+  if (doc.includes('만 9세 미만') || doc.includes('만 0~8세') || doc.includes('만 8세 미만') || doc.includes('0세~7세') || doc.includes('만 0~7세')) {
+    // 아동수당: 2026년 지급 연령 만 8세 미만 → 9세 미만으로 확대(매년 1세씩 상향)
+    if (p.has_children && (p.children_ages || []).some((a) => a < 9))
+      return { eligible: true, reason: '만 9세 미만 자녀 보유', priority: 'high', confidence: 0.97 }
     return NO
   }
   if (anyIn(doc, ['만 0~5세', '만 0~2세', '영아', '만 24개월'])) {
@@ -386,7 +387,7 @@ const GUIDE_TEMPLATES: Record<string, GuideTemplate> = {
     days: 14,
   },
   아동수당: {
-    desc: '만 8세 미만 아동 모두에게 소득에 관계없이 매월 10만원을 지급합니다.',
+    desc: '만 9세 미만 아동 모두에게 소득에 관계없이 매월 10만원을 지급합니다(2026년 8세→9세 미만으로 확대).',
     steps: [
       '1단계: 출생신고 완료 후 즉시 신청 가능',
       '2단계: 복지로·정부24 온라인 또는 주민센터 방문',
