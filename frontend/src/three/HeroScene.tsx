@@ -72,10 +72,15 @@ export default function HeroScene({ animate = true }: HeroSceneProps) {
       camera={{ position: [0, 0.5, 6], fov: 42 }}
       style={{ width: '100%', height: '100%' }}
     >
-      <ambientLight intensity={0.75} />
-      <directionalLight position={[4, 6, 5]} intensity={1.5} castShadow shadow-mapSize={[1024, 1024]} />
+      {/* 부드러운 하늘/지면 환경광 — 카툰풍을 유지하며 음영을 자연스럽게 */}
+      <hemisphereLight args={['#ffffff', '#d7f5e3', 0.9]} />
+      <ambientLight intensity={0.45} />
+      <directionalLight
+        position={[4, 6, 5]} intensity={1.6} castShadow
+        shadow-mapSize={[2048, 2048]} shadow-bias={-0.0004}
+      />
       <directionalLight position={[-5, 2, -3]} intensity={0.5} color="#bae6fd" />
-      <pointLight position={[0, 3, 2]} intensity={0.6} color="#fde68a" />
+      <pointLight position={[0, 3, 2]} intensity={0.55} color="#fde68a" />
 
       <Suspense fallback={null}>
         <ParallaxGroup enabled={animate}>
