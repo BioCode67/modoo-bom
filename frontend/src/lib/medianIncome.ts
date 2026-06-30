@@ -43,6 +43,18 @@ export function qualifyingBenefits(pct: number) {
   return BENEFIT_THRESHOLDS.filter((b) => pct <= b.pct)
 }
 
+/**
+ * 가구원수별 각 급여의 월 소득 상한(원). 복지의 핵심 정보인데 사용자가 가장 모르는 값.
+ * 예) 4인 가구 생계급여는 월 2,078,316원 이하. monthly가 주어지면 충족 여부(ok)도 함께.
+ */
+export function benefitCutoffs(size: number, monthly?: number) {
+  const m = medianIncome(size)
+  return BENEFIT_THRESHOLDS.map((b) => {
+    const cutoff = Math.round((m * b.pct) / 100)
+    return { ...b, cutoff, ok: monthly != null && monthly > 0 ? monthly <= cutoff : null }
+  })
+}
+
 export function won(n: number): string {
   return n.toLocaleString() + '원'
 }

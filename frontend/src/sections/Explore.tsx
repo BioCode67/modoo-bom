@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Search, X, Mic, ArrowDownWideNarrow } from 'lucide-react'
+import { Search, X, Mic, ArrowDownWideNarrow, Calculator, ChevronDown } from 'lucide-react'
 import { useSpeech } from '@/lib/useSpeech'
+import { IncomeCalculator } from '@/components/IncomeCalculator'
 import { parseMonthly } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import type { Policy } from '@/data/policies'
@@ -36,6 +37,7 @@ export function Explore() {
   const [sort, setSort] = useState<SortKey>('default')
   const [onlyCash, setOnlyCash] = useState(false)
   const [region, setRegion] = useState('')
+  const [showCalc, setShowCalc] = useState(false)
   const [selected, setSelected] = useState<Policy | EligiblePolicy | null>(null)
   const [visible, setVisible] = useState(PAGE)
   const catalog = useCatalog()
@@ -65,6 +67,27 @@ export function Explore() {
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
         <h1 className="text-2xl sm:text-3xl font-extrabold">정책 탐색 <span className="gradient-text">🧭</span></h1>
         <p className="text-muted-foreground mt-1">{catalog.length.toLocaleString()}개 복지 정책을 검색하고 둘러보세요.</p>
+
+        {/* 기초생활보장 급여 계산기 — 접이식(내가 받을 수 있는 급여를 1분에 확인) */}
+        <div className="mt-4 max-w-xl">
+          <button
+            onClick={() => setShowCalc((v) => !v)}
+            aria-expanded={showCalc}
+            className="w-full flex items-center gap-2 rounded-2xl border-2 border-sky2-100 bg-sky2-50/50 px-4 py-3 text-left hover:border-sky2-200 transition-colors"
+          >
+            <Calculator className="h-5 w-5 text-sky2-600 shrink-0" />
+            <span className="flex-1 min-w-0">
+              <span className="block text-sm font-bold">내가 받을 수 있는 급여 계산하기</span>
+              <span className="block text-xs text-muted-foreground">가구원 수·월 소득만 넣으면 생계·의료·주거급여 자격을 바로 확인</span>
+            </span>
+            <ChevronDown className={cn('h-5 w-5 text-muted-foreground shrink-0 transition-transform', showCalc && 'rotate-180')} />
+          </button>
+          {showCalc && (
+            <div className="mt-2">
+              <IncomeCalculator onPickBenefit={(label) => { setQ(label); setShowCalc(false) }} />
+            </div>
+          )}
+        </div>
 
         {/* 검색 */}
         <div className="mt-5 relative max-w-xl">
