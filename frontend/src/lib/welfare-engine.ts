@@ -351,19 +351,44 @@ function isSummaryPolicy(policy: Policy): boolean {
 const PRIORITY_RANK: Record<'high' | 'medium' | 'low', number> = { high: 3, medium: 2, low: 1 }
 
 // 전체 적격 정책 리스트 — priority(high>medium>low) → confidence desc 정렬
+// 시·도 정규화 — 지자체 정책의 지역과 사용자 지역을 비교하기 위함(별칭 포함)
+const SIDO: [string, string][] = [
+  ['서울', '서울'], ['부산', '부산'], ['대구', '대구'], ['인천', '인천'], ['광주', '광주'], ['대전', '대전'], ['울산', '울산'], ['세종', '세종'],
+  ['경기', '경기'], ['강원', '강원'], ['충북', '충청북'], ['충남', '충청남'], ['전북', '전라북'], ['전남', '전라남'], ['경북', '경상북'], ['경남', '경상남'], ['제주', '제주'],
+]
+export function sidoOf(text: string): string {
+  const t = text || ''
+  for (const [code, alias] of SIDO) if (t.includes(code) || t.includes(alias)) return code
+  return ''
+}
+
+// 지자체(LOC) '관련' 추론 결과 상한 — 전국 수천 건이 쏟아지지 않게(신뢰도 상위 우선)
+const MAX_INFERRED = 120
+
 export function getEligiblePolicies(p: UserProfile): EligiblePolicy[] {
-  const result: EligiblePolicy[] = []
+  const userSido = sidoOf(p.region)
+  const precise: EligiblePolicy[] = []
+  const inferred: EligiblePolicy[] = []
   for (const policy of getCatalog()) {
-    let c = checkPolicy(policy, p)
-    // 정밀 룰이 못 잡은 요약본(공공데이터) 정책은 상황 신호로 보조 매칭
-    if (!c.eligible && isSummaryPolicy(policy)) {
-      const inferred = inferFromText(policy, p)
-      if (inferred) c = inferred
-    }
+    const c = checkPolicy(policy, p)
     if (c.eligible) {
-      result.push({ ...policy, reason: c.reason, priority: c.priority, confidence: c.confidence })
+      precise.push({ ...policy, reason: c.reason, priority: c.priority, confidence: c.confidence })
+      continue
     }
+    // 정밀 룰이 못 잡은 요약본(공공데이터) 정책은 상황 신호로 보조 매칭
+    if (!isSummaryPolicy(policy)) continue
+    const inf = inferFromText(policy, p)
+    if (!inf) continue
+    // 지자체는 사용자 시·도와 다르면 제외(지역 입력 시에만; 중앙·시드는 전국이라 항상 포함)
+    if (policy.id.startsWith('LOC-') && userSido) {
+      const ps = sidoOf(policy.target)
+      if (ps && ps !== userSido) continue
+    }
+    inferred.push({ ...policy, reason: inf.reason, priority: inf.priority, confidence: inf.confidence })
   }
+  // 추론(저신뢰)은 신뢰도 상위 일부만 — 정밀 매칭은 모두 유지
+  inferred.sort((a, b) => b.confidence - a.confidence)
+  const result = [...precise, ...inferred.slice(0, MAX_INFERRED)]
   result.sort((a, b) => {
     const pr = PRIORITY_RANK[b.priority] - PRIORITY_RANK[a.priority]
     if (pr !== 0) return pr

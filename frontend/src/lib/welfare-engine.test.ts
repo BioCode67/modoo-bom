@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   extractKeywords, getEligiblePolicies, searchPolicies,
-  estimateBenefits, runAnalysis, checkPolicy, type UserProfile,
+  estimateBenefits, runAnalysis, checkPolicy, sidoOf, type UserProfile,
 } from './welfare-engine'
 import type { Policy } from '@/data/policies'
 
@@ -88,6 +88,26 @@ describe('checkPolicy 소득 정밀 선정기준 (2026: 생계32·의료40·주�
   it('중위 60% 정책: 60% 적격, 61% 부적격(63%로 과대포함하던 것 정밀화)', () => {
     expect(checkPolicy(mk('중위소득 60% 이하'), at(60)).eligible).toBe(true)
     expect(checkPolicy(mk('중위소득 60% 이하'), at(61)).eligible).toBe(false)
+  })
+})
+
+describe('sidoOf (시·도 정규화 — 지자체 지역 필터용)', () => {
+  it('정식 명칭/별칭/축약 모두 동일 코드로', () => {
+    expect(sidoOf('서울특별시')).toBe('서울')
+    expect(sidoOf('[서울특별시 강남구] 어쩌고')).toBe('서울')
+    expect(sidoOf('경기도')).toBe('경기')
+    expect(sidoOf('충청남도')).toBe('충남')
+    expect(sidoOf('충남')).toBe('충남')
+    expect(sidoOf('강원특별자치도')).toBe('강원')
+    expect(sidoOf('전북특별자치도')).toBe('전북')
+    expect(sidoOf('경상남도')).toBe('경남')
+  })
+  it('서울과 경기는 다른 코드(타지역 제외 판정)', () => {
+    expect(sidoOf('서울특별시')).not.toBe(sidoOf('경기도'))
+  })
+  it('인식 불가/빈 값은 빈 문자열(필터 미적용 → 데이터 손실 방지)', () => {
+    expect(sidoOf('')).toBe('')
+    expect(sidoOf('해외')).toBe('')
   })
 })
 
