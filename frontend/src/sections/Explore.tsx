@@ -4,6 +4,7 @@ import { Search, X, Mic, ArrowDownWideNarrow, Calculator, ChevronDown } from 'lu
 import { useSpeech } from '@/lib/useSpeech'
 import { IncomeCalculator } from '@/components/IncomeCalculator'
 import { parseMonthly } from '@/lib/format'
+import { queryConcepts, relevance } from '@/lib/search'
 import { cn } from '@/lib/utils'
 import type { Policy } from '@/data/policies'
 import { useCatalog } from '@/data/useCatalog'
@@ -47,16 +48,25 @@ export function Explore() {
   useEffect(() => { setVisible(PAGE) }, [q, bucket, sort, onlyCash, region])
 
   const filtered = useMemo(() => {
-    const query = q.trim().toLowerCase()
     const b = BUCKETS.find((x) => x.key === bucket)
-    const list = catalog.filter((p) => {
+    const concepts = queryConcepts(q)
+    // 1) 비검색 필터(분류·지역·현금성) 먼저 적용
+    const base = catalog.filter((p) => {
       if (b?.match && !b.match.some((m) => p.category.includes(m))) return false
       // 지역 선택 시: 전국(중앙·시드)은 모두 보이고, 지자체(LOC)는 해당 시·도만
       if (region && p.id.startsWith('LOC-') && sidoOf(p.target) !== region) return false
       if (onlyCash && parseMonthly(p.benefit) <= 0) return false
-      if (!query) return true
-      return (p.name + p.category + p.target + p.eligibility + p.benefit).toLowerCase().includes(query)
+      return true
     })
+    // 2) 검색어가 있으면 개념 확장 + 관련도순(기본 정렬일 때). 다단어·생활어·다개념 우대.
+    let list = base
+    if (concepts.length) {
+      list = base
+        .map((p) => ({ p, s: relevance(p, concepts) }))
+        .filter((x) => x.s > 0)
+        .sort((a, b2) => b2.s - a.s)
+        .map((x) => x.p)
+    }
     if (sort === 'amount') return [...list].sort((a, b2) => parseMonthly(b2.benefit) - parseMonthly(a.benefit))
     if (sort === 'name') return [...list].sort((a, b2) => a.name.localeCompare(b2.name, 'ko'))
     return list
