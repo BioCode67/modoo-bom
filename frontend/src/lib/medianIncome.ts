@@ -55,6 +55,16 @@ export function benefitCutoffs(size: number, monthly?: number) {
   })
 }
 
+/**
+ * 예상 생계급여(월, 원) = 생계급여 선정기준(기준 중위소득 32%) − 소득인정액(입력 소득 근사).
+ * 사용자가 가장 알고 싶은 "그래서 얼마 받나"를 보여주기 위함. 소득이 기준 초과면 0(미해당).
+ * 실제 소득인정액은 재산·부채 환산이 포함돼 다를 수 있어 '예상'으로만 안내.
+ */
+export function livelihoodPayment(size: number, monthlyIncome: number): number {
+  const cutoff = Math.round((medianIncome(size) * 32) / 100)
+  return Math.max(0, cutoff - Math.max(0, monthlyIncome || 0))
+}
+
 export function won(n: number): string {
   return n.toLocaleString() + '원'
 }

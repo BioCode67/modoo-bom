@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Calculator, Check, X, ArrowRight } from 'lucide-react'
-import { medianIncome, incomePercentile, benefitCutoffs, isApprox, MEDIAN_YEAR, won } from '@/lib/medianIncome'
+import { medianIncome, incomePercentile, benefitCutoffs, livelihoodPayment, isApprox, MEDIAN_YEAR, won } from '@/lib/medianIncome'
 import { cn } from '@/lib/utils'
 
 /**
@@ -34,6 +34,7 @@ export function IncomeCalculator({
   const pct = monthly > 0 ? incomePercentile(size, monthly) : null
   const cutoffs = benefitCutoffs(size, monthly || undefined)
   const qualified = cutoffs.filter((b) => b.ok)
+  const livelihood = monthly > 0 ? livelihoodPayment(size, monthly) : 0 // 예상 생계급여(실수령 근사)
 
   return (
     <div className="rounded-2xl border-2 border-sky2-100 bg-sky2-50/40 p-4">
@@ -85,6 +86,15 @@ export function IncomeCalculator({
             ))}
           </div>
           <p className="text-sm text-center mt-0.5">내 소득은 기준 중위소득의 <b className="text-sky2-600 text-base">{pct}%</b></p>
+        </div>
+      )}
+
+      {/* 예상 생계급여 실수령액 — "그래서 얼마 받나"를 구체 금액으로 */}
+      {livelihood > 0 && (
+        <div className="mt-3 rounded-xl bg-sprout-500 text-white px-4 py-3 text-center shadow-soft">
+          <p className="text-xs font-semibold text-white/85">예상 생계급여 (매월 받을 수 있어요)</p>
+          <p className="text-2xl font-extrabold mt-0.5">약 {won(livelihood)}</p>
+          <p className="text-[10px] text-white/80 mt-1">= {size}인 생계급여 기준액 − 내 소득 · 실제 소득인정액(재산 환산 포함)에 따라 달라져요</p>
         </div>
       )}
 

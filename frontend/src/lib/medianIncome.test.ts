@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { medianIncome, incomePercentile, qualifyingBenefits, benefitCutoffs } from './medianIncome'
+import { medianIncome, incomePercentile, qualifyingBenefits, benefitCutoffs, livelihoodPayment } from './medianIncome'
 
 describe('medianIncome (2026 공식값)', () => {
   it('가구원수별 기준 중위소득 100%', () => {
@@ -44,5 +44,17 @@ describe('benefitCutoffs (가구별 급여 소득상한, 보건복지부 공식)
   })
   it('소득 미입력 시 ok는 null', () => {
     expect(benefitCutoffs(3).every((b) => b.ok === null)).toBe(true)
+  })
+})
+
+describe('livelihoodPayment (예상 생계급여 = 기준액 − 소득)', () => {
+  it('1인 가구 소득 30만원 → 생계급여 기준(820,556) − 30만 = 520,556', () => {
+    expect(livelihoodPayment(1, 300_000)).toBe(820_556 - 300_000)
+  })
+  it('소득 0이면 생계급여 기준액 전액', () => {
+    expect(livelihoodPayment(1, 0)).toBe(820_556)
+  })
+  it('소득이 생계급여 기준 초과면 0(미해당)', () => {
+    expect(livelihoodPayment(1, 1_000_000)).toBe(0)
   })
 })
