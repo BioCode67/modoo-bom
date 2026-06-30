@@ -225,6 +225,13 @@ function checkPolicyDoc(doc: string, name: string, p: UserProfile): CheckResult 
     return NO
   }
 
+  // 근로·자녀장려금(EITC/CTC) — 중위소득%가 아닌 절대 총소득 기준이라 별도 매칭(저소득 근로가구).
+  if (anyIn(doc, ['근로장려금', '자녀장려금', 'EITC'])) {
+    if (p.income_percentile <= 100)
+      return { eligible: true, reason: `저소득 근로·사업 가구로 ${name.includes('자녀') ? '자녀장려금' : '근로장려금'} 신청 대상이에요(소득·재산 요건은 국세청에서 확인)`, priority: 'medium', confidence: 0.8 }
+    return NO
+  }
+
   // ── 저소득·기초생활 계열 (2026 정밀 선정기준: 생계32·의료40·주거48·교육/차상위50, medianIncome.ts) ──
   // 여러 급여를 동시에 언급하는 포괄형 정책은 가장 넓은 기준이 적용되도록 넓은 순서로 검사.
   if (anyIn(doc, ['교육급여', '차상위', '중위소득 50%'])) {

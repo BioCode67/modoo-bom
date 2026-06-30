@@ -59,6 +59,10 @@ describe('getEligiblePolicies', () => {
     expect(names).not.toMatch(/유아|영유아|보육|어린이집/)
     expect(names).not.toMatch(/고용장려금/)
   })
+  it('저소득 가구 → 근로장려금(POL-122) 포함, 고소득은 제외', () => {
+    expect(getEligiblePolicies({ ...base, income_percentile: 40 }).some((p) => p.id === 'POL-122')).toBe(true)
+    expect(getEligiblePolicies({ ...base, income_percentile: 130 }).some((p) => p.id === 'POL-122')).toBe(false)
+  })
   it('자녀 없는 가구엔 아동수당이 안 뜸(자녀 생기면 다시 뜸)', () => {
     expect(getEligiblePolicies({ ...base, age: 40 }).some((p) => p.id === 'POL-004')).toBe(false)
     expect(getEligiblePolicies({ ...base, age: 40, has_children: true, children_ages: [3] }).some((p) => p.id === 'POL-004')).toBe(true)
