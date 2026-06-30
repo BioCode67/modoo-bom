@@ -8,8 +8,10 @@ import type { EligiblePolicy } from '@/lib/welfare-engine'
 import { generateGuides } from '@/lib/welfare-engine'
 import { categoryMeta, parseMonthly, formatWon, PRIORITY_META } from '@/lib/format'
 import { deadlineHint } from '@/lib/deadline'
-import { docLink, applyLink } from '@/lib/officialLinks'
+import { docLink, applyLink, isApplyAutomatable } from '@/lib/officialLinks'
+import { useBackend } from '@/lib/useBackend'
 import { AgentSubmitButton } from '@/components/AgentSubmitButton'
+import { ApplyFlow } from '@/components/ApplyFlow'
 import { ApplyKit } from '@/components/ApplyKit'
 import { useAppStore } from '@/store/useAppStore'
 import { cn } from '@/lib/utils'
@@ -94,6 +96,7 @@ function DrawerBody({
   const guide = generateGuides([toEligible(policy)])[0]
   const eligible = 'priority' in policy ? (policy as EligiblePolicy) : null
   const tts = useTTS()
+  const hasBackend = useBackend()
   const related = onOpen
     ? getCatalog().filter((p) => p.category === policy.category && p.id !== policy.id)
         .sort((a, b) => parseMonthly(b.benefit) - parseMonthly(a.benefit)).slice(0, 3)
@@ -202,8 +205,11 @@ function DrawerBody({
           </Section>
         )}
 
-        {/* 신청 키트 — 공식 신청 페이지 직결 + 내 정보 미리채움(복사) */}
+        {/* 신청 키트 — 자동화 흐름 + 공식 신청 페이지 직결 + 내 정보 미리채움(복사) */}
         <Section title="📝 신청 키트">
+          <div className="mb-2.5">
+            <ApplyFlow automatable={isApplyAutomatable(policy.name)} hasBackend={hasBackend === true} />
+          </div>
           <a
             href={applyLink(policy.application).url}
             target="_blank"
