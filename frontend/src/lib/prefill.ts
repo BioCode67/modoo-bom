@@ -5,7 +5,7 @@ import type { UserProfile } from './welfare-engine'
  * ⚠️ 주민등록번호 등 민감 고유식별정보는 절대 포함하지 않는다(앱이 저장하지도 않음).
  */
 export interface PrefillField { label: string; value: string }
-export interface RpaInfo { birth_date?: string; phone?: string; carrier?: string }
+export interface RpaInfo { name?: string; birth_date?: string; phone?: string; carrier?: string }
 
 const CARRIER_LABEL: Record<string, string> = {
   SKT: 'SKT', KT: 'KT', 'LGU+': 'LG U+', SKM: 'SKT 알뜰폰', KTM: 'KT 알뜰폰', LGM: 'LG 알뜰폰',
@@ -29,7 +29,7 @@ export function buildPrefill(profile: UserProfile | null, rpa?: RpaInfo): Prefil
     if (value && String(value).trim()) f.push({ label, value: String(value).trim() })
   }
 
-  push('이름', profile?.name)
+  push('이름', rpa?.name || profile?.name)
   push('생년월일', fmtBirth(rpa?.birth_date))
   if (profile && profile.age > 0) push('나이', `만 ${profile.age}세`)
   push('휴대폰', fmtPhone(rpa?.phone))

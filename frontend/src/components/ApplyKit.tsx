@@ -1,17 +1,25 @@
 import { useState } from 'react'
-import { Copy, Check, ClipboardList } from 'lucide-react'
+import { Copy, Check, Pencil } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
 import { buildPrefill, prefillText } from '@/lib/prefill'
+import { cn } from '@/lib/utils'
 
 /**
- * 신청 키트 — 내 정보 미리채움(복사).
+ * 신청 키트 — 내 정보 미리채움(복사) + 인라인 입력/수정.
  * 프로필+연락처에서 비민감 항목을 정리해 공식 신청서에 바로 붙여넣게 해준다.
- * 민감정보(주민번호)는 다루지 않으며, 입력 정보가 없으면 입력 유도를 보여준다.
+ * 백엔드 없는 배포본에서도 이름/생년월일/휴대폰/통신사를 바로 입력할 수 있다.
+ * ⚠️ 주민등록번호 등 민감정보는 저장/표시하지 않는다.
  */
+const CARRIERS: { v: string; l: string }[] = [
+  { v: 'SKT', l: 'SKT' }, { v: 'KT', l: 'KT' }, { v: 'LGU+', l: 'LG U+' },
+  { v: 'SKM', l: 'SKT알뜰' }, { v: 'KTM', l: 'KT알뜰' }, { v: 'LGM', l: 'LG알뜰' },
+]
+
 export function ApplyKit() {
-  const { profile, rpaInfo, setView } = useAppStore()
+  const { profile, rpaInfo, setRpaInfo, setView } = useAppStore()
   const fields = buildPrefill(profile, rpaInfo)
   const [copied, setCopied] = useState<string | null>(null)
+  const [editing, setEditing] = useState(false)
 
   const copy = async (key: string, text: string) => {
     try {
@@ -21,41 +29,53 @@ export function ApplyKit() {
     } catch { /* 클립보드 미지원 환경은 조용히 무시 */ }
   }
 
-  if (fields.length === 0) {
+  // 입력/수정 모드 (또는 채울 정보가 아직 없을 때)
+  if (editing || fields.length === 0) {
     return (
-      <div className="rounded-2xl border border-dashed border-sprout-200 p-4 text-center">
-        <ClipboardList className="mx-auto h-6 w-6 text-sprout-400" />
-        <p className="mt-1.5 text-sm text-muted-foreground">
-          프로필을 입력하면 신청서에 바로 쓸 <b className="text-foreground">내 정보</b>를 자동으로 정리해 드려요.
-        </p>
-        <button onClick={() => setView('analyze')} className="btn-secondary !py-1.5 !px-3 text-xs mt-2.5">
-          내 정보 입력하기
-        </button>
+      <div className="rounded-2xl bg-sprout-50/70 border border-sprout-100 p-3">
+        <p className="text-xs font-bold text-sprout-700 mb-2">신청서에 쓸 내 정보 입력</p>
+        <div className="space-y-2">
+          <input value={rpaInfo.name || ''} onChange={(e) => setRpaInfo({ name: e.target.value })} placeholder="이름" className="input-cute" />
+          <input value={rpaInfo.birth_date || ''} onChange={(e) => setRpaInfo({ birth_date: e.target.value })} placeholder="생년월일 (예: 1953-11-01)" inputMode="numeric" className="input-cute" />
+          <input value={rpaInfo.phone || ''} onChange={(e) => setRpaInfo({ phone: e.target.value })} placeholder="휴대폰 (예: 010-1234-5678)" inputMode="tel" className="input-cute" />
+          <div className="flex flex-wrap gap-1.5" role="group" aria-label="통신사">
+            {CARRIERS.map((c) => (
+              <button
+                key={c.v}
+                onClick={() => setRpaInfo({ carrier: rpaInfo.carrier === c.v ? '' : c.v })}
+                aria-pressed={rpaInfo.carrier === c.v}
+                className={cn('rounded-lg border-2 px-2.5 py-1 text-xs font-semibold transition-colors',
+                  rpaInfo.carrier === c.v ? 'bg-sprout-500 border-sprout-500 text-white' : 'bg-white border-sprout-100 text-muted-foreground hover:border-sprout-200')}
+              >{c.l}</button>
+            ))}
+          </div>
+          <button onClick={() => setEditing(false)} className="btn-secondary !py-1.5 text-xs w-full justify-center">완료</button>
+        </div>
+        <button onClick={() => setView('analyze')} className="mt-2 text-xs text-sprout-600 hover:underline">+ 가구·소득 등 자세히 입력(프로필)</button>
+        <p className="mt-1 text-[11px] text-muted-foreground/70">🔒 이 기기에만 저장돼요. 주민등록번호는 입력하지 마세요.</p>
       </div>
     )
   }
 
   return (
     <div className="rounded-2xl bg-sprout-50/70 border border-sprout-100 p-3">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <p className="text-xs font-bold text-sprout-700">공식 신청서에 붙여넣으세요</p>
-        <button
-          onClick={() => copy('__all', prefillText(fields))}
-          className="text-xs font-semibold text-sprout-600 inline-flex items-center gap-1 hover:underline"
-        >
-          {copied === '__all' ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />} 전체 복사
-        </button>
+        <div className="flex items-center gap-2.5 shrink-0">
+          <button onClick={() => setEditing(true)} className="text-xs font-semibold text-muted-foreground inline-flex items-center gap-1 hover:underline">
+            <Pencil className="h-3 w-3" /> 수정
+          </button>
+          <button onClick={() => copy('__all', prefillText(fields))} className="text-xs font-semibold text-sprout-600 inline-flex items-center gap-1 hover:underline">
+            {copied === '__all' ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />} 전체 복사
+          </button>
+        </div>
       </div>
       <ul className="mt-2 space-y-1">
         {fields.map((x) => (
           <li key={x.label} className="flex items-center gap-2 text-sm">
             <span className="w-16 shrink-0 text-xs font-semibold text-muted-foreground">{x.label}</span>
             <span className="flex-1 truncate text-foreground/90">{x.value}</span>
-            <button
-              onClick={() => copy(x.label, x.value)}
-              aria-label={`${x.label} 복사`}
-              className="shrink-0 rounded-md p-1 hover:bg-sprout-100 text-sprout-600"
-            >
+            <button onClick={() => copy(x.label, x.value)} aria-label={`${x.label} 복사`} className="shrink-0 rounded-md p-1 hover:bg-sprout-100 text-sprout-600">
               {copied === x.label ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
             </button>
           </li>

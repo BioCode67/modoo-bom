@@ -36,8 +36,8 @@ interface AppState {
   setOnboarded: () => void
 
   // RPA 자동입력용 추가정보(선택) — 본인인증 폼 자동 작성에만 사용, 내 기기에만 저장
-  rpaInfo: { birth_date: string; phone: string; carrier: string }
-  setRpaInfo: (patch: Partial<{ birth_date: string; phone: string; carrier: string }>) => void
+  rpaInfo: { name: string; birth_date: string; phone: string; carrier: string }
+  setRpaInfo: (patch: Partial<{ name: string; birth_date: string; phone: string; carrier: string }>) => void
 
   // 최근 프로필 + 분석 결과 캐시 (오랜만에 들어와도 바로 보이게)
   profile: UserProfile | null
@@ -73,7 +73,7 @@ export const useAppStore = create<AppState>()(
       onboarded: false,
       setOnboarded: () => set({ onboarded: true }),
 
-      rpaInfo: { birth_date: '', phone: '', carrier: '' },
+      rpaInfo: { name: '', birth_date: '', phone: '', carrier: '' },
       setRpaInfo: (patch) => set((s) => ({ rpaInfo: { ...s.rpaInfo, ...patch } })),
 
       profile: null,
