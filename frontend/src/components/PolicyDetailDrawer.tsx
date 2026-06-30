@@ -7,6 +7,7 @@ import { getCatalog } from '@/data/catalog'
 import type { EligiblePolicy } from '@/lib/welfare-engine'
 import { generateGuides } from '@/lib/welfare-engine'
 import { categoryMeta, parseMonthly, formatWon, PRIORITY_META } from '@/lib/format'
+import { deadlineHint } from '@/lib/deadline'
 import { docLink, applyLink } from '@/lib/officialLinks'
 import { AgentSubmitButton } from '@/components/AgentSubmitButton'
 import { ApplyKit } from '@/components/ApplyKit'
@@ -136,6 +137,19 @@ function DrawerBody({
       </div>
 
       <div className="p-5 space-y-5">
+        {(() => {
+          const d = deadlineHint(policy)
+          if (!d) return null
+          return (
+            <div className={cn('rounded-2xl border p-3 flex items-start gap-2', d.urgent ? 'bg-rose-50 border-rose-200' : 'bg-amber-50 border-amber-200')}>
+              <span className="text-lg leading-none">⏰</span>
+              <div>
+                <p className={cn('text-sm font-bold', d.urgent ? 'text-rose-700' : 'text-amber-700')}>{d.urgent ? '신청 기한을 꼭 확인하세요!' : '신청 기간이 정해져 있어요'}</p>
+                <p className={cn('text-xs mt-0.5', d.urgent ? 'text-rose-600/90' : 'text-amber-700/90')}>{d.label} · 기한을 놓치면 못 받을 수 있어요.</p>
+              </div>
+            </div>
+          )
+        })()}
         {eligible?.reason && (
           <div className="rounded-2xl bg-sprout-50 border border-sprout-100 p-4">
             <p className="text-sm font-bold text-sprout-700 flex items-center gap-1.5"><CheckCircle2 className="h-4 w-4" /> 내가 받을 수 있는 이유</p>

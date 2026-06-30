@@ -3,6 +3,7 @@ import { Heart, ChevronRight } from 'lucide-react'
 import type { Policy } from '@/data/policies'
 import type { EligiblePolicy } from '@/lib/welfare-engine'
 import { categoryMeta, parseMonthly, formatWon, PRIORITY_META } from '@/lib/format'
+import { deadlineHint } from '@/lib/deadline'
 import { useAppStore } from '@/store/useAppStore'
 import { cn } from '@/lib/utils'
 
@@ -28,6 +29,7 @@ export function PolicyCard({
   const rm = policy.id.startsWith('LOC-') ? policy.target.match(/^\[([^\]]+)\]/) : null
   const region = rm ? (rm[1].split(/\s+/).pop() || rm[1]) : ''
   const targetText = rm ? policy.target.replace(/^\[[^\]]+\]\s*/, '') : policy.target
+  const deadline = deadlineHint(policy) // 신청 기한 힌트(있으면 ⏰ 배지)
 
   return (
     <motion.div
@@ -45,6 +47,11 @@ export function PolicyCard({
           <div className="flex items-center gap-1.5 flex-wrap">
             <span className="text-[11px] font-semibold text-muted-foreground">{policy.category}</span>
             {region && <span className="text-[10px] font-semibold text-sky2-700 bg-sky2-50 rounded-full px-1.5 py-0.5">📍 {region}</span>}
+            {deadline && (
+              <span className={cn('text-[10px] font-semibold rounded-full px-1.5 py-0.5', deadline.urgent ? 'text-rose-700 bg-rose-50' : 'text-amber-700 bg-amber-50')}>
+                ⏰ {deadline.label}
+              </span>
+            )}
             {eligible && (
               <span className={cn('chip text-[10px] !px-2 !py-0.5 border', PRIORITY_META[policy.priority].cls)}>
                 {PRIORITY_META[policy.priority].emoji} {PRIORITY_META[policy.priority].label}
