@@ -498,6 +498,18 @@ export const WELFARE_POLICIES: Policy[] = [
     renewal: '5년 만기',
   },
   {
+    id: 'POL-121',
+    name: '청년미래적금',
+    category: '청년',
+    target: '만 19~34세 청년 (총급여 7,500만원 이하)',
+    benefit: '월 최대 50만원 납입, 정부기여금 월 최대 60,000원(납입액 12% 우대형·일반형 6%·30,000원) + 이자 비과세. 3년 만기 시 기여금 최대 216만원 (2026.6 출시, 청년도약계좌 후속)',
+    eligibility: '만 19~34세, 총급여 7,500만원(종합소득 6,300만원) 이하, 가구 기준 중위소득 200% 이하(맞벌이 2인 250%). 직전 3년 금융소득종합과세 대상자 제외',
+    required_docs: ['신분증', '소득 확인서류(소득금액증명 등)'],
+    application: 'https://ylaccount.kinfa.or.kr',
+    department: '금융위원회 · 서민금융진흥원',
+    renewal: '3년 만기',
+  },
+  {
     id: 'POL-041',
     name: '장애인 편의시설 설치 지원',
     category: '장애인',
