@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="index,follow" />
+  <title>개인정보처리방침 — 모두봄</title>
+  <style>
+    :root { --green:#16a34a; --ink:#1f2937; --muted:#6b7280; --line:#e5e7eb; --bg:#fffaf3; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Apple SD Gothic Neo','Pretendard',sans-serif;
+      color:var(--ink); background:var(--bg); line-height:1.7; }
+    .wrap { max-width:760px; margin:0 auto; padding:32px 20px 80px; }
+    header { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+    header .logo { font-size:26px; }
+    h1 { font-size:1.6rem; margin:18px 0 4px; }
+    h2 { font-size:1.12rem; margin:30px 0 8px; color:var(--green); }
+    p, li { color:#374151; }
+    .muted { color:var(--muted); font-size:.9rem; }
+    table { width:100%; border-collapse:collapse; margin:10px 0; font-size:.92rem; }
+    th, td { border:1px solid var(--line); padding:9px 11px; text-align:left; vertical-align:top; }
+    th { background:#f0fdf4; }
+    a { color:var(--green); }
+    .back { display:inline-block; margin-top:28px; padding:10px 18px; background:var(--green); color:#fff;
+      border-radius:999px; text-decoration:none; font-weight:700; }
+    ul { padding-left:20px; }
+    code { background:#f3f4f6; padding:1px 5px; border-radius:5px; font-size:.88em; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header><span class="logo">🌱</span><strong>모두봄 (ModooBom)</strong></header>
+    <h1>개인정보처리방침</h1>
+    <p class="muted">시행일: 2026년 7월 1일 · 최종 개정: 2026년 7월 1일</p>
+
+    <p>모두봄(이하 “서비스”)은 이용자가 받을 수 있는 복지 혜택을 쉽게 찾고 신청을 준비하도록 돕는 비영리 성격의 서비스입니다.
+    서비스는 이용자의 개인정보를 소중히 다루며, 「개인정보 보호법」을 준수합니다. 본 방침은 서비스가 어떤 정보를, 왜, 어떻게 다루는지 설명합니다.</p>
+
+    <h2>1. 핵심 요약</h2>
+    <ul>
+      <li>입력하신 정보는 기본적으로 <strong>이용자 기기(브라우저)에만 저장</strong>되며, 서버로 전송되지 않습니다.</li>
+      <li><strong>회원가입 없이</strong> 모든 핵심 기능을 이용할 수 있습니다.</li>
+      <li><strong>주민등록번호 등 고유식별정보는 수집·저장하지 않습니다.</strong></li>
+      <li>광고·분석(트래킹) 도구를 사용하지 않으며, 개인정보를 제3자에게 판매·제공하지 않습니다.</li>
+      <li>로그인(선택) 시에만 일부 정보가 클라우드(Supabase)에 저장되며, 이용자가 직접 삭제할 수 있습니다.</li>
+    </ul>
+
+    <h2>2. 수집하는 정보와 보관 위치</h2>
+    <table>
+      <tr><th>구분</th><th>항목</th><th>보관 위치</th></tr>
+      <tr><td>복지 분석 입력</td><td>나이·성별·지역·가구유형·소득수준·장애여부·자녀·생애이벤트 등 (이용자가 직접 입력)</td><td>기기(브라우저 localStorage)</td></tr>
+      <tr><td>관심·신청 관리</td><td>관심 복지 목록, 신청 진행 상태, 서류 체크 기록</td><td>기기(브라우저). 로그인 시 클라우드 동기화</td></tr>
+      <tr><td>신청서 미리채움</td><td>이름·생년월일·휴대폰번호·통신사 (이용자가 직접 입력, 선택)</td><td>기기(브라우저)에만 저장</td></tr>
+      <tr><td>로그인(선택)</td><td>이메일 등 소셜 로그인(카카오·구글) 계정 식별정보</td><td>클라우드(Supabase)</td></tr>
+      <tr><td>접근성 설정</td><td>큰글씨·고대비 모드 등 환경설정</td><td>기기(브라우저)</td></tr>
+    </table>
+    <p class="muted">※ 위 정보는 맞춤 복지 추천·신청 준비를 위해서만 사용됩니다. 서비스는 이름·연락처 등을 자동으로 수집하지 않으며, 모두 이용자가 직접 입력한 값입니다.</p>
+
+    <h2>3. 정보를 이용하는 목적</h2>
+    <ul>
+      <li>입력하신 조건에 맞는 복지 정책 추천 및 예상 혜택 안내</li>
+      <li>관심 복지 저장, 신청 진행 상황 관리(사후관리)</li>
+      <li>공식 신청서 작성을 돕기 위한 내 정보 미리채움(복사/입력)</li>
+      <li>로그인 시: 여러 기기에서 신청 현황을 이어보기 위한 동기화</li>
+    </ul>
+
+    <h2>4. 제3자 제공 및 외부 서비스</h2>
+    <ul>
+      <li>서비스는 이용자의 개인정보를 제3자에게 <strong>제공·판매하지 않습니다.</strong></li>
+      <li><strong>공공데이터 연계:</strong> 복지 정책 정보는 보건복지부·한국사회보장정보원(복지로)의 공개 공공데이터를 <em>조회</em>하여 보여줍니다. 이 과정에서 이용자의 개인정보를 외부로 전송하지 않습니다.</li>
+      <li><strong>클라우드 저장(선택, Supabase):</strong> 로그인 기능을 사용할 때만 신청 현황 동기화를 위해 Supabase(인증·데이터 저장)를 이용합니다. 데이터는 이용자 계정에만 연결되며 행(行) 단위 보안(RLS)으로 보호됩니다.</li>
+      <li><strong>공식 신청 연결:</strong> 신청 버튼은 복지로·정부24·고용24 등 정부 공식 사이트로 연결됩니다. 실제 본인인증·서류 발급·신청 제출은 해당 정부 사이트에서 이용자 본인이 직접 진행하며, 모두봄은 그 정보를 저장하지 않습니다.</li>
+    </ul>
+
+    <h2>5. 보관 기간과 파기</h2>
+    <ul>
+      <li>기기에 저장된 정보는 이용자가 브라우저 데이터를 삭제하거나 앱에서 ‘초기화/삭제’하면 즉시 사라집니다.</li>
+      <li>로그인으로 저장된 클라우드 데이터는 이용자가 항목을 삭제하거나 계정 삭제를 요청하면 파기됩니다.</li>
+    </ul>
+
+    <h2>6. 이용자의 권리</h2>
+    <p>이용자는 언제든지 자신의 정보를 열람·수정·삭제할 수 있습니다. 기기 저장 정보는 앱 내에서 바로 삭제할 수 있고, 클라우드 데이터 삭제나 문의는 아래 연락처로 요청할 수 있습니다.</p>
+
+    <h2>7. 아동의 개인정보</h2>
+    <p>서비스는 만 14세 미만 아동을 대상으로 하지 않습니다. 보호자가 가구·자녀 정보를 입력하는 경우에도 해당 정보는 기기에만 저장됩니다.</p>
+
+    <h2>8. 안전성 확보 조치</h2>
+    <p>서비스는 전 구간 HTTPS 암호화 통신을 사용하며, 민감정보(주민등록번호 등)를 수집하지 않습니다. 클라우드 저장 시 접근 권한을 이용자 본인으로 제한합니다.</p>
+
+    <h2>9. 방침의 변경</h2>
+    <p>본 방침이 변경되면 본 페이지를 통해 개정 내용과 시행일을 안내합니다.</p>
+
+    <h2>10. 문의처</h2>
+    <p>개인정보 관련 문의: <a href="mailto:6wngud@gmail.com">6wngud@gmail.com</a><br>
+    복지 상담(정부): 보건복지상담센터 ☎ 129</p>
+
+    <p class="muted" style="margin-top:24px">※ 본 방침은 서비스의 실제 데이터 처리 방식을 바탕으로 작성된 일반 안내문입니다. 정식 서비스 출시·법적 효력이 필요한 경우 전문가 검토를 권장합니다.</p>
+
+    <a class="back" href="./">← 모두봄으로 돌아가기</a>
+  </div>
+</body>
+</html>
