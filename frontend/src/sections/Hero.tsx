@@ -1,7 +1,10 @@
+import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Sparkles, ArrowRight, ShieldCheck, Compass } from 'lucide-react'
+import { Sparkles, ArrowRight, ShieldCheck, Compass, Search } from 'lucide-react'
 import { MascotCanvas } from '@/three/MascotCanvas'
 import { useAppStore } from '@/store/useAppStore'
+import { parseProfileFromText } from '@/lib/parseQuery'
+import { runAnalysis } from '@/lib/welfare-engine'
 
 const STATS = [
   { value: '5,000+', label: '전국 복지 정책' },
@@ -9,8 +12,20 @@ const STATS = [
   { value: '무료', label: '평생 이용' },
 ]
 
+const HERO_EXAMPLES = ['72세 혼자 사는데 소득이 적어요', '서울 사는 한부모, 5살 아이 키워요', '퇴사하고 일자리 찾는 청년이에요']
+
 export function Hero() {
-  const setView = useAppStore((s) => s.setView)
+  const { setView, setAnalysis } = useAppStore()
+  const [text, setText] = useState('')
+
+  // 자연어 한 문장 → 즉시 분석 후 결과로 이동(위저드 없이 바로 가치 체험)
+  const quickAnalyze = (raw: string) => {
+    const t = raw.trim()
+    if (!t) { setView('analyze'); return }
+    const profile = parseProfileFromText(t)
+    setAnalysis(profile, runAnalysis(profile))
+    setView('analyze')
+  }
 
   return (
     <section className="relative overflow-hidden">
@@ -41,12 +56,35 @@ export function Hero() {
             <b className="text-foreground"> 신청 방법과 필요 서류</b>까지 쉽게 안내해 드려요.
           </p>
 
-          <div className="mt-7 flex flex-col sm:flex-row gap-3 justify-center lg:justify-start">
-            <button onClick={() => setView('analyze')} className="btn-primary text-base !px-7 !py-3.5">
+          {/* 자연어 즉시 분석 — 첫 방문자도 한 문장이면 바로 결과 */}
+          <form
+            onSubmit={(e) => { e.preventDefault(); quickAnalyze(text) }}
+            className="mt-7 flex flex-col sm:flex-row gap-2 max-w-xl mx-auto lg:mx-0"
+          >
+            <div className="relative flex-1">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+              <input
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder="예: 72세 혼자 사는데 소득이 적어요"
+                aria-label="상황을 한 문장으로 입력하면 바로 복지를 찾아드려요"
+                className="w-full rounded-2xl border-2 border-sprout-200 bg-white pl-12 pr-4 py-3.5 text-sm font-medium focus-ring shadow-soft"
+              />
+            </div>
+            <button type="submit" className="btn-primary text-base !px-6 !py-3.5 shrink-0">
               <Sparkles className="h-5 w-5" /> 내 복지 찾기 <ArrowRight className="h-4 w-4" />
             </button>
-            <button onClick={() => setView('explore')} className="btn-secondary text-base !px-7 !py-3.5">
-              <Compass className="h-5 w-5" /> 정책 둘러보기
+          </form>
+          <div className="mt-3 flex flex-wrap gap-1.5 justify-center lg:justify-start">
+            {HERO_EXAMPLES.map((ex) => (
+              <button key={ex} onClick={() => quickAnalyze(ex)}
+                className="text-xs rounded-full border border-sprout-100 bg-white/70 px-2.5 py-1 text-muted-foreground hover:border-sprout-300 hover:text-foreground transition-colors">
+                {ex}
+              </button>
+            ))}
+            <button onClick={() => setView('explore')}
+              className="text-xs rounded-full border border-sky2-100 bg-sky2-50/70 px-2.5 py-1 font-semibold text-sky2-700 hover:border-sky2-300 transition-colors inline-flex items-center gap-1">
+              <Compass className="h-3 w-3" /> 정책 둘러보기
             </button>
           </div>
 
