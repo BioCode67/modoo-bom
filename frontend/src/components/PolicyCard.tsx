@@ -24,6 +24,10 @@ export function PolicyCard({
   const meta = categoryMeta(policy.category)
   const monthly = parseMonthly(policy.benefit)
   const eligible = isEligible(policy)
+  // 지자체(LOC) 정책은 target 앞 "[시도 시군구]"에서 지역 배지 추출(시군구 우선)
+  const rm = policy.id.startsWith('LOC-') ? policy.target.match(/^\[([^\]]+)\]/) : null
+  const region = rm ? (rm[1].split(/\s+/).pop() || rm[1]) : ''
+  const targetText = rm ? policy.target.replace(/^\[[^\]]+\]\s*/, '') : policy.target
 
   return (
     <motion.div
@@ -40,6 +44,7 @@ export function PolicyCard({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5 flex-wrap">
             <span className="text-[11px] font-semibold text-muted-foreground">{policy.category}</span>
+            {region && <span className="text-[10px] font-semibold text-sky2-700 bg-sky2-50 rounded-full px-1.5 py-0.5">📍 {region}</span>}
             {eligible && (
               <span className={cn('chip text-[10px] !px-2 !py-0.5 border', PRIORITY_META[policy.priority].cls)}>
                 {PRIORITY_META[policy.priority].emoji} {PRIORITY_META[policy.priority].label}
@@ -63,7 +68,7 @@ export function PolicyCard({
         </button>
       </div>
 
-      <p className="mt-3 text-xs text-muted-foreground line-clamp-2 leading-relaxed">{policy.target}</p>
+      <p className="mt-3 text-xs text-muted-foreground line-clamp-2 leading-relaxed">{targetText}</p>
 
       {eligible && (policy as EligiblePolicy).reason && (
         <div className="mt-2 rounded-xl bg-sprout-50 px-3 py-2 text-xs text-sprout-700 line-clamp-2">
