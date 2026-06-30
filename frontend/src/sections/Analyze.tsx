@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Sparkles } from 'lucide-react'
 import { ProfileWizard } from '@/components/ProfileWizard'
+import { QuickAsk } from '@/components/QuickAsk'
 import { AnalyzingOverlay } from '@/components/AnalyzingOverlay'
 import { ResultsView } from '@/components/ResultsView'
 import { runAnalysis, type UserProfile, type AnalysisResult } from '@/lib/welfare-engine'
@@ -47,6 +48,10 @@ export function Analyze() {
         <h1 className="mt-3 text-2xl sm:text-3xl font-extrabold">내 복지 찾기</h1>
         <p className="text-muted-foreground mt-1.5">간단한 정보만 알려주시면 맞춤 복지를 찾아드려요.</p>
       </motion.div>
+      <QuickAsk onSubmit={handleSubmit} />
+      <div className="flex items-center gap-3 my-5 text-xs text-muted-foreground/70">
+        <span className="h-px flex-1 bg-sprout-100" /> 또는 직접 입력 <span className="h-px flex-1 bg-sprout-100" />
+      </div>
       <ProfileWizard onSubmit={handleSubmit} />
     </div>
   )
