@@ -6,7 +6,19 @@ import { WELFARE_POLICIES, type Policy } from '@/data/policies'
  * - 확장: 빌드 산출물의 `public/policies.json`(ETL이 공공데이터로 생성)을 런타임에 병합.
  *   → 코드 수정/재빌드 없이 수백~수천 건으로 확장·갱신 가능.
  */
-let CATALOG: Policy[] = WELFARE_POLICIES
+/** 표시용 이름 기준 중복 제거(첫 항목 유지). 시드 내부 중복·시드/외부 중복을 한 곳에서 정리. */
+function dedupeByName(list: Policy[]): Policy[] {
+  const seen = new Set<string>()
+  return list.filter((p) => {
+    const k = (p.name || '').replace(/\s/g, '')
+    if (!k || seen.has(k)) return false
+    seen.add(k)
+    return true
+  })
+}
+
+// CATALOG(표시용)은 이름 디듑, MAP(조회용)은 모든 id를 유지해 추적/참조가 깨지지 않게 함.
+let CATALOG: Policy[] = dedupeByName(WELFARE_POLICIES)
 let MAP: Record<string, Policy> = Object.fromEntries(WELFARE_POLICIES.map((p) => [p.id, p]))
 let loaded = false
 const subs = new Set<() => void>()
@@ -71,8 +83,9 @@ export async function loadExternalCatalog(): Promise<number> {
       merged.set(p.id, p)
     }
     if (merged.size !== before) {
-      CATALOG = [...merged.values()]
-      MAP = Object.fromEntries(CATALOG.map((p) => [p.id, p]))
+      const all = [...merged.values()]
+      MAP = Object.fromEntries(all.map((p) => [p.id, p])) // 모든 id 유지(추적/참조 안전)
+      CATALOG = dedupeByName(all)                          // 표시용 이름 디듑
       subs.forEach((cb) => cb())
     }
     return CATALOG.length

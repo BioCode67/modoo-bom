@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { WELFARE_POLICIES } from './policies'
 
-const SEED = WELFARE_POLICIES.length
+// 카탈로그(표시용)는 이름 기준 디듑되므로 시드 기준선도 '이름 유일' 개수로 잡는다.
+const SEED = new Set(WELFARE_POLICIES.map((p) => p.name.replace(/\s/g, ''))).size
 
 /** ok/throw 가능한 fetch 목 */
 function mockFetch(payload: unknown, ok = true) {
@@ -101,5 +102,16 @@ describe('loadExternalCatalog — 정규화 & 견고성', () => {
   it('getCategories는 병합 후 새 카테고리를 포함', async () => {
     const { mod } = await loadFresh(mockFetch([{ id: 'GOV-C', name: '신규카테고리복지', category: '보훈' }]))
     expect(mod.getCategories()).toContain('보훈')
+  })
+})
+
+describe('시드 이름 중복 제거(표시용)', () => {
+  it('카탈로그는 이름 중복이 없고, MAP은 중복 id도 조회 가능(참조 안전)', async () => {
+    const { mod } = await loadFresh(mockFetch([], false)) // 외부 없음(404) → 시드만
+    const names = mod.getCatalog().map((p) => p.name)
+    expect(new Set(names).size).toBe(names.length) // 표시 카탈로그 이름 유일
+    // 중복이던 정책의 두 id 모두 MAP에서 조회 가능해야 추적/참조가 깨지지 않음
+    expect(mod.getPolicyMap()['POL-012']).toBeTruthy()
+    expect(mod.getPolicyMap()['POL-059']).toBeTruthy()
   })
 })
