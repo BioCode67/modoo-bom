@@ -18,8 +18,8 @@ export function parseProfileFromText(text: string): UserProfile {
   const p: UserProfile = { ...BASE, life_events: [] }
   if (!t) return p
 
-  // ── 나이 ──
-  const exact = t.match(/(\d{1,3})\s*(세|살)/)
+  // ── 나이 ── (단, "5살 아이"처럼 자녀를 가리키는 N살/세는 부모 나이로 잡지 않음)
+  const exact = t.match(/(\d{1,3})\s*(?:세|살)(?!\s*(?:아이|자녀|아들|딸|아기|아동|손주|손자|손녀))/)
   const decade = t.match(/(\d0)\s*대/)
   if (exact) p.age = parseInt(exact[1], 10)
   else if (decade) p.age = parseInt(decade[1], 10) + 5

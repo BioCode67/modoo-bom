@@ -15,6 +15,12 @@ describe('parseProfileFromText', () => {
     expect(p.household_type).toBe('한부모가족')
     expect(p.has_children).toBe(true)
     expect(p.children_ages).toContain(5)
+    expect(p.age).toBe(30) // 아이 나이(5)를 부모 나이로 오인하지 않음 → 기본값 유지
+  })
+  it('부모 나이와 자녀 나이를 구분', () => {
+    const p = parseProfileFromText('35살인데 7살 아이를 키워요')
+    expect(p.age).toBe(35) // 부모
+    expect(p.children_ages).toContain(7) // 자녀
   })
 
   it('기초생활수급자 → 매우 낮은 소득', () => {
