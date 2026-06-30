@@ -22,11 +22,16 @@ export function Footer() {
             <a href="tel:129" className="btn-ghost">129 상담</a>
           </div>
         </div>
-        <p className="mt-6 text-center text-[11px] text-muted-foreground/60">
+        <div className="mt-6 flex items-center justify-center gap-3 text-[11px]">
+          <a href={`${import.meta.env.BASE_URL}privacy.html`} className="text-muted-foreground hover:text-sprout-600 hover:underline">개인정보처리방침</a>
+          <span className="text-muted-foreground/40">·</span>
+          <a href={`${import.meta.env.BASE_URL}terms.html`} className="text-muted-foreground hover:text-sprout-600 hover:underline">이용약관</a>
+        </div>
+        <p className="mt-3 text-center text-[11px] text-muted-foreground/60">
           ⓘ 본 서비스의 분석 결과는 참고용이며, 최종 수급 자격은 주민센터·복지로에서 확인하세요.
         </p>
         <p className="mt-1 text-center text-[11px] text-muted-foreground/50">
-          데이터 출처: 한국사회보장정보원 복지서비스 공공데이터(2025.7 기준) + 자체 큐레이션 · 금액은 연도별로 변동될 수 있어요
+          데이터 출처: 한국사회보장정보원 복지서비스 공공데이터(2026 기준) + 자체 큐레이션 · 금액은 연도별로 변동될 수 있어요
         </p>
       </div>
     </footer>
