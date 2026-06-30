@@ -392,6 +392,20 @@ export function sidoOf(text: string): string {
   return ''
 }
 
+/**
+ * 지자체(LOC) target 접두사 "[시도 시군구] …"에서 시·군·구를 추출. 시도만 있으면 ''(광역).
+ * 예) "[서울특별시 강남구] …" → "강남구", "[경기도 성남시 분당구] …" → "성남시", "[부산광역시] …" → ''.
+ * 시·도 안에서 더 좁혀 '내 동네 복지'만 보이게 하는 2차 필터용.
+ */
+export function guOf(target: string): string {
+  const m = (target || '').match(/^\[([^\]]+)\]/)
+  if (!m) return ''
+  const parts = m[1].split(/\s+/)
+  const g = parts[1] || '' // [0]=시도, [1]=시군구
+  // 실제 시·군·구(…시/군/구)만 인정 — '-' 등 잡값은 광역(빈값)으로 처리
+  return /[시군구]$/.test(g) ? g : ''
+}
+
 // 지자체(LOC) '관련' 추론 결과 상한 — 전국 수천 건이 쏟아지지 않게(신뢰도 상위 우선)
 const MAX_INFERRED = 120
 

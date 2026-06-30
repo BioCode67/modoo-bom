@@ -8,7 +8,7 @@ import { queryConcepts, relevance } from '@/lib/search'
 import { cn } from '@/lib/utils'
 import type { Policy } from '@/data/policies'
 import { useCatalog } from '@/data/useCatalog'
-import { sidoOf, type EligiblePolicy } from '@/lib/welfare-engine'
+import { sidoOf, guOf, type EligiblePolicy } from '@/lib/welfare-engine'
 import { PolicyCard } from '@/components/PolicyCard'
 import { PolicyDetailDrawer } from '@/components/PolicyDetailDrawer'
 
@@ -38,14 +38,29 @@ export function Explore() {
   const [sort, setSort] = useState<SortKey>('default')
   const [onlyCash, setOnlyCash] = useState(false)
   const [region, setRegion] = useState('')
+  const [gungu, setGungu] = useState('')
   const [showCalc, setShowCalc] = useState(false)
   const [selected, setSelected] = useState<Policy | EligiblePolicy | null>(null)
   const [visible, setVisible] = useState(PAGE)
   const catalog = useCatalog()
   const { supported: micOk, listening, toggle: toggleMic } = useSpeech((text) => setQ(text))
 
+  // 선택한 시·도 안에서 고를 수 있는 시·군·구 목록(해당 시도 LOC 정책에서 추출, 가나다순)
+  const gunguOptions = useMemo(() => {
+    if (!region) return []
+    const set = new Set<string>()
+    for (const p of catalog) {
+      if (!p.id.startsWith('LOC-') || sidoOf(p.target) !== region) continue
+      const g = guOf(p.target)
+      if (g) set.add(g)
+    }
+    return [...set].sort((a, b) => a.localeCompare(b, 'ko'))
+  }, [catalog, region])
+
   // 필터/검색/정렬 변경 시 노출 개수 초기화(점진 렌더링)
-  useEffect(() => { setVisible(PAGE) }, [q, bucket, sort, onlyCash, region])
+  useEffect(() => { setVisible(PAGE) }, [q, bucket, sort, onlyCash, region, gungu])
+  // 시·도가 바뀌면 시·군·구 선택 초기화
+  useEffect(() => { setGungu('') }, [region])
 
   const filtered = useMemo(() => {
     const b = BUCKETS.find((x) => x.key === bucket)
@@ -55,6 +70,11 @@ export function Explore() {
       if (b?.match && !b.match.some((m) => p.category.includes(m))) return false
       // 지역 선택 시: 전국(중앙·시드)은 모두 보이고, 지자체(LOC)는 해당 시·도만
       if (region && p.id.startsWith('LOC-') && sidoOf(p.target) !== region) return false
+      // 시·군·구 선택 시: 해당 LOC는 그 시군구 또는 시도 광역(구 표기 없음)만 (다른 구는 제외)
+      if (gungu && p.id.startsWith('LOC-')) {
+        const g = guOf(p.target)
+        if (g && g !== gungu) return false
+      }
       if (onlyCash && parseMonthly(p.benefit) <= 0) return false
       return true
     })
@@ -70,7 +90,7 @@ export function Explore() {
     if (sort === 'amount') return [...list].sort((a, b2) => parseMonthly(b2.benefit) - parseMonthly(a.benefit))
     if (sort === 'name') return [...list].sort((a, b2) => a.name.localeCompare(b2.name, 'ko'))
     return list
-  }, [q, bucket, catalog, sort, onlyCash, region])
+  }, [q, bucket, catalog, sort, onlyCash, region, gungu])
 
   return (
     <div className="page-container py-8 sm:py-10">
@@ -160,6 +180,20 @@ export function Explore() {
               <option key={s} value={s}>{s}</option>
             ))}
           </select>
+          {/* 시·도 선택 시 시·군·구 2차 필터 — '내 동네 복지'만 */}
+          {region && gunguOptions.length > 0 && (
+            <select
+              value={gungu}
+              onChange={(e) => setGungu(e.target.value)}
+              aria-label="시군구 선택"
+              className={cn('rounded-full px-3 py-1.5 text-xs font-semibold border transition-colors cursor-pointer', gungu ? 'bg-sky2-500 border-sky2-500 text-white' : 'bg-white border-sprout-100 text-muted-foreground hover:border-sprout-200')}
+            >
+              <option value="">{region} 전체</option>
+              {gunguOptions.map((g) => (
+                <option key={g} value={g}>{g}</option>
+              ))}
+            </select>
+          )}
         </div>
       </motion.div>
 

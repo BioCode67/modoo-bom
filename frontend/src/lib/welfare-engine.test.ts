@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   extractKeywords, getEligiblePolicies, searchPolicies,
-  estimateBenefits, runAnalysis, checkPolicy, sidoOf, demographicMismatch, type UserProfile,
+  estimateBenefits, runAnalysis, checkPolicy, sidoOf, guOf, demographicMismatch, type UserProfile,
 } from './welfare-engine'
 import type { Policy } from '@/data/policies'
 
@@ -139,6 +139,25 @@ describe('sidoOf (시·도 정규화 — 지자체 지역 필터용)', () => {
   it('인식 불가/빈 값은 빈 문자열(필터 미적용 → 데이터 손실 방지)', () => {
     expect(sidoOf('')).toBe('')
     expect(sidoOf('해외')).toBe('')
+  })
+})
+
+describe('guOf (시·군·구 추출 — 2차 지역 필터용)', () => {
+  it('[시도 시군구] 접두사에서 시군구 추출', () => {
+    expect(guOf('[서울특별시 강남구] 어르신 지원')).toBe('강남구')
+    expect(guOf('[강원특별자치도 철원군] 출산지원금')).toBe('철원군')
+    expect(guOf('[경기도 성남시 분당구] 청년')).toBe('성남시') // 첫 하위지역으로 그룹화
+  })
+  it('시도만 있으면 광역(빈 문자열)', () => {
+    expect(guOf('[부산광역시] 청년수당')).toBe('')
+  })
+  it('접두사 없으면 빈 문자열', () => {
+    expect(guOf('만 65세 이상')).toBe('')
+    expect(guOf('')).toBe('')
+  })
+  it('시·군·구로 끝나지 않는 잡값(-, 기타)은 광역(빈값)', () => {
+    expect(guOf('[서울특별시 -] 어쩌고')).toBe('')
+    expect(guOf('[경기도 전체] 어쩌고')).toBe('')
   })
 })
 
