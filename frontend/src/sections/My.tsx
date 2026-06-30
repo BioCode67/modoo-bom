@@ -13,7 +13,7 @@ import { WelfareCalendar } from '@/components/WelfareCalendar'
 import { HouseholdAnalyzer } from '@/components/HouseholdAnalyzer'
 import { useAppStore, type AppStatus } from '@/store/useAppStore'
 import { useAuthCtx } from '@/lib/authContext'
-import { parseMonthly, formatWon } from '@/lib/format'
+import { sumCashMonthly, formatWon } from '@/lib/format'
 import { StaticMascot } from '@/three/MascotCanvas'
 import { cn } from '@/lib/utils'
 
@@ -32,8 +32,9 @@ export function My() {
   const [compare, setCompare] = useState(false)
   const POLICY_MAP = getPolicyMap()
 
+  // 현금성 지원만 합산(바우처·서비스·현물 제외) — 결과화면과 동일 기준으로 과장 없이.
   const totalMonthly = useMemo(
-    () => tracked.reduce((sum, t) => sum + (POLICY_MAP[t.policyId] ? parseMonthly(POLICY_MAP[t.policyId].benefit) : 0), 0),
+    () => sumCashMonthly(tracked.map((t) => POLICY_MAP[t.policyId]).filter(Boolean)),
     [tracked, POLICY_MAP],
   )
   const applied = tracked.filter((t) => t.status === 'applied' || t.status === 'done').length
@@ -64,7 +65,7 @@ export function My() {
         {/* 요약/계산기 */}
         <div className="mt-5 grid grid-cols-2 sm:grid-cols-3 gap-3">
           <SummaryCard icon={<Heart className="h-5 w-5" />} value={`${tracked.length}개`} label="담은 복지" />
-          <SummaryCard icon={<Wallet className="h-5 w-5" />} value={totalMonthly > 0 ? formatWon(totalMonthly) : '-'} sub={totalMonthly > 0 ? `연 ${formatWon(totalMonthly * 12)}` : undefined} label="예상 월 합계" highlight />
+          <SummaryCard icon={<Wallet className="h-5 w-5" />} value={totalMonthly > 0 ? formatWon(totalMonthly) : '-'} sub={totalMonthly > 0 ? `연 ${formatWon(totalMonthly * 12)}` : undefined} label="현금성 월 합계" highlight />
           <SummaryCard icon={<span className="text-lg">📮</span>} value={`${applied}개`} label="신청 진행" />
         </div>
       </motion.div>
