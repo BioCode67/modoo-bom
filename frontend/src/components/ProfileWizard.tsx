@@ -125,8 +125,12 @@ export function ProfileWizard({ onSubmit }: { onSubmit: (p: UserProfile) => void
                   </div>
                 )}
               </Field>
-              <Field label="거주 지역 (선택)">
-                <input value={p.region} onChange={(e) => set({ region: e.target.value })} placeholder="예: 서울특별시" className="input-cute" />
+              <Field label="거주 지역 (선택 — 우리 동네 지자체 복지를 더 정확히 찾아드려요)">
+                <div className="flex flex-wrap gap-1.5">
+                  {['서울', '부산', '대구', '인천', '광주', '대전', '울산', '세종', '경기', '강원', '충북', '충남', '전북', '전남', '경북', '경남', '제주'].map((s) => (
+                    <Choice key={s} active={p.region === s} onClick={() => set({ region: p.region === s ? '' : s })} small>{s}</Choice>
+                  ))}
+                </div>
               </Field>
             </>
           )}
