@@ -223,6 +223,17 @@ export function Explore() {
         </>
       )}
 
+      {/* 데이터 출처·기준 투명성 — 신뢰 가능한 서비스를 위한 정직한 안내 */}
+      <div className="mt-10 rounded-2xl border border-sprout-100 bg-sprout-50/40 px-4 py-3 text-[11px] leading-relaxed text-muted-foreground">
+        <p className="font-semibold text-foreground/70">ℹ️ 데이터 출처 · 기준</p>
+        <p className="mt-0.5">
+          보건복지부 검증 시드 + <b>한국사회보장정보원 공공데이터(복지로)</b> 기준 총 {catalog.length.toLocaleString()}건 ·
+          금액·선정기준은 <b>2026년</b> 기준입니다. 공공데이터 정책은 요약 정보라 실제 자격·금액과 다를 수 있어요 —
+          정확한 내용은 <a href="https://www.bokjiro.go.kr" target="_blank" rel="noopener noreferrer" className="font-semibold text-sprout-600 hover:underline">복지로</a> 또는
+          주민센터(☎129 보건복지상담)에서 꼭 확인하세요.
+        </p>
+      </div>
+
       <PolicyDetailDrawer policy={selected} onClose={() => setSelected(null)} onOpen={setSelected} />
     </div>
   )
