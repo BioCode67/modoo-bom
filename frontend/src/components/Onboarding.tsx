@@ -6,7 +6,7 @@ import { SproutLogo } from '@/ui/SproutLogo'
 
 const STEPS = [
   { icon: Search, title: '내 복지 찾기', desc: '1분 입력으로 받을 수 있는 복지를 모두 찾아드려요', tint: 'text-sprout-600 bg-sprout-100' },
-  { icon: Compass, title: '정책 탐색', desc: '120여 개 복지를 검색·정렬해서 둘러봐요', tint: 'text-sky2-600 bg-sky2-100' },
+  { icon: Compass, title: '정책 탐색', desc: '전국 5,000여 개 복지를 검색·정렬해서 둘러봐요', tint: 'text-sky2-600 bg-sky2-100' },
   { icon: Heart, title: '나의 복지', desc: '관심 복지 저장·신청 준비·사후 관리까지', tint: 'text-peach-600 bg-peach-100' },
   { icon: LifeBuoy, title: '긴급 도움', desc: '위기 상황이면 긴급복지와 129로 바로 안내', tint: 'text-rose-600 bg-rose-100' },
 ]

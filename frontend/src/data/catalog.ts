@@ -6,10 +6,15 @@ import { WELFARE_POLICIES, type Policy } from '@/data/policies'
  * - 확장: 빌드 산출물의 `public/policies.json`(ETL이 공공데이터로 생성)을 런타임에 병합.
  *   → 코드 수정/재빌드 없이 수백~수천 건으로 확장·갱신 가능.
  */
-/** 표시용 이름 기준 중복 제거(첫 항목 유지). 시드 내부 중복·시드/외부 중복을 한 곳에서 정리. */
+/**
+ * 표시용 중복 제거. 시드 내부 중복·시드/중앙 동명 중복만 정리한다.
+ * ⚠️ 지자체(LOC-)는 같은 이름이라도 지역이 다르면 별개 사업(예: 여러 시군구의 '출산장려금')이므로
+ *    절대 이름으로 합치지 않고 모두 유지한다(고유 id로 이미 구분됨).
+ */
 function dedupeByName(list: Policy[]): Policy[] {
   const seen = new Set<string>()
   return list.filter((p) => {
+    if (/^LOC-/.test(p.id)) return true // 지자체: 지역별 동명 사업 모두 유지
     const k = (p.name || '').replace(/\s/g, '')
     if (!k || seen.has(k)) return false
     seen.add(k)

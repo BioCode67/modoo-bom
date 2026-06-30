@@ -4,7 +4,7 @@ import { MascotCanvas } from '@/three/MascotCanvas'
 import { useAppStore } from '@/store/useAppStore'
 
 const STATS = [
-  { value: '120+', label: '복지 정책' },
+  { value: '5,000+', label: '전국 복지 정책' },
   { value: '6종', label: '서류 자동발급' },
   { value: '무료', label: '평생 이용' },
 ]
