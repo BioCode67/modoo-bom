@@ -4,6 +4,23 @@ import { SproutLogo } from '@/ui/SproutLogo'
 
 const HeroScene = lazy(() => import('./HeroScene'))
 
+/**
+ * 데이터 절약·저속 연결·저사양 기기면 270KB 3D(three.js)를 받지 않는다.
+ * 복지 서비스 특성상 알뜰폰·제한 데이터 사용자가 많아 성능과 데이터 비용 형평성을 함께 고려.
+ */
+function shouldSkipHeavy3D(): boolean {
+  if (typeof navigator === 'undefined') return false
+  const nav = navigator as Navigator & {
+    connection?: { saveData?: boolean; effectiveType?: string }
+    deviceMemory?: number
+  }
+  const c = nav.connection
+  if (c?.saveData) return true
+  if (c?.effectiveType && /(slow-2g|2g)/.test(c.effectiveType)) return true
+  if (typeof nav.deviceMemory === 'number' && nav.deviceMemory <= 1) return true
+  return false
+}
+
 /** 정적 폴백 — reduced-motion 또는 3D 로딩 전. CSS 애니메이션만 사용. */
 function StaticMascot({ animate = true }: { animate?: boolean }) {
   return (
@@ -57,10 +74,12 @@ export function MascotCanvas() {
   const reduce = useReducedMotion()
   const ref = useRef<HTMLDivElement>(null)
   const ready = useDeferredMount(ref)
+  // 데이터 절약·저사양 기기는 3D 청크 자체를 받지 않음(최초 1회 측정)
+  const [skipHeavy] = useState(shouldSkipHeavy3D)
 
   return (
     <div ref={ref} className="h-full w-full">
-      {reduce || !ready ? (
+      {reduce || skipHeavy || !ready ? (
         <StaticMascot animate={!reduce} />
       ) : (
         <Suspense fallback={<StaticMascot />}>
