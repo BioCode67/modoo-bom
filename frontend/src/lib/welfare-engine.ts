@@ -310,9 +310,39 @@ function checkPolicyDoc(doc: string, name: string, p: UserProfile): CheckResult 
   return NO
 }
 
+/**
+ * 인구통계 하드 미스매치 — 정책이 명백히 특정 대상 전용인데 사용자가 그 대상이 아니면 true(제외).
+ * 정밀 룰이 연령 문구를 못 잡고 소득/소득무관 분기로 새어 엉뚱한 추천(예: 72세에 청년·유아 정책)이
+ * 뜨는 것을 막는 안전장치. 과배제를 피하려 '명백한' 경우만 막는다(보수적 임계).
+ */
+export function demographicMismatch(name: string, doc: string, p: UserProfile): boolean {
+  const ages = p.children_ages || []
+  const hasChild = p.has_children || ages.length > 0
+  // 청년 전용인데 명백히 청년 아님(상한 넉넉히 39세) — 72세에 '청년' 정책 방지
+  if (/청년/.test(name) && p.age > 39) return true
+  // 노인·어르신·고령자·시니어 전용인데 60세 미만
+  if (/노인|어르신|경로|고령자|시니어/.test(name) && p.age < 60) return true
+  // 아동·영유아·보육·유아·육아 전용인데 자녀 없음
+  if (/아동|영유아|보육|유아|어린이집|어린이|육아|키즈|양육|보육료/.test(name) && !hasChild) return true
+  // 청소년·학령기 전용인데 본인이 청소년도 아니고 학령기 자녀도 없음
+  if (/청소년|학령기/.test(name) && !(p.age >= 9 && p.age <= 24) && !ages.some((a) => a >= 7 && a <= 18)) return true
+  // 임산부·산모·임신·난임 전용인데 임신 중도 아니고 영아도 없음
+  if (/임산부|산모|임신|난임|출산/.test(name) && !(p.is_pregnant || ages.some((a) => a <= 1))) return true
+  // 장애인 전용인데 비장애
+  if (/장애인|장애아/.test(name) && !p.disability) return true
+  // 한부모·모자/부자가정·미혼모/부 전용인데 아님
+  if (/한부모|모자가정|부자가정|미혼모|미혼부|조손/.test(name) && !p.household_type.includes('한부모')) return true
+  // 다문화·결혼이민 전용인데 아님
+  if (/다문화|결혼이민|이주여성|이주민/.test(name) && !p.household_type.includes('다문화')) return true
+  // 사업주·고용주 대상(고용장려금 등)은 개인 수혜가 아님
+  if (/사업주|고용주/.test(doc) || /고용장려금|고용지원금|고용촉진장려금|채용장려금/.test(name)) return true
+  return false
+}
+
 // 공개 API: 정책 1건 자격 판별. doc = eligibility + ' ' + target + ' ' + name (mock_eligibility/estimate와 동일).
 export function checkPolicy(policy: Policy, p: UserProfile): CheckResult {
   const doc = `${policy.eligibility} ${policy.target} ${policy.name}`
+  if (demographicMismatch(policy.name, doc, p)) return NO
   return checkPolicyDoc(doc, policy.name, p)
 }
 
@@ -370,6 +400,8 @@ export function getEligiblePolicies(p: UserProfile): EligiblePolicy[] {
   const precise: EligiblePolicy[] = []
   const inferred: EligiblePolicy[] = []
   for (const policy of getCatalog()) {
+    // 인구통계 하드 미스매치(예: 72세에 청년·유아 정책)는 정밀·추론 양쪽 모두에서 제외
+    if (demographicMismatch(policy.name, `${policy.eligibility} ${policy.target} ${policy.name}`, p)) continue
     const c = checkPolicy(policy, p)
     if (c.eligible) {
       precise.push({ ...policy, reason: c.reason, priority: c.priority, confidence: c.confidence })

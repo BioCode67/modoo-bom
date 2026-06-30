@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   extractKeywords, getEligiblePolicies, searchPolicies,
-  estimateBenefits, runAnalysis, checkPolicy, sidoOf, type UserProfile,
+  estimateBenefits, runAnalysis, checkPolicy, sidoOf, demographicMismatch, type UserProfile,
 } from './welfare-engine'
 import type { Policy } from '@/data/policies'
 
@@ -52,6 +52,37 @@ describe('getEligiblePolicies', () => {
   })
   it('연령 미달이면 노인 정책 제외(35세는 기초연금 아님)', () => {
     expect(getEligiblePolicies({ ...base, age: 35 }).some((p) => p.id === 'POL-001')).toBe(false)
+  })
+  it('72세 저소득 결과에 청년·유아·고용장려금 정책이 새어들지 않음(인구통계 게이트)', () => {
+    const names = getEligiblePolicies(senior).map((p) => p.name).join(' ')
+    expect(names).not.toMatch(/청년/)
+    expect(names).not.toMatch(/유아|영유아|보육|어린이집/)
+    expect(names).not.toMatch(/고용장려금/)
+  })
+  it('자녀 없는 가구엔 아동수당이 안 뜸(자녀 생기면 다시 뜸)', () => {
+    expect(getEligiblePolicies({ ...base, age: 40 }).some((p) => p.id === 'POL-004')).toBe(false)
+    expect(getEligiblePolicies({ ...base, age: 40, has_children: true, children_ages: [3] }).some((p) => p.id === 'POL-004')).toBe(true)
+  })
+})
+
+describe('demographicMismatch (인구통계 하드 게이트)', () => {
+  it('청년 전용 정책은 72세에게 미스매치', () => {
+    expect(demographicMismatch('청년월세 특별지원', '만 19~34세 청년', senior)).toBe(true)
+    expect(demographicMismatch('청년월세 특별지원', '만 19~34세 청년', youth)).toBe(false)
+  })
+  it('노인 전용 정책은 30세에게 미스매치', () => {
+    expect(demographicMismatch('노인맞춤돌봄서비스', '만 65세 이상', base)).toBe(true)
+    expect(demographicMismatch('노인맞춤돌봄서비스', '만 65세 이상', senior)).toBe(false)
+  })
+  it('유아·보육 정책은 자녀 없으면 미스매치', () => {
+    expect(demographicMismatch('영유아보육료 지원', '어린이집', senior)).toBe(true)
+    expect(demographicMismatch('영유아보육료 지원', '어린이집', newborn)).toBe(false)
+  })
+  it('고용장려금(사업주 대상)은 항상 개인 미스매치', () => {
+    expect(demographicMismatch('고령자 고용장려금', '사업주 지원', senior)).toBe(true)
+  })
+  it('대상어 없는 보편 정책은 미스매치 아님', () => {
+    expect(demographicMismatch('국민기초생활보장 생계급여', '중위소득 32% 이하', senior)).toBe(false)
   })
 })
 
