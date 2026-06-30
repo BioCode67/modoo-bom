@@ -10,6 +10,7 @@ import { BenefitBreakdown, CategoryDistribution } from '@/components/BenefitChar
 import { FutureWelfare } from '@/components/FutureWelfare'
 import { WelfareScore } from '@/components/WelfareScore'
 import { ShareButton } from '@/components/ShareButton'
+import { Glossary } from '@/components/Glossary'
 import { formatWon, sumCashMonthly } from '@/lib/format'
 import { useAppStore } from '@/store/useAppStore'
 
@@ -56,6 +57,7 @@ export function ResultsView({ result, profile, onReset }: { result: AnalysisResu
             <span className="gradient-text">{primary.length}개</span>예요! 🎉
           </h1>
           <p className="mt-2 text-muted-foreground text-sm">{result.profile_summary}</p>
+          <p className="mt-1 text-xs text-muted-foreground/80">‘중위소득’·‘소득인정액’ 같은 말이 어렵다면 <Glossary trigger="link" /></p>
 
           <div className="mt-5 grid grid-cols-3 gap-3 max-w-lg">
             <StatBox icon={<Heart className="h-4 w-4" />} value={`${primary.length}개`} label="맞춤 추천" />

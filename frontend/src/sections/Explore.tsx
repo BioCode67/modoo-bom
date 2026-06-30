@@ -11,6 +11,7 @@ import { useCatalog } from '@/data/useCatalog'
 import { sidoOf, guOf, type EligiblePolicy } from '@/lib/welfare-engine'
 import { PolicyCard } from '@/components/PolicyCard'
 import { PolicyDetailDrawer } from '@/components/PolicyDetailDrawer'
+import { Glossary } from '@/components/Glossary'
 
 const BUCKETS: { key: string; label: string; emoji: string; match?: string[] }[] = [
   { key: 'all', label: '전체', emoji: '🌼' },
@@ -197,9 +198,12 @@ export function Explore() {
         </div>
       </motion.div>
 
-      <p className="mt-5 text-sm text-muted-foreground" role="status" aria-live="polite">
-        총 <b className="text-foreground">{filtered.length}</b>개 정책{onlyCash ? ' · 현금성' : ''}{sort === 'amount' ? ' · 금액순' : sort === 'name' ? ' · 이름순' : ''}
-      </p>
+      <div className="mt-5 flex items-center justify-between gap-2 flex-wrap">
+        <p className="text-sm text-muted-foreground" role="status" aria-live="polite">
+          총 <b className="text-foreground">{filtered.length}</b>개 정책{onlyCash ? ' · 현금성' : ''}{sort === 'amount' ? ' · 금액순' : sort === 'name' ? ' · 이름순' : ''}
+        </p>
+        <Glossary />
+      </div>
 
       {filtered.length === 0 ? (
         <div className="py-20 text-center text-muted-foreground">
