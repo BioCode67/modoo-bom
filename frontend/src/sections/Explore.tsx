@@ -6,7 +6,7 @@ import { parseMonthly } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import type { Policy } from '@/data/policies'
 import { useCatalog } from '@/data/useCatalog'
-import type { EligiblePolicy } from '@/lib/welfare-engine'
+import { sidoOf, type EligiblePolicy } from '@/lib/welfare-engine'
 import { PolicyCard } from '@/components/PolicyCard'
 import { PolicyDetailDrawer } from '@/components/PolicyDetailDrawer'
 
@@ -35,19 +35,22 @@ export function Explore() {
   const [bucket, setBucket] = useState('all')
   const [sort, setSort] = useState<SortKey>('default')
   const [onlyCash, setOnlyCash] = useState(false)
+  const [region, setRegion] = useState('')
   const [selected, setSelected] = useState<Policy | EligiblePolicy | null>(null)
   const [visible, setVisible] = useState(PAGE)
   const catalog = useCatalog()
   const { supported: micOk, listening, toggle: toggleMic } = useSpeech((text) => setQ(text))
 
   // 필터/검색/정렬 변경 시 노출 개수 초기화(점진 렌더링)
-  useEffect(() => { setVisible(PAGE) }, [q, bucket, sort, onlyCash])
+  useEffect(() => { setVisible(PAGE) }, [q, bucket, sort, onlyCash, region])
 
   const filtered = useMemo(() => {
     const query = q.trim().toLowerCase()
     const b = BUCKETS.find((x) => x.key === bucket)
     const list = catalog.filter((p) => {
       if (b?.match && !b.match.some((m) => p.category.includes(m))) return false
+      // 지역 선택 시: 전국(중앙·시드)은 모두 보이고, 지자체(LOC)는 해당 시·도만
+      if (region && p.id.startsWith('LOC-') && sidoOf(p.target) !== region) return false
       if (onlyCash && parseMonthly(p.benefit) <= 0) return false
       if (!query) return true
       return (p.name + p.category + p.target + p.eligibility + p.benefit).toLowerCase().includes(query)
@@ -55,7 +58,7 @@ export function Explore() {
     if (sort === 'amount') return [...list].sort((a, b2) => parseMonthly(b2.benefit) - parseMonthly(a.benefit))
     if (sort === 'name') return [...list].sort((a, b2) => a.name.localeCompare(b2.name, 'ko'))
     return list
-  }, [q, bucket, catalog, sort, onlyCash])
+  }, [q, bucket, catalog, sort, onlyCash, region])
 
   return (
     <div className="page-container py-8 sm:py-10">
@@ -113,6 +116,17 @@ export function Explore() {
             className={cn('ml-1 rounded-full px-3 py-1.5 text-xs font-semibold border transition-colors', onlyCash ? 'bg-peach-400 border-peach-400 text-white' : 'bg-white border-sprout-100 text-muted-foreground hover:border-sprout-200')}>
             💰 현금성만
           </button>
+          <select
+            value={region}
+            onChange={(e) => setRegion(e.target.value)}
+            aria-label="지역 선택"
+            className={cn('rounded-full px-3 py-1.5 text-xs font-semibold border transition-colors cursor-pointer', region ? 'bg-sky2-500 border-sky2-500 text-white' : 'bg-white border-sprout-100 text-muted-foreground hover:border-sprout-200')}
+          >
+            <option value="">📍 전국</option>
+            {['서울', '부산', '대구', '인천', '광주', '대전', '울산', '세종', '경기', '강원', '충북', '충남', '전북', '전남', '경북', '경남', '제주'].map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
         </div>
       </motion.div>
 
