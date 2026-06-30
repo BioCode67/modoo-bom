@@ -86,6 +86,8 @@ def make_policy(*, sid: str, name: str, summary: str = "", target: str = "",
     """소스 필드를 우리 Policy 스키마로 정규화. 누락 필드는 보수적으로 채운다."""
     name = clean(name)
     summary = clean(summary)
+    if len(summary) > 200:  # 카드/드로어 가독성 + 파일 크기: 요약은 200자로 제한(전문은 복지로 딥링크)
+        summary = summary[:200].rstrip() + '…'
     region = clean(region)
     id_prefix = "LOC" if region else "GOV"
     target_full = (f"[{region}] " if region else "") + (clean(target) or summary)
@@ -151,7 +153,24 @@ def ingest_csv(path: Path) -> list[dict]:
 
 
 # ── API 모드 (한국사회보장정보원 중앙부처복지서비스 B554287) ────────────────────
-WELFARE_LIST_URL = "http://apis.data.go.kr/B554287/NationalWelfareInformationsV001/NationalWelfarelistV001"
+WELFARE_LIST_URL = "https://apis.data.go.kr/B554287/NationalWelfareInformationsV001/NationalWelfarelistV001"
+
+
+def _get_with_retry(client, url, params, label, attempts: int = 3):
+    """일시적 오류(401/429/5xx/타임아웃)에 짧게 재시도. 정식 키 호출의 견고화용."""
+    import time
+    last = ""
+    for a in range(1, attempts + 1):
+        try:
+            r = client.get(url, params=params)
+            r.raise_for_status()
+            return r
+        except Exception as e:  # noqa: BLE001
+            last = str(e).splitlines()[0][:140]
+            if a < attempts:
+                time.sleep(0.8 * a)
+    print(f"[{label}] {attempts}회 재시도 실패: {last}")
+    return None
 
 
 def ingest_api(service_key: str, max_pages: int = 60, rows: int = 100) -> list[dict]:
@@ -168,8 +187,9 @@ def ingest_api(service_key: str, max_pages: int = 60, rows: int = 100) -> list[d
                 "numOfRows": rows,
                 "srchKeyCode": "001",  # 통합검색
             }
-            r = client.get(WELFARE_LIST_URL, params=params)
-            r.raise_for_status()
+            r = _get_with_retry(client, WELFARE_LIST_URL, params, f"etl page{page}")
+            if r is None:
+                break
             try:
                 root = ET.fromstring(r.text)
             except ET.ParseError:
@@ -201,7 +221,7 @@ def ingest_api(service_key: str, max_pages: int = 60, rows: int = 100) -> list[d
 
 
 # ── API 모드 (지자체 복지서비스 B554287 LocalGovernment) ───────────────────────
-LOCAL_LIST_URL = "http://apis.data.go.kr/B554287/LocalGovernmentWelfareInformations/LcgvWelfarelist"
+LOCAL_LIST_URL = "https://apis.data.go.kr/B554287/LocalGovernmentWelfareInformations/LcgvWelfarelist"
 
 
 def ingest_local_api(service_key: str, max_pages: int = 200, rows: int = 100) -> list[dict]:
@@ -209,15 +229,22 @@ def ingest_local_api(service_key: str, max_pages: int = 200, rows: int = 100) ->
     import xml.etree.ElementTree as ET
 
     out: list[dict] = []
+    fails = 0
     with httpx.Client(timeout=30.0) as client:
         for page in range(1, max_pages + 1):
             params = {"serviceKey": service_key, "pageNo": page, "numOfRows": rows}
+            r = _get_with_retry(client, LOCAL_LIST_URL, params, f"etl/local page{page}")
+            if r is None:
+                fails += 1
+                if fails >= 3:
+                    print("[etl/local] 연속 실패 — 수집 중단(받은 데이터는 저장)")
+                    break
+                continue
+            fails = 0
             try:
-                r = client.get(LOCAL_LIST_URL, params=params)
-                r.raise_for_status()
                 root = ET.fromstring(r.text)
             except Exception as e:
-                print(f"[etl/local] page {page} 실패: {str(e)[:120]}")
+                print(f"[etl/local] page {page} 파싱 실패: {str(e)[:120]}")
                 break
             items = root.findall(".//servList")
             if not items:
@@ -229,7 +256,7 @@ def ingest_local_api(service_key: str, max_pages: int = 200, rows: int = 100) ->
                 region = clean(f"{g('ctpvNm')} {g('sggNm')}")
                 out.append(make_policy(
                     sid=g("servId"), name=g("servNm"), summary=g("servDgst"),
-                    target=g("trgterIndvdlArray") or g("bizChrDeptNm"),
+                    target=g("trgterIndvdlArray"),
                     application=g("aplyMtdNm"), department=g("bizChrDeptNm"),
                     url=g("servDtlLink"), region=region,
                 ))
