@@ -22,6 +22,16 @@ export default function App() {
     loadExternalCatalog()
   }, [])
 
+  // PWA 앱 바로가기(홈 아이콘 길게누르기) 딥링크 — ?go=analyze|explore|my 로 해당 화면 진입
+  useEffect(() => {
+    const go = new URLSearchParams(window.location.search).get('go')
+    if (go === 'analyze' || go === 'explore' || go === 'my' || go === 'home') {
+      useAppStore.getState().setView(go)
+      // 주소창 정리(뒤로가기 깔끔하게)
+      window.history.replaceState(null, '', window.location.pathname)
+    }
+  }, [])
+
   // 접근성 모드 → <html>에 클래스 토글
   useEffect(() => {
     document.documentElement.classList.toggle('elderly-mode', elderly)

@@ -33,11 +33,18 @@ export default defineConfig(({ command }) => ({
         background_color: '#fffaf3',
         display: 'standalone',
         lang: 'ko',
+        categories: ['government', 'finance', 'lifestyle'],
         icons: [
           { src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
           { src: 'pwa-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
           { src: 'pwa-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
           { src: 'favicon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
+        ],
+        // 홈 아이콘 길게 누르면 나오는 앱 바로가기(딥링크는 App.tsx ?go= 처리)
+        shortcuts: [
+          { name: '내 복지 찾기', short_name: '복지찾기', url: './?go=analyze' },
+          { name: '정책 탐색', short_name: '탐색', url: './?go=explore' },
+          { name: '나의 복지', short_name: '나의복지', url: './?go=my' },
         ],
       },
     }),
