@@ -9,6 +9,7 @@ import { generateGuides } from '@/lib/welfare-engine'
 import { categoryMeta, parseMonthly, formatWon, PRIORITY_META } from '@/lib/format'
 import { docLink, applyLink } from '@/lib/officialLinks'
 import { AgentSubmitButton } from '@/components/AgentSubmitButton'
+import { ApplyKit } from '@/components/ApplyKit'
 import { useAppStore } from '@/store/useAppStore'
 import { cn } from '@/lib/utils'
 
@@ -187,6 +188,21 @@ function DrawerBody({
           </Section>
         )}
 
+        {/* 신청 키트 — 공식 신청 페이지 직결 + 내 정보 미리채움(복사) */}
+        <Section title="📝 신청 키트">
+          <a
+            href={applyLink(policy.application).url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn-primary w-full justify-center"
+          >
+            <ExternalLink className="h-4 w-4" /> {applyLink(policy.application).label}
+          </a>
+          <div className="mt-2.5">
+            <ApplyKit />
+          </div>
+        </Section>
+
         {/* 에이전트 자동 신청 (지원 서비스 + 백엔드 있을 때) */}
         <AgentSubmitButton policy={policy} />
 
@@ -229,19 +245,6 @@ function DrawerBody({
           <span className="inline-flex items-center gap-1.5"><Building2 className="h-3.5 w-3.5" /> {policy.department}</span>
           <span className="inline-flex items-center gap-1.5"><RefreshCw className="h-3.5 w-3.5" /> 갱신: {policy.renewal}</span>
         </div>
-
-        {/* 문의처 — 실제 사용자가 바로 전화할 수 있게 */}
-        {(() => {
-          const tel = (policy.contact || '').match(/\d[\d-]{6,}/)?.[0]?.replace(/-/g, '')
-          if (!policy.contact && !tel) return null
-          return (
-            <div className="rounded-2xl bg-sky2-50 border border-sky2-100 p-3 flex items-center gap-2">
-              <Phone className="h-4 w-4 text-sky2-600 shrink-0" />
-              <span className="text-sm flex-1 min-w-0 truncate">{policy.contact || '대표 상담 129'}</span>
-              {tel && <a href={`tel:${tel}`} className="btn-primary !px-3 !py-1.5 text-xs shrink-0">전화</a>}
-            </div>
-          )
-        })()}
 
         {/* 함께 보면 좋은 복지 */}
         {related.length > 0 && onOpen && (
