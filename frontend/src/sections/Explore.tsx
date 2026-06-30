@@ -197,7 +197,7 @@ export function Explore() {
         </div>
       </motion.div>
 
-      <p className="mt-5 text-sm text-muted-foreground">
+      <p className="mt-5 text-sm text-muted-foreground" role="status" aria-live="polite">
         총 <b className="text-foreground">{filtered.length}</b>개 정책{onlyCash ? ' · 현금성' : ''}{sort === 'amount' ? ' · 금액순' : sort === 'name' ? ' · 이름순' : ''}
       </p>
 

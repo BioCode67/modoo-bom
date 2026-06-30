@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { RotateCcw, Heart, TrendingUp, Bell, PartyPopper, Printer, Volume2, Square } from 'lucide-react'
 import { useTTS } from '@/lib/useTTS'
@@ -27,6 +27,12 @@ export function ResultsView({ result, profile, onReset }: { result: AnalysisResu
   const highCount = primary.filter((p) => p.priority === 'high').length
   const tts = useTTS()
 
+  // 스크린리더: 결과 화면 진입 시 '분석 완료 + 찾은 개수'를 안내(마운트 후 채워 확실히 읽히게)
+  const [liveMsg, setLiveMsg] = useState('')
+  useEffect(() => {
+    setLiveMsg(`분석 완료. ${profile.name || '회원'}님이 받을 수 있는 복지 ${primary.length}개를 찾았어요. 강력 추천 ${highCount}개.`)
+  }, [primary.length, highCount, profile.name])
+
   const speakSummary = () => {
     const names = eligible.slice(0, 5).map((p) => p.name).join(', ')
     tts.toggle(
@@ -38,6 +44,8 @@ export function ResultsView({ result, profile, onReset }: { result: AnalysisResu
 
   return (
     <div className="page-container py-8 sm:py-10">
+      {/* 스크린리더 전용: 결과 도착 안내 */}
+      <p className="sr-only" role="status" aria-live="polite">{liveMsg}</p>
       {/* 헤더 요약 */}
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="card-cute p-6 sm:p-8 bg-gradient-to-br from-sprout-50 via-white to-sky2-50 relative overflow-hidden">
         <div className="absolute -top-10 -right-10 h-40 w-40 rounded-full bg-sprout-200/40 blur-2xl" />

@@ -34,7 +34,9 @@ export function AnalyzingOverlay({ onDone }: { onDone: () => void }) {
   }, [onDone])
 
   return (
-    <div className="page-container py-12 sm:py-20 flex flex-col items-center text-center">
+    <div className="page-container py-12 sm:py-20 flex flex-col items-center text-center" aria-busy="true">
+      {/* 스크린리더: 분석 시작/진행 안내(시각적 단계 목록은 장식) */}
+      <p className="sr-only" role="status" aria-live="polite">복지를 분석하고 있어요. {STEPS[active]}</p>
       <motion.div animate={{ y: [0, -12, 0] }} transition={{ repeat: Infinity, duration: 1.6 }} className="relative">
         <div className="absolute inset-0 -z-10 m-auto h-40 w-40 rounded-full bg-sprout-200/50 blur-2xl" />
         <SproutLogo withFace className="h-32 w-32 drop-shadow-xl" />
