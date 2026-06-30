@@ -1,10 +1,12 @@
-import { useEffect } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { motion } from 'framer-motion'
+import { Loader2 } from 'lucide-react'
 import { Navbar } from '@/components/Navbar'
 import { Home } from '@/sections/Home'
-import { Analyze } from '@/sections/Analyze'
-import { Explore } from '@/sections/Explore'
-import { My } from '@/sections/My'
+// 화면별 코드 분할 — 홈은 즉시, 나머지는 진입 시 로드(초기 번들↓, 저사양 기기 빠른 첫 로딩)
+const Analyze = lazy(() => import('@/sections/Analyze').then((m) => ({ default: m.Analyze })))
+const Explore = lazy(() => import('@/sections/Explore').then((m) => ({ default: m.Explore })))
+const My = lazy(() => import('@/sections/My').then((m) => ({ default: m.My })))
 import { ChatWidget } from '@/components/ChatWidget'
 import { ScrollTop } from '@/components/ScrollTop'
 import { PrintSummary } from '@/components/PrintSummary'
@@ -13,6 +15,15 @@ import { loadExternalCatalog } from '@/data/catalog'
 import { useAppStore } from '@/store/useAppStore'
 import { AuthProvider } from '@/lib/authContext'
 import { cn } from '@/lib/utils'
+
+/** 화면 청크 로딩 중 폴백 — 짧고 가벼운 스피너 */
+function PageLoading() {
+  return (
+    <div className="page-container py-24 flex justify-center" role="status" aria-label="불러오는 중">
+      <Loader2 className="h-8 w-8 animate-spin text-sprout-400" />
+    </div>
+  )
+}
 
 export default function App() {
   const { view, elderly, highContrast } = useAppStore()
@@ -52,10 +63,12 @@ export default function App() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
         >
-          {view === 'home' && <Home />}
-          {view === 'analyze' && <Analyze />}
-          {view === 'explore' && <Explore />}
-          {view === 'my' && <My />}
+          <Suspense fallback={<PageLoading />}>
+            {view === 'home' && <Home />}
+            {view === 'analyze' && <Analyze />}
+            {view === 'explore' && <Explore />}
+            {view === 'my' && <My />}
+          </Suspense>
         </motion.div>
       </main>
 
