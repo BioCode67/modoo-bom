@@ -10,7 +10,7 @@ import { BenefitBreakdown, CategoryDistribution } from '@/components/BenefitChar
 import { FutureWelfare } from '@/components/FutureWelfare'
 import { WelfareScore } from '@/components/WelfareScore'
 import { ShareButton } from '@/components/ShareButton'
-import { formatWon, parseMonthly } from '@/lib/format'
+import { formatWon, sumCashMonthly } from '@/lib/format'
 import { useAppStore } from '@/store/useAppStore'
 
 export function ResultsView({ result, profile, onReset }: { result: AnalysisResult; profile: UserProfile; onReset: () => void }) {
@@ -21,7 +21,9 @@ export function ResultsView({ result, profile, onReset }: { result: AnalysisResu
   // 정밀 추천(큐레이션 시드, 룰 기반) vs 관련 복지(공공데이터, 텍스트 신호) 분리
   const primary = eligible.filter((p) => /^POL-/.test(p.id))
   const related = eligible.filter((p) => !/^POL-/.test(p.id))
-  const monthly = primary.reduce((s, p) => s + parseMonthly(p.benefit), 0)
+  // 강력추천(high) 중 '현금성'만 합산(바우처·서비스·현물·고용주지원 제외) → 보수적·신뢰 가능한 헤드라인.
+  // 자활·구직수당처럼 근로능력/상황 전제이거나 중복불가인 항목까지 더해 과장되지 않도록 의도적으로 좁힘.
+  const monthly = sumCashMonthly(primary.filter((p) => p.priority === 'high'))
   const highCount = primary.filter((p) => p.priority === 'high').length
   const tts = useTTS()
 
@@ -29,7 +31,7 @@ export function ResultsView({ result, profile, onReset }: { result: AnalysisResu
     const names = eligible.slice(0, 5).map((p) => p.name).join(', ')
     tts.toggle(
       `${profile.name || '회원'}님이 받을 수 있는 복지는 ${primary.length}개입니다. ` +
-      (monthly > 0 ? `예상 월 합계는 ${formatWon(monthly)}입니다. ` : '') +
+      (monthly > 0 ? `핵심 현금지원은 최대 월 ${formatWon(monthly)} 정도입니다. ` : '') +
       (names ? `주요 혜택은 ${names} 등입니다. 자세한 내용은 각 항목을 눌러 확인하세요.` : ''),
     )
   }
@@ -49,9 +51,14 @@ export function ResultsView({ result, profile, onReset }: { result: AnalysisResu
 
           <div className="mt-5 grid grid-cols-3 gap-3 max-w-lg">
             <StatBox icon={<Heart className="h-4 w-4" />} value={`${primary.length}개`} label="맞춤 추천" />
-            <StatBox icon={<TrendingUp className="h-4 w-4" />} value={monthly > 0 ? `월 ${formatWon(monthly)}` : '-'} label="예상 합계" highlight />
+            <StatBox icon={<TrendingUp className="h-4 w-4" />} value={monthly > 0 ? `월 ${formatWon(monthly)}` : '-'} label="핵심 현금지원" highlight />
             <StatBox icon={<Bell className="h-4 w-4" />} value={`${highCount}개`} label="강력 추천" />
           </div>
+          {monthly > 0 && (
+            <p className="mt-2 text-[11px] text-muted-foreground max-w-lg">
+              ※ ‘핵심 현금지원’은 강력 추천 중 현금성 지원만 보수적으로 합산한 값이에요. 바우처·서비스·현물·고용주 지원은 빼고, 중복지원 제한·실제 자격에 따라 수령액은 달라질 수 있어요.
+            </p>
+          )}
 
           <div className="mt-5 flex flex-wrap gap-2">
             <button onClick={onReset} className="btn-secondary !py-2.5"><RotateCcw className="h-4 w-4" /> 다시 분석</button>

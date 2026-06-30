@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { formatWon, parseMonthly, categoryMeta } from './format'
+import { formatWon, parseMonthly, categoryMeta, isCashBenefit, sumCashMonthly } from './format'
 
 describe('parseMonthly', () => {
   it('원 단위(전체 숫자) 매칭', () => {
@@ -20,6 +20,41 @@ describe('parseMonthly', () => {
   it('월 표기 없거나 금액 없으면 0', () => {
     expect(parseMonthly('치료비 전액 지원')).toBe(0)
     expect(parseMonthly('연 13만원 문화 바우처')).toBe(0) // 월이 아닌 연 단위
+  })
+})
+
+describe('isCashBenefit / sumCashMonthly', () => {
+  it('현금성: 월 정기 현금은 true', () => {
+    expect(isCashBenefit('월 최대 349,700원 지급')).toBe(true)
+    expect(isCashBenefit('자녀 1인당 월 23만원')).toBe(true)
+  })
+  it('현물·바우처·대출·본인부담은 현금성 아님(false)', () => {
+    expect(isCashBenefit('월 14만원~22만원 바우처 (소득수준별 차등)')).toBe(false)
+    expect(isCashBenefit('보증금 2억원 이내 저금리 대출')).toBe(false)
+    expect(isCashBenefit('건강보험 본인부담금 경감')).toBe(false)
+    expect(isCashBenefit('치료비 전액 지원')).toBe(false)
+  })
+  it('서비스 한도액·감면·고용주지원은 개인 현금소득 아님(false)', () => {
+    expect(isCashBenefit('노인 장기요양보험 재가급여 월 2,069,900원 한도')).toBe(false)
+    expect(isCashBenefit('저소득층 통신요금 월 26,000원 감면')).toBe(false)
+    expect(isCashBenefit('고령자 고용장려금 월 30만원 (사업주 지원)')).toBe(false)
+  })
+  it('금액만 있고 종류는 정책명에 있는 서비스도 context로 제외', () => {
+    // benefit 문구엔 금액만, 정책명에 '장기요양/재가급여'가 있는 경우
+    expect(isCashBenefit('월 최대 2,069,900원 한도', '노인 장기요양보험 (재가급여)')).toBe(false)
+    expect(sumCashMonthly([{ benefit: '월 최대 2,069,900원 한도', name: '노인 장기요양보험 (재가급여)' }])).toBe(0)
+  })
+  it('월 금액 없으면 false', () => {
+    expect(isCashBenefit('재가급여 등급별 월 한도액 이내')).toBe(false)
+  })
+  it('합계는 현금성만 더함(바우처·현물 제외)', () => {
+    const items = [
+      { benefit: '월 최대 349,700원 지급' }, // 35만 (현금)
+      { benefit: '자녀 1인당 월 23만원' }, // 23만 (현금)
+      { benefit: '월 14만원 바우처' }, // 제외
+      { benefit: '치료비 전액 지원' }, // 제외(월 금액 없음)
+    ]
+    expect(sumCashMonthly(items)).toBe(349700 + 230000)
   })
 })
 

@@ -41,3 +41,27 @@ export function parseMonthly(benefit: string): number {
   if (man) return Math.round(parseFloat(man[1]) * 10000)
   return 0
 }
+
+/**
+ * 혜택이 '현금성'(매월 현금처럼 받는 지원)인지. 바우처·이용권·대출·현물(전액지원/본인부담)은 제외.
+ * 결과 요약의 합계가 현물·서비스 가치까지 더해 과장되지 않도록 하는 게 목적.
+ */
+export function isCashBenefit(benefit: string, context = ''): boolean {
+  const b = benefit || ''
+  if (parseMonthly(b) <= 0) return false
+  // 서비스 한도액은 benefit 문구엔 금액만 있고 종류는 정책명에 있는 경우가 많아 이름·분류(context)도 함께 검사
+  const t = `${b} ${context}`
+  // 바우처·대출·현물(전액지원/본인부담)
+  if (/바우처|이용권|대출|상당|본인부담|전액\s*지원|현물/.test(t)) return false
+  // 서비스 한도액(장기요양·재가/시설급여·활동지원·돌봄·간병)·감면·고용주 지원(장려금)은 개인 현금소득이 아님
+  if (/장기요양|재가급여|시설급여|요양급여|활동지원|돌봄|간병|감면|장려금|치료관리|치료비/.test(t)) return false
+  return true
+}
+
+/** 현금성 혜택의 월 합계(최대치). 중복지원 제한은 반영하지 않으므로 '최대'로만 안내해야 함. */
+export function sumCashMonthly(items: { benefit: string; name?: string; category?: string }[]): number {
+  return items.reduce(
+    (s, p) => s + (isCashBenefit(p.benefit, `${p.name || ''} ${p.category || ''}`) ? parseMonthly(p.benefit) : 0),
+    0,
+  )
+}
