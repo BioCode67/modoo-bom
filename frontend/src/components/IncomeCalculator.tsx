@@ -143,7 +143,11 @@ export function IncomeCalculator({
           <Check className="h-4 w-4" /> 이 소득({pct}%)으로 분석에 반영
         </button>
       )}
-      <p className="mt-2 text-[10px] text-muted-foreground">※ 실제 ‘소득인정액’은 재산·부채 환산이 포함돼 다를 수 있어요. 정확한 판정은 주민센터·복지로에서 확인하세요.</p>
+      <p className="mt-2 text-[10px] text-muted-foreground">
+        ※ 실제 ‘소득인정액’은 집·예금 등 재산 환산이 포함돼 달라질 수 있어요. 재산까지 반영한 정확한 계산은{' '}
+        <a href="https://www.bokjiro.go.kr" target="_blank" rel="noopener noreferrer" className="font-semibold text-sky2-600 hover:underline">복지로 모의계산</a>{' '}
+        또는 주민센터에서 확인하세요.
+      </p>
     </div>
   )
 }

@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { MessageCircleHeart, X, Send, Mic, Compass, Sparkles, ArrowRight } from 'lucide-react'
-import type { Policy } from '@/data/policies'
 import { getCatalog } from '@/data/catalog'
+import { searchPolicies } from '@/lib/search'
 import { parseMonthly, formatWon } from '@/lib/format'
 import { applyLink } from '@/lib/officialLinks'
 import { useSpeech } from '@/lib/useSpeech'
@@ -15,29 +15,12 @@ interface Msg { role: 'user' | 'bot'; text: string }
 
 const SUGGESTIONS = ['기초연금', '출산·육아', '청년', '실업급여']
 
-/** 문장형 질문도 잘 잡도록 토큰(단어) 단위 점수 검색 */
-function tokenSearch(q: string, limit = 3): Policy[] {
-  const tokens = (q.toLowerCase().match(/[가-힣a-z0-9]+/g) || []).filter((t) => t.length >= 2)
-  if (tokens.length === 0) return []
-  const scored = getCatalog().map((p) => {
-    const hay = (p.name + ' ' + p.category + ' ' + p.target + ' ' + p.eligibility + ' ' + p.benefit).toLowerCase()
-    let score = 0
-    for (const t of tokens) {
-      if (p.name.toLowerCase().includes(t)) score += 3
-      else if (p.category.toLowerCase().includes(t) || p.target.toLowerCase().includes(t)) score += 2
-      else if (hay.includes(t)) score += 1
-    }
-    return { p, score }
-  }).filter((x) => x.score > 0)
-  scored.sort((a, b) => b.score - a.score)
-  return scored.slice(0, limit).map((x) => x.p)
-}
-
 function answer(q: string): string {
   const query = q.trim()
   if (!query) return ''
   if (/안녕|하이|hello|반가/i.test(query)) return '안녕하세요! 🌱 어떤 복지가 궁금하세요? 나이나 상황을 알려주시면 딱 맞는 혜택을 찾아드릴게요.'
-  const found = tokenSearch(query, 3)
+  // 도메인 검색(동의어·개념 랭킹) — '전세→주거', '애기→아동' 등 생활어도 잘 답함
+  const found = searchPolicies(getCatalog(), query).slice(0, 3)
   if (found.length === 0) {
     return `'${query}'에 딱 맞는 정책을 바로 찾지 못했어요. 😅 "내 복지 찾기"에서 상황을 입력하면 더 정확하게 안내해 드릴 수 있어요. 급하시면 복지로(129) 무료 상담도 좋아요.`
   }
