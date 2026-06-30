@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Heart, Wallet, Scale, Sparkles, Compass, Printer } from 'lucide-react'
+import { Heart, Wallet, Scale, Sparkles, Compass, Printer, Cloud } from 'lucide-react'
 import type { Policy } from '@/data/policies'
 import { getPolicyMap } from '@/data/catalog'
 import type { EligiblePolicy } from '@/lib/welfare-engine'
@@ -12,6 +12,7 @@ import { MonitorFeed } from '@/components/MonitorFeed'
 import { WelfareCalendar } from '@/components/WelfareCalendar'
 import { HouseholdAnalyzer } from '@/components/HouseholdAnalyzer'
 import { useAppStore, type AppStatus } from '@/store/useAppStore'
+import { useAuthCtx } from '@/lib/authContext'
 import { parseMonthly, formatWon } from '@/lib/format'
 import { StaticMascot } from '@/three/MascotCanvas'
 import { cn } from '@/lib/utils'
@@ -58,6 +59,7 @@ export function My() {
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
         <h1 className="text-2xl sm:text-3xl font-extrabold">나의 복지 <Heart className="inline h-6 w-6 text-peach-400 fill-peach-400" /></h1>
         <p className="text-muted-foreground mt-1">담아둔 복지의 신청 준비와 진행 상황을 한눈에 관리하세요.</p>
+        <SyncBadge />
 
         {/* 요약/계산기 */}
         <div className="mt-5 grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -114,6 +116,24 @@ export function My() {
       <PolicyDetailDrawer policy={selected} onClose={() => setSelected(null)} onOpen={setSelected} />
       {compare && <CompareModal policies={comparePolicies} onClose={() => setCompare(false)} />}
     </div>
+  )
+}
+
+/** 로그인/동기화 상태 배지 — 미설정 시 숨김(현행 동일) */
+function SyncBadge() {
+  const { enabled, user, name, syncing } = useAuthCtx()
+  if (!enabled) return null
+  if (user) {
+    return (
+      <p className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-sprout-700 bg-sprout-50 rounded-full px-3 py-1">
+        <Cloud className="h-3.5 w-3.5" /> {name}님 · {syncing ? '동기화 중…' : '기기 간 동기화 켜짐'}
+      </p>
+    )
+  }
+  return (
+    <p className="mt-2 inline-flex items-center gap-1.5 text-xs text-muted-foreground bg-muted rounded-full px-3 py-1">
+      🔒 로그인하면 다른 기기·브라우저에서도 신청 현황을 이어볼 수 있어요 (우측 상단 ‘로그인’)
+    </p>
   )
 }
 

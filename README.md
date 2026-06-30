@@ -56,6 +56,20 @@ cd ../frontend && npm run deploy
 ```
 자세한 안내: [backend/etl/README.md](backend/etl/README.md)
 
+### 로그인 · 클라우드 동기화 (선택)
+
+로그인 없이도 모든 기능이 동작하지만, **카카오·구글 로그인**을 켜면 **기기 간 '나의 복지' 신청 현황**이
+동기화됩니다. 정적 사이트에서 서버 없이 동작하도록 **Supabase**(무료)를 사용하며, 미설정 시에는
+관련 코드가 빌드에서 제외되어 **콜드스타트에 영향이 없습니다**(로그인 UI도 숨김).
+
+```bash
+# 1) Supabase 프로젝트 생성 + supabase/schema.sql 실행 (RLS 포함)
+# 2) Authentication → Providers 에서 Kakao/Google 활성화
+# 3) frontend/.env 에 URL/anon key 입력 후
+cd frontend && npm run deploy
+```
+설정 절차 전체: [supabase/SETUP.md](supabase/SETUP.md)
+
 ---
 
 ## 지금 바로 실행하기 (풀스택 로컬 개발)

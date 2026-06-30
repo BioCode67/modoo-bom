@@ -1,6 +1,7 @@
 import { Home, Search, Compass, Heart, Eye, Sparkles, Contrast, Download } from 'lucide-react'
 import { useAppStore, type View } from '@/store/useAppStore'
 import { useInstallPrompt } from '@/lib/useInstallPrompt'
+import { AuthControl } from '@/components/AuthControl'
 import { SproutLogo } from '@/ui/SproutLogo'
 import { cn } from '@/lib/utils'
 
@@ -78,6 +79,7 @@ export function Navbar() {
                 <span className="hidden sm:inline">앱 설치</span>
               </button>
             )}
+            <AuthControl />
             <button onClick={() => setView('analyze')} className="btn-primary !px-4 !py-2 hidden sm:inline-flex">
               <Sparkles className="h-4 w-4" />
               내 복지 찾기

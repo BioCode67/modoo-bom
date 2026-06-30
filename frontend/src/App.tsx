@@ -10,6 +10,7 @@ import { PrintSummary } from '@/components/PrintSummary'
 import { Onboarding } from '@/components/Onboarding'
 import { loadExternalCatalog } from '@/data/catalog'
 import { useAppStore } from '@/store/useAppStore'
+import { AuthProvider } from '@/lib/authContext'
 import { cn } from '@/lib/utils'
 
 export default function App() {
@@ -27,6 +28,7 @@ export default function App() {
   }, [elderly, highContrast])
 
   return (
+    <AuthProvider>
     <div className={cn('min-h-screen bg-background')}>
       <a href="#main" className="skip-link no-print">본문 바로가기</a>
       <div className="no-print"><Navbar /></div>
@@ -50,5 +52,6 @@ export default function App() {
       <div className="no-print"><Onboarding /></div>
       <PrintSummary />
     </div>
+    </AuthProvider>
   )
 }

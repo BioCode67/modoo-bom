@@ -53,6 +53,8 @@ interface AppState {
   toggleDoc: (policyId: string, doc: string) => void
   markChecked: (policyId: string) => void
   removeTracked: (policyId: string) => void
+  /** 추적목록 전체 교체 (클라우드 동기화 병합 결과 반영용) */
+  replaceTracked: (items: TrackedItem[]) => void
 }
 
 export const useAppStore = create<AppState>()(
@@ -112,6 +114,7 @@ export const useAppStore = create<AppState>()(
       markChecked: (policyId) =>
         set((s) => ({ tracked: s.tracked.map((t) => (t.policyId === policyId ? { ...t, lastChecked: Date.now() } : t)) })),
       removeTracked: (policyId) => set((s) => ({ tracked: s.tracked.filter((t) => t.policyId !== policyId) })),
+      replaceTracked: (items) => set({ tracked: items }),
     }),
     {
       name: 'modoobom-store',

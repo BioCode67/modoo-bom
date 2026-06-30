@@ -11,7 +11,9 @@ build/
 
 # 환경변수 (절대 올리면 안 됨)
 .env
+.env.*
 *.env
+!.env.example
 
 # ChromaDB 로컬 데이터
 backend/chroma_db/
