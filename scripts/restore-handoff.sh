@@ -11,10 +11,10 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 echo "🧳 모두봄 인수인계 자동 복원"
 echo ""
 
-# 1) 백업 파일 찾기 (인자 우선, 없으면 Downloads/Desktop 자동 탐색)
+# 1) 백업 파일 찾기 (인자 우선, 없으면 Downloads/Desktop 자동 탐색 — find로 셸 무관·안전)
 ARCHIVE="${1:-}"
 if [ -z "$ARCHIVE" ]; then
-  ARCHIVE="$(ls -t "$HOME"/Downloads/modoo-bom-handoff-*.tar.gz "$HOME"/Desktop/modoo-bom-handoff-*.tar.gz 2>/dev/null | head -1)"
+  ARCHIVE="$(find "$HOME/Downloads" "$HOME/Desktop" -maxdepth 1 -name 'modoo-bom-handoff-*.tar.gz' 2>/dev/null | sort -r | head -1)"
 fi
 if [ -z "$ARCHIVE" ] || [ ! -f "$ARCHIVE" ]; then
   echo "❌ 백업 파일(modoo-bom-handoff-*.tar.gz)을 못 찾았어요."
