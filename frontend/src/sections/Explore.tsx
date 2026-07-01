@@ -39,12 +39,12 @@ type SortKey = 'default' | 'amount' | 'name'
 const PAGE = 60
 
 // 다국어 AI 의미 검색 체험용 예시(클릭하면 바로 검색) — 다양한 언어로 "대단함"을 즉시 각인
-const AI_EXAMPLES = [
-  '노인인데 돈이 없어요',
-  'I lost my job and need help',
-  'Tôi cần hỗ trợ tiền thuê nhà', // (베트남어) 집세 지원이 필요해요
-  '老年人没有收入', // (중국어) 노인 무소득
-  '혼자 아이를 키워요',
+const AI_EXAMPLES: { text: string; lang: string }[] = [
+  { text: '노인인데 돈이 없어요', lang: 'ko' },
+  { text: 'I lost my job and need help', lang: 'en' },
+  { text: 'Tôi cần hỗ trợ tiền thuê nhà', lang: 'vi' }, // 집세 지원이 필요해요
+  { text: '老年人没有收入', lang: 'zh' }, // 노인 무소득
+  { text: '혼자 아이를 키워요', lang: 'ko' },
 ]
 
 export function Explore() {
@@ -294,11 +294,12 @@ export function Explore() {
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {AI_EXAMPLES.map((ex) => (
                   <button
-                    key={ex}
-                    onClick={() => setQ(ex)}
+                    key={ex.text}
+                    lang={ex.lang}
+                    onClick={() => setQ(ex.text)}
                     className="rounded-full border border-sprout-200 bg-white px-2.5 py-1 text-[11px] font-medium text-foreground/80 transition-colors hover:border-sprout-400 hover:bg-sprout-50"
                   >
-                    {ex}
+                    {ex.text}
                   </button>
                 ))}
               </div>
