@@ -28,9 +28,24 @@ echo "  백업 파일: $ARCHIVE"
 TMP="$(mktemp -d)"
 tar -xzf "$ARCHIVE" -C "$TMP" || { echo "❌ 압축 해제 실패"; rm -rf "$TMP"; exit 1; }
 
-# 3) 비밀키 복원
-if [ -f "$TMP/frontend.env" ]; then cp "$TMP/frontend.env" "$ROOT/frontend/.env"; echo "  ✓ frontend/.env 복원"; fi
-if [ -f "$TMP/backend.env" ];  then cp "$TMP/backend.env"  "$ROOT/backend/.env";  echo "  ✓ backend/.env 복원"; fi
+# 3) 비밀키(.env) 복원 — 통합 백업(envs/<프로젝트>/...)이면 각 프로젝트 폴더에, 아니면 modoo-bom에.
+if [ -d "$TMP/envs" ]; then
+  for projdir in "$TMP/envs"/*/; do
+    pname="$(basename "$projdir")"
+    target="$HOME/Desktop/$pname"
+    if [ -d "$target" ]; then
+      ( cd "$projdir" && find . -type f -name '.env' | sed 's#^\./##' | while read -r rel; do
+          mkdir -p "$target/$(dirname "$rel")"; cp "$projdir$rel" "$target/$rel"; echo "  ✓ $pname/$rel 복원"
+        done )
+    else
+      echo "  … $pname 폴더가 아직 없어요(먼저 clone하면 그 .env가 복원됩니다): 백업의 envs/$pname/ 참고"
+    fi
+  done
+else
+  # (하위호환) 구버전 백업: 최상위 frontend.env/backend.env → modoo-bom
+  [ -f "$TMP/frontend.env" ] && cp "$TMP/frontend.env" "$ROOT/frontend/.env" && echo "  ✓ frontend/.env 복원"
+  [ -f "$TMP/backend.env" ]  && cp "$TMP/backend.env"  "$ROOT/backend/.env"  && echo "  ✓ backend/.env 복원"
+fi
 
 # 4) 클로드 메모리·대화기록 복원 (이 컴퓨터의 홈 경로에 맞춰 폴더명 자동 계산)
 USERENC="$(printf '%s' "$HOME" | sed 's#/#-#g')"   # 예: /Users/kim → -Users-kim

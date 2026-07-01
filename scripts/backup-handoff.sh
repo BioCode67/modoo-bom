@@ -12,9 +12,22 @@ OUT="$HOME/Desktop/modoo-bom-handoff-$DATE.tar.gz"
 echo "🧳 모두봄 인수인계 백업 만들기"
 echo ""
 
-# 1) 비밀키 (.env)
-if [ -f "$ROOT/frontend/.env" ]; then cp "$ROOT/frontend/.env" "$STAGE/frontend.env"; echo "  + frontend/.env (Supabase 키)"; fi
-if [ -f "$ROOT/backend/.env" ];  then cp "$ROOT/backend/.env"  "$STAGE/backend.env";  echo "  + backend/.env (data.go.kr 등 키)"; fi
+# 1) 비밀키(.env) — Desktop의 '모든 프로젝트'에서 수집(통합 백업)
+echo "  🔑 비밀키(.env) 수집 — 모든 Desktop 프로젝트:"
+for proj in "$HOME"/Desktop/*/; do
+  [ -d "$proj/.git" ] || continue          # git 프로젝트만
+  pname="$(basename "$proj")"
+  for rel in ".env" "frontend/.env" "backend/.env"; do
+    if [ -f "$proj$rel" ]; then
+      mkdir -p "$STAGE/envs/$pname/$(dirname "$rel")"
+      cp "$proj$rel" "$STAGE/envs/$pname/$rel"
+      echo "     + $pname/$rel"
+    fi
+  done
+done
+# (하위호환) modoo-bom .env를 최상위에도 둔다 — 구버전 restore 스크립트 대비
+[ -f "$ROOT/frontend/.env" ] && cp "$ROOT/frontend/.env" "$STAGE/frontend.env"
+[ -f "$ROOT/backend/.env" ]  && cp "$ROOT/backend/.env"  "$STAGE/backend.env"
 
 # 2) 클로드 메모리 (경로 인코딩: /Users/it → -Users-it)
 USERENC="$(printf '%s' "$HOME" | sed 's#/#-#g')"
