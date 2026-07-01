@@ -244,6 +244,58 @@ async def estimate_benefits(req: EstimateRequest):
     }
 
 
+@router.post("/journey/plan")
+async def journey_plan(req: EstimateRequest):
+    """AI 에이전트 '복지 여정' 계획 — 프로필 → 수혜 정책 → 발급할 서류 + 신청할 서비스(자동화 지원 표시) + 실행 순서.
+    프론트/에이전트가 이 계획을 받아 서류 발급 RPA → 신청 RPA 를 순차 오케스트레이션한다."""
+    from types import SimpleNamespace
+    from rag.sample_data import WELFARE_POLICIES
+    from agents.mock_responses import _check_policy
+    from rpa.manager import SUPPORTED_DOC_NAMES, SUPPORTED_SERVICE_NAMES
+
+    profile = SimpleNamespace(
+        age=req.age, income_percentile=req.income_percentile, disability=req.disability,
+        disability_grade=req.disability_grade, has_children=req.has_children, children_ages=req.children_ages,
+        is_pregnant=req.is_pregnant, household_type=req.household_type, employment_status=req.employment_status,
+        region=req.region, name="사용자", gender="other", life_events=[],
+    )
+
+    eligible, doc_set = [], {}
+    for policy in WELFARE_POLICIES:
+        doc_text = policy.get("document", "") + " " + policy.get("eligibility", "") + " " + policy.get("target", "")
+        ok, reason, priority, conf = _check_policy(doc_text, policy["name"], policy["id"], profile)
+        if not ok:
+            continue
+        docs = policy.get("required_docs", []) or []
+        eligible.append({
+            "id": policy["id"], "name": policy["name"], "category": policy["category"],
+            "priority": priority, "reason": reason, "required_docs": docs,
+            "apply_automatable": policy["name"] in SUPPORTED_SERVICE_NAMES,
+            "apply_link": policy.get("application", ""),
+        })
+        for d in docs:
+            slot = doc_set.setdefault(d, {"doc_name": d, "rpa_supported": d in SUPPORTED_DOC_NAMES, "needed_for": []})
+            slot["needed_for"].append(policy["name"])
+
+    documents = sorted(doc_set.values(), key=lambda x: (not x["rpa_supported"], -len(x["needed_for"])))
+    applications = [e for e in eligible if e["apply_automatable"]]
+    steps = (
+        [{"phase": "서류발급", "auto": d["rpa_supported"], "label": f"{d['doc_name']} 발급",
+          "detail": f"{len(d['needed_for'])}개 복지에 필요"} for d in documents]
+        + [{"phase": "신청", "auto": True, "label": f"{a['name']} 온라인 신청", "detail": a["reason"]} for a in applications]
+    )
+    return {
+        "eligible_count": len(eligible),
+        "eligible_policies": eligible,
+        "documents": documents,
+        "applications": applications,
+        "steps": steps,
+        "auto_doc_count": sum(1 for d in documents if d["rpa_supported"]),
+        "auto_apply_count": len(applications),
+        "note": "카카오 본인인증(본인 휴대폰)과 신청 최종 제출 승인은 사용자가 직접 확인합니다.",
+    }
+
+
 @router.get("/admin/env")
 async def env_check():
     """환경변수 상태 확인 (키 값은 마스킹)"""
