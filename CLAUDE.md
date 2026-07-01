@@ -89,6 +89,8 @@ src/
   한국어·English·Tiếng Việt 등 **다국어 교차검색**(외국인·다문화 사각지대). 정책 벡터는 빌드 시
   사전계산(`npm run embed`→`public/policy-embeddings.json`), 런타임은 질의만 임베딩. 탐색의 'AI 의미 검색'
   토글(옵트인 지연로드)+입력 언어 자동감지(`detectLang.ts`)+홈 카드 CTA. **서버 전송 없음**(프라이버시).
+  **AI 답변 카드**(`aiAnswer.ts`: 검색결과 기반 요약, 환각 없음)+**음성 대화**(자국어로 말하면 음성으로 답)+
+  **다국어 음성 입력**+정책 상세 **"AI로 비슷한 복지"**(`relatedPolicies`: 임베딩만, 모델 불필요)+모델 로딩 중 키워드 폴백.
   운영: 첫 로드 ~128MB(CDN), 이후 캐시로 즉시 → 데모 전 프리워밍 권장. 미사용 WASM은 배포 시 제거(`scripts/clean-wasm.mjs`).
 - **분석 엔진**: 시드는 키워드/규칙 기반 정밀 자격판정, 공공데이터(요약형)는 자연어 신호 추론으로
   '관련 복지'를 낮은 신뢰도로 제시(`inferFromText`). 결과는 핵심(POL-)·관련(GOV/LOC-)으로 분리 표시.
@@ -103,7 +105,7 @@ src/
   긴급복지 진단, 복지 점수·TOP3, **대표문의 전화 tel: 연결**, **포트폴리오 차트**(SVG), 온보딩,
   **로그인·동기화**(카카오·구글, Supabase 무료 티어, 선택 — 미설정 시 인증 UI 숨김 + supabase-js 트리셰이킹 제외, 설정은 `supabase/SETUP.md`),
   **PWA**(설치형·오프라인·autoUpdate·beforeinstallprompt), 큰글씨·고대비·ESC·ARIA·focus-visible 접근성, ErrorBoundary.
-- **품질 게이트(모두 통과)**: `npm run lint`(eslint9 flat, react-hooks, 0건) · `npm test`(vitest **161**) ·
+- **품질 게이트(모두 통과)**: `npm run lint`(eslint9 flat, react-hooks, 0건) · `npm test`(vitest **168**) ·
   `tsc --noEmit` · `npm run build` / 백엔드 `pytest`(12). 변경마다 브라우저 회귀 검증.
 - **데이터 정확성(2026 검증)**: 기초연금·장애인연금·아동수당(9세 확대)·생계급여(32%)·한부모(23만/65%)·
   청년도약(33,000)·교육급여·보육료·긴급복지·노인일자리·국가장학금을 보건복지부 등 공식 출처로 검증·정정.
