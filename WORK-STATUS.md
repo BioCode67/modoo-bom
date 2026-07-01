@@ -24,7 +24,12 @@
 - `backend/rpa/gov24_rpa.py` — plus.gov.kr/login + simpleCert iframe 대응.
 - `backend/rpa/apply_rpa.py` — 복지로 loginView.do + eForm + fincert 대응.
 - `backend/rpa/base.py` — `click_eform_button`(eForm 좌표 신뢰클릭), `get_frame_by_url`, 카카오톡 셀렉터 보강.
-- ※ 프론트 배포는 gh-pages에 반영됨. **소스(main)는 미커밋** — 사용자 요청 시 커밋.
+- ※ 위 항목들은 커밋 완료(main). 배포는 gh-pages 반영.
+
+### ⭐ 헤드라인 기능 추가 — 온디바이스 다국어 AI 의미 검색 (2026-07-01, 커밋·배포 완료)
+- 브라우저에서 직접 도는 신경망 임베딩(`multilingual-e5-small`)으로 복지를 **의미**로 검색. 한국어/영어/베트남어 등 **다국어 교차검색**(외국인·다문화 사각지대). **서버 전송 없음**(기기 내 실행).
+- `src/lib/semanticSearch.ts` + 탐색 'AI 의미 검색' 토글(옵트인 지연로드) + `scripts/embed-policies.mts`(`npm run embed`) + `public/policy-embeddings.json`.
+- 운영: 첫 로드 ~128MB(CDN), 이후 캐시로 즉시. **데모 전 토글 1회 프리워밍 권장.** 미사용 WASM은 `scripts/clean-wasm.mjs`가 배포 시 제거.
 
 ## 동작 확인됨 ✅ / 미동작 ⚠️
 - ✅ **건강보험 자격득실확인서(nhis) 자동발급** — 실제 사이트 접속→간편인증 위젯→카카오톡 선택→정보입력→인증요청→**카카오 승인 대기 지점**까지 실동작. + PDF 자동저장(153KB) 검증.

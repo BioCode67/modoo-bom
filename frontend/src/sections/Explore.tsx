@@ -215,7 +215,7 @@ export function Explore() {
                 뜻을 이해하는 AI 검색 — <b>한국어·English·Tiếng Việt</b> 등 어떤 언어로든 상황을 적어보세요.
               </p>
               <p className="mt-1 text-muted-foreground">예: “노인인데 돈이 없어요” · “I lost my job and need help” · “집세 낼 돈이 부족해요”</p>
-              <p className="mt-1 text-[11px] text-muted-foreground">🔒 AI 모델이 <b>내 기기 안에서</b> 직접 실행돼요(서버 전송 없음). 최초 1회 모델 다운로드.</p>
+              <p className="mt-1 text-[11px] text-muted-foreground">🔒 AI 모델이 <b>내 기기 안에서</b> 직접 실행돼요(서버 전송 없음). 최초 1회만 준비(약 1분), 이후엔 <b>즉시</b> 실행돼요.</p>
               {aiProgress && (
                 <div className="mt-2" role="status" aria-live="polite">
                   <div className="flex items-center justify-between text-[11px] font-semibold text-sprout-700">
