@@ -26,9 +26,10 @@ export default defineConfig(({ command }) => ({
         ],
       },
       manifest: {
+        id: '/modoo-bom/',
         name: '모두봄 — 내 복지 혜택 찾기',
         short_name: '모두봄',
-        description: 'AI가 찾아주는 맞춤 복지. 확인부터 신청·관리까지.',
+        description: 'AI가 찾아주는 맞춤 복지. 나이·상황만 알려주면 받을 수 있는 복지를 한 번에 찾아 신청 방법·서류까지 안내해요.',
         theme_color: '#22c55e',
         background_color: '#fffaf3',
         display: 'standalone',
