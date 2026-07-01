@@ -138,7 +138,16 @@ export function Explore() {
   // AI 답변 요약(환각 없이 검색결과 기반 템플릿) — 입력 언어를 이해했음을 알리고 대표 복지·금액을 한 줄로
   const aiAnswer = useMemo(() => {
     if (!aiMode || !aiHits || aiHits.length === 0) return ''
-    const top = aiHits.slice(0, 3).map((h) => h.policy.name)
+    // 대표 3건을 이름 중복 제거해서 뽑는다(공공데이터 동명 사업 중복 방지)
+    const seen = new Set<string>()
+    const top: string[] = []
+    for (const h of aiHits) {
+      if (top.length >= 3) break
+      const nm = h.policy.name.replace(/\s/g, '')
+      if (seen.has(nm)) continue
+      seen.add(nm)
+      top.push(h.policy.name)
+    }
     const cashMax = Math.max(0, ...aiHits.slice(0, 12).map((h) => parseMonthly(h.policy.benefit)))
     const d = detectLang(q)
     const langNote = d && d.code !== 'ko' ? `${d.label} 문장을 이해했어요. ` : ''
