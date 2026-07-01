@@ -61,6 +61,7 @@ export function Explore() {
   const [aiProgress, setAiProgress] = useState<{ stage: string; pct?: number } | null>(null)
   const [aiError, setAiError] = useState<string | null>(null)
   const [voiceUsed, setVoiceUsed] = useState(false) // 음성으로 질의하면 AI가 음성으로 답
+  const [voiceLang, setVoiceLang] = useState('ko-KR') // 음성 입력 언어(다국어)
   const aiRunId = useRef(0)
   const tts = useTTS()
   const catalog = useCatalog()
@@ -68,7 +69,7 @@ export function Explore() {
   const setAiIntent = useAppStore((s) => s.setAiIntent)
   const aiQuery = useAppStore((s) => s.aiQuery)
   const setAiQuery = useAppStore((s) => s.setAiQuery)
-  const { supported: micOk, listening, toggle: toggleMic } = useSpeech((text) => { setQ(text); setVoiceUsed(true) })
+  const { supported: micOk, listening, toggle: toggleMic } = useSpeech((text) => { setQ(text); setVoiceUsed(true) }, voiceLang)
 
   // 홈 카드·외국어 입력 등으로 진입한 경우 AI 모드 자동 활성화(+질의 프리필)
   useEffect(() => {
@@ -273,6 +274,24 @@ export function Explore() {
                 <Sparkles className="h-3.5 w-3.5 text-sprout-600 shrink-0" />
                 뜻을 이해하는 AI 검색 — <b>한국어·English·Tiếng Việt</b> 등 어떤 언어로든 상황을 적어보세요.
               </p>
+              {micOk && (
+                <p className="mt-1.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                  🎙️ 음성 언어:
+                  <select
+                    value={voiceLang}
+                    onChange={(e) => setVoiceLang(e.target.value)}
+                    aria-label="음성 입력 언어 선택"
+                    className="rounded-md border border-sprout-200 bg-white px-1.5 py-0.5 text-[11px] font-medium focus-ring"
+                  >
+                    <option value="ko-KR">한국어</option>
+                    <option value="en-US">English</option>
+                    <option value="vi-VN">Tiếng Việt</option>
+                    <option value="zh-CN">中文</option>
+                    <option value="ja-JP">日本語</option>
+                  </select>
+                  로 말할 수 있어요 (🎤 아이콘)
+                </p>
+              )}
               {detected && (
                 <p className="mt-1.5 text-[11px] font-semibold text-sprout-700">🌐 감지된 언어: {detected.flag} {detected.label}</p>
               )}

@@ -19,8 +19,9 @@ function getCtor(): SRCtor | null {
   return w.SpeechRecognition || w.webkitSpeechRecognition || null
 }
 
-/** 한국어 음성 인식 훅. 미지원 브라우저면 supported=false. */
-export function useSpeech(onResult: (text: string) => void) {
+/** 음성 인식 훅. lang으로 인식 언어 지정(기본 한국어). 미지원 브라우저면 supported=false.
+ * lang이 바뀌면 인식기를 재생성 → 다국어 음성 입력(외국인·다문화) 지원. */
+export function useSpeech(onResult: (text: string) => void, lang: string = 'ko-KR') {
   const [supported] = useState(() => !!getCtor())
   const [listening, setListening] = useState(false)
   const recRef = useRef<SpeechRecognitionLike | null>(null)
@@ -31,7 +32,7 @@ export function useSpeech(onResult: (text: string) => void) {
     const Ctor = getCtor()
     if (!Ctor) return
     const rec = new Ctor()
-    rec.lang = 'ko-KR'
+    rec.lang = lang
     rec.continuous = false
     rec.interimResults = false
     rec.onresult = (e) => {
@@ -42,7 +43,7 @@ export function useSpeech(onResult: (text: string) => void) {
     rec.onerror = () => setListening(false)
     recRef.current = rec
     return () => { try { rec.stop() } catch { /* noop */ } }
-  }, [])
+  }, [lang])
 
   const toggle = () => {
     const rec = recRef.current
