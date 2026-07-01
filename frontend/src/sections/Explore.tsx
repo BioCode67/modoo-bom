@@ -43,6 +43,7 @@ const AI_EXAMPLES = [
   '노인인데 돈이 없어요',
   'I lost my job and need help',
   'Tôi cần hỗ trợ tiền thuê nhà', // (베트남어) 집세 지원이 필요해요
+  '老年人没有收入', // (중국어) 노인 무소득
   '혼자 아이를 키워요',
 ]
 
