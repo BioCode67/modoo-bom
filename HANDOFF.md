@@ -36,49 +36,39 @@ cd ~/Desktop/modoo-bom && bash scripts/backup-handoff.sh
 
 ---
 
-## 2️⃣ 새 노트북에서 — 코드 내려받고 복원
+## 2️⃣ 새 노트북에서 — 딱 2단계 (명령어 하나로 자동 복원)
 
 ```bash
 # (1) 코드 클론
-cd ~/Desktop
-git clone https://github.com/BioCode67/modoo-bom.git
-cd modoo-bom
+cd ~/Desktop && git clone https://github.com/BioCode67/modoo-bom.git && cd modoo-bom
 
-# (2) 비밀키 복원 — 백업 압축을 푼 뒤 .env 2개를 제자리에 복사
-#     (압축파일을 홈에 두고) 
-tar -xzf ~/modoo-bom-handoff-YYYYMMDD.tar.gz -C ~/handoff-restore
-cp ~/handoff-restore/frontend.env  frontend/.env
-cp ~/handoff-restore/backend.env   backend/.env
-
-# (3) 프론트엔드 의존성 + 실행
-cd frontend && npm install && npm run dev     # http://localhost:5173
-
-# (4) (선택) 백엔드 — RPA/에이전트 쓸 때만
-cd ../backend && python3 -m venv venv && source venv/bin/activate
-pip install -r requirements.txt && uvicorn main:app --reload --port 8000
+# (2) 백업(구글드라이브에서 Downloads로 다운로드)을 '한 번에' 자동 복원
+bash scripts/restore-handoff.sh
 ```
 
-`.env`가 없어도 앱은 **전 기능 동작**합니다(로그인·백엔드 RPA만 비활성). 값 구조는 `frontend/.env.example`,
-`backend/.env.example` 참고. 실제 값은 백업본에 있습니다.
+`restore-handoff.sh` 가 알아서 해줍니다:
+- Downloads/Desktop에서 `modoo-bom-handoff-*.tar.gz` 자동 탐색
+- `frontend/.env`·`backend/.env` **비밀키 복원**
+- 클로드 **메모리·대화기록**을 이 컴퓨터의 홈 경로에 맞게 **자동 복원**(사용자명이 달라도 폴더명 자동 계산)
+
+그다음 실행:
+```bash
+cd frontend && npm install && npm run dev      # http://localhost:5173
+```
+
+> `.env`가 없어도 앱은 **전 기능 동작**(로그인·백엔드 RPA만 비활성). 백엔드(RPA)까지 쓰려면:
+> `cd backend && python3 -m venv venv && source venv/bin/activate && pip install -r requirements.txt && uvicorn main:app --reload --port 8000`
 
 ---
 
-## 3️⃣ 클로드 코드 작업기록 이어가기 (대화·메모리)
+## 3️⃣ 클로드 코드 작업기록 (자동 복원됨)
 
-클로드 코드 기록은 클라우드 동기화가 안 되므로 **로컬 폴더를 복사**해야 합니다.
+위 `restore-handoff.sh` 가 클로드 메모리·대화기록까지 복원하므로 **수동 작업이 없습니다.**
+(수동으로 하려면: 백업의 `claude-memory/`→`~/.claude/projects/-Users-<사용자명>/memory/`,
+`claude-history/`→`~/.claude/projects/-Users-<사용자명>-Desktop/`. `-Users-it`은 경로 인코딩이라 사용자명이 다르면 그 부분만 교체.)
 
-- 대화기록: `~/.claude/projects/-Users-<사용자명>-Desktop/`  (JSONL 파일들)
-- 메모리: `~/.claude/projects/-Users-<사용자명>/memory/`  (`MEMORY.md` + 개별 메모)
-
-**새 노트북에서:**
-1. 백업 압축의 `claude-memory/`·`claude-history/`를 새 노트북 `~/.claude/projects/` 아래에 복사.
-2. ⚠️ 폴더 이름은 **경로가 인코딩**돼 있습니다(`-Users-it` = `/Users/it`). 새 노트북 사용자명이 다르면
-   폴더명을 새 경로에 맞게 바꾸세요. 예: 사용자명이 `kim`이면
-   `-Users-it-Desktop` → `-Users-kim-Desktop`, `-Users-it` → `-Users-kim`.
-3. 같은 사용자명(`it`)이면 그대로 두면 됩니다.
-
-> **가장 중요한 컨텍스트는 이미 `CLAUDE.md`(레포)와 `memory/`에 정리돼 있습니다.** 대화기록(JSONL)이
-> 없어도, 새 노트북에서 클로드 코드를 프로젝트 폴더에서 열면 `CLAUDE.md`·메모리를 읽어 흐름을 이어갑니다.
+> **핵심 컨텍스트는 이미 `CLAUDE.md`(레포)와 `memory/`에 정리돼 있어**, 대화기록이 없어도 새 노트북에서
+> 프로젝트 폴더에서 클로드 코드를 열면 흐름을 이어갑니다. 대화기록까지 복원하면 지난 대화도 열람돼요.
 
 ---
 
