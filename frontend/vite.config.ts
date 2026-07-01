@@ -17,6 +17,10 @@ export default defineConfig(({ command }) => ({
       workbox: {
         cleanupOutdatedCaches: true,
         navigateFallbackDenylist: [/policies\.json$/],
+        // 온디바이스 AI(transformers.js)의 ONNX WASM 등 대용량 파일은 precache 제외
+        // (런타임에 CDN에서 로드) — SW 프리캐시 비대화·빌드 실패 방지.
+        globIgnores: ['**/*.wasm', '**/ort-*'],
+        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
         runtimeCaching: [
           {
             urlPattern: /policies\.json$/,
@@ -54,6 +58,10 @@ export default defineConfig(({ command }) => ({
     alias: {
       '@': path.resolve(__dirname, './src'),
     },
+  },
+  // transformers.js는 dev 사전번들에서 제외(무거운 ONNX 런타임) — 지연 동적 import로만 로드.
+  optimizeDeps: {
+    exclude: ['@huggingface/transformers'],
   },
   build: {
     target: 'es2020',

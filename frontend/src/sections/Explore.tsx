@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Search, X, Mic, ArrowDownWideNarrow, Calculator, ChevronDown } from 'lucide-react'
+import { Search, X, Mic, ArrowDownWideNarrow, Calculator, ChevronDown, Globe, Sparkles } from 'lucide-react'
 import { useSpeech } from '@/lib/useSpeech'
+import { semanticSearch, type SemanticHit } from '@/lib/semanticSearch'
 import { IncomeCalculator } from '@/components/IncomeCalculator'
 import { parseMonthly } from '@/lib/format'
 import { queryConcepts, relevance } from '@/lib/search'
@@ -43,6 +44,12 @@ export function Explore() {
   const [showCalc, setShowCalc] = useState(false)
   const [selected, setSelected] = useState<Policy | EligiblePolicy | null>(null)
   const [visible, setVisible] = useState(PAGE)
+  // 온디바이스 AI 의미 검색(다국어)
+  const [aiMode, setAiMode] = useState(false)
+  const [aiHits, setAiHits] = useState<SemanticHit[] | null>(null)
+  const [aiProgress, setAiProgress] = useState<{ stage: string; pct?: number } | null>(null)
+  const [aiError, setAiError] = useState<string | null>(null)
+  const aiRunId = useRef(0)
   const catalog = useCatalog()
   const { supported: micOk, listening, toggle: toggleMic } = useSpeech((text) => setQ(text))
 
@@ -63,35 +70,70 @@ export function Explore() {
   // 시·도가 바뀌면 시·군·구 선택 초기화
   useEffect(() => { setGungu('') }, [region])
 
+  // AI 의미 검색: 켜져 있고 질의가 있으면 온디바이스 임베딩으로 검색(디바운스+레이스가드)
+  useEffect(() => {
+    if (!aiMode) { setAiHits(null); setAiProgress(null); setAiError(null); return }
+    const query = q.trim()
+    if (!query) { setAiHits(null); return }
+    const runId = ++aiRunId.current
+    setAiError(null)
+    const t = setTimeout(async () => {
+      try {
+        const hits = await semanticSearch(query, 60, (p) => {
+          if (runId === aiRunId.current) setAiProgress(p)
+        })
+        if (runId === aiRunId.current) { setAiHits(hits); setAiProgress(null) }
+      } catch {
+        if (runId === aiRunId.current) {
+          setAiError('AI 모델을 불러오지 못했어요. 네트워크를 확인하거나 일반 검색을 이용해주세요.')
+          setAiHits(null); setAiProgress(null)
+        }
+      }
+    }, 450)
+    return () => clearTimeout(t)
+  }, [aiMode, q])
+
+  // AI 매칭 점수(정책 id → 코사인 유사도) — 배지 표시용
+  const aiScore = useMemo(() => {
+    const m = new Map<string, number>()
+    if (aiHits) for (const h of aiHits) m.set(h.policy.id, h.score)
+    return m
+  }, [aiHits])
+
   const filtered = useMemo(() => {
     const b = BUCKETS.find((x) => x.key === bucket)
-    const concepts = queryConcepts(q)
-    // 1) 비검색 필터(분류·지역·현금성) 먼저 적용
-    const base = catalog.filter((p) => {
+    // 비검색 필터(분류·지역·현금성) 공통 술어
+    const passNonSearch = (p: Policy) => {
       if (b?.match && !b.match.some((m) => p.category.includes(m))) return false
-      // 지역 선택 시: 전국(중앙·시드)은 모두 보이고, 지자체(LOC)는 해당 시·도만
       if (region && p.id.startsWith('LOC-') && sidoOf(p.target) !== region) return false
-      // 시·군·구 선택 시: 해당 LOC는 그 시군구 또는 시도 광역(구 표기 없음)만 (다른 구는 제외)
       if (gungu && p.id.startsWith('LOC-')) {
         const g = guOf(p.target)
         if (g && g !== gungu) return false
       }
       if (onlyCash && parseMonthly(p.benefit) <= 0) return false
       return true
-    })
-    // 2) 검색어가 있으면 개념 확장 + 관련도순(기본 정렬일 때). 다단어·생활어·다개념 우대.
-    let list = base
-    if (concepts.length) {
-      list = base
-        .map((p) => ({ p, s: relevance(p, concepts, q) }))
-        .filter((x) => x.s > 0)
-        .sort((a, b2) => b2.s - a.s)
-        .map((x) => x.p)
+    }
+
+    let list: Policy[]
+    if (aiMode && aiHits) {
+      // AI 의미 검색: 임베딩 유사도 순서 유지 + 비검색 필터만 적용
+      list = aiHits.map((h) => h.policy).filter(passNonSearch)
+    } else {
+      const base = catalog.filter(passNonSearch)
+      const concepts = queryConcepts(q)
+      // 검색어가 있으면 개념 확장 + 관련도순. 다단어·생활어·다개념 우대.
+      list = concepts.length
+        ? base
+            .map((p) => ({ p, s: relevance(p, concepts, q) }))
+            .filter((x) => x.s > 0)
+            .sort((a, b2) => b2.s - a.s)
+            .map((x) => x.p)
+        : base
     }
     if (sort === 'amount') return [...list].sort((a, b2) => parseMonthly(b2.benefit) - parseMonthly(a.benefit))
     if (sort === 'name') return [...list].sort((a, b2) => a.name.localeCompare(b2.name, 'ko'))
     return list
-  }, [q, bucket, catalog, sort, onlyCash, region, gungu])
+  }, [q, bucket, catalog, sort, onlyCash, region, gungu, aiMode, aiHits])
 
   return (
     <div className="page-container py-8 sm:py-10">
@@ -126,7 +168,7 @@ export function Explore() {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="기초연금, 청년, 출산… 검색"
+            placeholder={aiMode ? '상황을 자유롭게 — 한국어·English·Tiếng Việt…' : '기초연금, 청년, 출산… 검색'}
             className="w-full rounded-2xl border-2 border-sprout-100 bg-white pl-12 pr-10 py-3.5 text-sm font-medium focus-ring"
             aria-label="정책 검색"
           />
@@ -140,6 +182,45 @@ export function Explore() {
               className={cn('absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-2 transition-colors', listening ? 'bg-rose-500 text-white animate-pulse' : 'text-sprout-600 hover:bg-sprout-50')}>
               <Mic className="h-4 w-4" />
             </button>
+          )}
+        </div>
+
+        {/* 온디바이스 AI 다국어 의미 검색 토글 */}
+        <div className="mt-3 max-w-xl">
+          <button
+            onClick={() => setAiMode((v) => !v)}
+            aria-pressed={aiMode}
+            className={cn(
+              'inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold border-2 transition-all',
+              aiMode
+                ? 'bg-gradient-to-r from-sprout-500 to-emerald-500 border-transparent text-white shadow-cute'
+                : 'bg-white border-sprout-200 text-sprout-700 hover:border-sprout-300',
+            )}
+          >
+            <Globe className="h-4 w-4" /> AI 의미 검색{aiMode ? ' ON' : ''}
+            <span className="rounded-full bg-white/25 px-1.5 py-0.5 text-[10px] font-semibold">다국어</span>
+          </button>
+          {aiMode && (
+            <div className="mt-2 rounded-2xl border-2 border-sprout-100 bg-sprout-50/50 px-4 py-3 text-xs">
+              <p className="flex items-center gap-1.5 font-semibold text-foreground/80">
+                <Sparkles className="h-3.5 w-3.5 text-sprout-600 shrink-0" />
+                뜻을 이해하는 AI 검색 — <b>한국어·English·Tiếng Việt</b> 등 어떤 언어로든 상황을 적어보세요.
+              </p>
+              <p className="mt-1 text-muted-foreground">예: “노인인데 돈이 없어요” · “I lost my job and need help” · “집세 낼 돈이 부족해요”</p>
+              <p className="mt-1 text-[11px] text-muted-foreground">🔒 AI 모델이 <b>내 기기 안에서</b> 직접 실행돼요(서버 전송 없음). 최초 1회 모델 다운로드.</p>
+              {aiProgress && (
+                <div className="mt-2" role="status" aria-live="polite">
+                  <div className="flex items-center justify-between text-[11px] font-semibold text-sprout-700">
+                    <span>🧠 {aiProgress.stage}…</span>
+                    {aiProgress.pct != null && <span>{aiProgress.pct}%</span>}
+                  </div>
+                  <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-sprout-100">
+                    <div className="h-full bg-sprout-500 transition-all" style={{ width: `${aiProgress.pct ?? 15}%` }} />
+                  </div>
+                </div>
+              )}
+              {aiError && <p className="mt-2 font-medium text-rose-600">{aiError}</p>}
+            </div>
           )}
         </div>
 
@@ -200,7 +281,8 @@ export function Explore() {
 
       <div className="mt-5 flex items-center justify-between gap-2 flex-wrap">
         <p className="text-sm text-muted-foreground" role="status" aria-live="polite">
-          총 <b className="text-foreground">{filtered.length}</b>개 정책{onlyCash ? ' · 현금성' : ''}{sort === 'amount' ? ' · 금액순' : sort === 'name' ? ' · 이름순' : ''}
+          {aiMode && aiHits ? <>🌍 <b className="text-foreground">AI</b>가 의미로 찾은 </> : '총 '}
+          <b className="text-foreground">{filtered.length}</b>개 정책{onlyCash ? ' · 현금성' : ''}{sort === 'amount' ? ' · 금액순' : sort === 'name' ? ' · 이름순' : ''}
         </p>
         <Glossary />
       </div>
@@ -214,7 +296,14 @@ export function Explore() {
         <>
           <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filtered.slice(0, visible).map((p, i) => (
-              <PolicyCard key={p.id} policy={p} index={Math.min(i, 12)} onOpen={setSelected} />
+              <div key={p.id} className="relative">
+                {aiMode && aiScore.has(p.id) && (
+                  <span className="absolute left-2 top-2 z-10 inline-flex items-center gap-1 rounded-full bg-sprout-600 px-2 py-0.5 text-[10px] font-bold text-white shadow-soft">
+                    🤖 AI 매칭
+                  </span>
+                )}
+                <PolicyCard policy={p} index={Math.min(i, 12)} onOpen={setSelected} />
+              </div>
             ))}
           </div>
           {visible < filtered.length && (
