@@ -7,7 +7,8 @@ import { semanticSearch, warmupSemantic, type SemanticHit } from '@/lib/semantic
 import { detectLang } from '@/lib/detectLang'
 import { useAppStore } from '@/store/useAppStore'
 import { IncomeCalculator } from '@/components/IncomeCalculator'
-import { parseMonthly, formatWon } from '@/lib/format'
+import { parseMonthly } from '@/lib/format'
+import { buildAiAnswer } from '@/lib/aiAnswer'
 import { queryConcepts, relevance } from '@/lib/search'
 import { cn } from '@/lib/utils'
 import type { Policy } from '@/data/policies'
@@ -138,22 +139,8 @@ export function Explore() {
 
   // AI 답변 요약(환각 없이 검색결과 기반 템플릿) — 입력 언어를 이해했음을 알리고 대표 복지·금액을 한 줄로
   const aiAnswer = useMemo(() => {
-    if (!aiMode || !aiHits || aiHits.length === 0) return ''
-    // 대표 3건을 이름 중복 제거해서 뽑는다(공공데이터 동명 사업 중복 방지)
-    const seen = new Set<string>()
-    const top: string[] = []
-    for (const h of aiHits) {
-      if (top.length >= 3) break
-      const nm = h.policy.name.replace(/\s/g, '')
-      if (seen.has(nm)) continue
-      seen.add(nm)
-      top.push(h.policy.name)
-    }
-    const cashMax = Math.max(0, ...aiHits.slice(0, 12).map((h) => parseMonthly(h.policy.benefit)))
-    const d = detectLang(q)
-    const langNote = d && d.code !== 'ko' ? `${d.label} 문장을 이해했어요. ` : ''
-    const amt = cashMax > 0 ? ` 현금성 지원은 월 최대 ${formatWon(cashMax)}이에요.` : ''
-    return `${langNote}이런 복지가 가장 잘 맞아요: ${top.join(', ')}.${amt}`
+    if (!aiMode || !aiHits) return ''
+    return buildAiAnswer(aiHits.map((h) => h.policy), q)
   }, [aiMode, aiHits, q])
 
   // 음성으로 물었으면 AI가 음성으로 답한다(대화형) — 마이크 클릭이 사용자 제스처라 TTS 허용됨
