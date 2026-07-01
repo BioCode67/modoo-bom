@@ -236,6 +236,14 @@ export function Explore() {
               {detected && (
                 <p className="mt-1.5 text-[11px] font-semibold text-sprout-700">🌐 감지된 언어: {detected.flag} {detected.label}</p>
               )}
+              {detected && detected.code !== 'ko' && (
+                <div className="mt-2 rounded-xl border border-sky2-200 bg-sky2-50/70 px-3 py-2 text-[11px] leading-relaxed">
+                  🌍 <b>외국인·다문화 가정</b>이신가요? 복지 상담은 <b>다누리콜센터</b>{' '}
+                  <a href="tel:1577-1366" className="font-bold text-sky2-700 hover:underline">☎ 1577-1366</a>{' '}
+                  (13개 언어·24시간 무료) 또는{' '}
+                  <a href="https://www.liveinkorea.kr" target="_blank" rel="noopener noreferrer" className="font-bold text-sky2-700 hover:underline">다누리 포털</a>에서 받을 수 있어요.
+                </div>
+              )}
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {AI_EXAMPLES.map((ex) => (
                   <button
