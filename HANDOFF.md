@@ -36,28 +36,25 @@ cd ~/Desktop/modoo-bom && bash scripts/backup-handoff.sh
 
 ---
 
-## 2️⃣ 새 노트북에서 — 딱 2단계 (명령어 하나로 자동 복원)
+## 2️⃣ 새 노트북에서 — 명령어 **한 줄**로 전부 자동 (clone→복원→설치→실행)
 
+**준비:** 구글드라이브의 백업(`modoo-bom-handoff-*.tar.gz`)을 새 노트북 **Downloads 폴더로 다운로드**만 해두세요.
+
+그다음 터미널에 **이 한 줄**을 붙여넣으면 끝:
 ```bash
-# (1) 코드 클론
-cd ~/Desktop && git clone https://github.com/BioCode67/modoo-bom.git && cd modoo-bom
-
-# (2) 백업(구글드라이브에서 Downloads로 다운로드)을 '한 번에' 자동 복원
-bash scripts/restore-handoff.sh
+curl -fsSL https://raw.githubusercontent.com/BioCode67/modoo-bom/main/scripts/setup-new-laptop.sh | bash
 ```
 
-`restore-handoff.sh` 가 알아서 해줍니다:
-- Downloads/Desktop에서 `modoo-bom-handoff-*.tar.gz` 자동 탐색
-- `frontend/.env`·`backend/.env` **비밀키 복원**
-- 클로드 **메모리·대화기록**을 이 컴퓨터의 홈 경로에 맞게 **자동 복원**(사용자명이 달라도 폴더명 자동 계산)
+이 한 줄이 알아서 다 합니다:
+1. 코드 `git clone` → `~/Desktop/modoo-bom`
+2. 백업 자동 복원 — `frontend/.env`·`backend/.env` **비밀키** + 클로드 **메모리·대화기록**(사용자명 달라도 경로 자동 계산)
+3. `npm install` (의존성 설치)
+4. `npm run dev` → 브라우저에서 **http://localhost:5173** (종료: Ctrl+C)
 
-그다음 실행:
-```bash
-cd frontend && npm install && npm run dev      # http://localhost:5173
-```
-
-> `.env`가 없어도 앱은 **전 기능 동작**(로그인·백엔드 RPA만 비활성). 백엔드(RPA)까지 쓰려면:
-> `cd backend && python3 -m venv venv && source venv/bin/activate && pip install -r requirements.txt && uvicorn main:app --reload --port 8000`
+> 백업 파일이 없어도 앱은 **전 기능 동작**(로그인·백엔드 RPA만 비활성). 나중에 `bash scripts/restore-handoff.sh` 로 복원 가능.
+> git/node가 없다는 메시지가 뜨면 안내대로 `xcode-select --install`(git), [nodejs.org](https://nodejs.org)(node LTS) 설치 후 다시 실행.
+>
+> **백엔드(RPA)까지** 쓰려면: `cd ~/Desktop/modoo-bom/backend && python3 -m venv venv && source venv/bin/activate && pip install -r requirements.txt && uvicorn main:app --reload --port 8000`
 
 ---
 
