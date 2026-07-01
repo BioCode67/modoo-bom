@@ -83,7 +83,7 @@ export function Explore() {
     let list = base
     if (concepts.length) {
       list = base
-        .map((p) => ({ p, s: relevance(p, concepts) }))
+        .map((p) => ({ p, s: relevance(p, concepts, q) }))
         .filter((x) => x.s > 0)
         .sort((a, b2) => b2.s - a.s)
         .map((x) => x.p)

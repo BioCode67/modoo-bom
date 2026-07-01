@@ -66,4 +66,9 @@ describe('searchPolicies', () => {
   it('빈 질의는 원본 그대로', () => {
     expect(searchPolicies(CATALOG, '').length).toBe(CATALOG.length)
   })
+  it('정확한 정책명 검색은 그 정책이 1위 (동의어 희석 방지)', () => {
+    // '청년월세 특별지원'은 동의어(청년→여러 청년정책)로 확장되지만, 원문이 이름인 POL-3가 최상위
+    const r = searchPolicies(CATALOG, '청년월세 특별지원')
+    expect(r[0].id).toBe('POL-3')
+  })
 })

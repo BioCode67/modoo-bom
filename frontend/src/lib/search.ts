@@ -77,7 +77,7 @@ function fieldScore(p: Policy | EligiblePolicy, t: string): number {
  * 정책 1건의 관련도. 각 개념은 동의어 중 가장 잘 맞는 점수로 평가하고,
  * 둘 이상의 개념을 동시에 충족하면 충족 개념 수만큼 가산한다(다개념 우대).
  */
-export function relevance(p: Policy | EligiblePolicy, concepts: string[][]): number {
+export function relevance(p: Policy | EligiblePolicy, concepts: string[][], rawQuery = ''): number {
   if (!concepts.length) return 0
   let total = 0
   let covered = 0
@@ -89,7 +89,16 @@ export function relevance(p: Policy | EligiblePolicy, concepts: string[][]): num
       total += best
     }
   }
-  return covered > 1 ? total * covered : total
+  let score = covered > 1 ? total * covered : total
+  // 원문 질의가 정책명에 그대로 들어가면 강하게 가산 — 짧은 동의어(예: '교육')가
+  // 여러 필드에 걸쳐 exact 이름 매칭을 밀어내는 것을 방지(정확 이름 검색 우선).
+  const raw = rawQuery.trim().toLowerCase()
+  if (raw && score > 0) {
+    const name = p.name.toLowerCase()
+    if (name === raw) score += 100
+    else if (raw.length >= 2 && name.includes(raw)) score += 30
+  }
+  return score
 }
 
 /** 카탈로그에서 질의에 매칭되는 정책을 관련도순으로 반환. */
@@ -97,7 +106,7 @@ export function searchPolicies<T extends Policy | EligiblePolicy>(list: T[], q: 
   const concepts = queryConcepts(q)
   if (!concepts.length) return list
   return list
-    .map((p) => ({ p, s: relevance(p, concepts) }))
+    .map((p) => ({ p, s: relevance(p, concepts, q) }))
     .filter((x) => x.s > 0)
     .sort((a, b) => b.s - a.s)
     .map((x) => x.p)
