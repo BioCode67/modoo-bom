@@ -33,6 +33,8 @@ OpenAI 키가 없어도 **Mock 모드**로 전체 파이프라인이 동작한�
 - **React 18** + **Vite 6** + **TypeScript 5.7** + **TailwindCSS 3.4**
 - **React Three Fiber / three / drei** — 3D 새싹 마스코트 히어로(코드 분할 lazy)
 - **framer-motion** — 진입/스크롤/페이지 전환 애니메이션
+- **@huggingface/transformers (transformers.js)** — **온디바이스 다국어 AI 의미 검색**용
+  임베딩 모델(`multilingual-e5-small`)을 브라우저에서 직접 실행(지연 동적 import, 서버 전송 없음)
 - **zustand (persist)** — 뷰 라우팅·관심목록·신청상태·프로필/결과 캐시 (localStorage)
 - **lucide-react** — 아이콘 · Pretendard 폰트 · 봄/새싹 카툰 라이트 테마
 - **클라이언트 복지 엔진**(`src/lib/welfare-engine.ts`) + 정책 120건(`src/data/policies.ts`)으로
@@ -82,6 +84,12 @@ src/
   런타임 병합 → 총 **약 5,000건**. 이름 기준 디듑(시드 우선). 가짜 데이터 미생성 원칙.
   키는 `backend/.env`의 `DATA_GO_KR_SERVICE_KEY`, 수집은 `python etl/ingest_welfare.py --csv <중앙CSV> --local`
   (ETL은 https+페이지 재시도로 견고). 더 받으려면 중앙부처(15090532)도 활용신청 후 `--api`.
+- **⭐ 온디바이스 다국어 AI 의미 검색(헤드라인)**: 브라우저에서 직접 도는 신경망 임베딩
+  (`multilingual-e5-small`, `src/lib/semanticSearch.ts`)으로 복지를 **의미**로 매칭.
+  한국어·English·Tiếng Việt 등 **다국어 교차검색**(외국인·다문화 사각지대). 정책 벡터는 빌드 시
+  사전계산(`npm run embed`→`public/policy-embeddings.json`), 런타임은 질의만 임베딩. 탐색의 'AI 의미 검색'
+  토글(옵트인 지연로드)+입력 언어 자동감지(`detectLang.ts`)+홈 카드 CTA. **서버 전송 없음**(프라이버시).
+  운영: 첫 로드 ~128MB(CDN), 이후 캐시로 즉시 → 데모 전 프리워밍 권장. 미사용 WASM은 배포 시 제거(`scripts/clean-wasm.mjs`).
 - **분석 엔진**: 시드는 키워드/규칙 기반 정밀 자격판정, 공공데이터(요약형)는 자연어 신호 추론으로
   '관련 복지'를 낮은 신뢰도로 제시(`inferFromText`). 결과는 핵심(POL-)·관련(GOV/LOC-)으로 분리 표시.
 - **기능**: 3D 카툰 히어로(지연 마운트), 프로필 위저드+분석, **자연어 한 문장 즉시 분석**(`QuickAsk`/`parseQuery`, 음성 포함),
@@ -95,7 +103,7 @@ src/
   긴급복지 진단, 복지 점수·TOP3, **대표문의 전화 tel: 연결**, **포트폴리오 차트**(SVG), 온보딩,
   **로그인·동기화**(카카오·구글, Supabase 무료 티어, 선택 — 미설정 시 인증 UI 숨김 + supabase-js 트리셰이킹 제외, 설정은 `supabase/SETUP.md`),
   **PWA**(설치형·오프라인·autoUpdate·beforeinstallprompt), 큰글씨·고대비·ESC·ARIA·focus-visible 접근성, ErrorBoundary.
-- **품질 게이트(모두 통과)**: `npm run lint`(eslint9 flat, react-hooks, 0건) · `npm test`(vitest **153**) ·
+- **품질 게이트(모두 통과)**: `npm run lint`(eslint9 flat, react-hooks, 0건) · `npm test`(vitest **161**) ·
   `tsc --noEmit` · `npm run build` / 백엔드 `pytest`(12). 변경마다 브라우저 회귀 검증.
 - **데이터 정확성(2026 검증)**: 기초연금·장애인연금·아동수당(9세 확대)·생계급여(32%)·한부모(23만/65%)·
   청년도약(33,000)·교육급여·보육료·긴급복지·노인일자리·국가장학금을 보건복지부 등 공식 출처로 검증·정정.
