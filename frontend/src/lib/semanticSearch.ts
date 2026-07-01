@@ -83,11 +83,15 @@ export async function semanticSearch(
   const out = await _extractor(`query: ${q}`, { pooling: 'mean', normalize: true })
   const qv = out.data as Float32Array
   const pmap = getPolicyMap()
+  // 대표(시드 POL-) 정책 소폭 가점 — 전국 5천건 중 지역 소규모 사업에 대표 국가제도가
+  // 묻히지 않게(기초연금·긴급복지 등이 상위에 오도록). 유사도 격차보다 작아 강제 override는 아님.
+  const SEED_BOOST = 0.04
   const scored: { id: string; score: number }[] = []
   for (let i = 0; i < _ids.length; i++) {
     const pv = _vecs![i]
     let s = 0
     for (let j = 0; j < pv.length; j++) s += qv[j] * pv[j] // 정규화 벡터 → dot=코사인
+    if (_ids[i].charCodeAt(0) === 80 /* 'P' (POL-) */) s += SEED_BOOST
     scored.push({ id: _ids[i], score: s })
   }
   scored.sort((a, b) => b.score - a.score)
