@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>모두봄 — 한 장 요약</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:'Malgun Gothic','Pretendard',sans-serif; background:#fffaf3; color:#1f2937; width:1200px; }
+  .wrap { padding:48px 56px; }
+  .hero { display:flex; align-items:flex-end; justify-content:space-between; border-bottom:4px solid #22c55e; padding-bottom:20px; }
+  h1 { font-size:44px; color:#166534; margin:0; }
+  h1 .o { color:#ea580c; }
+  .tagline { font-size:19px; color:#4b5563; margin:8px 0 0; max-width:720px; }
+  .badge { background:#22c55e; color:#fff; padding:8px 16px; border-radius:999px; font-weight:800; font-size:15px; white-space:nowrap; }
+  h2 { font-size:24px; color:#166534; margin:36px 0 14px; display:flex; align-items:center; gap:8px; }
+  .kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; }
+  .kpi { background:#fff; border-radius:18px; padding:18px 20px; box-shadow:0 4px 14px rgba(34,197,94,.1); }
+  .kpi .n { font-size:30px; font-weight:900; color:#16a34a; }
+  .kpi .l { color:#6b7280; font-size:13px; margin-top:2px; }
+  .cols { display:grid; grid-template-columns:1fr 1fr; gap:24px; }
+  .card { background:#fff; border-radius:18px; padding:22px 24px; box-shadow:0 4px 14px rgba(34,197,94,.08); }
+  ul { margin:8px 0 0; padding-left:20px; line-height:1.7; font-size:15px; }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th,td { text-align:left; padding:9px 10px; border-bottom:1px solid #e5e7eb; }
+  th { color:#166534; background:#f0fdf4; }
+  img { width:100%; border-radius:14px; border:1px solid #dcfce7; }
+  .foot { margin-top:34px; color:#6b7280; font-size:13px; text-align:center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hero">
+    <div>
+      <h1>🌱 모두봄 <span style="font-size:26px;color:#6b7280">ModooBom</span></h1>
+      <p class="tagline">나이·소득·상황(또는 <b>어떤 언어의 한 문장</b>)만 알려주면, <b>브라우저에서 직접 도는 AI</b>가 전국 5,000여 복지에서 내게 맞는 혜택을 찾아 신청·발급까지 이어주는 <b>개인 복지 AI Agent</b>.</p>
+    </div>
+    <div class="badge">2026 AI·SW중심대학<br>디지털 경진대회 · SW부문</div>
+  </div>
+
+  <h2>📊 핵심 지표</h2>
+  <div class="kpis">
+    <div class="kpi"><div class="n">5,185건</div><div class="l">전국 복지 실데이터</div></div>
+    <div class="kpi"><div class="n">5개+ 언어</div><div class="l">AI 다국어 교차검색</div></div>
+    <div class="kpi"><div class="n">서버 $0 · 전송 0</div><div class="l">온디바이스 AI·프라이버시</div></div>
+    <div class="kpi"><div class="n">8 → 1</div><div class="l">발급 조작(폰승인만)</div></div>
+  </div>
+
+  <div class="cols" style="margin-top:24px">
+    <div class="card">
+      <h2 style="margin-top:0">⭐ 핵심 차별점</h2>
+      <ul>
+        <li><b>온디바이스 다국어 AI 의미검색</b> — 한/영/베트남/중/일 교차검색, 서버 전송 0</li>
+        <li><b>AI 대화형 답변 + 음성</b> — 이해→요약 답변(환각 없음), 자국어 음성 대화</li>
+        <li><b>실제 정부 RPA 자동화</b> — 정부24·복지로, 발급 인증 지점까지 자동</li>
+        <li><b>프라이버시 우선</b> — 입력·AI 추론 전부 기기 내, 회원가입 불필요</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h2 style="margin-top:0">🌍 AI 다국어 예시 (실측)</h2>
+      <table>
+        <tr><th>입력</th><th>AI가 찾은 복지</th></tr>
+        <tr><td>"노인인데 돈이 없어요"</td><td>기초연금·노인일자리</td></tr>
+        <tr><td>"I lost my job…" (영어)</td><td>긴급복지·국민취업지원</td></tr>
+        <tr><td>"Tôi là người khuyết tật" (베트남어)</td><td>장애인연금·발달재활</td></tr>
+        <tr><td>"혼자 아이를 키워요"</td><td>부모급여·한부모 양육비</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <h2>🏗️ 시스템 아키텍처</h2>
+  <img src="diagram1-아키텍처.png" alt="architecture">
+
+  <div class="cols" style="margin-top:24px">
+    <div><h2>🧠 AI 의미검색 흐름</h2><img src="diagram2-AI검색흐름.png"></div>
+    <div><h2>🤖 발급 자동화(휴먼인더루프)</h2><img src="diagram3-발급자동화.png"></div>
+  </div>
+
+  <div class="cols" style="margin-top:24px">
+    <div><h2>📚 복지 카탈로그 구성</h2><img src="chart1-출처구성.png"></div>
+    <div><h2>📈 생애·상황별 분포</h2><img src="chart2-카테고리분포.png"></div>
+  </div>
+
+  <h2>🎯 대회 주제 정합성 — "라이프스타일 혁신을 위한 AI Agent 기반 SW"</h2>
+  <div class="card">
+    <table>
+      <tr><th>대회 키워드</th><th>모두봄의 구현</th></tr>
+      <tr><td>AI Agent</td><td>LangGraph 10노드 에이전트 + 온디바이스 AI + RPA 자동 수행</td></tr>
+      <tr><td>라이프스타일 혁신</td><td>복지 사각지대 해소 — 정보 격차·언어 장벽·신청 장벽 제거</td></tr>
+      <tr><td>SW 완성도</td><td>정적 배포로 즉시 체험 + 실제 정부 자동화 + 품질게이트(테스트 168/13)</td></tr>
+    </table>
+  </div>
+
+  <p class="foot">라이브: https://biocode67.github.io/modoo-bom/ · 정직성 원칙: 가짜 데이터·자동화 과장 없음, 본인인증은 법적 강제로 사용자 직접</p>
+</div>
+</body>
+</html>
