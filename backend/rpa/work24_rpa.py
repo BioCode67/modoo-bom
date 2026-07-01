@@ -8,6 +8,7 @@ from rpa.base import (
     take_screenshot, wait_for_login,
     click_first_matching, make_browser_context_args,
     click_kakaotalk_in_anyid, detect_auth_form, AUTH_FORM_USER_GUIDE,
+    get_launch_options,
 )
 
 WORK24_MAIN = "https://www.work24.go.kr/cm/main.do"
@@ -119,15 +120,7 @@ async def run_work24_rpa(task) -> None:
 
     try:
         async with async_playwright() as pw:
-            browser = await pw.chromium.launch(
-                headless=False,
-                slow_mo=300,
-                args=[
-                    "--start-maximized",
-                    "--disable-blink-features=AutomationControlled",
-                    "--no-sandbox",
-                ],
-            )
+            browser = await pw.chromium.launch(**get_launch_options())
             context = await browser.new_context(**make_browser_context_args())
             await context.add_init_script(
                 "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"

@@ -1,8 +1,81 @@
 """RPA 공통 기반 — 브라우저 세션, 스크린샷, 카카오 로그인 감지"""
 import asyncio
 import base64
+import os
+import pathlib
+import sys
 from datetime import datetime
 from typing import Optional, Callable
+
+
+def get_launch_options(slow_mo: int = 300) -> dict:
+    """모든 RPA가 공통으로 쓰는 브라우저 실행 옵션.
+
+    윈도우에서는 Playwright 번들 Chromium이 일부 잠긴(관리형) PC에서 SxS(부속 구성)
+    오류로 실행되지 않을 수 있어, 기본값으로 시스템에 설치된 Microsoft Edge(msedge)를
+    사용한다. Edge도 Chromium 계열이라 선택자·동작이 동일하다.
+    macOS/Linux는 기존처럼 번들 Chromium을 쓴다(맥 동작 불변).
+
+    환경변수로 재정의 가능:
+      - RPA_BROWSER_CHANNEL : 'msedge' | 'chrome' | '' (빈 값이면 번들 Chromium 강제)
+      - RPA_HEADLESS=1      : 창 없이 실행. 기본은 headed(본인인증 위해 창 표시).
+    """
+    opts = {
+        "headless": os.getenv("RPA_HEADLESS", "0") == "1",
+        "slow_mo": slow_mo,
+        "args": [
+            "--start-maximized",
+            "--disable-blink-features=AutomationControlled",
+            "--no-sandbox",
+        ],
+    }
+    channel = os.getenv("RPA_BROWSER_CHANNEL")
+    if channel is None:
+        channel = "msedge" if sys.platform == "win32" else ""
+    channel = channel.strip()
+    if channel:
+        opts["channel"] = channel
+    return opts
+
+
+# 발급 서류 저장 폴더 (기본: 바탕화면/모두봄서류). 환경변수 MODOOBOM_DOCS_DIR 로 변경.
+DOCS_DIR = pathlib.Path(os.getenv("MODOOBOM_DOCS_DIR") or (pathlib.Path.home() / "Desktop" / "모두봄서류"))
+
+
+def _safe_filename(name: str) -> str:
+    cleaned = "".join(c for c in name if c not in '<>:"/\\|?*\n\r\t').strip()
+    return cleaned or "document"
+
+
+async def save_document(page, name: str) -> Optional[str]:
+    """발급된 서류 페이지를 파일로 '반드시' 저장한다.
+    1순위 PDF(CDP Page.printToPDF — headed에서도 시도), 실패 시 전체 스크린샷(PNG) 폴백.
+    저장 경로를 반환하고, 완전 실패 시 None.
+    """
+    try:
+        DOCS_DIR.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        return None
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    base = DOCS_DIR / f"{_safe_filename(name)}_{stamp}"
+    # 1) PDF (Chrome DevTools Protocol)
+    try:
+        client = await page.context.new_cdp_session(page)
+        res = await client.send("Page.printToPDF", {"printBackground": True})
+        data = res.get("data")
+        if data:
+            out = base.with_suffix(".pdf")
+            out.write_bytes(base64.b64decode(data))
+            return str(out)
+    except Exception:
+        pass
+    # 2) 스크린샷 폴백 — 어떤 경우에도 증빙은 남긴다
+    try:
+        out = base.with_suffix(".png")
+        await page.screenshot(path=str(out), full_page=True)
+        return str(out)
+    except Exception:
+        return None
 
 # 카카오 간편인증 버튼 선택자 (각 사이트에서 공통적으로 사용)
 KAKAO_SELECTORS = [

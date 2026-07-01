@@ -19,7 +19,7 @@ from rpa.base import (
     take_screenshot, wait_for_login,
     click_first_matching, click_by_text, make_browser_context_args,
     click_kakaotalk_in_anyid, detect_auth_form, AUTH_FORM_USER_GUIDE,
-    LOGIN_PAGE_URL_KEYWORDS,
+    LOGIN_PAGE_URL_KEYWORDS, get_launch_options,
 )
 
 BOKJIRO_LOGIN_URL = "https://www.bokjiro.go.kr/ssis-tbu/twataa/loginPage/moveTWAT52012M.do"
@@ -113,11 +113,7 @@ async def run_apply_rpa(task, service_name: str, profile: dict) -> None:
 
     try:
         async with async_playwright() as pw:
-            browser = await pw.chromium.launch(
-                headless=False,
-                slow_mo=300,
-                args=["--start-maximized", "--disable-blink-features=AutomationControlled", "--no-sandbox"],
-            )
+            browser = await pw.chromium.launch(**get_launch_options())
             context = await browser.new_context(**make_browser_context_args())
             await context.add_init_script(
                 "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"

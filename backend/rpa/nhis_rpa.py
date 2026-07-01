@@ -12,7 +12,7 @@
 """
 import asyncio
 import re
-from rpa.base import take_screenshot, make_browser_context_args
+from rpa.base import take_screenshot, make_browser_context_args, get_launch_options, save_document
 
 NHIS_CERT_URL  = "https://www.nhis.or.kr/nhis/minwon/jpAea00401.do"
 LOGIN_URL      = "https://www.nhis.or.kr/nhis/etc/personalLoginPage.do"
@@ -439,11 +439,7 @@ async def run_nhis_rpa(task, user_info: dict = None) -> None:
 
     try:
         async with async_playwright() as pw:
-            browser = await pw.chromium.launch(
-                headless=False,
-                slow_mo=100,
-                args=["--start-maximized", "--disable-blink-features=AutomationControlled", "--no-sandbox"],
-            )
+            browser = await pw.chromium.launch(**get_launch_options(slow_mo=100))
             ctx_args = make_browser_context_args()
             ctx_args["no_viewport"] = True
             context = await browser.new_context(**ctx_args)
@@ -562,11 +558,13 @@ async def run_nhis_rpa(task, user_info: dict = None) -> None:
             except Exception:
                 ss = await take_screenshot(page)
 
+            _dlpage = context.pages[-1] if len(context.pages) > 1 else page
+            saved = await save_document(_dlpage, "건강보험 자격득실확인서")
             task.update("done",
-                "✅ 건강보험 자격득실확인서 발급 절차 완료!\n\n"
-                "브라우저에서 ⌘+P 로 PDF 저장 또는 인쇄가 가능합니다.\n"
-                "브라우저는 2분 후 자동 종료됩니다.", ss)
-            task.result = {"success": True, "doc_name": "건강보험 자격득실확인서"}
+                "✅ 건강보험 자격득실확인서 발급 완료!\n\n"
+                + (f"📄 자동 저장됨: {saved}\n" if saved else "브라우저에서 Ctrl+P 로 저장하세요.\n")
+                + "브라우저는 2분 후 자동 종료됩니다.", ss)
+            task.result = {"success": True, "doc_name": "건강보험 자격득실확인서", "saved_path": saved}
 
             await asyncio.sleep(120)
             await browser.close()
