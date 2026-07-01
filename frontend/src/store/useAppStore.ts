@@ -25,6 +25,10 @@ interface AppState {
   view: View
   setView: (v: View) => void
 
+  // 탐색 진입 시 AI 의미 검색을 자동 활성화하려는 의도(홈 카드 클릭 등) — 전이(비저장)
+  aiIntent: boolean
+  setAiIntent: (v: boolean) => void
+
   // 접근성 — 큰글씨 모드 / 고대비 모드
   elderly: boolean
   toggleElderly: () => void
@@ -65,6 +69,8 @@ export const useAppStore = create<AppState>()(
         set({ view: v })
         if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' })
       },
+      aiIntent: false,
+      setAiIntent: (v) => set({ aiIntent: v }),
 
       elderly: false,
       toggleElderly: () => set((s) => ({ elderly: !s.elderly })),

@@ -4,6 +4,7 @@ import { Search, X, Mic, ArrowDownWideNarrow, Calculator, ChevronDown, Globe, Sp
 import { useSpeech } from '@/lib/useSpeech'
 import { semanticSearch, warmupSemantic, type SemanticHit } from '@/lib/semanticSearch'
 import { detectLang } from '@/lib/detectLang'
+import { useAppStore } from '@/store/useAppStore'
 import { IncomeCalculator } from '@/components/IncomeCalculator'
 import { parseMonthly } from '@/lib/format'
 import { queryConcepts, relevance } from '@/lib/search'
@@ -60,7 +61,14 @@ export function Explore() {
   const [aiError, setAiError] = useState<string | null>(null)
   const aiRunId = useRef(0)
   const catalog = useCatalog()
+  const aiIntent = useAppStore((s) => s.aiIntent)
+  const setAiIntent = useAppStore((s) => s.setAiIntent)
   const { supported: micOk, listening, toggle: toggleMic } = useSpeech((text) => setQ(text))
+
+  // 홈의 'AI 의미 검색' 카드로 진입한 경우 AI 모드 자동 활성화
+  useEffect(() => {
+    if (aiIntent) { setAiMode(true); setAiIntent(false) }
+  }, [aiIntent, setAiIntent])
 
   // 선택한 시·도 안에서 고를 수 있는 시·군·구 목록(해당 시도 LOC 정책에서 추출, 가나다순)
   const gunguOptions = useMemo(() => {
