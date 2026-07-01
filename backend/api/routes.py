@@ -296,6 +296,38 @@ async def journey_plan(req: EstimateRequest):
     }
 
 
+class JourneyRunRequest(BaseModel):
+    doc_names: list[str] = []
+    service_names: list[str] = []
+    user_name: str = "홍길동"
+    birth_date: str = ""
+    phone: str = ""
+    carrier: str = ""
+    profile: dict = {}
+
+
+@router.post("/journey/run")
+async def journey_run(req: JourneyRunRequest):
+    """복지 여정 실행 — 지정된 서류들을 순차 발급(자동 저장)하고 신청까지 오케스트레이션.
+    각 사이트에서 카카오 본인인증만 사용자가 하면 로그인·양식·발급·저장·신청은 자동."""
+    from rpa.orchestrator import start_journey
+    user_info = {"user_name": req.user_name, "birth_date": req.birth_date,
+                 "phone": req.phone, "carrier": req.carrier}
+    jid = start_journey(req.doc_names, req.service_names, req.user_name, user_info, req.profile)
+    return {"journey_id": jid, "status": "started",
+            "docs": req.doc_names, "services": req.service_names}
+
+
+@router.get("/journey/status/{journey_id}")
+async def journey_status(journey_id: str):
+    """여정 진행상황(단계별 상태 + 저장된 서류 경로) 조회."""
+    from rpa.orchestrator import get_journey
+    j = get_journey(journey_id)
+    if j is None:
+        raise HTTPException(status_code=404, detail="여정을 찾을 수 없습니다.")
+    return j
+
+
 @router.get("/admin/env")
 async def env_check():
     """환경변수 상태 확인 (키 값은 마스킹)"""
