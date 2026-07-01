@@ -1,16 +1,17 @@
 """
 정부24 주민등록등본 / 초본 실제 자동 발급 (Playwright RPA)
 
-흐름:
-  ① www.gov.kr 로그인 페이지 접속 (returnUrl 없이 — 세션만 수립)
-  ② 간편인증 탭 → 카카오톡 → anyid 본인인증 폼 → 사용자 완료 대기
-  ③ 로그인 완료 → www.gov.kr 세션 수립
-  ④ 서비스 안내 페이지 이동 → 신청하기 클릭
-  ⑤ 신청 폼 처리 → 출력/PDF
+흐름 (2026 plus.gov.kr 이전 반영):
+  ① plus.gov.kr/login 접속 (옛 www.gov.kr/portal/login/memberLogin 은 soft-404)
+  ② '간편인증'(button.login-type) 클릭 → simpleCert.html iframe 로드
+  ③ iframe 안에서 카카오톡 선택 → 본인인증 폼(이름·생년월일·전화) → 사용자 완료 대기
+  ④ 로그인 완료 → 서비스 안내 페이지(www.gov.kr/mw/AA020InfoCappView.do) 이동
+  ⑤ '발급하기'(AA040OfferMainFrm) → 신청 폼 처리 → 출력/PDF
 
-왜 www.gov.kr 로그인을 따로 하냐:
-  plus.gov.kr 로그인 세션은 www.gov.kr에 공유되지 않음.
-  www.gov.kr 서비스(주민등록등본 등)는 www.gov.kr 세션이 필요.
+메모:
+  로그인은 plus.gov.kr로 통합됐고(www.gov.kr/nlogin → plus.gov.kr/login 리다이렉트),
+  서비스 안내 페이지(AA020InfoCappView.do)는 여전히 www.gov.kr에서 동작한다.
+  간편인증 제공자 선택·정보입력은 페이지가 아니라 iframe(simpleCert.html) 내부에 있다.
 """
 import asyncio
 from rpa.base import (
@@ -20,8 +21,10 @@ from rpa.base import (
     LOGIN_PAGE_URL_KEYWORDS, get_launch_options, save_document,
 )
 
-# www.gov.kr 로그인 페이지 (returnUrl 없이 직접 접속)
-WWW_GOV_LOGIN_URL = "https://www.gov.kr/portal/login/memberLogin"
+# 정부24 로그인 페이지 — 2026년 plus.gov.kr로 이전(옛 www.gov.kr/portal/login/memberLogin 은 soft-404).
+WWW_GOV_LOGIN_URL = "https://plus.gov.kr/login"
+# 간편인증 위젯이 로드되는 iframe URL 키워드
+SIMPLECERT_FRAME_KEYWORD = "simpleCert"
 
 # 서비스 안내 페이지 (로그인 후 접속)
 _JUMIN_URL = (
@@ -43,9 +46,11 @@ DOC_URLS = {
     "장애인증명서": _DISABLED_URL,
 }
 
-# www.gov.kr 간편인증 탭 선택자
+# plus.gov.kr 간편인증 선택자 (신 UI: button.login-type)
 SIMPLE_AUTH_SELECTORS = [
-    # www.gov.kr 로그인 탭 (관찰된 클래스 기반)
+    "button.login-type:has-text('간편인증')",
+    "button:has-text('간편인증')",
+    # (구) www.gov.kr 로그인 탭 폴백
     "a:has-text('간편인증')",
     "li:has-text('간편인증') a",
     "button:has-text('간편인증')",
@@ -59,8 +64,10 @@ SIMPLE_AUTH_SELECTORS = [
     "[data-type='easy']",
 ]
 
-# 신청하기 버튼 선택자
+# 발급/신청 버튼 선택자 (plus.gov.kr 서비스 페이지는 '발급하기' → AA040OfferMainFrm)
 APPLY_SELECTORS = [
+    "a:has-text('발급하기')",
+    "button:has-text('발급하기')",
     "a:has-text('신청하기')",
     "button:has-text('신청하기')",
     "a:has-text('발급신청')",
@@ -86,36 +93,51 @@ PRINT_SELECTORS = [
 ]
 
 
+async def _get_simplecert_frame(page, timeout_sec: int = 12):
+    """간편인증 위젯 iframe(plus.gov.kr/simpleCert.html) 프레임을 반환. 없으면 None.
+    plus.gov.kr은 제공자 선택·본인인증 폼을 이 iframe 안에 렌더한다."""
+    for _ in range(timeout_sec * 2):
+        for fr in page.frames:
+            if SIMPLECERT_FRAME_KEYWORD in (fr.url or ""):
+                return fr
+        await asyncio.sleep(0.5)
+    return None
+
+
 async def _login_on_www_gov(page, task) -> bool:
     """
-    www.gov.kr 로그인 페이지에서 간편인증(카카오톡)으로 로그인.
+    plus.gov.kr/login 에서 간편인증(카카오톡)으로 로그인.
+    제공자 선택·정보입력은 iframe(simpleCert.html) 내부에서 처리한다.
     반환값: 로그인 성공 여부.
     """
     login_page_url = page.url
     ss = await take_screenshot(page)
-    task.update("running", "www.gov.kr 로그인 페이지 — 간편인증 탭 선택 중...", ss)
+    task.update("running", "정부24(plus.gov.kr) 로그인 — 간편인증 선택 중...", ss)
 
-    # 간편인증 탭 클릭 (CSS 셀렉터 → role/text 폴백)
+    # ① 간편인증 버튼 클릭 (신 UI: button.login-type → 텍스트 폴백)
     await asyncio.sleep(1.5)
     simple_clicked = await click_first_matching(page, SIMPLE_AUTH_SELECTORS)
     if not simple_clicked:
         simple_clicked = await click_by_text(page, ["간편인증", "간편 인증", "간편로그인", "간편 로그인"])
-    if simple_clicked:
-        await asyncio.sleep(2)
-        ss = await take_screenshot(page)
-        task.update("running", "간편인증 탭 선택 완료 — anyid 카카오톡 클릭 중...", ss)
-    else:
-        ss = await take_screenshot(page)
-        task.update("running", "로그인 화면 진입 — 간편인증(카카오) 자동 선택을 시도합니다...", ss)
+    await asyncio.sleep(2.5)
 
-    # anyid 모달에서 카카오톡 클릭 (카카오뱅크 제외)
+    # ② 간편인증 위젯 iframe 취득 (없으면 페이지에서 직접 시도하는 폴백)
+    frame = await _get_simplecert_frame(page)
+    auth_ctx = frame or page
+    ss = await take_screenshot(page)
+    if frame:
+        task.update("running", "간편인증 위젯 로드됨 — 카카오톡 선택 중...", ss)
+    else:
+        task.update("running", "간편인증 화면 진입 — 카카오톡 선택을 시도합니다...", ss)
+
+    # ③ 카카오톡 선택 (iframe 내부, 카카오뱅크 제외)
     await asyncio.sleep(1)
-    kakaotalk_clicked = await click_kakaotalk_in_anyid(page)
+    kakaotalk_clicked = await click_kakaotalk_in_anyid(auth_ctx)
     await asyncio.sleep(2)
     ss = await take_screenshot(page)
 
-    # 본인인증 정보 입력 폼 감지 및 안내
-    form_detected = await detect_auth_form(page)
+    # ④ 본인인증 정보 입력 폼 감지 및 안내 (iframe 컨텍스트에서 감지)
+    form_detected = await detect_auth_form(auth_ctx)
 
     if kakaotalk_clicked and form_detected:
         task.update("waiting_login", AUTH_FORM_USER_GUIDE, ss)
@@ -147,7 +169,7 @@ async def _login_on_www_gov(page, task) -> bool:
         return False
 
     ss = await take_screenshot(page)
-    task.update("running", f"✅ www.gov.kr 로그인 완료!\n현재 URL: {page.url}", ss)
+    task.update("running", f"✅ 정부24 로그인 완료!\n현재 URL: {page.url}", ss)
     return True
 
 

@@ -20,9 +20,15 @@ from rpa.base import (
     click_first_matching, click_by_text, make_browser_context_args,
     click_kakaotalk_in_anyid, detect_auth_form, AUTH_FORM_USER_GUIDE,
     LOGIN_PAGE_URL_KEYWORDS, get_launch_options,
+    click_eform_button, get_frame_by_url,
 )
 
-BOKJIRO_LOGIN_URL = "https://www.bokjiro.go.kr/ssis-tbu/twataa/loginPage/moveTWAT52012M.do"
+# 복지로 로그인 — 2026 개편으로 옛 moveTWAT52012M.do 는 빈 셸(깨짐).
+# 신규 loginView.do 는 tx 토큰을 자동 발급하므로 tx 없이 직접 접근해도 로그인 화면이 뜬다.
+# 복지로는 Clipsoft eForm SPA라 로그인/간편인증이 .cl-button 컴포넌트이고,
+# 간편인증 위젯은 외부 iframe(4user.yeskey.or.kr/fincert)로 로드된다.
+BOKJIRO_LOGIN_URL = "https://www.bokjiro.go.kr/ssis-tbu/loginView.do"
+FINCERT_FRAME_KEYWORD = "fincert"
 BOKJIRO_SEARCH_URL = "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do"
 
 # 서비스별 신청 URL (복지로 직접 링크)
@@ -54,31 +60,44 @@ SUBMIT_BUTTON_SELECTORS = [
 
 
 async def _login_bokjiro(page, task) -> bool:
-    """복지로 로그인 (간편인증/카카오톡)"""
+    """복지로 로그인 (eForm 간편인증 → yeskey fincert → 카카오톡).
+
+    복지로는 Clipsoft eForm SPA라 간편인증 버튼이 .cl-button 컴포넌트이고, 인증 위젯은
+    외부 iframe(fincert)로 로드된다. 제공자(카카오) 선택·본인인증 정보 입력·카카오 승인은
+    사용자가 직접 수행한다(비가역 본인인증 원칙). RPA는 위젯까지 안정적으로 도달시킨다.
+    """
     login_url = page.url
     ss = await take_screenshot(page)
-    task.update("running", "복지로 로그인 페이지 — 간편인증 탭 탐색 중...", ss)
+    task.update("running", "복지로 로그인 페이지 — 간편인증 선택 중...", ss)
 
     await asyncio.sleep(2)
 
-    # 간편인증 탭
-    simple_selectors = [
-        "a:has-text('간편인증')", "li:has-text('간편인증') a",
-        "button:has-text('간편인증')", ".easy-login",
-        "[onclick*='easy']", "[data-tab='easy']",
-    ]
-    clicked_simple = await click_first_matching(page, simple_selectors)
+    # 간편인증: eForm 컴포넌트(cl-button) 우선 → 표준 셀렉터/텍스트 폴백
+    clicked_simple = await click_eform_button(page, "간편인증")
+    if not clicked_simple:
+        clicked_simple = await click_first_matching(page, [
+            "button:has-text('간편인증')", "a:has-text('간편인증')", "li:has-text('간편인증')",
+        ])
     if not clicked_simple:
         clicked_simple = await click_by_text(page, ["간편인증", "간편 인증", "간편로그인", "간편 로그인"])
-    if clicked_simple:
-        await asyncio.sleep(2)
+    await asyncio.sleep(3)
 
-    # 카카오톡 선택
-    kakaotalk_clicked = await click_kakaotalk_in_anyid(page)
+    # 간편인증 위젯은 메인 페이지 오버레이 또는 fincert iframe 중 하나에 렌더된다 → 양쪽에서 시도
+    frame = await get_frame_by_url(page, FINCERT_FRAME_KEYWORD, timeout_sec=8)
+    contexts = [page] + ([frame] if frame else [])
+    ss = await take_screenshot(page)
+    task.update("running", "간편인증 위젯 로드됨 — '카카오톡' 선택 중...", ss)
+
+    # 카카오톡 선택 (카카오뱅크 제외). 위젯이 있는 컨텍스트를 찾아 클릭.
+    kakaotalk_clicked = False
+    for ctx_ in contexts:
+        if await click_kakaotalk_in_anyid(ctx_):
+            kakaotalk_clicked = True
+            break
     await asyncio.sleep(2)
     ss = await take_screenshot(page)
 
-    form_detected = await detect_auth_form(page)
+    form_detected = any([await detect_auth_form(ctx_) for ctx_ in contexts])
     if kakaotalk_clicked and form_detected:
         task.update("waiting_login", AUTH_FORM_USER_GUIDE, ss)
     elif kakaotalk_clicked:

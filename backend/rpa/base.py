@@ -88,9 +88,12 @@ KAKAO_SELECTORS = [
 ]
 
 # ★ 카카오톡(TALK) 전용 선택자 — 카카오뱅크/카카오스토리와 구분
+# plus.gov.kr 간편인증(oacx 위젯)은 카카오톡을 라디오형 label/li + img[alt='카카오톡'] 로 노출.
 KAKAOTALK_SELECTORS = [
     "a[title='카카오톡']",
     "img[alt='카카오톡']",
+    "label:has-text('카카오톡')",
+    "li:has-text('카카오톡')",
     "a:has-text('카카오톡')",
     "li:has-text('카카오톡') a",
     "button:has-text('카카오톡')",
@@ -136,7 +139,13 @@ LOGIN_SUCCESS_SELECTORS = [
 
 # 공통 로그인 완료 URL 패턴
 LOGIN_DONE_URL_KEYWORDS = ["main", "mypage", "portal/service", "index", "dashboard"]
-LOGIN_PAGE_URL_KEYWORDS = ["login", "member/join", "auth", "personalLoginPage", "openLginPage"]
+# 로그인/인증 진행 중으로 봐야 하는 URL(간편인증 위젯·안티봇 인터스티셜 포함).
+# plus.gov.kr은 mbuster 안티봇, 간편인증은 simpleCert/fincert/cert 로 잠깐 URL이 바뀌므로
+# 이들을 '아직 로그인 중'으로 간주해 wait_for_login 오탐(성급한 성공)을 막는다.
+LOGIN_PAGE_URL_KEYWORDS = [
+    "login", "member/join", "auth", "personalLoginPage", "openLginPage",
+    "mbuster", "cert", "nlogin",
+]
 
 
 async def click_kakaotalk_in_anyid(page) -> bool:
@@ -176,7 +185,7 @@ async def click_kakaotalk_in_anyid(page) -> bool:
                 if (candidates.length > 0) {
                     const el = candidates[0];
                     const clickTarget = el.tagName === 'IMG'
-                        ? (el.closest('a') || el.closest('button') || el)
+                        ? (el.closest('a') || el.closest('label') || el.closest('li') || el.closest('button') || el)
                         : el;
                     clickTarget.click();
                     return true;
@@ -254,15 +263,24 @@ async def wait_for_login(
     task,
     timeout_sec: int = 180,
     login_url: Optional[str] = None,
+    min_wait_sec: int = 8,
 ) -> bool:
     """
     로그인 완료까지 대기 (최대 timeout_sec 초).
     로그아웃 버튼 등장 또는 URL 변화로 감지.
+
+    min_wait_sec: 이 시간 전에는 성공으로 판정하지 않는다. 카카오 간편인증은 제공자 선택→
+    정보입력→휴대폰 승인까지 물리적으로 수 초 내 완료가 불가능하므로, 초반의 안티봇/위젯
+    리다이렉트를 '로그인 완료'로 오탐하는 것을 원천 차단한다.
     """
     report_interval = 15  # 15초마다 진행상황 스크린샷
     last_report = 0
 
     for elapsed in range(timeout_sec):
+        # 최소 대기 구간: 성급한 성공 판정 금지(안티봇/위젯 리다이렉트 오탐 방지)
+        if elapsed < min_wait_sec:
+            await asyncio.sleep(1)
+            continue
         try:
             current_url = page.url
 
@@ -278,11 +296,10 @@ async def wait_for_login(
                 if login_url not in current_url and not is_login_page:
                     return True
 
-            # 로그아웃 버튼 감지
+            # 로그아웃 버튼 감지 — '보이는' 요소만(숨겨진 로그아웃 링크 오탐 방지)
             for sel in LOGIN_SUCCESS_SELECTORS:
                 try:
-                    el = page.locator(sel)
-                    if await el.count() > 0:
+                    if await page.locator(sel).first.is_visible():
                         return True
                 except Exception:
                     pass
@@ -333,6 +350,80 @@ async def click_by_text(page, texts: list, roles=("link", "button", "tab", "menu
         except Exception:
             continue
     return False
+
+
+async def click_eform_button(page_or_frame, text: str) -> bool:
+    """Clipsoft eForm(WebSquare 유사) 컴포넌트 클릭.
+
+    복지로 등은 로그인·간편인증 버튼을 표준 a/button이 아니라 .cl-button / [role=button] /
+    .cl-text-wrapper / .cl-output div 로 렌더한다. 게다가 eForm은 합성 JS click 에 반응하지
+    않으므로(신뢰된 이벤트 필요), 요소의 화면 좌표를 구해 실제 마우스 클릭을 날린다.
+    (메인 프레임에서만 좌표 클릭; iframe 내부는 JS click 폴백.) 성공 여부 반환."""
+    # 1) 텍스트로 대상 요소를 찾아 중심 좌표(뷰포트 기준) 계산 + 스크롤
+    try:
+        box = await page_or_frame.evaluate(
+            """(t) => {
+                const vis = (e) => { const r = e.getBoundingClientRect(); return r.width > 3 && r.height > 3; };
+                const actionable = (e) =>
+                    e.closest('.cl-button, [role="button"], a, button, .cl-control') || e;
+                // 텍스트를 포함하는 '가시' 요소 중 가장 안쪽(작은) 것 → 그 액션 조상(카드/버튼) 클릭
+                const cands = Array.from(document.querySelectorAll('*'))
+                    .filter(e => (e.innerText || '').includes(t) && vis(e));
+                if (!cands.length) return null;
+                cands.sort((a, b) => {
+                    const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+                    return (ra.width * ra.height) - (rb.width * rb.height);
+                });
+                const target = actionable(cands[0]);
+                target.scrollIntoView({block: 'center'});
+                const r = target.getBoundingClientRect();
+                if (r.width === 0 || r.height === 0) return null;
+                return {x: r.left + r.width / 2, y: r.top + r.height / 2};
+            }""",
+            text,
+        )
+    except Exception:
+        box = None
+    if not box:
+        return False
+    # 2) Page면 신뢰된 마우스 클릭(eForm 정답). Frame이면 좌표 오프셋이 달라 JS click 폴백.
+    mouse = getattr(page_or_frame, "mouse", None)
+    if mouse is not None:
+        try:
+            await mouse.click(box["x"], box["y"])
+            return True
+        except Exception:
+            pass
+    try:
+        return await page_or_frame.evaluate(
+            """(t) => {
+                const actionable = (e) =>
+                    e.closest('.cl-button, [role="button"], a, button, .cl-control') || e;
+                const nodes = Array.from(document.querySelectorAll(
+                    '.cl-button, [role="button"], .cl-text-wrapper, .cl-output, a, button, li'));
+                let el = nodes.find(e => (e.innerText || '').trim() === t);
+                if (!el) el = Array.from(document.querySelectorAll('*')).find(e => {
+                    const x = (e.innerText || '').trim();
+                    return x.includes(t) && x.length < t.length + 45 && e.children.length <= 4;
+                });
+                if (el) { actionable(el).click(); return true; }
+                return false;
+            }""",
+            text,
+        )
+    except Exception:
+        return False
+
+
+async def get_frame_by_url(page, keyword: str, timeout_sec: int = 12):
+    """URL에 keyword가 포함된 iframe 프레임을 반환(로드 대기 포함). 없으면 None.
+    간편인증 위젯이 외부 iframe(정부24 simpleCert, 복지로 fincert 등)으로 로드될 때 사용."""
+    for _ in range(timeout_sec * 2):
+        for fr in page.frames:
+            if keyword in (fr.url or ""):
+                return fr
+        await asyncio.sleep(0.5)
+    return None
 
 
 async def click_first_matching(page, selectors: list) -> bool:
