@@ -101,7 +101,7 @@ def start_rpa_task(doc_name: str, user_name: str, user_info: dict = None) -> str
 
         if rpa_type == "gov24":
             from rpa.gov24_rpa import run_gov24_rpa
-            await run_gov24_rpa(task, doc_name)
+            await run_gov24_rpa(task, doc_name, _info)
         elif rpa_type == "nhis":
             from rpa.nhis_rpa import run_nhis_rpa
             await run_nhis_rpa(task, _info)

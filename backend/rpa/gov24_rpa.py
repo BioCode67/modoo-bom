@@ -14,6 +14,7 @@
   간편인증 제공자 선택·정보입력은 페이지가 아니라 iframe(simpleCert.html) 내부에 있다.
 """
 import asyncio
+import re
 from rpa.base import (
     take_screenshot, wait_for_login,
     click_first_matching, click_by_text, make_browser_context_args,
@@ -44,6 +45,23 @@ DOC_URLS = {
     "주민등록초본": _JUMIN_URL,
     "가족관계증명서": _FAMILY_URL,
     "장애인증명서": _DISABLED_URL,
+}
+
+
+# 발급 신청 폼(로그인 필요) — 서비스 안내(AA020) 없이 바로 발급 폼(AA040)으로 직행.
+# 로그인 세션이 살아있으면 여기로 가면 실제 발급 양식이 바로 뜬다(안내 페이지 저장 방지).
+def _issue_url(capp_biz_cd: str) -> str:
+    return (
+        f"https://www.gov.kr/mw/AA040OfferMainFrm.do?capp_biz_cd={capp_biz_cd}"
+        "&HighCtgCD=A01010001&FAX_TYPE=N&img=02&selectedSeq=01"
+    )
+
+
+ISSUE_URLS = {
+    "주민등록등본": _issue_url("13100000015"),
+    "주민등록초본": _issue_url("13100000015"),
+    "가족관계증명서": _issue_url("14100000017"),
+    "장애인증명서": _issue_url("11100000006"),
 }
 
 # plus.gov.kr 간편인증 선택자 (신 UI: button.login-type)
@@ -104,10 +122,46 @@ async def _get_simplecert_frame(page, timeout_sec: int = 12):
     return None
 
 
-async def _login_on_www_gov(page, task) -> bool:
+async def _autofill_auth_form(ctx, user_info: dict) -> bool:
+    """간편인증 본인인증 폼(iframe oacx 위젯)에 이름·생년월일·휴대폰을 자동 입력하고 전체동의 체크.
+    사용자가 정보를 제공한 경우에만 동작하며, 실패해도 조용히 넘어간다(사용자가 직접 입력하면 됨).
+    ※ '인증 요청' 클릭·카카오 승인은 본인이 직접(비가역 본인인증 원칙)."""
+    if not user_info:
+        return False
+    name = str(user_info.get("user_name") or user_info.get("name") or "").strip()
+    birth = re.sub(r"[^0-9]", "", str(user_info.get("birth_date", "")))
+    phone = re.sub(r"[^0-9]", "", str(user_info.get("phone", "")))
+    filled = False
+    try:
+        if name:
+            await ctx.fill("#oacx_name", name); filled = True
+        if birth:
+            await ctx.fill("#oacx_birth", birth); filled = True
+        if phone:
+            tail = phone[3:] if phone.startswith("010") and len(phone) >= 10 else phone
+            for sel in ["#oacx_phone2", "#oku_phone2", "input.phone"]:
+                try:
+                    if await ctx.locator(sel).count() > 0:
+                        await ctx.fill(sel, tail); filled = True; break
+                except Exception:
+                    continue
+        for sel in ["#totalAgree", "input#totalAgree", "label:has-text('전체동의')"]:
+            try:
+                if await ctx.locator(sel).count() > 0:
+                    await ctx.check(sel) if "input" in sel or "#totalAgree" == sel else await ctx.click(sel)
+                    break
+            except Exception:
+                continue
+    except Exception:
+        pass
+    return filled
+
+
+async def _login_on_www_gov(page, task, user_info: dict = None) -> bool:
     """
     plus.gov.kr/login 에서 간편인증(카카오톡)으로 로그인.
     제공자 선택·정보입력은 iframe(simpleCert.html) 내부에서 처리한다.
+    user_info가 있으면 본인인증 폼을 자동 입력(인증요청·폰승인은 본인).
     반환값: 로그인 성공 여부.
     """
     login_page_url = page.url
@@ -139,7 +193,20 @@ async def _login_on_www_gov(page, task) -> bool:
     # ④ 본인인증 정보 입력 폼 감지 및 안내 (iframe 컨텍스트에서 감지)
     form_detected = await detect_auth_form(auth_ctx)
 
-    if kakaotalk_clicked and form_detected:
+    # 정보가 있으면 이름·생년월일·휴대폰 자동 입력 → 사용자는 '인증 요청' + 폰 승인만
+    autofilled = await _autofill_auth_form(auth_ctx, user_info)
+    if autofilled:
+        await asyncio.sleep(0.5)
+        ss = await take_screenshot(page)
+
+    if autofilled:
+        task.update(
+            "waiting_login",
+            "✅ 이름·생년월일·휴대폰을 자동 입력했어요.\n"
+            "화면에서 '인증 요청'을 누르면, 📱 카카오톡 알림에서 [인증 허용]만 하시면 됩니다.",
+            ss,
+        )
+    elif kakaotalk_clicked and form_detected:
         task.update("waiting_login", AUTH_FORM_USER_GUIDE, ss)
     elif kakaotalk_clicked:
         task.update(
@@ -160,7 +227,7 @@ async def _login_on_www_gov(page, task) -> bool:
 
     # 로그인 완료 대기 (최대 5분)
     login_ok = await wait_for_login(
-        page, task, timeout_sec=300, login_url=login_page_url
+        page, task, timeout_sec=480, login_url=login_page_url
     )
 
     if not login_ok:
@@ -250,8 +317,8 @@ async def _handle_apply_popup(context, page, task, doc_name) -> bool:
     return target_page
 
 
-async def run_gov24_rpa(task, doc_name: str) -> None:
-    """정부24에서 주민등록등본 또는 초본 발급"""
+async def run_gov24_rpa(task, doc_name: str, user_info: dict = None) -> None:
+    """정부24에서 주민등록등본 또는 초본 발급. user_info(이름·생년월일·휴대폰) 있으면 본인인증 폼 자동입력."""
     try:
         from playwright.async_api import async_playwright
     except ImportError:
@@ -273,7 +340,7 @@ async def run_gov24_rpa(task, doc_name: str) -> None:
             page = await context.new_page()
 
             # ① www.gov.kr 로그인 페이지 직접 접속 (세션 수립용)
-            task.update("running", "www.gov.kr 로그인 페이지 접속 중...")
+            task.update("running", f"📄 {doc_name} 발급 준비 — 정부24 로그인/간편인증으로 이동 중...")
             try:
                 await page.goto(WWW_GOV_LOGIN_URL, wait_until="domcontentloaded", timeout=30000)
             except Exception:
@@ -284,24 +351,33 @@ async def run_gov24_rpa(task, doc_name: str) -> None:
             task.update("running", f"로그인 페이지 로드 완료\n현재 URL: {page.url}", ss)
 
             # ② 간편인증(카카오톡) 로그인 수행
-            login_ok = await _login_on_www_gov(page, task)
+            login_ok = await _login_on_www_gov(page, task, user_info)
             if not login_ok:
                 await browser.close()
                 return
 
             await asyncio.sleep(2)
 
-            # ③ 서비스 안내 페이지로 이동 (이제 www.gov.kr 세션 있음)
-            task.update("running", f"{doc_name} 서비스 페이지로 이동 중...")
-            await page.goto(doc_url, wait_until="domcontentloaded", timeout=30000)
+            # ③ 발급 신청 폼(AA040)으로 직행 — 안내 페이지(AA020) 저장 방지, 실제 발급으로.
+            issue_url = ISSUE_URLS.get(doc_name, doc_url)
+            task.update("running", f"{doc_name} 발급 폼으로 이동 중...")
+            await page.goto(issue_url, wait_until="domcontentloaded", timeout=30000)
             await asyncio.sleep(3)
             ss = await take_screenshot(page)
-            task.update("running", f"{doc_name} 서비스 페이지 접속 완료", ss)
+            task.update("running", f"{doc_name} 발급 폼 접속\n현재 URL: {page.url}", ss)
+
+            # 회원/비회원 선택 모달이 뜨면 '회원 신청하기'
+            if await click_first_matching(page, [
+                "a:has-text('회원 신청하기')", "button:has-text('회원 신청하기')", "a:has-text('회원신청')",
+            ]):
+                await asyncio.sleep(2)
+                ss = await take_screenshot(page)
+                task.update("running", "회원 신청 진입 — 발급 양식 처리 중...", ss)
 
             # 혹시 로그인 페이지로 다시 튕긴 경우 재처리
             if any(k in page.url for k in LOGIN_PAGE_URL_KEYWORDS):
                 task.update("running", "서비스 접근 시 재로그인 요구 — 다시 로그인 중...", ss)
-                login_ok = await _login_on_www_gov(page, task)
+                login_ok = await _login_on_www_gov(page, task, user_info)
                 if not login_ok:
                     await browser.close()
                     return
@@ -332,12 +408,18 @@ async def run_gov24_rpa(task, doc_name: str) -> None:
 
             clicked = await click_first_matching(page, APPLY_SELECTORS)
             await asyncio.sleep(2)
+            # 발급하기 후 회원/비회원 모달 → 회원 신청하기
+            if await click_first_matching(page, [
+                "a:has-text('회원 신청하기')", "button:has-text('회원 신청하기')",
+            ]):
+                clicked = True
+                await asyncio.sleep(2)
 
             if clicked:
                 # 신청 클릭 후 로그인 페이지로 튕겼으면 다시 로그인
                 if any(k in page.url for k in LOGIN_PAGE_URL_KEYWORDS):
                     task.update("running", "신청 클릭 후 로그인 요구 — 로그인 처리 중...")
-                    login_ok = await _login_on_www_gov(page, task)
+                    login_ok = await _login_on_www_gov(page, task, user_info)
                     if not login_ok:
                         await browser.close()
                         return
@@ -411,15 +493,30 @@ async def run_gov24_rpa(task, doc_name: str) -> None:
             except Exception:
                 ss = await take_screenshot(page)
 
-            saved = await save_document(final_page, doc_name)
-            task.update(
-                "done",
-                f"✅ {doc_name} 발급 완료!\n"
-                + (f"📄 자동 저장됨: {saved}\n" if saved else "브라우저에서 Ctrl+P로 저장하세요.\n")
-                + "브라우저는 60초 후 자동 종료됩니다.",
-                ss,
-            )
-            task.result = {"success": True, "doc_name": doc_name, "saved_path": saved}
+            # 실제 발급 결과에 도달했는지 확인 — 안내 페이지(AA020)/로그인 페이지면 완료로 오판하지 않는다.
+            final_url = final_page.url
+            reached_doc = ("AA020InfoCappView" not in final_url
+                           and not any(k in final_url for k in LOGIN_PAGE_URL_KEYWORDS))
+            saved = await save_document(final_page, doc_name) if reached_doc else None
+
+            if reached_doc:
+                task.update(
+                    "done",
+                    f"✅ {doc_name} 발급 완료!\n"
+                    + (f"📄 자동 저장됨: {saved}\n" if saved else "브라우저에서 Ctrl+P로 저장하세요.\n")
+                    + "브라우저는 60초 후 자동 종료됩니다.",
+                    ss,
+                )
+                task.result = {"success": True, "doc_name": doc_name, "saved_path": saved}
+            else:
+                task.update(
+                    "done",
+                    f"⚠️ {doc_name} 발급 화면까지 진행했지만 자동 완료를 확정하지 못했어요.\n"
+                    "브라우저에서 남은 발급/출력 단계를 직접 마무리해주세요(로그인/양식 확인 필요).\n"
+                    "브라우저는 60초 후 자동 종료됩니다.",
+                    ss,
+                )
+                task.result = {"success": False, "doc_name": doc_name, "note": "발급 결과 페이지 미도달", "final_url": final_url}
 
             await asyncio.sleep(60)
             await browser.close()
