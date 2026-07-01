@@ -73,5 +73,5 @@ export function resetBackendCache() { cached = null }
 - 커밋: **한국어 conventional commit, AI 서명 금지.** user.name/email은 BioCode67.
 - **배포 라이브:** https://biocode67.github.io/modoo-bom/ (gh-pages). 재배포 `cd frontend && npm run deploy` + 소스 `git push origin main`(별개).
   - 배포는 **기본 안전**: `frontend/.env.production`이 Supabase·onrender를 빈 값으로 override → 로그인/죽은 백엔드가 라이브에 안 샘(누가 `npm run deploy` 해도 OK). 라이브에 로그인 켜려면 `.env.production`에 실제 값 채우기.
-  - RPA는 사용자 PC의 로컬 에이전트(localhost:8000)를 `backend.ts`가 감지해 활성화(정적 배포+로컬 백엔드).
+  - **⚠️ RPA 데모는 반드시 `localhost:5173`(run-windows.bat)에서** — 로컬 프론트는 vite 프록시(`/api`→:8000)로 백엔드를 **안정적으로 감지**해 "에이전트로 신청" RPA 버튼이 켜진다(검증됨). **배포 사이트(github.io)의 로컬 감지는 브라우저 Private/Local Network Access 정책 때문에 불안정**(https→http localhost 요청이 간헐적으로 hang). 서버는 CORS/PNA를 정상 응답하지만 브라우저 정책은 클라이언트로 못 넘음. → 서류 자동발급/신청 시연은 로컬 앱에서 할 것.
   - AI 온디바이스 모델(~128MB)은 첫 사용 시 CDN 다운로드 → **시연 전 AI 토글 1회 프리워밍 권장**(캐시 후 즉시).
