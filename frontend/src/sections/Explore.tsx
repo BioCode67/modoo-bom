@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { Search, X, Mic, ArrowDownWideNarrow, Calculator, ChevronDown, Globe, Sparkles } from 'lucide-react'
 import { useSpeech } from '@/lib/useSpeech'
 import { semanticSearch, warmupSemantic, type SemanticHit } from '@/lib/semanticSearch'
+import { detectLang } from '@/lib/detectLang'
 import { IncomeCalculator } from '@/components/IncomeCalculator'
 import { parseMonthly } from '@/lib/format'
 import { queryConcepts, relevance } from '@/lib/search'
@@ -33,6 +34,14 @@ const BUCKETS: { key: string; label: string; emoji: string; match?: string[] }[]
 
 type SortKey = 'default' | 'amount' | 'name'
 const PAGE = 60
+
+// 다국어 AI 의미 검색 체험용 예시(클릭하면 바로 검색) — 다양한 언어로 "대단함"을 즉시 각인
+const AI_EXAMPLES = [
+  '노인인데 돈이 없어요',
+  'I lost my job and need help',
+  'Tôi cần hỗ trợ tiền thuê nhà', // (베트남어) 집세 지원이 필요해요
+  '혼자 아이를 키워요',
+]
 
 export function Explore() {
   const [q, setQ] = useState('')
@@ -143,6 +152,8 @@ export function Explore() {
     return list
   }, [q, bucket, catalog, sort, onlyCash, region, gungu, aiMode, aiHits])
 
+  const detected = aiMode && q.trim() ? detectLang(q) : null
+
   return (
     <div className="page-container py-8 sm:py-10">
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
@@ -214,7 +225,20 @@ export function Explore() {
                 <Sparkles className="h-3.5 w-3.5 text-sprout-600 shrink-0" />
                 뜻을 이해하는 AI 검색 — <b>한국어·English·Tiếng Việt</b> 등 어떤 언어로든 상황을 적어보세요.
               </p>
-              <p className="mt-1 text-muted-foreground">예: “노인인데 돈이 없어요” · “I lost my job and need help” · “집세 낼 돈이 부족해요”</p>
+              {detected && (
+                <p className="mt-1.5 text-[11px] font-semibold text-sprout-700">🌐 감지된 언어: {detected.flag} {detected.label}</p>
+              )}
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {AI_EXAMPLES.map((ex) => (
+                  <button
+                    key={ex}
+                    onClick={() => setQ(ex)}
+                    className="rounded-full border border-sprout-200 bg-white px-2.5 py-1 text-[11px] font-medium text-foreground/80 transition-colors hover:border-sprout-400 hover:bg-sprout-50"
+                  >
+                    {ex}
+                  </button>
+                ))}
+              </div>
               <p className="mt-1 text-[11px] text-muted-foreground">🔒 AI 모델이 <b>내 기기 안에서</b> 직접 실행돼요(서버 전송 없음). 최초 1회만 준비(약 1분), 이후엔 <b>즉시</b> 실행돼요.</p>
               {aiProgress && (
                 <div className="mt-2" role="status" aria-live="polite">

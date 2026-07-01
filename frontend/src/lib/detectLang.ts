@@ -1,0 +1,52 @@
+/**
+ * 경량 언어 감지 — 유니코드 스크립트 기반(모델 불필요, 즉시).
+ * AI 다국어 의미 검색에서 "🇻🇳 Tiếng Việt 감지" 처럼 입력 언어를 즉시 보여주기 위한 용도.
+ * 정밀 NLP가 아니라 문자 집합 휴리스틱 — 데모/UX 표시에 충분.
+ */
+export interface DetectedLang {
+  code: string
+  label: string
+  flag: string
+}
+
+// 베트남어 특유의 성조/모음 문자
+const VIET = /[ăâđêôơưàáảãạằắẳẵặầấẩẫậèéẻẽẹềếểễệìíỉĩịòóỏõọồốổỗộờớởỡợùúủũụừứửữựỳýỷỹỵ]/i
+
+const LANGS: Record<string, { label: string; flag: string }> = {
+  ko: { label: '한국어', flag: '🇰🇷' },
+  en: { label: 'English', flag: '🇬🇧' },
+  vi: { label: 'Tiếng Việt', flag: '🇻🇳' },
+  zh: { label: '中文', flag: '🇨🇳' },
+  ja: { label: '日本語', flag: '🇯🇵' },
+  th: { label: 'ไทย', flag: '🇹🇭' },
+  ru: { label: 'Русский', flag: '🇷🇺' },
+  ar: { label: 'العربية', flag: '🇸🇦' },
+}
+
+/** 입력 문자열의 대표 언어를 감지. 판별 불가/공백이면 null. */
+export function detectLang(text: string): DetectedLang | null {
+  const s = (text || '').trim()
+  if (!s) return null
+
+  let ko = 0, kana = 0, han = 0, thai = 0, cyr = 0, arab = 0, latin = 0
+  for (const ch of s) {
+    const c = ch.codePointAt(0) || 0
+    if ((c >= 0xac00 && c <= 0xd7a3) || (c >= 0x1100 && c <= 0x11ff) || (c >= 0x3130 && c <= 0x318f)) ko++
+    else if ((c >= 0x3040 && c <= 0x309f) || (c >= 0x30a0 && c <= 0x30ff)) kana++
+    else if (c >= 0x4e00 && c <= 0x9fff) han++
+    else if (c >= 0x0e00 && c <= 0x0e7f) thai++
+    else if (c >= 0x0400 && c <= 0x04ff) cyr++
+    else if (c >= 0x0600 && c <= 0x06ff) arab++
+    else if ((c >= 0x41 && c <= 0x5a) || (c >= 0x61 && c <= 0x7a) || (c >= 0xc0 && c <= 0x1ef9)) latin++
+  }
+
+  const pick = (code: string): DetectedLang => ({ code, ...LANGS[code] })
+  if (ko > 0) return pick('ko')
+  if (kana > 0) return pick('ja')
+  if (thai > 0) return pick('th')
+  if (cyr > 0) return pick('ru')
+  if (arab > 0) return pick('ar')
+  if (han > 0) return pick('zh') // 가나·한글 없이 한자만 → 중국어로 간주
+  if (latin > 0) return VIET.test(s) ? pick('vi') : pick('en')
+  return null
+}
