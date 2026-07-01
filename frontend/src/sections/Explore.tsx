@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Search, X, Mic, ArrowDownWideNarrow, Calculator, ChevronDown, Globe, Sparkles } from 'lucide-react'
+import { Search, X, Mic, ArrowDownWideNarrow, Calculator, ChevronDown, Globe, Sparkles, Volume2, Square } from 'lucide-react'
 import { useSpeech } from '@/lib/useSpeech'
+import { useTTS } from '@/lib/useTTS'
 import { semanticSearch, warmupSemantic, type SemanticHit } from '@/lib/semanticSearch'
 import { detectLang } from '@/lib/detectLang'
 import { useAppStore } from '@/store/useAppStore'
 import { IncomeCalculator } from '@/components/IncomeCalculator'
-import { parseMonthly } from '@/lib/format'
+import { parseMonthly, formatWon } from '@/lib/format'
 import { queryConcepts, relevance } from '@/lib/search'
 import { cn } from '@/lib/utils'
 import type { Policy } from '@/data/policies'
@@ -59,13 +60,15 @@ export function Explore() {
   const [aiHits, setAiHits] = useState<SemanticHit[] | null>(null)
   const [aiProgress, setAiProgress] = useState<{ stage: string; pct?: number } | null>(null)
   const [aiError, setAiError] = useState<string | null>(null)
+  const [voiceUsed, setVoiceUsed] = useState(false) // 음성으로 질의하면 AI가 음성으로 답
   const aiRunId = useRef(0)
+  const tts = useTTS()
   const catalog = useCatalog()
   const aiIntent = useAppStore((s) => s.aiIntent)
   const setAiIntent = useAppStore((s) => s.setAiIntent)
   const aiQuery = useAppStore((s) => s.aiQuery)
   const setAiQuery = useAppStore((s) => s.setAiQuery)
-  const { supported: micOk, listening, toggle: toggleMic } = useSpeech((text) => setQ(text))
+  const { supported: micOk, listening, toggle: toggleMic } = useSpeech((text) => { setQ(text); setVoiceUsed(true) })
 
   // 홈 카드·외국어 입력 등으로 진입한 경우 AI 모드 자동 활성화(+질의 프리필)
   useEffect(() => {
@@ -131,6 +134,27 @@ export function Explore() {
     if (aiHits) for (const h of aiHits) m.set(h.policy.id, h.score)
     return m
   }, [aiHits])
+
+  // AI 답변 요약(환각 없이 검색결과 기반 템플릿) — 입력 언어를 이해했음을 알리고 대표 복지·금액을 한 줄로
+  const aiAnswer = useMemo(() => {
+    if (!aiMode || !aiHits || aiHits.length === 0) return ''
+    const top = aiHits.slice(0, 3).map((h) => h.policy.name)
+    const cashMax = Math.max(0, ...aiHits.slice(0, 12).map((h) => parseMonthly(h.policy.benefit)))
+    const d = detectLang(q)
+    const langNote = d && d.code !== 'ko' ? `${d.label} 문장을 이해했어요. ` : ''
+    const amt = cashMax > 0 ? ` 현금성 지원은 월 최대 ${formatWon(cashMax)}이에요.` : ''
+    return `${langNote}이런 복지가 가장 잘 맞아요: ${top.join(', ')}.${amt}`
+  }, [aiMode, aiHits, q])
+
+  // 음성으로 물었으면 AI가 음성으로 답한다(대화형) — 마이크 클릭이 사용자 제스처라 TTS 허용됨
+  useEffect(() => {
+    if (voiceUsed && aiMode && aiAnswer && tts.supported) {
+      tts.speak(aiAnswer)
+      setVoiceUsed(false)
+    }
+    // tts는 매 렌더 새 객체라 deps에서 제외(speak만 호출)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aiAnswer, voiceUsed, aiMode])
 
   const filtered = useMemo(() => {
     const b = BUCKETS.find((x) => x.key === bucket)
@@ -201,7 +225,7 @@ export function Explore() {
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
           <input
             value={q}
-            onChange={(e) => setQ(e.target.value)}
+            onChange={(e) => { setQ(e.target.value); setVoiceUsed(false) }}
             placeholder={aiMode ? '상황을 자유롭게 — 한국어·English·Tiếng Việt…' : '기초연금, 청년, 출산… 검색'}
             className="w-full rounded-2xl border-2 border-sprout-100 bg-white pl-12 pr-10 py-3.5 text-sm font-medium focus-ring"
             aria-label="정책 검색"
@@ -341,6 +365,27 @@ export function Explore() {
         </p>
         <Glossary />
       </div>
+
+      {aiMode && aiAnswer && (
+        <div className="mt-3 rounded-2xl border-2 border-sprout-200 bg-gradient-to-br from-sprout-50 to-emerald-50 p-4">
+          <div className="flex items-start gap-2.5">
+            <span className="text-xl leading-none">🤖</span>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-bold text-sprout-700">AI 답변</p>
+              <p className="mt-0.5 text-sm leading-relaxed text-foreground">{aiAnswer}</p>
+            </div>
+            {tts.supported && (
+              <button
+                onClick={() => tts.toggle(aiAnswer)}
+                aria-label={tts.speaking ? '읽기 중지' : '음성으로 듣기'}
+                className="shrink-0 inline-flex items-center gap-1 rounded-full border border-sprout-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-sprout-700 transition-colors hover:bg-sprout-50"
+              >
+                {tts.speaking ? <><Square className="h-3.5 w-3.5" /> 중지</> : <><Volume2 className="h-3.5 w-3.5" /> 듣기</>}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {filtered.length === 0 ? (
         <div className="py-20 text-center text-muted-foreground">
