@@ -8,7 +8,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "lint": "eslint .",
-    "deploy": "npm run build && gh-pages -d dist -b gh-pages --nojekyll -m \"deploy: 모두봄 프론트엔드 정적 빌드\"",
+    "deploy": "npm run build && node scripts/clean-wasm.mjs && gh-pages -d dist -b gh-pages --nojekyll -m \"deploy: 모두봄 프론트엔드 정적 빌드\"",
     "test": "vitest run",
     "embed": "node --experimental-strip-types scripts/embed-policies.mts"
   },

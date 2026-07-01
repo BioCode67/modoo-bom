@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Search, X, Mic, ArrowDownWideNarrow, Calculator, ChevronDown, Globe, Sparkles } from 'lucide-react'
 import { useSpeech } from '@/lib/useSpeech'
-import { semanticSearch, type SemanticHit } from '@/lib/semanticSearch'
+import { semanticSearch, warmupSemantic, type SemanticHit } from '@/lib/semanticSearch'
 import { IncomeCalculator } from '@/components/IncomeCalculator'
 import { parseMonthly } from '@/lib/format'
 import { queryConcepts, relevance } from '@/lib/search'
@@ -74,7 +74,15 @@ export function Explore() {
   useEffect(() => {
     if (!aiMode) { setAiHits(null); setAiProgress(null); setAiError(null); return }
     const query = q.trim()
-    if (!query) { setAiHits(null); return }
+    if (!query) {
+      // 질의 전이라도 토글을 켜면 모델을 미리 내려받아 체감 지연을 줄인다.
+      setAiHits(null)
+      const wid = ++aiRunId.current
+      warmupSemantic((p) => { if (wid === aiRunId.current) setAiProgress(p) })
+        .then(() => { if (wid === aiRunId.current) setAiProgress(null) })
+        .catch(() => { if (wid === aiRunId.current) setAiError('AI 모델을 불러오지 못했어요. 네트워크를 확인하거나 일반 검색을 이용해주세요.') })
+      return
+    }
     const runId = ++aiRunId.current
     setAiError(null)
     const t = setTimeout(async () => {
