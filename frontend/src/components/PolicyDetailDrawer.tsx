@@ -1,7 +1,8 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Heart, ExternalLink, FileText, CheckCircle2, Building2, RefreshCw, Rocket, Volume2, Square, Phone } from 'lucide-react'
+import { X, Heart, ExternalLink, FileText, CheckCircle2, Building2, RefreshCw, Rocket, Volume2, Square, Phone, Sparkles } from 'lucide-react'
 import { useTTS } from '@/lib/useTTS'
+import { relatedPolicies, type SemanticHit } from '@/lib/semanticSearch'
 import type { Policy } from '@/data/policies'
 import { getCatalog } from '@/data/catalog'
 import type { EligiblePolicy } from '@/lib/welfare-engine'
@@ -101,6 +102,22 @@ function DrawerBody({
     ? getCatalog().filter((p) => p.category === policy.category && p.id !== policy.id)
         .sort((a, b) => parseMonthly(b.benefit) - parseMonthly(a.benefit)).slice(0, 3)
     : []
+
+  // AI 의미기반 비슷한 복지(옵트인) — 사전계산 임베딩만 사용(모델 다운로드 불필요)
+  const [aiRelated, setAiRelated] = useState<SemanticHit[] | null>(null)
+  const [aiRelLoading, setAiRelLoading] = useState(false)
+  const [aiRelErr, setAiRelErr] = useState(false)
+  const findAiRelated = async () => {
+    setAiRelLoading(true)
+    setAiRelErr(false)
+    try {
+      setAiRelated(await relatedPolicies(policy.id, 6))
+    } catch {
+      setAiRelErr(true)
+    } finally {
+      setAiRelLoading(false)
+    }
+  }
 
   const speakPolicy = () => tts.toggle(
     `${policy.name}. 혜택 내용. ${policy.benefit}. 지원 대상. ${policy.target}. 자격 요건. ${policy.eligibility}. 신청 방법. ${policy.application}.`,
@@ -283,6 +300,38 @@ function DrawerBody({
                 )
               })}
             </ul>
+          </Section>
+        )}
+        {/* AI 의미기반 비슷한 복지(옵트인) */}
+        {onOpen && (
+          <Section title="🤖 AI로 비슷한 복지">
+            {!aiRelated && !aiRelErr && (
+              <button
+                onClick={findAiRelated}
+                disabled={aiRelLoading}
+                className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl border-2 border-sprout-200 bg-white px-3 py-2 text-sm font-semibold text-sprout-700 transition-colors hover:border-sprout-300 disabled:opacity-60"
+              >
+                <Sparkles className="h-4 w-4" /> {aiRelLoading ? 'AI가 의미로 찾는 중…' : '의미가 비슷한 복지 찾기'}
+              </button>
+            )}
+            {aiRelErr && <p className="text-xs text-rose-600">비슷한 복지를 불러오지 못했어요.</p>}
+            {aiRelated && aiRelated.length === 0 && <p className="text-xs text-muted-foreground">비슷한 복지를 찾지 못했어요.</p>}
+            {aiRelated && aiRelated.length > 0 && (
+              <ul className="space-y-1.5">
+                {aiRelated.map(({ policy: r }) => {
+                  const rm = parseMonthly(r.benefit)
+                  return (
+                    <li key={r.id}>
+                      <button onClick={() => onOpen(r)} className="flex w-full items-center gap-2 rounded-xl border border-sprout-100 px-3 py-2 text-left transition-colors hover:bg-sprout-50">
+                        <span>{categoryMeta(r.category).emoji}</span>
+                        <span className="flex-1 truncate text-sm font-semibold">{r.name}</span>
+                        {rm > 0 && <span className="shrink-0 text-xs font-bold text-sprout-600">월 {formatWon(rm)}</span>}
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
           </Section>
         )}
       </div>

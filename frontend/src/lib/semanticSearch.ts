@@ -21,7 +21,9 @@ interface EmbedFile { model: string; dim: number; count: number; ids: string[]; 
 let _extractor: any = null
 let _vecs: Float32Array[] | null = null
 let _ids: string[] = []
-let _loading: Promise<void> | null = null
+let _model = ''
+let _embLoading: Promise<void> | null = null
+let _modelLoading: Promise<void> | null = null
 
 function base64ToInt16(b64: string): Int16Array {
   const bin = atob(b64)
@@ -30,11 +32,11 @@ function base64ToInt16(b64: string): Int16Array {
   return new Int16Array(bytes.buffer)
 }
 
-/** 임베딩 데이터 + AI 모델을 1회 로드(진행률 콜백). 실패 시 throw → 호출부에서 폴백. */
-async function ensureLoaded(onProgress?: SemanticProgress): Promise<void> {
-  if (_extractor && _vecs) return
-  if (_loading) return _loading
-  _loading = (async () => {
+/** 사전계산 임베딩(JSON)만 로드 — AI 모델 없이도 '비슷한 복지' 등에 사용. 실패 시 throw. */
+async function ensureEmbeddings(onProgress?: SemanticProgress): Promise<void> {
+  if (_vecs) return
+  if (_embLoading) return _embLoading
+  _embLoading = (async () => {
     onProgress?.({ stage: '복지 데이터 준비' })
     const base = import.meta.env.BASE_URL || '/'
     const res = await fetch(`${base}policy-embeddings.json`)
@@ -49,11 +51,25 @@ async function ensureLoaded(onProgress?: SemanticProgress): Promise<void> {
     }
     _vecs = vecs
     _ids = ef.ids
+    _model = ef.model
+  })()
+  try {
+    await _embLoading
+  } catch (e) {
+    _embLoading = null
+    throw e
+  }
+}
 
+/** AI 임베딩 모델(transformers.js) 로드 — 질의 임베딩용. 실패 시 throw. */
+async function ensureModel(onProgress?: SemanticProgress): Promise<void> {
+  if (_extractor) return
+  if (_modelLoading) return _modelLoading
+  _modelLoading = (async () => {
     onProgress?.({ stage: 'AI 모델 다운로드', pct: 0 })
     const { pipeline, env } = await import('@huggingface/transformers')
     env.allowLocalModels = false // HuggingFace CDN에서 로드
-    _extractor = await pipeline('feature-extraction', ef.model, {
+    _extractor = await pipeline('feature-extraction', _model || 'Xenova/multilingual-e5-small', {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       progress_callback: (p: any) => {
         if (p?.status === 'progress' && typeof p?.progress === 'number') {
@@ -64,11 +80,17 @@ async function ensureLoaded(onProgress?: SemanticProgress): Promise<void> {
     onProgress?.({ stage: '준비 완료', pct: 100 })
   })()
   try {
-    await _loading
+    await _modelLoading
   } catch (e) {
-    _loading = null // 실패 시 재시도 허용
+    _modelLoading = null
     throw e
   }
+}
+
+/** 임베딩 + 모델 모두 로드(질의 검색용). */
+async function ensureLoaded(onProgress?: SemanticProgress): Promise<void> {
+  await ensureEmbeddings(onProgress)
+  await ensureModel(onProgress)
 }
 
 /** 질의(모든 언어)로 정책을 의미 기반 랭킹. 상위 topK의 정책+점수 반환. */
@@ -99,6 +121,39 @@ export async function semanticSearch(
   for (const { id, score } of scored.slice(0, topK)) {
     const policy = pmap[id]
     if (policy) hits.push({ policy, score })
+  }
+  return hits
+}
+
+/**
+ * 특정 정책과 의미가 비슷한 복지 — 사전계산 임베딩만 사용(AI 모델 다운로드 불필요).
+ * 정책 상세에서 "비슷한 복지 찾기"에 사용. 이름 중복 제거, 자기 자신 제외.
+ */
+export async function relatedPolicies(policyId: string, topK = 6): Promise<SemanticHit[]> {
+  await ensureEmbeddings()
+  const idx = _ids.indexOf(policyId)
+  if (idx < 0) return []
+  const base = _vecs![idx]
+  const pmap = getPolicyMap()
+  const scored: { id: string; score: number }[] = []
+  for (let i = 0; i < _ids.length; i++) {
+    if (i === idx) continue
+    const pv = _vecs![i]
+    let s = 0
+    for (let j = 0; j < pv.length; j++) s += base[j] * pv[j]
+    scored.push({ id: _ids[i], score: s })
+  }
+  scored.sort((a, b) => b.score - a.score)
+  const hits: SemanticHit[] = []
+  const seen = new Set<string>()
+  for (const { id, score } of scored) {
+    if (hits.length >= topK) break
+    const policy = pmap[id]
+    if (!policy) continue
+    const nm = policy.name.replace(/\s/g, '')
+    if (seen.has(nm)) continue
+    seen.add(nm)
+    hits.push({ policy, score })
   }
   return hits
 }
