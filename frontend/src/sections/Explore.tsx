@@ -63,12 +63,19 @@ export function Explore() {
   const catalog = useCatalog()
   const aiIntent = useAppStore((s) => s.aiIntent)
   const setAiIntent = useAppStore((s) => s.setAiIntent)
+  const aiQuery = useAppStore((s) => s.aiQuery)
+  const setAiQuery = useAppStore((s) => s.setAiQuery)
   const { supported: micOk, listening, toggle: toggleMic } = useSpeech((text) => setQ(text))
 
-  // 홈의 'AI 의미 검색' 카드로 진입한 경우 AI 모드 자동 활성화
+  // 홈 카드·외국어 입력 등으로 진입한 경우 AI 모드 자동 활성화(+질의 프리필)
   useEffect(() => {
-    if (aiIntent) { setAiMode(true); setAiIntent(false) }
-  }, [aiIntent, setAiIntent])
+    if (aiIntent) {
+      setAiMode(true)
+      if (aiQuery) setQ(aiQuery)
+      setAiIntent(false)
+      setAiQuery('')
+    }
+  }, [aiIntent, aiQuery, setAiIntent, setAiQuery])
 
   // 선택한 시·도 안에서 고를 수 있는 시·군·구 목록(해당 시도 LOC 정책에서 추출, 가나다순)
   const gunguOptions = useMemo(() => {

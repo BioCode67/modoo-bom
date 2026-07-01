@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Sparkles, Mic, MicOff } from 'lucide-react'
 import { parseProfileFromText } from '@/lib/parseQuery'
 import { useSpeech } from '@/lib/useSpeech'
+import { detectLang } from '@/lib/detectLang'
+import { useAppStore } from '@/store/useAppStore'
 import type { UserProfile } from '@/lib/welfare-engine'
 import { cn } from '@/lib/utils'
 
@@ -19,12 +21,27 @@ const EXAMPLES = [
 export function QuickAsk({ onSubmit }: { onSubmit: (p: UserProfile) => void }) {
   const [text, setText] = useState('')
   const speech = useSpeech((t) => setText((prev) => (prev ? prev + ' ' : '') + t))
-  const go = () => { if (text.trim()) onSubmit(parseProfileFromText(text)) }
+  const setView = useAppStore((s) => s.setView)
+  const setAiIntent = useAppStore((s) => s.setAiIntent)
+  const setAiQuery = useAppStore((s) => s.setAiQuery)
+  const go = () => {
+    const t = text.trim()
+    if (!t) return
+    const lang = detectLang(t)
+    if (lang && lang.code !== 'ko') {
+      // 외국어 입력 → 다국어 AI 의미 검색으로 라우팅(한국어 규칙 파싱 대신)
+      setAiQuery(t)
+      setAiIntent(true)
+      setView('explore')
+      return
+    }
+    onSubmit(parseProfileFromText(t))
+  }
 
   return (
     <div className="card-cute p-5 mb-5">
       <p className="font-bold flex items-center gap-1.5"><Sparkles className="h-4 w-4 text-sprout-500" /> 한 문장으로 물어보세요</p>
-      <p className="text-xs text-muted-foreground mt-0.5">상황을 자연스럽게 적으면(또는 말하면) 바로 맞춤 복지를 찾아드려요.</p>
+      <p className="text-xs text-muted-foreground mt-0.5">상황을 자연스럽게 적으면(또는 말하면) 바로 맞춤 복지를 찾아드려요. <span className="text-sprout-600 font-medium">🌍 외국어로 적으면 AI가 찾아드려요.</span></p>
 
       <div className="mt-3 relative">
         <textarea

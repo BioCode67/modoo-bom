@@ -25,9 +25,11 @@ interface AppState {
   view: View
   setView: (v: View) => void
 
-  // 탐색 진입 시 AI 의미 검색을 자동 활성화하려는 의도(홈 카드 클릭 등) — 전이(비저장)
+  // 탐색 진입 시 AI 의미 검색을 자동 활성화하려는 의도(홈 카드·외국어 입력 등) — 전이(비저장)
   aiIntent: boolean
   setAiIntent: (v: boolean) => void
+  aiQuery: string
+  setAiQuery: (q: string) => void
 
   // 접근성 — 큰글씨 모드 / 고대비 모드
   elderly: boolean
@@ -71,6 +73,8 @@ export const useAppStore = create<AppState>()(
       },
       aiIntent: false,
       setAiIntent: (v) => set({ aiIntent: v }),
+      aiQuery: '',
+      setAiQuery: (q) => set({ aiQuery: q }),
 
       elderly: false,
       toggleElderly: () => set((s) => ({ elderly: !s.elderly })),
