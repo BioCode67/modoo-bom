@@ -40,6 +40,7 @@ export function ChatWidget() {
   const [answers, setAnswers] = useState<GuideAnswers>({ situations: [] })
   const [multiSel, setMultiSel] = useState<{ v: string; l: string }[]>([])
   const setView = useAppStore((s) => s.setView)
+  const view = useAppStore((s) => s.view)
   const endRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [msgs, open, step])
@@ -90,7 +91,11 @@ export function ChatWidget() {
       <button
         onClick={() => setOpen((o) => !o)}
         aria-label="복지 도우미 챗봇 열기"
-        className="fixed bottom-20 md:bottom-6 right-4 sm:right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-sprout-500 text-white shadow-cute hover:bg-sprout-600 hover:scale-105 active:scale-95 transition-all"
+        className={cn(
+          'fixed bottom-20 md:bottom-6 right-4 sm:right-6 z-40 h-14 w-14 items-center justify-center rounded-full bg-sprout-500 text-white shadow-cute hover:bg-sprout-600 hover:scale-105 active:scale-95 transition-all',
+          // 모바일 홈 최상단에서 히어로 CTA와 겹치므로 모바일 홈에서만 숨김(데스크톱 홈·다른 뷰는 유지)
+          view === 'home' ? 'hidden md:flex' : 'flex',
+        )}
       >
         <AnimatePresence mode="wait">
           {open ? <motion.span key="x" initial={{ rotate: -90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: 90, opacity: 0 }}><X className="h-6 w-6" /></motion.span>

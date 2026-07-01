@@ -60,7 +60,7 @@ export function QuickAsk({ onSubmit }: { onSubmit: (p: UserProfile) => void }) {
         ))}
       </div>
 
-      <button onClick={go} disabled={!text.trim()} className="btn-primary w-full justify-center mt-3 disabled:opacity-50 disabled:cursor-not-allowed">
+      <button onClick={go} disabled={!text.trim()} className="btn-primary w-full justify-center mt-3 disabled:!bg-muted disabled:!text-muted-foreground disabled:!shadow-none disabled:cursor-not-allowed">
         <Sparkles className="h-4 w-4" /> 이 내용으로 바로 분석
       </button>
     </div>
