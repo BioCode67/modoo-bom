@@ -70,7 +70,7 @@ export function ResultsView({ result, profile, onReset }: { result: AnalysisResu
           </div>
           {monthly > 0 && (
             <p className="mt-2 text-[11px] text-muted-foreground max-w-lg">
-              ※ ‘핵심 현금지원’은 강력 추천 중 현금성 지원만 보수적으로 합산한 값이에요. 바우처·서비스·현물·고용주 지원은 빼고, 중복지원 제한·실제 자격에 따라 수령액은 달라질 수 있어요.
+              ※ ‘핵심 현금지원’은 강력 추천 중 <b>현금으로 받는 지원</b>만 적게 잡아 더한 값이에요. 상품권·서비스·물품·회사 지원은 빼고, 중복으로 받을 수 없는 경우·실제 조건에 따라 받는 금액은 달라질 수 있어요.
             </p>
           )}
 

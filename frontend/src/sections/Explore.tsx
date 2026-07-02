@@ -345,7 +345,7 @@ export function Explore() {
           ))}
           <button onClick={() => setOnlyCash((v) => !v)}
             className={cn('ml-1 rounded-full px-3 py-1.5 text-xs font-semibold border transition-colors', onlyCash ? 'bg-peach-400 border-peach-400 text-white' : 'bg-white border-sprout-100 text-muted-foreground hover:border-sprout-200')}>
-            💰 현금성만
+            💰 현금 지원만
           </button>
           <select
             value={region}
@@ -378,7 +378,7 @@ export function Explore() {
       <div className="mt-5 flex items-center justify-between gap-2 flex-wrap">
         <p className="text-sm text-muted-foreground" role="status" aria-live="polite">
           {aiMode && aiHits ? <>🌍 <b className="text-foreground">AI</b>가 의미로 찾은 </> : '총 '}
-          <b className="text-foreground">{filtered.length}</b>개 정책{onlyCash ? ' · 현금성' : ''}{sort === 'amount' ? ' · 금액순' : sort === 'name' ? ' · 이름순' : ''}
+          <b className="text-foreground">{filtered.length}</b>개 정책{onlyCash ? ' · 현금 지원' : ''}{sort === 'amount' ? ' · 금액순' : sort === 'name' ? ' · 이름순' : ''}
         </p>
         <Glossary />
       </div>
@@ -438,7 +438,7 @@ export function Explore() {
         <p className="font-semibold text-foreground/70">ℹ️ 데이터 출처 · 기준</p>
         <p className="mt-0.5">
           보건복지부 검증 시드 + <b>한국사회보장정보원 공공데이터(복지로)</b> 기준 총 {catalog.length.toLocaleString()}건 ·
-          금액·선정기준은 <b>2026년</b> 기준입니다. 공공데이터 정책은 요약 정보라 실제 자격·금액과 다를 수 있어요 —
+          금액·받는 조건은 <b>2026년</b> 기준입니다. 공공데이터 정책은 요약 정보라 실제 조건·금액과 다를 수 있어요 —
           정확한 내용은 <a href="https://www.bokjiro.go.kr" target="_blank" rel="noopener noreferrer" className="font-semibold text-sprout-600 hover:underline">복지로</a> 또는
           주민센터(☎129 보건복지상담)에서 꼭 확인하세요.
         </p>

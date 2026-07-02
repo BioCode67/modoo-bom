@@ -9,6 +9,7 @@ import { PolicyDetailDrawer } from '@/components/PolicyDetailDrawer'
 import { CompareModal } from '@/components/CompareModal'
 import { DocumentCenter } from '@/components/DocumentCenter'
 import { AgentSummary } from '@/components/AgentSummary'
+import { AgentBriefing } from '@/components/AgentBriefing'
 import { MonitorFeed } from '@/components/MonitorFeed'
 import { WelfareCalendar } from '@/components/WelfareCalendar'
 import { HouseholdAnalyzer } from '@/components/HouseholdAnalyzer'
@@ -58,6 +59,8 @@ export function My() {
 
   return (
     <div className="page-container py-8 sm:py-10">
+      {/* AI 에이전트 브리핑 — 먼저 챙길 일을 능동적으로 보고 */}
+      <AgentBriefing onOpen={setSelected} />
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
         <h1 className="text-2xl sm:text-3xl font-extrabold">나의 복지 <Heart className="inline h-6 w-6 text-peach-400 fill-peach-400" /></h1>
         <p className="text-muted-foreground mt-1">담아둔 복지의 신청 준비와 진행 상황을 한눈에 관리하세요.</p>
@@ -66,7 +69,7 @@ export function My() {
         {/* 요약/계산기 */}
         <div className="mt-5 grid grid-cols-2 sm:grid-cols-3 gap-3">
           <SummaryCard icon={<Heart className="h-5 w-5" />} value={`${tracked.length}개`} label="담은 복지" />
-          <SummaryCard icon={<Wallet className="h-5 w-5" />} value={totalMonthly > 0 ? formatWon(totalMonthly) : '-'} sub={totalMonthly > 0 ? `연 ${formatWon(totalMonthly * 12)}` : undefined} label="현금성 월 합계" highlight />
+          <SummaryCard icon={<Wallet className="h-5 w-5" />} value={totalMonthly > 0 ? formatWon(totalMonthly) : '-'} sub={totalMonthly > 0 ? `연 ${formatWon(totalMonthly * 12)}` : undefined} label="매달 현금 지원" highlight />
           <SummaryCard icon={<span className="text-lg">📮</span>} value={`${applied}개`} label="신청 진행" />
         </div>
       </motion.div>
