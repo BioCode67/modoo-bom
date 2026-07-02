@@ -8,6 +8,7 @@ import { PolicyCard } from '@/components/PolicyCard'
 import { PolicyDetailDrawer } from '@/components/PolicyDetailDrawer'
 import { BenefitBreakdown, CategoryDistribution } from '@/components/BenefitCharts'
 import { FutureWelfare } from '@/components/FutureWelfare'
+import { LifeTimeline } from '@/components/LifeTimeline'
 import { WelfareScore } from '@/components/WelfareScore'
 import { ShareButton } from '@/components/ShareButton'
 import { Glossary } from '@/components/Glossary'
@@ -145,7 +146,10 @@ export function ResultsView({ result, profile, onReset }: { result: AnalysisResu
         </>
       )}
 
-      {/* 생애주기 시뮬레이터 — 앞으로 받을 복지 미리보기 */}
+      {/* 선제적 생애 타임라인 — 앞으로 언제 무엇이 열리고 닫히는지 미리 챙김 */}
+      <LifeTimeline profile={profile} onOpen={setSelected} />
+
+      {/* 생애주기 시뮬레이터 — 만약 ~하면 시나리오별 미리보기 */}
       <FutureWelfare profile={profile} onOpen={setSelected} />
 
       <PolicyDetailDrawer policy={selected} onClose={() => setSelected(null)} onOpen={setSelected} />
