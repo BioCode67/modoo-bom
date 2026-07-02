@@ -1,20 +1,20 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { FileText, ExternalLink, Bot, Loader2, CheckCircle2, AlertCircle } from 'lucide-react'
 import { getPolicyMap } from '@/data/catalog'
 import { useAppStore } from '@/store/useAppStore'
 import { docLink, isRpaSupported } from '@/lib/officialLinks'
-import { checkBackend, API_BASE } from '@/lib/backend'
+import { API_BASE } from '@/lib/backend'
+import { useBackend } from '@/lib/useBackend'
 import { RpaInfoForm } from '@/components/RpaInfoForm'
 
 type RpaState = { status: string; step: string } | null
 
 export function DocumentCenter() {
   const { tracked, profile, rpaInfo } = useAppStore()
-  const [backend, setBackend] = useState<boolean | null>(null)
+  const { ready, caps } = useBackend()
+  const backend = ready === true && !!caps?.rpa   // RPA 가능한 로컬 에이전트일 때만 자동발급 노출
   const [rpa, setRpa] = useState<Record<string, RpaState>>({})
-
-  useEffect(() => { checkBackend().then(setBackend) }, [])
 
   // 담은 정책들의 필요 서류 → 어떤 복지들에 필요한지까지 집계 (공통 서류 우선 준비)
   const docNeeds = useMemo(() => {

@@ -97,7 +97,8 @@ function DrawerBody({
   const guide = generateGuides([toEligible(policy)])[0]
   const eligible = 'priority' in policy ? (policy as EligiblePolicy) : null
   const tts = useTTS()
-  const hasBackend = useBackend()
+  const { ready, caps } = useBackend()
+  const hasBackend = ready === true && !!caps?.rpa
   const related = onOpen
     ? getCatalog().filter((p) => p.category === policy.category && p.id !== policy.id)
         .sort((a, b) => parseMonthly(b.benefit) - parseMonthly(a.benefit)).slice(0, 3)
@@ -225,7 +226,7 @@ function DrawerBody({
         {/* 신청 키트 — 자동화 흐름 + 공식 신청 페이지 직결 + 내 정보 미리채움(복사) */}
         <Section title="📝 신청 키트">
           <div className="mb-2.5">
-            <ApplyFlow automatable={isApplyAutomatable(policy.name)} hasBackend={hasBackend === true} />
+            <ApplyFlow automatable={isApplyAutomatable(policy.name)} hasBackend={hasBackend} />
           </div>
           <a
             href={applyLink(policy.application).url}

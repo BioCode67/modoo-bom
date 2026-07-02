@@ -14,14 +14,15 @@ from api.chat import chat_websocket_endpoint
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # 서버 시작 시 ChromaDB 샘플 데이터 자동 시딩 (sentence-transformers 내장 임베딩 사용)
+    # 서버 시작 시 RAG 초기화. 경량 모드(RAG_LIGHT/클라우드)면 BM25 인메모리 색인,
+    # 아니면 ChromaDB + sentence-transformers 임베딩 시딩. (저메모리 배포 OOM 방지)
     try:
-        from rag.embedder import seed_chromadb, warmup
-        count = seed_chromadb()
-        print(f"[ModooBom] ChromaDB 초기화 완료 — {count}건 임베딩")
+        from rag.search import seed, warmup, backend_label
+        count, kind = seed()
+        print(f"[ModooBom] RAG 초기화 완료 — {backend_label()} · {count}건")
         warmup()
     except Exception as e:
-        print(f"[ModooBom] ChromaDB 초기화 스킵: {e}")
+        print(f"[ModooBom] RAG 초기화 스킵: {e}")
     yield
 
 

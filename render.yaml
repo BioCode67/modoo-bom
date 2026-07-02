@@ -1,0 +1,35 @@
+# Render 상시배포 설정 (Infrastructure as Code)
+# 대시보드에서 New → Blueprint 로 이 파일을 가리키거나, Web Service 수동 생성 시 참고.
+# 실제 배포 절차는 DEPLOY_CHECKLIST.md 참고.
+services:
+  - type: web
+    name: modoo-bom-api
+    runtime: docker
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    plan: free                      # 512MB — RAG_LIGHT=1 로 BM25 사용(OOM 방지)
+    region: singapore               # 한국 근접
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      # 저메모리 보호: 임베딩 대신 BM25 키워드 검색
+      - key: RAG_LIGHT
+        value: "1"
+      # 클라우드에선 RPA 비활성(개인정보 서버 유입 차단) — 기본 자동감지지만 명시
+      - key: RPA_DISABLED
+        value: "1"
+      # 배포 웹(github.io) + 로컬 개발 허용
+      - key: CORS_ORIGINS
+        value: "https://biocode67.github.io,http://localhost:5173,http://localhost:4173"
+      # AI provider 키 — 대시보드에서 실제 값 입력(하나만 있으면 됨). 없으면 규칙기반 동작.
+      - key: AI_PROVIDER
+        value: "gemini"
+      - key: GEMINI_API_KEY
+        sync: false                 # 대시보드에서 비밀값으로 입력
+      - key: GEMINI_MODEL
+        value: "gemini-2.0-flash"
+      # (선택) 공공데이터 키 — 서버 사이드 재수집이 필요할 때만
+      - key: DATA_GO_KR_SERVICE_KEY
+        sync: false
+      - key: CHROMA_PERSIST_DIR
+        value: "/tmp/chroma_db"

@@ -12,7 +12,7 @@ from agents.mock_responses import is_mock_mode
 def _search_policies_for_chat(query: str, n: int = 5) -> list[dict]:
     """키워드 기반 정책 검색 (ChromaDB 없이도 동작)"""
     try:
-        from rag.embedder import search_policies
+        from rag.search import search_policies
         return search_policies(query, n_results=n)
     except Exception:
         pass

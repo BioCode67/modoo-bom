@@ -3,7 +3,8 @@ import os
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
-from rag.embedder import search_policies, seed_chromadb
+from rag.search import search_policies
+from rag.embedder import seed_chromadb
 from mocks.gov24_api import issue_document, _doc_store
 from agents.mock_responses import is_mock_mode
 
@@ -25,23 +26,46 @@ class DocRequest(BaseModel):
 
 @router.get("/health")
 async def health():
-    """서버 상태 + 환경 정보 반환"""
-    from rag.chromadb_client import get_collection
-    try:
-        col = get_collection()
-        doc_count = col.count()
-        chroma_ok = True
-    except Exception as e:
-        doc_count = 0
-        chroma_ok = False
+    """서버 상태 + 환경 정보 + capabilities(프론트 게이팅용) 반환.
 
+    capabilities.ai  — AI provider 사용 가능(분석/추천/챗봇 활성)
+    capabilities.rpa — 이 백엔드에서 실제 RPA 실행 가능(로컬 에이전트일 때만 true)
+    프론트는 rpa=true일 때만 '자동발급/자동신청' 버튼을 노출한다(클라우드 오표시 방지).
+    """
+    from rag.search import rag_light, backend_label
+    from rpa.config import rpa_enabled
+    from agents.llm import active_provider, provider_label
+
+    doc_count, chroma_ok = 0, False
+    if not rag_light():
+        try:
+            from rag.chromadb_client import get_collection
+            col = get_collection()
+            doc_count = col.count()
+            chroma_ok = True
+        except Exception:
+            chroma_ok = False
+    else:
+        try:
+            from rag.catalog_loader import load_catalog
+            doc_count = len(load_catalog())
+            chroma_ok = True
+        except Exception:
+            chroma_ok = False
+
+    ai_ok = active_provider() is not None
     return {
         "status": "ok",
         "service": "ModooBom API",
         "version": "0.3.0",
-        "mode": "mock" if is_mock_mode() else "production",
-        "anthropic_key_set": bool(os.getenv("ANTHROPIC_API_KEY", "") and not is_mock_mode()),
-        "chromadb": {
+        "mode": "production" if ai_ok else "rule-based",
+        "capabilities": {
+            "ai": ai_ok,
+            "rpa": rpa_enabled(),
+            "ai_provider": provider_label(),
+            "rag": backend_label(),
+        },
+        "rag": {
             "ok": chroma_ok,
             "document_count": doc_count,
             "seeded": doc_count >= 60,

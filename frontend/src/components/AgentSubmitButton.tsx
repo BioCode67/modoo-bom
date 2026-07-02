@@ -15,7 +15,7 @@ type RunState = { status: string; step: string; shot?: string } | null
  * 백엔드(데스크톱) 있을 때만 실제 RPA 구동. 본인인증·최종 제출은 사용자가 직접.
  */
 export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy }) {
-  const backend = useBackend()
+  const { ready, caps } = useBackend()
   const profile = useAppStore((s) => s.profile)
   const rpaInfo = useAppStore((s) => s.rpaInfo)
   const [run, setRun] = useState<RunState>(null)
@@ -23,8 +23,10 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
 
   if (!automatable) return null
 
-  // 백엔드 없음(배포 환경 등) → 정직한 안내 + 직접 신청 링크
-  if (backend === false) {
+  // RPA 가능한 로컬 에이전트가 감지된 경우에만 실제 자동신청 노출.
+  // 백엔드 없음 or 클라우드(rpa=false) → 정직한 안내 + 직접 신청 링크.
+  const rpaReady = ready === true && !!caps?.rpa
+  if (!rpaReady) {
     return (
       <div className="rounded-2xl border-2 border-dashed border-sprout-200 bg-sprout-50/50 p-4">
         <p className="text-sm font-bold flex items-center gap-1.5"><Bot className="h-4 w-4 text-sprout-500" /> 에이전트 자동 신청</p>

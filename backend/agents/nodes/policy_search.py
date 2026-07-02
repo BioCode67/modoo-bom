@@ -61,7 +61,7 @@ async def policy_search_node(state: AgentState) -> dict:
         retrieved = _mock_search(profile)
     else:
         try:
-            from rag.embedder import search_policies
+            from rag.search import search_policies
 
             query_parts = list(state.search_keywords) + [
                 profile.household_type, f"나이 {profile.age}세", profile.employment_status,
