@@ -129,9 +129,9 @@
       if (clicked) { await sleep(2800); await send({ type: 'REINJECT' }) }
       return
     }
-    if (/moveTWAT52011M/i.test(url)) {
-      // 서비스 신청 페이지: 신청하기 클릭 + 기본 정보 자동 입력
-      clickEform(['신청하기', '온라인신청', '모바일신청']) || clickText(['신청하기', '온라인신청'])
+    if (/moveTWAT|wlfareInfoId/i.test(url)) {
+      // 서비스 신청 페이지(임의 wlfareInfoId): 신청하기 클릭 + 기본 정보 자동 입력
+      await pollClick(() => clickEform(['신청하기', '온라인신청', '모바일신청']) || clickText(['신청하기', '온라인신청']), 8)
       await sleep(1500)
       const u = job.userInfo || {}
       const name = (u.user_name || u.name || '').trim()

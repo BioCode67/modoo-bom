@@ -31,11 +31,16 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
     })
   }, [policy.name])
 
-  if (!automatable) return null
+  // 복지로 딥링크를 가진 정책이면 확장으로 자동신청 가능(내장 6종에 국한하지 않음)
+  const isBokjiro = /bokjiro\.go\.kr/.test(policy.application || '')
+  const showApply = automatable || isBokjiro
+  if (!showApply) return null
 
-  // 로컬 에이전트 또는 확장이 있으면 실제 자동신청 노출. 둘 다 없으면 직접 신청 링크.
+  // 실제 자동화 가능 여부: 확장(복지로 정책 전체) 또는 로컬 에이전트(내장 6종).
   const rpaReady = ready === true && !!caps?.rpa
-  const canRpa = rpaReady || ext
+  const canExt = ext && isBokjiro
+  const canLocal = rpaReady && automatable
+  const canRpa = canExt || canLocal
   if (!canRpa) {
     return (
       <div className="rounded-2xl border-2 border-dashed border-sprout-200 bg-sprout-50/50 p-4">
@@ -53,11 +58,11 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
 
   const start = async () => {
     setRun({ status: 'running', step: '에이전트 시작 — 복지로 접속 중…' })
-    // 로컬 에이전트가 없고 확장만 있으면 확장으로 신청(진행상태는 구독으로 수신)
-    if (!rpaReady && ext) {
+    // 로컬 에이전트(내장 6종)가 되면 백엔드 우선, 아니면 확장으로 신청(복지로 딥링크 전달)
+    if (!canLocal && canExt) {
       const ok = await applyViaExtension(policy.name, {
         user_name: profile?.name || '사용자', birth_date: rpaInfo.birth_date, phone: rpaInfo.phone, carrier: rpaInfo.carrier,
-      })
+      }, policy.application)
       if (!ok) setRun({ status: 'error', step: '이 서비스는 확장 자동신청을 아직 지원하지 않아요.' })
       return
     }

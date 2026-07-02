@@ -64,8 +64,8 @@ export async function extensionServices(): Promise<string[]> {
   return resp && resp.ok && Array.isArray(resp.services) ? resp.services : []
 }
 
-/** 확장으로 복지 서비스 자동신청 시작. 성공 시 true. */
-export async function applyViaExtension(serviceName: string, userInfo: Record<string, unknown>): Promise<boolean> {
-  const resp = await request('APPLY', { serviceName, userInfo }, 3000)
+/** 확장으로 복지 서비스 자동신청 시작. applyUrl(실제 복지로 딥링크)이 있으면 그 서비스로 이동. 성공 시 true. */
+export async function applyViaExtension(serviceName: string, userInfo: Record<string, unknown>, applyUrl?: string): Promise<boolean> {
+  const resp = await request('APPLY', { serviceName, userInfo, applyUrl }, 3000)
   return !!(resp && resp.ok)
 }

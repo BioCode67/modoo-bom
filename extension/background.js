@@ -57,12 +57,17 @@ async function startJob(docName, userInfo, webTabId) {
   return { ok: true, jobId: job.id }
 }
 
-async function startApply(serviceName, userInfo, webTabId) {
-  if (!SERVICE_URLS[serviceName]) return { ok: false, error: `자동신청 미지원 서비스: ${serviceName}` }
+const isBokjiroUrl = (u) => typeof u === 'string' && /^https:\/\/www\.bokjiro\.go\.kr\//.test(u)
+
+async function startApply(serviceName, userInfo, webTabId, applyUrl) {
+  // 프론트가 넘긴 실제 복지로 딥링크(wlfareInfoId) 우선, 없으면 내장 6종 맵 폴백.
+  // → 카탈로그의 모든 복지로 정책을 자동신청 대상으로 일반화.
+  const serviceUrl = isBokjiroUrl(applyUrl) ? applyUrl : SERVICE_URLS[serviceName]
+  if (!serviceUrl) return { ok: false, error: `자동신청 미지원 서비스: ${serviceName}` }
   const tab = await chrome.tabs.create({ url: BOKJIRO_LOGIN_URL, active: true })
   job = {
     id: 'job_' + Math.random().toString(36).slice(2, 9),
-    kind: 'apply', serviceName, serviceUrl: SERVICE_URLS[serviceName],
+    kind: 'apply', serviceName, serviceUrl,
     docName: serviceName, userInfo: userInfo || {}, tabId: tab.id, webTabId,
     phase: 'login', status: 'running', step: '복지로 로그인 페이지 여는 중…',
   }
@@ -85,9 +90,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       return sendResponse(await startJob(docName, userInfo, webTabId))
     }
     if (msg.type === 'APPLY') {
-      const { serviceName, userInfo } = msg.payload || {}
+      const { serviceName, userInfo, applyUrl } = msg.payload || {}
       const webTabId = sender.tab ? sender.tab.id : null
-      return sendResponse(await startApply(serviceName, userInfo, webTabId))
+      return sendResponse(await startApply(serviceName, userInfo, webTabId, applyUrl))
     }
     if (msg.type === 'STATUS_GET') {
       return sendResponse({ ok: true, job: job && { id: job.id, docName: job.docName, status: job.status, step: job.step } })
