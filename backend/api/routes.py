@@ -126,6 +126,9 @@ async def rpa_issue(req: DocRequest):
     지원: 주민등록등본, 주민등록초본, 건강보험 자격득실확인서, 고용보험 피보험자격 이력내역서
     """
     from rpa.manager import start_rpa_task, SUPPORTED_DOC_NAMES
+    from rpa.config import rpa_enabled, rpa_disabled_reason
+    if not rpa_enabled():
+        raise HTTPException(status_code=503, detail=rpa_disabled_reason())
     if req.doc_name not in SUPPORTED_DOC_NAMES:
         raise HTTPException(
             status_code=400,
@@ -165,6 +168,9 @@ async def apply_supported():
 async def apply_start(req: ApplyRequest):
     """복지 서비스 신청 RPA 시작"""
     from rpa.manager import start_apply_task, SUPPORTED_SERVICE_NAMES
+    from rpa.config import rpa_enabled, rpa_disabled_reason
+    if not rpa_enabled():
+        raise HTTPException(status_code=503, detail=rpa_disabled_reason())
     if req.service_name not in SUPPORTED_SERVICE_NAMES:
         raise HTTPException(
             status_code=400,
