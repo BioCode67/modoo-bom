@@ -36,3 +36,6 @@ Thumbs.db
 # 테스트 임시
 .coverage
 htmlcov/
+
+# 확장 빌드 산출물
+extension/dist/
