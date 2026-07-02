@@ -8,7 +8,7 @@
 
 export interface ExtStatus { jobId?: string; status: string; step: string; docName?: string }
 
-interface ExtResponse { ok?: boolean; jobId?: string; capabilities?: { rpa?: boolean }; docs?: string[] }
+interface ExtResponse { ok?: boolean; jobId?: string; capabilities?: { rpa?: boolean }; docs?: string[]; services?: string[] }
 
 let cachedPresent: boolean | null = null
 
@@ -55,5 +55,17 @@ export function onExtensionStatus(cb: (s: ExtStatus) => void): () => void {
 /** 확장으로 서류 발급 시작. 성공 시 true(진행상태는 onExtensionStatus 로 수신). */
 export async function issueViaExtension(docName: string, userInfo: Record<string, unknown>): Promise<boolean> {
   const resp = await request('ISSUE', { docName, userInfo }, 3000)
+  return !!(resp && resp.ok)
+}
+
+/** 확장이 자동신청 지원하는 복지 서비스 목록(미설치면 빈 배열). */
+export async function extensionServices(): Promise<string[]> {
+  const resp = await request('PING', null, 1200)
+  return resp && resp.ok && Array.isArray(resp.services) ? resp.services : []
+}
+
+/** 확장으로 복지 서비스 자동신청 시작. 성공 시 true. */
+export async function applyViaExtension(serviceName: string, userInfo: Record<string, unknown>): Promise<boolean> {
+  const resp = await request('APPLY', { serviceName, userInfo }, 3000)
   return !!(resp && resp.ok)
 }

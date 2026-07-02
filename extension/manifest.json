@@ -7,7 +7,9 @@
   "host_permissions": [
     "https://plus.gov.kr/*",
     "https://www.gov.kr/*",
-    "https://*.gov.kr/*"
+    "https://*.gov.kr/*",
+    "https://www.bokjiro.go.kr/*",
+    "https://*.yeskey.or.kr/*"
   ],
   "externally_connectable": {
     "matches": [

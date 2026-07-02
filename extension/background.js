@@ -12,6 +12,17 @@ const LOGIN_URL = 'https://plus.gov.kr/login'
 const issueUrl = (capp) =>
   `https://www.gov.kr/mw/AA040OfferMainFrm.do?capp_biz_cd=${capp}&HighCtgCD=A01010001&FAX_TYPE=N&img=02&selectedSeq=01`
 
+// 복지로 신청 — Clipsoft eForm SPA. 로그인 후 서비스별 딥링크(wlfareInfoId)로 이동해 신청.
+const BOKJIRO_LOGIN_URL = 'https://www.bokjiro.go.kr/ssis-tbu/loginView.do'
+const SERVICE_URLS = {
+  '기초연금': 'https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00002501',
+  '아동수당': 'https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00002948',
+  '부모급여': 'https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00010441',
+  '청년 내일저축계좌': 'https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00003748',
+  '첫만남이용권': 'https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00009878',
+  '기초생활 생계급여': 'https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000049',
+}
+
 // 현재 진행 중인 잡(단일). { id, docName, userInfo, tabId, webTabId, phase, status, step }
 let job = null
 
@@ -30,10 +41,23 @@ async function startJob(docName, userInfo, webTabId) {
   const tab = await chrome.tabs.create({ url: LOGIN_URL, active: true })
   job = {
     id: 'job_' + Math.random().toString(36).slice(2, 9),
-    docName, userInfo: userInfo || {}, tabId: tab.id, webTabId,
+    kind: 'doc', docName, userInfo: userInfo || {}, tabId: tab.id, webTabId,
     phase: 'login', status: 'running', step: '정부24 로그인 페이지 여는 중…',
   }
   pushStatus('running', '정부24 로그인 페이지 여는 중… 화면에서 간편인증을 진행해 주세요.')
+  return { ok: true, jobId: job.id }
+}
+
+async function startApply(serviceName, userInfo, webTabId) {
+  if (!SERVICE_URLS[serviceName]) return { ok: false, error: `자동신청 미지원 서비스: ${serviceName}` }
+  const tab = await chrome.tabs.create({ url: BOKJIRO_LOGIN_URL, active: true })
+  job = {
+    id: 'job_' + Math.random().toString(36).slice(2, 9),
+    kind: 'apply', serviceName, serviceUrl: SERVICE_URLS[serviceName],
+    docName: serviceName, userInfo: userInfo || {}, tabId: tab.id, webTabId,
+    phase: 'login', status: 'running', step: '복지로 로그인 페이지 여는 중…',
+  }
+  pushStatus('running', '복지로 로그인 페이지 여는 중… 화면에서 간편인증을 진행해 주세요.')
   return { ok: true, jobId: job.id }
 }
 
@@ -43,12 +67,18 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (!msg || !msg.type) return sendResponse({ ok: false })
     if (msg.type === 'PING') {
       return sendResponse({ ok: true, name: '모두봄 복지 에이전트', version: '0.1.0',
-        capabilities: { rpa: true, kind: 'extension' }, docs: Object.keys(DOCS) })
+        capabilities: { rpa: true, kind: 'extension' },
+        docs: Object.keys(DOCS), services: Object.keys(SERVICE_URLS) })
     }
     if (msg.type === 'ISSUE') {
       const { docName, userInfo } = msg.payload || {}
       const webTabId = sender.tab ? sender.tab.id : null
       return sendResponse(await startJob(docName, userInfo, webTabId))
+    }
+    if (msg.type === 'APPLY') {
+      const { serviceName, userInfo } = msg.payload || {}
+      const webTabId = sender.tab ? sender.tab.id : null
+      return sendResponse(await startApply(serviceName, userInfo, webTabId))
     }
     if (msg.type === 'STATUS_GET') {
       return sendResponse({ ok: true, job: job && { id: job.id, docName: job.docName, status: job.status, step: job.step } })
@@ -60,7 +90,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     // 주입된 자동화 스크립트에서 오는 메시지
     if (msg.type === 'GET_JOB') {
       const inJobTab = sender.tab && job && sender.tab.id === job.tabId
-      return sendResponse(inJobTab ? { docName: job.docName, userInfo: job.userInfo, capp: DOCS[job.docName].capp, issueUrl: issueUrl(DOCS[job.docName].capp) } : null)
+      if (!inJobTab) return sendResponse(null)
+      if (job.kind === 'apply') {
+        return sendResponse({ kind: 'apply', serviceName: job.serviceName, serviceUrl: job.serviceUrl, userInfo: job.userInfo })
+      }
+      return sendResponse({ kind: 'doc', docName: job.docName, userInfo: job.userInfo, capp: DOCS[job.docName].capp, issueUrl: issueUrl(DOCS[job.docName].capp) })
     }
     if (msg.type === 'AGENT_STATUS') {
       if (job && sender.tab && sender.tab.id === job.tabId) pushStatus(msg.payload.status, msg.payload.step)

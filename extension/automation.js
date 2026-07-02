@@ -43,7 +43,17 @@
 
   const isAuthFrame = () =>
     !!document.querySelector('#oacx_name, #oacx_birth, [id^="oacx_"], [class*="oacx"]') ||
-    /simpleCert|oacx|nice|mobileok|kakao/i.test(url)
+    /simpleCert|oacx|nice|mobileok|kakao|fincert|yeskey/i.test(url)
+
+  // eForm(.cl-button 등) 컴포넌트에서 텍스트로 버튼 클릭 (복지로 Clipsoft eForm 대응)
+  const clickEform = (texts) => {
+    const els = Array.from(document.querySelectorAll('.cl-button, [class*="cl-button"], [role="button"], a, button, span, div'))
+    for (const el of els) {
+      const t = norm(el.textContent)
+      if (texts.some((x) => t.includes(norm(x)))) { el.click(); return true }
+    }
+    return false
+  }
 
   // ── 1) 로그인 최상위 프레임: 간편인증 클릭 ──
   if (host === 'plus.gov.kr' && /login/i.test(location.pathname) && isTop) {
@@ -82,6 +92,40 @@
       filled
         ? "✅ 이름·생년월일·휴대폰을 자동 입력했어요. '인증 요청'을 누르고 📱 카카오톡 알림에서 [인증 허용]만 하세요."
         : "카카오톡 선택 후 본인인증 정보를 입력하고 '인증 요청'을 눌러 주세요. 📱")
+    return
+  }
+
+  // ── 복지로(자동신청) 흐름 ──
+  if (host === 'www.bokjiro.go.kr' && isTop && job.kind === 'apply') {
+    await sleep(1500)
+    if (/loginView/i.test(url)) {
+      // 로그인 페이지: eForm 간편인증 클릭 → 인증 iframe에도 주입 요청
+      const clicked = clickEform(['간편인증', '간편 인증', '간편로그인'])
+      status('running', clicked
+        ? '복지로 간편인증을 선택했어요. 카카오톡으로 본인인증을 진행해 주세요. 📱'
+        : "화면에서 '간편인증'을 눌러 주세요.")
+      await sleep(2800); await send({ type: 'REINJECT' })
+      return
+    }
+    if (/moveTWAT52011M/i.test(url)) {
+      // 서비스 신청 페이지: 신청하기 클릭 + 기본 정보 자동 입력
+      clickEform(['신청하기', '온라인신청', '모바일신청']) || clickText(['신청하기', '온라인신청'])
+      await sleep(1500)
+      const u = job.userInfo || {}
+      const name = (u.user_name || u.name || '').trim()
+      const birth = String(u.birth_date || '').replace(/[^0-9]/g, '')
+      const phone = String(u.phone || '').replace(/[^0-9]/g, '')
+      fill(["input[name*='Nm']", "input[placeholder*='이름']", "input[name*='name']"], name)
+      fill(["input[placeholder*='생년월일']", "input[name*='brthdy']", "input[name*='birth']"], birth)
+      fill(["input[placeholder*='휴대']", "input[placeholder*='연락처']", "input[name*='telno']", "input[name*='phone']"], phone)
+      status('running',
+        `✅ '${job.serviceName}' 신청 화면이 열렸어요. 내용을 확인하고 필요한 항목을 채운 뒤,\n` +
+        '⚠️ 최종 제출은 본인이 직접 눌러 주세요(비가역 신청이라 안전을 위해).')
+      return
+    }
+    // 로그인 후 착지 → 서비스 신청 페이지로 이동
+    status('running', '복지로 로그인 완료 — 신청 페이지로 이동합니다.')
+    await sleep(500); await send({ type: 'GOTO', payload: { url: job.serviceUrl } })
     return
   }
 

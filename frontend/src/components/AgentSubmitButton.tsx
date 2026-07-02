@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Bot, Loader2, ExternalLink, ShieldCheck, AlertCircle } from 'lucide-react'
 import type { Policy } from '@/data/policies'
 import type { EligiblePolicy } from '@/lib/welfare-engine'
 import { useBackend } from '@/lib/useBackend'
 import { isApplyAutomatable, applyLink } from '@/lib/officialLinks'
 import { API_BASE } from '@/lib/backend'
+import { detectExtension, applyViaExtension, onExtensionStatus } from '@/lib/extension'
 import { RpaInfoForm } from '@/components/RpaInfoForm'
 import { useAppStore } from '@/store/useAppStore'
 
@@ -12,26 +13,35 @@ type RunState = { status: string; step: string; shot?: string } | null
 
 /**
  * 에이전트 신청 자동화 — 정직한 human-in-the-loop.
- * 백엔드(데스크톱) 있을 때만 실제 RPA 구동. 본인인증·최종 제출은 사용자가 직접.
+ * 로컬 에이전트(백엔드) 또는 크롬 확장이 있을 때 실제 RPA 구동. 본인인증·최종 제출은 사용자가 직접.
  */
 export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy }) {
   const { ready, caps } = useBackend()
   const profile = useAppStore((s) => s.profile)
   const rpaInfo = useAppStore((s) => s.rpaInfo)
   const [run, setRun] = useState<RunState>(null)
+  const [ext, setExt] = useState(false)
   const automatable = isApplyAutomatable(policy.name)
+
+  // 확장 감지 + 진행상태 구독(해당 서비스만)
+  useEffect(() => {
+    detectExtension().then(setExt)
+    return onExtensionStatus((s) => {
+      if (s.docName === policy.name) setRun({ status: s.status, step: s.step })
+    })
+  }, [policy.name])
 
   if (!automatable) return null
 
-  // RPA 가능한 로컬 에이전트가 감지된 경우에만 실제 자동신청 노출.
-  // 백엔드 없음 or 클라우드(rpa=false) → 정직한 안내 + 직접 신청 링크.
+  // 로컬 에이전트 또는 확장이 있으면 실제 자동신청 노출. 둘 다 없으면 직접 신청 링크.
   const rpaReady = ready === true && !!caps?.rpa
-  if (!rpaReady) {
+  const canRpa = rpaReady || ext
+  if (!canRpa) {
     return (
       <div className="rounded-2xl border-2 border-dashed border-sprout-200 bg-sprout-50/50 p-4">
         <p className="text-sm font-bold flex items-center gap-1.5"><Bot className="h-4 w-4 text-sprout-500" /> 에이전트 자동 신청</p>
         <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-          데스크톱 앱(백엔드)을 실행하면 에이전트가 복지로 로그인·이동·양식 작성까지 대신 해드려요.
+          크롬 확장(또는 데스크톱 앱)을 설치하면 에이전트가 복지로 로그인·이동·양식 작성까지 대신 해드려요.
           지금은 아래에서 직접 신청하실 수 있어요. <b>본인인증·최종 제출은 본인이 직접</b> 하셔야 해요.
         </p>
         <a href={applyLink(policy.application).url} target="_blank" rel="noopener noreferrer" className="btn-secondary !py-2 mt-2 text-xs">
@@ -43,6 +53,14 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
 
   const start = async () => {
     setRun({ status: 'running', step: '에이전트 시작 — 복지로 접속 중…' })
+    // 로컬 에이전트가 없고 확장만 있으면 확장으로 신청(진행상태는 구독으로 수신)
+    if (!rpaReady && ext) {
+      const ok = await applyViaExtension(policy.name, {
+        user_name: profile?.name || '사용자', birth_date: rpaInfo.birth_date, phone: rpaInfo.phone, carrier: rpaInfo.carrier,
+      })
+      if (!ok) setRun({ status: 'error', step: '이 서비스는 확장 자동신청을 아직 지원하지 않아요.' })
+      return
+    }
     try {
       const res = await fetch(`${API_BASE}/api/apply/start`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
