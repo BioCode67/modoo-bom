@@ -41,6 +41,15 @@
     return false
   }
 
+  // 버튼이 늦게 렌더되거나(보안 인터스티셜 후) 하는 경우를 위해 폴링 클릭
+  const pollClick = async (fn, secs = 12) => {
+    for (let i = 0; i < secs * 2; i++) { if (fn()) return true; await sleep(500) }
+    return false
+  }
+  const loggedIn = () =>
+    /로그아웃|logout/i.test((document.body && document.body.innerText) || '') ||
+    !!document.querySelector('a[href*="logout" i], a[href*="Logout"]')
+
   const isAuthFrame = () =>
     !!document.querySelector('#oacx_name, #oacx_birth, [id^="oacx_"], [class*="oacx"]') ||
     /simpleCert|oacx|nice|mobileok|kakao|fincert|yeskey/i.test(url)
@@ -55,17 +64,28 @@
     return false
   }
 
-  // ── 1) 로그인 최상위 프레임: 간편인증 클릭 ──
-  if (host === 'plus.gov.kr' && /login/i.test(location.pathname) && isTop) {
-    await sleep(1200)
-    const clicked = clickSel([
-      "button.login-type", "[data-tab='easy']", "[data-type='easy']",
-    ]) || clickText(['간편인증', '간편 인증', '간편로그인'])
+  // ── 1) 정부24(plus.gov.kr) 로그인 — 보안 인터스티셜(Mbuster) 대기 + 간편인증 폴링 ──
+  if (host === 'plus.gov.kr' && isTop) {
+    // 보안 확인 페이지면 리다이렉트 대기(다음 로드에서 재주입됨)
+    if (/mbuster|securif|security|shield/i.test(location.href)) {
+      status('running', '정부24 보안 확인 중이에요… 잠시만 기다려 주세요. (자동 진행)')
+      return
+    }
+    // 이미 로그인 상태면 발급 페이지로 이동
+    if (loggedIn()) {
+      status('running', '로그인 완료 — 발급 페이지로 이동합니다.')
+      await sleep(400); await send({ type: 'GOTO', payload: { url: job.issueUrl } })
+      return
+    }
+    // 로그인 화면: 간편인증 버튼을 최대 12초 폴링(보안페이지 후 늦게 렌더 대비)
+    status('running', '정부24 로그인 화면 준비 중…')
+    const clicked = await pollClick(() =>
+      clickSel(["button.login-type", "[data-tab='easy']", "[data-type='easy']"]) ||
+      clickText(['간편인증', '간편 인증', '간편로그인']), 12)
     status('running', clicked
       ? '간편인증을 선택했어요. 카카오톡을 고르고 본인인증을 진행해 주세요. 📱'
-      : "화면에서 '간편인증' 탭을 눌러 주세요.")
-    // 뒤늦게 뜨는 인증 iframe에도 자동화 주입 요청
-    await sleep(2500); await send({ type: 'REINJECT' })
+      : "화면에서 '간편인증'을 눌러 주세요. (보안 확인이 끝나면 자동으로 다시 시도해요)")
+    if (clicked) { await sleep(2500); await send({ type: 'REINJECT' }) }
     return
   }
 
@@ -181,14 +201,7 @@
     return
   }
 
-  // ── 3) 로그인 후 다른 페이지에 착지: 발급폼으로 이동 ──
-  if (host === 'plus.gov.kr' && isTop && !/login/i.test(location.pathname)) {
-    status('running', '로그인 완료 — 발급 페이지로 이동합니다.')
-    await sleep(500); await send({ type: 'GOTO', payload: { url: job.issueUrl } })
-    return
-  }
-
-  // ── 4) 정부24 발급/신청 폼 처리 ──
+  // ── 정부24 발급/신청 폼 처리 ──
   if (host === 'www.gov.kr' && /AA040|AA020/i.test(url) && isTop) {
     await sleep(1500)
     // 로그인으로 튕겼으면 로그인 페이지로
