@@ -240,6 +240,63 @@ def ingest_csv(path: Path) -> list[dict]:
     return out
 
 
+# ── 한국장학재단 학자금지원정보 CSV (기업·민간재단·지자체·대학 장학금 1,800+건) ──
+# data.go.kr/data/15028252/fileData.do (로그인 불필요 CSV). 정부 복지 DB엔 없는
+# 민간/기업/지역 장학금을 포함 → "국가 외 경제적 수혜"를 실데이터로 보강한다.
+# 컬럼: 운영기관명,상품명,운영기관구분,상품구분,학자금유형구분,대학/학년/학과구분,
+#       성적기준/소득기준/지원내역/특정자격/지역거주여부/선발방법/선발인원/자격제한/
+#       추천필요여부/제출서류 상세내용,홈페이지 주소,모집시작일,모집종료일
+def ingest_kosaf_csv(path: Path) -> list[dict]:
+    import hashlib
+    text = _read_csv_text(path)
+    reader = csv.DictReader(io.StringIO(text))
+    out: list[dict] = []
+    for row in reader:
+        name = _pick(row, "상품명", "장학상품명", "장학금명", "장학사업명")
+        if not name:
+            continue
+        org = _pick(row, "운영기관명", "운영기관", "기관명")
+        org_type = _pick(row, "운영기관구분", "기관구분")
+        benefit = _pick(row, "지원내역 상세내용", "지원내역상세내용", "지원내역", "지원내용")
+        grade = _pick(row, "성적기준 상세내용", "성적기준상세내용", "성적기준")
+        income = _pick(row, "소득기준 상세내용", "소득기준상세내용", "소득기준")
+        special = _pick(row, "특정자격 상세내용", "특정자격상세내용", "특정자격")
+        limit = _pick(row, "자격제한 상세내용", "자격제한상세내용", "자격제한")
+        yearg = _pick(row, "학년구분")
+        majorg = _pick(row, "학과구분")
+        region_res = _pick(row, "지역거주여부 상세내용", "지역거주여부상세내용", "지역거주여부")
+        docs_raw = _pick(row, "제출서류 상세내용", "제출서류상세내용", "제출서류")
+        home = _pick(row, "홈페이지 주소", "홈페이지주소", "홈페이지", "URL")
+        start = _pick(row, "모집시작일", "접수시작일")
+        end = _pick(row, "모집종료일", "접수종료일")
+
+        elig = " / ".join(clean(x) for x in (grade, income, special, limit) if clean(x))
+        target = " / ".join(clean(x) for x in (org_type, yearg, majorg, region_res) if clean(x)) or "대학생·대학원생"
+        docs = [d.strip() for d in re.split(r"[,/·\n]+", docs_raw) if d.strip()] if docs_raw else []
+        url = clean(home)
+        url = url if url.startswith("http") else ""
+        sid = hashlib.md5((clean(org) + clean(name)).encode("utf-8")).hexdigest()[:8]
+        p = {
+            "id": f"SCH-{sid}",
+            "name": clean(name),
+            "category": "교육",
+            "target": clean(target),
+            "benefit": clean(benefit) or "장학금 지원",
+            "eligibility": elig or clean(target),
+            "required_docs": docs,
+            "application": url or "https://www.kosaf.go.kr",  # 실제 운영기관 홈페이지 우선, 없으면 한국장학재단
+            "department": clean(org) or "장학재단",
+            "renewal": (f"{clean(start)}~{clean(end)}" if (clean(start) or clean(end)) else "기관 안내 확인"),
+            "contact": "",
+            "org_type": clean(org_type),   # 지자체/민간재단/대학/기업 등 — 필터/배지용
+            "scholarship": True,
+        }
+        if clean(end):
+            p["deadline"] = clean(end)
+        out.append(p)
+    return out
+
+
 # ── API 모드 (한국사회보장정보원 중앙부처복지서비스 B554287) ────────────────────
 WELFARE_LIST_URL = "https://apis.data.go.kr/B554287/NationalWelfareInformationsV001/NationalWelfarelistV001"
 
@@ -457,9 +514,31 @@ def main() -> int:
                     help="기존 policies.json의 중앙부처 항목을 상세 API로 승격(금액/조건/서류/실제 신청URL)")
     ap.add_argument("--derive", action="store_true",
                     help="네트워크 없이 기존 policies.json에 금액/조건/현금성 파생필드만 적용")
+    ap.add_argument("--kosaf", type=str,
+                    help="한국장학재단 학자금지원정보 CSV 경로 → 기업/민간/지자체/대학 장학금을 기존 카탈로그에 병합")
     ap.add_argument("--out", type=str, default=str(DEFAULT_OUT), help="출력 JSON 경로")
     ap.add_argument("--max-pages", type=int, default=60)
     args = ap.parse_args()
+
+    # --kosaf 병합 모드: 한국장학재단 장학금 CSV를 기존 카탈로그에 병합(기존 우선 디듑) + 파생
+    if args.kosaf:
+        out_path = Path(args.out).expanduser()
+        existing = json.loads(out_path.read_text(encoding="utf-8")) if out_path.exists() else []
+        path = Path(args.kosaf).expanduser()
+        if not path.exists():
+            print(f"[etl] 장학재단 CSV 없음: {path}\n"
+                  "      data.go.kr/data/15028252/fileData.do 에서 CSV 다운로드(로그인 불필요) 후 경로를 넘기세요.")
+            return 1
+        sch = ingest_kosaf_csv(path)
+        print(f"[etl] 한국장학재단 CSV에서 장학금 {len(sch)}건")
+        combined = dedupe([p for p in (existing + sch) if p.get("name")])  # 기존 우선
+        for p in combined:
+            enrich_fields(p)
+        out_path.write_text(json.dumps(combined, ensure_ascii=False, indent=2), encoding="utf-8")
+        added = len(combined) - len(existing)
+        cash = sum(1 for p in combined if p.get("is_cash"))
+        print(f"[etl] ✅ 병합 완료 — 총 {len(combined)}건(+{added} 장학금) · 현금성 {cash} → {out_path}")
+        return 0
 
     # --derive 단독 모드: API 호출 없이 기존 카탈로그에 금액/조건/현금성 파생필드만 부여
     if args.derive and not (args.csv or args.api or args.local or args.enrich):
