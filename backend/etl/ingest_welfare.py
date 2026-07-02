@@ -79,6 +79,94 @@ def clean(s) -> str:
     return re.sub(r"\s+", " ", str(s)).strip()
 
 
+# ── 현금성/금액 추출 (실제 지원내용 텍스트에서 파생 — 가짜 생성 아님) ─────────────
+# 정부 복지 안내문의 실제 금액 표기("월 30만원", "최대 100만원", "300,000원", "연 200만원")를
+# 정규식으로 뽑아 정렬/필터/합산에 쓸 정수(월 환산 우선)와 표시 문자열을 만든다.
+# 값을 지어내지 않는다 — 원문에 금액이 없으면 amount_krw=None(현금성 아님으로 취급).
+_CASH_KEYWORDS = ("지원금", "수당", "급여", "장려금", "바우처", "보조금", "지원비", "생계",
+                  "현금", "저축", "카드", "이용권", "포인트", "장학금", "학자금", "연금")
+_AMOUNT_RE = re.compile(
+    r"(?:(?P<period>월|매월|월별|연|년|1회|일시|1인당|가구당|최대)\s*)?"
+    r"(?P<num>[0-9][0-9,\.]*)\s*(?P<unit>만\s*원|원|만)"
+)
+
+
+def extract_amount(*texts: str) -> dict:
+    """실제 지원내용 문장에서 대표 금액을 추출. 여러 후보 중 '월' 표기를 우선, 없으면 최댓값.
+
+    반환: {"amount_krw": int|None(원 단위, 월 우선), "amount_text": str, "period": str, "is_cash": bool}
+    """
+    blob = " ".join(t for t in texts if t)
+    if not blob:
+        return {"amount_krw": None, "amount_text": "", "period": "", "is_cash": False}
+    cands = []  # (krw, period, raw)
+    for m in _AMOUNT_RE.finditer(blob):
+        raw_num = m.group("num").replace(",", "").rstrip(".")
+        try:
+            val = float(raw_num)
+        except ValueError:
+            continue
+        unit = m.group("unit").replace(" ", "")
+        krw = int(val * 10000) if unit.startswith("만") else int(val)
+        if krw < 1000:  # '만' 없는 3자리 이하는 금액 아닐 확률 높음(횟수/나이 등) — 잡음 제거
+            continue
+        period = (m.group("period") or "").replace(" ", "")
+        cands.append((krw, period, m.group(0).strip()))
+    if not cands:
+        return {"amount_krw": None, "amount_text": "", "period": "",
+                "is_cash": any(k in blob for k in _CASH_KEYWORDS)}
+    # 월 표기 후보 우선, 그 안에서 최댓값 → 없으면 전체 최댓값
+    monthly = [c for c in cands if c[1] in ("월", "매월", "월별")]
+    pick = max(monthly or cands, key=lambda c: c[0])
+    return {"amount_krw": pick[0], "amount_text": pick[2], "period": pick[1] or "",
+            "is_cash": True}
+
+
+# ── 자격 조건 태그 추출 (나이/소득/가구/지역 — 실제 대상·선정기준 문장에서) ──────
+_HOUSEHOLD_TAGS = {
+    "한부모": ["한부모", "조손"], "다자녀": ["다자녀", "세자녀", "3자녀", "다둥이"],
+    "노인": ["노인", "어르신", "고령", "65세"], "장애인": ["장애"],
+    "청년": ["청년", "대학생"], "임신·출산": ["임신", "임산부", "산모", "출산", "난임"],
+    "아동": ["아동", "영유아", "보육", "어린이"], "저소득": ["저소득", "기초생활", "차상위", "수급"],
+    "다문화": ["다문화", "결혼이민", "외국인"], "농어민": ["농업인", "어업인", "농어가"],
+}
+_INCOME_RE = re.compile(r"(중위소득|기준중위소득)\s*(?P<pct>[0-9]{1,3})\s*%|소득인정액|소득[^.]{0,6}이하")
+_AGE_RE = re.compile(r"(?:만\s*)?(?P<lo>[0-9]{1,3})\s*세(?:\s*(?:이상|~|-|부터)\s*(?:만\s*)?(?P<hi>[0-9]{1,3})\s*세)?")
+
+
+def extract_conditions(*texts: str) -> dict:
+    """대상/선정기준 문장에서 나이·소득·가구·지역 신호를 구조화(있는 것만)."""
+    blob = " ".join(t for t in texts if t)
+    conds: dict = {}
+    if not blob:
+        return conds
+    hh = [tag for tag, kws in _HOUSEHOLD_TAGS.items() if any(k in blob for k in kws)]
+    if hh:
+        conds["household"] = hh
+    inc = _INCOME_RE.search(blob)
+    if inc:
+        conds["income"] = (inc.group("pct") + "% 이하") if inc.group("pct") else "소득 요건 있음"
+    age = _AGE_RE.search(blob)
+    if age:
+        lo = int(age.group("lo"))
+        hi = int(age.group("hi")) if age.group("hi") else None
+        if 0 <= lo <= 120:  # 잡음(연도 등) 배제
+            conds["age"] = {"min": lo, **({"max": hi} if hi and hi <= 120 else {})}
+    return conds
+
+
+def enrich_fields(p: dict) -> dict:
+    """정책 dict에 금액/조건/현금성 파생 필드를 추가(원문 기반, 값 조작 없음)."""
+    amt = extract_amount(p.get("benefit", ""), p.get("target", ""), p.get("name", ""))
+    conds = extract_conditions(p.get("eligibility", ""), p.get("target", ""), p.get("benefit", ""))
+    p["amount_krw"] = amt["amount_krw"]
+    p["amount_text"] = amt["amount_text"]
+    p["is_cash"] = amt["is_cash"]
+    if conds:
+        p["conditions"] = conds
+    return p
+
+
 def make_policy(*, sid: str, name: str, summary: str = "", target: str = "",
                 eligibility: str = "", benefit: str = "", application: str = "",
                 department: str = "", docs=None, url: str = "", region: str = "",
@@ -266,6 +354,88 @@ def ingest_local_api(service_key: str, max_pages: int = 200, rows: int = 100) ->
     return out
 
 
+# ── 상세 API 인리치먼트 (중앙부처 servId → 금액/조건/서류/실제 신청URL) ──────────
+DETAIL_URL = "https://apis.data.go.kr/B554287/NationalWelfareInformationsV001/NationalWelfaredetailedV001"
+
+
+def fetch_detail(client, service_key: str, serv_id: str) -> dict | None:
+    """중앙부처 복지서비스 상세 조회 → 실제 지원내용/대상/선정기준/서식/온라인신청URL 파싱.
+
+    servSeCode 의미: 010 문의처 · 020 온라인신청(URL) · 030 관련법령 · 040 서식(구비서류) · 070 신청방법
+    """
+    import xml.etree.ElementTree as ET
+    r = _get_with_retry(client, DETAIL_URL,
+                        {"serviceKey": service_key, "callTp": "D", "servId": serv_id},
+                        f"detail {serv_id}")
+    if r is None:
+        return None
+    try:
+        root = ET.fromstring(r.text)
+    except ET.ParseError:
+        return None
+
+    def g(tag: str) -> str:
+        return clean(root.findtext(f".//{tag}") or "")
+
+    docs, online_url, apply_how, phone = [], "", [], ""
+    for blk in root.findall(".//servList"):
+        code = (blk.findtext("servSeCode") or "").strip()
+        nm = clean(blk.findtext("servSeDetailNm") or "")
+        link = clean(blk.findtext("servSeDetailLink") or "")
+        if code == "040" and nm and nm not in docs:      # 서식 = 구비서류/신청서
+            docs.append(nm)
+        elif code == "020" and link.startswith("http"):   # 온라인 신청 실제 URL
+            online_url = online_url or link
+        elif code == "070" and link:                      # 신청 방법 설명
+            apply_how.append(link)
+        elif code == "010" and link:
+            phone = phone or link
+    return {
+        "benefit": g("alwServCn") or g("wlfareInfoOutlCn"),
+        "target": g("tgtrDtlCn"),
+        "eligibility": g("slctCritCn") or g("tgtrDtlCn"),
+        "required_docs": docs,
+        "online_apply": online_url,
+        "apply_method": " / ".join(apply_how)[:300],
+        "contact": g("rprsCtadr") or phone,
+        "crtr_yr": g("crtrYr"),
+    }
+
+
+def enrich_from_detail(policies: list[dict], service_key: str) -> int:
+    """GOV-(중앙부처) 정책을 상세 API로 승격. 반환: 승격 성공 건수."""
+    import httpx
+    targets = [p for p in policies if p["id"].startswith("GOV-WLF")]
+    done = 0
+    with httpx.Client(timeout=30.0) as client:
+        for i, p in enumerate(targets, 1):
+            serv_id = p["id"].split("GOV-", 1)[1]
+            d = fetch_detail(client, service_key, serv_id)
+            if not d:
+                continue
+            if d["benefit"]:
+                p["benefit"] = d["benefit"][:400]
+            if d["target"]:
+                p["target"] = d["target"][:400]
+            if d["eligibility"]:
+                p["eligibility"] = d["eligibility"][:400]
+            if d["required_docs"]:
+                p["required_docs"] = d["required_docs"]
+            # 실제 온라인 신청 URL이 있으면 신청 링크로 승격, 없으면 기존 복지로 딥링크 유지
+            if d["online_apply"]:
+                p["application"] = d["online_apply"]
+            if d["apply_method"]:
+                p["apply_method"] = d["apply_method"]
+            if d["contact"]:
+                p["contact"] = d["contact"]
+            if d["crtr_yr"]:
+                p["crtr_yr"] = d["crtr_yr"]
+            done += 1
+            if i % 50 == 0:
+                print(f"[etl/enrich] {i}/{len(targets)} 처리 (승격 {done})")
+    return done
+
+
 # ── 병합/저장 ─────────────────────────────────────────────────────────────────
 def dedupe(policies: list[dict]) -> list[dict]:
     seen, out = set(), []
@@ -283,9 +453,50 @@ def main() -> int:
     ap.add_argument("--csv", type=str, help="공개 CSV 경로 (키 불필요). 여러 개면 콤마로 구분")
     ap.add_argument("--api", action="store_true", help="중앙부처 OpenAPI (DATA_GO_KR_SERVICE_KEY 필요)")
     ap.add_argument("--local", action="store_true", help="지자체 OpenAPI (DATA_GO_KR_SERVICE_KEY 필요)")
+    ap.add_argument("--enrich", action="store_true",
+                    help="기존 policies.json의 중앙부처 항목을 상세 API로 승격(금액/조건/서류/실제 신청URL)")
+    ap.add_argument("--derive", action="store_true",
+                    help="네트워크 없이 기존 policies.json에 금액/조건/현금성 파생필드만 적용")
     ap.add_argument("--out", type=str, default=str(DEFAULT_OUT), help="출력 JSON 경로")
     ap.add_argument("--max-pages", type=int, default=60)
     args = ap.parse_args()
+
+    # --derive 단독 모드: API 호출 없이 기존 카탈로그에 금액/조건/현금성 파생필드만 부여
+    if args.derive and not (args.csv or args.api or args.local or args.enrich):
+        out_path = Path(args.out).expanduser()
+        if not out_path.exists():
+            print(f"[etl] 기존 카탈로그가 없습니다: {out_path}")
+            return 1
+        existing = json.loads(out_path.read_text(encoding="utf-8"))
+        for p in existing:
+            enrich_fields(p)
+        out_path.write_text(json.dumps(existing, ensure_ascii=False, indent=2), encoding="utf-8")
+        cash = sum(1 for p in existing if p.get("is_cash"))
+        amt = sum(1 for p in existing if p.get("amount_krw"))
+        cond = sum(1 for p in existing if p.get("conditions"))
+        print(f"[etl] ✅ 파생 적용 {len(existing)}건 · 현금성 {cash} · 금액추출 {amt} · 조건 {cond} → {out_path}")
+        return 0
+
+    # --enrich 단독 모드: 새로 수집하지 않고 기존 카탈로그를 상세정보로 승격 + 파생필드 재계산
+    if args.enrich and not (args.csv or args.api or args.local):
+        key = os.getenv("DATA_GO_KR_SERVICE_KEY", "").strip()
+        if not key:
+            print("[etl] --enrich 에는 DATA_GO_KR_SERVICE_KEY 가 필요합니다.")
+            return 1
+        out_path = Path(args.out).expanduser()
+        if not out_path.exists():
+            print(f"[etl] 기존 카탈로그가 없습니다: {out_path} (먼저 --api/--local 로 수집)")
+            return 1
+        existing = json.loads(out_path.read_text(encoding="utf-8"))
+        print(f"[etl] 기존 {len(existing)}건 로드 → 중앙부처 상세 승격 시작")
+        promoted = enrich_from_detail(existing, key)
+        for p in existing:
+            enrich_fields(p)
+        out_path.write_text(json.dumps(existing, ensure_ascii=False, indent=2), encoding="utf-8")
+        cash = sum(1 for p in existing if p.get("is_cash"))
+        docs = sum(1 for p in existing if p.get("required_docs"))
+        print(f"[etl] ✅ 승격 {promoted}건 · 현금성 {cash}건 · 서류보유 {docs}건 → {out_path}")
+        return 0
 
     policies: list[dict] = []
 
@@ -323,6 +534,14 @@ def main() -> int:
     if not policies:
         print("[etl] 정규화된 정책이 없습니다. 입력/키를 확인하세요. (가짜 데이터는 생성하지 않음)")
         return 1
+
+    # 상세 승격(선택) → 그 뒤 전체에 금액/조건 파생필드 부여
+    if args.enrich:
+        key = os.getenv("DATA_GO_KR_SERVICE_KEY", "").strip()
+        if key:
+            enrich_from_detail(policies, key)
+    for p in policies:
+        enrich_fields(p)
 
     out_path = Path(args.out).expanduser()
     out_path.parent.mkdir(parents=True, exist_ok=True)
