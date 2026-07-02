@@ -18,6 +18,12 @@
   안 넣으면 규칙기반으로 동작(시연엔 충분).
 
 ## 1. 로컬 에이전트(백엔드) 실행
+
+### 🟢 가장 쉬움 — 원클릭 (배포 사이트와 함께 쓸 때)
+- **`run-agent.bat` 더블클릭.** 백엔드(로컬 에이전트)만 뜨고, 최초 실행 시 venv 생성·의존성·브라우저 설치까지 자동.
+  이후 자동으로 배포 사이트(https://biocode67.github.io/modoo-bom/)가 열리고 에이전트를 감지해 RPA가 켜진다.
+
+### 수동 (개발자용)
 ```bash
 cd backend && venv\Scripts\activate
 uvicorn main:app --port 8000
