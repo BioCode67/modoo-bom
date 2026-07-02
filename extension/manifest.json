@@ -1,0 +1,36 @@
+{
+  "manifest_version": 3,
+  "name": "모두봄 복지 에이전트",
+  "version": "0.1.0",
+  "description": "배포된 모두봄 웹에서 정부24 서류 자동발급을 사용자 브라우저 안에서 자동화합니다. 개인정보는 브라우저 밖으로 나가지 않습니다.",
+  "permissions": ["scripting", "tabs", "storage"],
+  "host_permissions": [
+    "https://plus.gov.kr/*",
+    "https://www.gov.kr/*",
+    "https://*.gov.kr/*"
+  ],
+  "externally_connectable": {
+    "matches": [
+      "https://biocode67.github.io/*",
+      "http://localhost:5173/*",
+      "http://localhost:4173/*"
+    ]
+  },
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://biocode67.github.io/*",
+        "http://localhost:5173/*",
+        "http://localhost:4173/*"
+      ],
+      "js": ["bridge.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "action": {
+    "default_title": "모두봄 복지 에이전트",
+    "default_popup": "popup.html"
+  },
+  "icons": { "128": "icon128.png" }
+}

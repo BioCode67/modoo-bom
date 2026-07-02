@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { FileText, ExternalLink, Bot, Loader2, CheckCircle2, AlertCircle } from 'lucide-react'
 import { getPolicyMap } from '@/data/catalog'
@@ -6,6 +6,7 @@ import { useAppStore } from '@/store/useAppStore'
 import { docLink, isRpaSupported } from '@/lib/officialLinks'
 import { API_BASE } from '@/lib/backend'
 import { useBackend } from '@/lib/useBackend'
+import { detectExtension, issueViaExtension, onExtensionStatus } from '@/lib/extension'
 import { RpaInfoForm } from '@/components/RpaInfoForm'
 
 type RpaState = { status: string; step: string } | null
@@ -13,8 +14,18 @@ type RpaState = { status: string; step: string } | null
 export function DocumentCenter() {
   const { tracked, profile, rpaInfo } = useAppStore()
   const { ready, caps } = useBackend()
-  const backend = ready === true && !!caps?.rpa   // RPA 가능한 로컬 에이전트일 때만 자동발급 노출
+  const localAgent = ready === true && !!caps?.rpa   // RPA 가능한 로컬 에이전트
+  const [ext, setExt] = useState(false)              // 크롬 확장(브라우저 내 자동화)
+  const backend = localAgent || ext                  // 둘 중 하나면 자동발급 노출
   const [rpa, setRpa] = useState<Record<string, RpaState>>({})
+
+  // 확장 감지 + 진행상태 구독(확장은 서류명별 status를 푸시)
+  useEffect(() => {
+    detectExtension().then(setExt)
+    return onExtensionStatus((s) => {
+      if (s.docName) setRpa((prev) => ({ ...prev, [s.docName!]: { status: s.status, step: s.step } }))
+    })
+  }, [])
 
   // 담은 정책들의 필요 서류 → 어떤 복지들에 필요한지까지 집계 (공통 서류 우선 준비)
   const docNeeds = useMemo(() => {
@@ -39,6 +50,15 @@ export function DocumentCenter() {
 
   const startRpa = async (doc: string) => {
     setRpa((s) => ({ ...s, [doc]: { status: 'running', step: '시작 중…' } }))
+    // 로컬 에이전트가 없고 확장만 있으면 브라우저 내 확장으로 발급(진행상태는 구독으로 수신)
+    if (!localAgent && ext) {
+      const ok = await issueViaExtension(doc, {
+        user_name: profile?.name || '사용자',
+        birth_date: rpaInfo.birth_date, phone: rpaInfo.phone, carrier: rpaInfo.carrier,
+      })
+      if (!ok) setRpa((s) => ({ ...s, [doc]: { status: 'error', step: '확장이 이 서류를 지원하지 않아요(정부24 서류만).' } }))
+      return
+    }
     try {
       const res = await fetch(`${API_BASE}/api/documents/rpa-issue`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
