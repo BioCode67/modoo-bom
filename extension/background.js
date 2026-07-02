@@ -3,12 +3,19 @@
 // 개인정보(userInfo)는 메모리/탭 안에서만 쓰고 서버로 보내지 않는다.
 
 const DOCS = {
-  '주민등록등본': { capp: '13100000015' },
-  '주민등록초본': { capp: '13100000015' },
-  '가족관계증명서': { capp: '14100000017' },
-  '장애인증명서': { capp: '11100000006' },
+  '주민등록등본': { site: 'gov24', capp: '13100000015' },
+  '주민등록초본': { site: 'gov24', capp: '13100000015' },
+  '가족관계증명서': { site: 'gov24', capp: '14100000017' },
+  '장애인증명서': { site: 'gov24', capp: '11100000006' },
+  '건강보험 자격득실확인서': { site: 'nhis' },
+  '고용보험 피보험자격 이력내역서': { site: 'work24' },
 }
-const LOGIN_URL = 'https://plus.gov.kr/login'
+const LOGIN_URLS = {
+  gov24: 'https://plus.gov.kr/login',
+  nhis: 'https://www.nhis.or.kr/nhis/etc/personalLoginPage.do',
+  work24: 'https://www.work24.go.kr/cm/z/b/0210/openLginPageForAnyIdIntro.do',
+}
+const NHIS_CERT_URL = 'https://www.nhis.or.kr/nhis/minwon/jpAea00401.do'
 const issueUrl = (capp) =>
   `https://www.gov.kr/mw/AA040OfferMainFrm.do?capp_biz_cd=${capp}&HighCtgCD=A01010001&FAX_TYPE=N&img=02&selectedSeq=01`
 
@@ -38,13 +45,15 @@ function pushStatus(status, step) {
 
 async function startJob(docName, userInfo, webTabId) {
   if (!DOCS[docName]) return { ok: false, error: `지원하지 않는 서류: ${docName}` }
-  const tab = await chrome.tabs.create({ url: LOGIN_URL, active: true })
+  const site = DOCS[docName].site
+  const siteName = { gov24: '정부24', nhis: '건강보험공단', work24: '고용24' }[site]
+  const tab = await chrome.tabs.create({ url: LOGIN_URLS[site], active: true })
   job = {
     id: 'job_' + Math.random().toString(36).slice(2, 9),
-    kind: 'doc', docName, userInfo: userInfo || {}, tabId: tab.id, webTabId,
-    phase: 'login', status: 'running', step: '정부24 로그인 페이지 여는 중…',
+    kind: 'doc', docName, site, userInfo: userInfo || {}, tabId: tab.id, webTabId,
+    phase: 'login', status: 'running', step: `${siteName} 로그인 페이지 여는 중…`,
   }
-  pushStatus('running', '정부24 로그인 페이지 여는 중… 화면에서 간편인증을 진행해 주세요.')
+  pushStatus('running', `${siteName} 로그인 페이지 여는 중… 화면에서 간편인증을 진행해 주세요.`)
   return { ok: true, jobId: job.id }
 }
 
@@ -94,7 +103,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       if (job.kind === 'apply') {
         return sendResponse({ kind: 'apply', serviceName: job.serviceName, serviceUrl: job.serviceUrl, userInfo: job.userInfo })
       }
-      return sendResponse({ kind: 'doc', docName: job.docName, userInfo: job.userInfo, capp: DOCS[job.docName].capp, issueUrl: issueUrl(DOCS[job.docName].capp) })
+      const info = DOCS[job.docName]
+      const iu = info.site === 'gov24' ? issueUrl(info.capp) : (info.site === 'nhis' ? NHIS_CERT_URL : '')
+      return sendResponse({ kind: 'doc', docName: job.docName, site: info.site, userInfo: job.userInfo, issueUrl: iu })
     }
     if (msg.type === 'AGENT_STATUS') {
       if (job && sender.tab && sender.tab.id === job.tabId) pushStatus(msg.payload.status, msg.payload.step)

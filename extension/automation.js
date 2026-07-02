@@ -129,6 +129,58 @@
     return
   }
 
+  // ── 건강보험공단(자격득실확인서) — 인증 위젯이 메인 DOM에 열림 ──
+  if (host === 'www.nhis.or.kr' && isTop && job.site === 'nhis') {
+    await sleep(1500)
+    if (/personalLoginPage/i.test(url)) {
+      clickText(['간편인증 로그인', '간편인증', '간편 인증'])
+      await sleep(2500)
+      clickText(['카카오톡', 'TALK'], ['카카오뱅크', 'BANK'])
+      await sleep(800)
+      const u = job.userInfo || {}
+      const name = (u.user_name || u.name || '').trim()
+      const birth = String(u.birth_date || '').replace(/[^0-9]/g, '')
+      const phone = String(u.phone || '').replace(/[^0-9]/g, '')
+      let filled = false
+      filled = fill(['#oacx_name'], name) || filled
+      filled = fill(['#oacx_birth'], birth) || filled
+      if (phone) { const tail = phone.startsWith('010') && phone.length >= 10 ? phone.slice(3) : phone; filled = fill(['#oacx_phone2', '#oku_phone2'], tail) || filled }
+      const agree = document.querySelector('#totalAgree'); if (agree && !agree.checked) agree.click()
+      status('waiting', filled
+        ? "✅ 정보를 자동 입력했어요. '인증 요청' 후 📱 카카오톡 [인증 허용]만 하세요."
+        : "카카오톡 선택 후 정보를 입력하고 '인증 요청'을 눌러 주세요. 📱")
+      return
+    }
+    if (/jpAea00401/i.test(url)) {
+      clickText(['확인서 발급', '발급하기', '발급', '출력', '인쇄'])
+      status('done', '✅ 건강보험 자격득실확인서 발급 화면까지 진행했어요. 인쇄창에서 저장(PDF)하세요.')
+      return
+    }
+    status('running', '로그인 완료 — 자격득실확인서 페이지로 이동합니다.')
+    await sleep(500); await send({ type: 'GOTO', payload: { url: job.issueUrl } })
+    return
+  }
+
+  // ── 고용24(피보험자격 이력내역서) — 로그인 후 메뉴→조회→발급 ──
+  if (host === 'www.work24.go.kr' && isTop && job.site === 'work24') {
+    await sleep(1500)
+    if (/openLginPage|AnyId|login/i.test(url)) {
+      clickSel(['a.link-easy-anyId', 'a[class*="easy-anyId"]', 'a[onclick*="anyidAdaptor"]', '.btn_quick_login']) || clickText(['간편인증'])
+      status('running', '간편인증을 선택했어요. 카카오톡으로 본인인증을 진행해 주세요. 📱')
+      await sleep(2800); await send({ type: 'REINJECT' })
+      return
+    }
+    clickText(['피보험자격이력', '피보험 자격이력', '이력내역서', '피보험자격 이력'])
+    await sleep(1500)
+    clickText(['조회', '확인'])
+    await sleep(1500)
+    const issued = clickText(['발급', '출력', '인쇄'])
+    status(issued ? 'done' : 'running', issued
+      ? '✅ 고용보험 피보험자격 이력내역서 발급 화면까지 진행했어요. 인쇄창에서 저장하세요.'
+      : "화면에서 '피보험자격이력' 메뉴 → 조회 → 발급을 진행해 주세요.")
+    return
+  }
+
   // ── 3) 로그인 후 다른 페이지에 착지: 발급폼으로 이동 ──
   if (host === 'plus.gov.kr' && isTop && !/login/i.test(location.pathname)) {
     status('running', '로그인 완료 — 발급 페이지로 이동합니다.')

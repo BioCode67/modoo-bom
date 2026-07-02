@@ -9,7 +9,9 @@
     "https://www.gov.kr/*",
     "https://*.gov.kr/*",
     "https://www.bokjiro.go.kr/*",
-    "https://*.yeskey.or.kr/*"
+    "https://*.yeskey.or.kr/*",
+    "https://www.nhis.or.kr/*",
+    "https://www.work24.go.kr/*"
   ],
   "externally_connectable": {
     "matches": [
