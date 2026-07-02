@@ -9,6 +9,7 @@ import { PolicyDetailDrawer } from '@/components/PolicyDetailDrawer'
 import { BenefitBreakdown, CategoryDistribution } from '@/components/BenefitCharts'
 import { FutureWelfare } from '@/components/FutureWelfare'
 import { LifeTimeline } from '@/components/LifeTimeline'
+import { ContinuityCard } from '@/components/ContinuityCard'
 import { WelfareScore } from '@/components/WelfareScore'
 import { ShareButton } from '@/components/ShareButton'
 import { Glossary } from '@/components/Glossary'
@@ -48,6 +49,8 @@ export function ResultsView({ result, profile, onReset }: { result: AnalysisResu
     <div className="page-container py-8 sm:py-10">
       {/* 스크린리더 전용: 결과 도착 안내 */}
       <p className="sr-only" role="status" aria-live="polite">{liveMsg}</p>
+      {/* 연속성 에이전트 — 지난 방문 이후 달라진 점 + 새로 열린 복지 */}
+      <ContinuityCard profile={profile} onOpen={setSelected} />
       {/* 헤더 요약 */}
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="card-cute p-6 sm:p-8 bg-gradient-to-br from-sprout-50 via-white to-sky2-50 relative overflow-hidden">
         <div className="absolute -top-10 -right-10 h-40 w-40 rounded-full bg-sprout-200/40 blur-2xl" />
