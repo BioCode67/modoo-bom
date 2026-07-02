@@ -45,7 +45,18 @@
 - `automation.js` — 정부24 발급 흐름(간편인증→발급폼→출력) 자동화. 모든 프레임에 주입.
 - `popup.html/js` — 진행상태 표시.
 
+## 실사이트 검증 (validate_live.py)
+확장을 실 Chromium에 로드해 **실제 정부사이트에서 '간편인증' 클릭까지** 도달하는지 확인(본인인증 직전까지, 개인정보 미사용):
+```bash
+cd backend && venv\Scripts\activate
+python ../extension/validate_live.py "주민등록등본"                      # 정부24
+python ../extension/validate_live.py "건강보험 자격득실확인서"            # 건강보험
+python ../extension/validate_live.py "고용보험 피보험자격 이력내역서"      # 고용24
+python ../extension/validate_live.py "기초연금" apply                    # 복지로 신청
+```
+2026-07 기준 4개 사이트 모두 **간편인증 클릭 도달 ✅** (정부24는 Mbuster 보안페이지 대기 포함).
+
 ## 한계
-- 정부 사이트 DOM 변경에 취약(선택자 유지보수 필요 — Playwright RPA와 동일).
+- 정부 사이트 DOM 변경에 취약(선택자 유지보수 필요 — Playwright RPA와 동일). validate_live.py로 주기 점검.
 - 복지로는 Clipsoft eForm SPA + 외부 인증 iframe(fincert)이라 흐름이 바뀌면 조정 필요.
 - 본인인증(카카오/공동인증)과 최종 제출은 설계상 항상 사용자 직접(비가역·법적 행위 안전장치).

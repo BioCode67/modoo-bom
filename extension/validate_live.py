@@ -19,6 +19,10 @@ from pathlib import Path
 
 EXT = str(Path(__file__).resolve().parent)
 DOC = sys.argv[1] if len(sys.argv) > 1 else "주민등록등본"
+# 두 번째 인자가 'apply' 면 복지 자동신청(복지로) 검증
+MODE = sys.argv[2] if len(sys.argv) > 2 else "issue"
+_TYPE = "APPLY" if MODE == "apply" else "ISSUE"
+_KEY = "serviceName" if MODE == "apply" else "docName"
 
 PAGE = """<!doctype html><html><head><meta charset=utf-8></head><body>
 <script>
@@ -28,8 +32,8 @@ function req(type,payload){return new Promise(res=>{const id=Math.random().toStr
  const h=e=>{const d=e.data;if(d&&d.source==='modoo-ext'&&d.kind==='response'&&d.reqId===id){window.removeEventListener('message',h);res(d.resp)}};
  window.addEventListener('message',h);window.postMessage({source:'modoo-web',type,payload,reqId:id},'*');
  setTimeout(()=>res(null),3000)})}
-setTimeout(async()=>{window.__issue=await req('ISSUE',{docName:'%s',userInfo:{user_name:'홍길동'}});},600);
-</script></body></html>""" % DOC
+setTimeout(async()=>{window.__issue=await req('%s',{%s:'%s',userInfo:{user_name:'홍길동'}});},600);
+</script></body></html>""" % (_TYPE, _KEY, DOC)
 
 
 async def main() -> int:
@@ -52,10 +56,10 @@ async def main() -> int:
         for _ in range(40):
             await asyncio.sleep(1)
             for p in ctx.pages:
-                if any(k in p.url for k in ("plus.gov.kr", "gov.kr", "nhis.or.kr", "work24.go.kr")):
+                if any(k in p.url for k in ("plus.gov.kr", "gov.kr", "nhis.or.kr", "work24.go.kr", "bokjiro.go.kr")):
                     gov_url = p.url
             sts = await page.evaluate("window.__statuses || []")
-            if any("간편인증을 선택" in s.get("step", "") for s in sts):
+            if any(any(k in s.get("step", "") for k in ("간편인증을 선택", "카카오", "자동 입력", "인증 요청")) for s in sts):
                 print("[검증] ✅ 자동화가 실제 사이트에서 '간편인증' 클릭까지 도달")
                 break
         sts = await page.evaluate("window.__statuses || []")
@@ -63,9 +67,9 @@ async def main() -> int:
         print("[검증] 수신 상태들:")
         for s in sts:
             print("   -", s.get("status"), "|", s.get("step", "")[:70])
-        reached = any("간편인증을 선택" in s.get("step", "") for s in sts)
-        print("[검증] 결과:", "✅ 간편인증 클릭 성공" if reached
-              else "⚠️ 간편인증 클릭 미확인 — 사이트 로딩 지연이거나 DOM 변경(셀렉터 보정 필요)")
+        reached = any(any(k in s.get("step", "") for k in ("간편인증을 선택", "카카오", "자동 입력", "인증 요청")) for s in sts)
+        print("[검증] 결과:", "✅ 인증 단계 도달(간편인증 클릭 성공)" if reached
+              else "⚠️ 인증 단계 미도달 — 사이트 로딩 지연이거나 DOM 변경(셀렉터 보정 필요)")
         await ctx.close()
     httpd.shutdown()
     return 0

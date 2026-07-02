@@ -119,12 +119,14 @@
   if (host === 'www.bokjiro.go.kr' && isTop && job.kind === 'apply') {
     await sleep(1500)
     if (/loginView/i.test(url)) {
-      // 로그인 페이지: eForm 간편인증 클릭 → 인증 iframe에도 주입 요청
-      const clicked = clickEform(['간편인증', '간편 인증', '간편로그인'])
+      // 로그인 페이지: eForm 간편인증 버튼 폴링 클릭 → 인증 iframe에도 주입 요청
+      status('running', '복지로 로그인 화면 준비 중…')
+      const clicked = await pollClick(() =>
+        clickEform(['간편인증', '간편 인증', '간편로그인']) || clickText(['간편인증', '간편 인증']), 12)
       status('running', clicked
         ? '복지로 간편인증을 선택했어요. 카카오톡으로 본인인증을 진행해 주세요. 📱'
         : "화면에서 '간편인증'을 눌러 주세요.")
-      await sleep(2800); await send({ type: 'REINJECT' })
+      if (clicked) { await sleep(2800); await send({ type: 'REINJECT' }) }
       return
     }
     if (/moveTWAT52011M/i.test(url)) {
@@ -153,7 +155,8 @@
   if (host === 'www.nhis.or.kr' && isTop && job.site === 'nhis') {
     await sleep(1500)
     if (/personalLoginPage/i.test(url)) {
-      clickText(['간편인증 로그인', '간편인증', '간편 인증'])
+      status('running', '건강보험공단 로그인 화면 준비 중…')
+      await pollClick(() => clickText(['간편인증 로그인', '간편인증', '간편 인증']), 12)
       await sleep(2500)
       clickText(['카카오톡', 'TALK'], ['카카오뱅크', 'BANK'])
       await sleep(800)
@@ -185,9 +188,13 @@
   if (host === 'www.work24.go.kr' && isTop && job.site === 'work24') {
     await sleep(1500)
     if (/openLginPage|AnyId|login/i.test(url)) {
-      clickSel(['a.link-easy-anyId', 'a[class*="easy-anyId"]', 'a[onclick*="anyidAdaptor"]', '.btn_quick_login']) || clickText(['간편인증'])
-      status('running', '간편인증을 선택했어요. 카카오톡으로 본인인증을 진행해 주세요. 📱')
-      await sleep(2800); await send({ type: 'REINJECT' })
+      status('running', '고용24 로그인 화면 준비 중…')
+      const clicked = await pollClick(() =>
+        clickSel(['a.link-easy-anyId', 'a[class*="easy-anyId"]', 'a[onclick*="anyidAdaptor"]', '.btn_quick_login']) || clickText(['간편인증']), 12)
+      status('running', clicked
+        ? '간편인증을 선택했어요. 카카오톡으로 본인인증을 진행해 주세요. 📱'
+        : "화면에서 '간편인증'을 눌러 주세요.")
+      if (clicked) { await sleep(2800); await send({ type: 'REINJECT' }) }
       return
     }
     clickText(['피보험자격이력', '피보험 자격이력', '이력내역서', '피보험자격 이력'])
