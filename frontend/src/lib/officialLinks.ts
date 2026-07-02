@@ -28,6 +28,8 @@ export function docLink(doc: string): OfficialLink {
     return { label: '정부24에서 발급', url: 'https://www.gov.kr/mw/AA020InfoCappView.do?CappBizCD=14600000280', rpa: true }
   if (d.includes('한부모'))
     return { label: '정부24에서 발급', url: 'https://www.gov.kr/mw/AA020InfoCappView.do?CappBizCD=10601000001', rpa: true }
+  if (d.includes('국민연금') || (d.includes('연금') && d.includes('가입')))
+    return { label: '국민연금공단에서 발급', url: 'https://www.nps.or.kr/elctcvlcpt/comm/getOHAC0000M5.do?menuId=MN24001054', rpa: true }
   if (d.includes('소득') || d.includes('재산') || d.includes('금융정보') || d.includes('동의서'))
     return { label: '주민센터 방문 작성', url: 'https://www.bokjiro.go.kr' }
   if (d.includes('출생') || d.includes('신분증') || d.includes('통장'))
@@ -60,6 +62,7 @@ export function applyLink(application: string): OfficialLink {
 export const RPA_SUPPORTED_DOCS = [
   '주민등록등본', '주민등록초본', '가족관계증명서', '장애인증명서', '소득금액증명',
   '지방세 납세증명서', '지방세 세목별 과세증명서', '기초생활수급자 증명서', '한부모가족 증명서',
+  '국민연금 가입자 증명서', '국민연금 가입내역확인서',
   '건강보험 자격득실확인서', '고용보험 피보험자격 이력내역서',
 ]
 export function isRpaSupported(doc: string): boolean {

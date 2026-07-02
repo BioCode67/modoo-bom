@@ -184,6 +184,29 @@
     return
   }
 
+  // ── 국민연금공단(전자민원 가입증명) ──
+  if ((host === 'www.nps.or.kr' || host === 'minwon.nps.or.kr') && isTop && job.site === 'nps') {
+    await sleep(1500)
+    if (loggedIn()) {
+      // 로그인 상태: 발급/조회 버튼
+      const issued = await pollClick(() => clickText(['발급', '출력', '인쇄', '조회']), 8)
+      status(issued ? 'done' : 'running', issued
+        ? '✅ 국민연금 가입내역확인서 발급 화면까지 진행했어요. 인쇄창에서 저장하세요.'
+        : '화면에서 발급/조회 버튼을 눌러 주세요.')
+      return
+    }
+    // 로그인/간편인증 유도
+    status('running', '국민연금 전자민원 로그인 화면 준비 중…')
+    const clicked = await pollClick(() =>
+      clickText(['간편인증', '간편 인증', '간편인증 로그인']) ||
+      clickSel(["a[href*='simple' i]", "button[onclick*='simple' i]", ".btn-easy"]), 12)
+    status('running', clicked
+      ? '간편인증을 선택했어요. 카카오톡으로 본인인증을 진행해 주세요. 📱'
+      : "화면에서 '간편인증' 후 로그인해 주세요. 로그인되면 자동으로 발급을 이어가요.")
+    if (clicked) { await sleep(2800); await send({ type: 'REINJECT' }) }
+    return
+  }
+
   // ── 고용24(피보험자격 이력내역서) — 로그인 후 메뉴→조회→발급 ──
   if (host === 'www.work24.go.kr' && isTop && job.site === 'work24') {
     await sleep(1500)

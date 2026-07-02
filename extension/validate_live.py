@@ -56,7 +56,7 @@ async def main() -> int:
         for _ in range(40):
             await asyncio.sleep(1)
             for p in ctx.pages:
-                if any(k in p.url for k in ("plus.gov.kr", "gov.kr", "nhis.or.kr", "work24.go.kr", "bokjiro.go.kr")):
+                if any(k in p.url for k in ("plus.gov.kr", "gov.kr", "nhis.or.kr", "work24.go.kr", "bokjiro.go.kr", "nps.or.kr")):
                     gov_url = p.url
             sts = await page.evaluate("window.__statuses || []")
             if any(any(k in s.get("step", "") for k in ("간편인증을 선택", "카카오", "자동 입력", "인증 요청")) for s in sts):

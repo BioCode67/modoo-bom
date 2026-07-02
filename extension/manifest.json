@@ -11,7 +11,9 @@
     "https://www.bokjiro.go.kr/*",
     "https://*.yeskey.or.kr/*",
     "https://www.nhis.or.kr/*",
-    "https://www.work24.go.kr/*"
+    "https://www.work24.go.kr/*",
+    "https://www.nps.or.kr/*",
+    "https://minwon.nps.or.kr/*"
   ],
   "externally_connectable": {
     "matches": [

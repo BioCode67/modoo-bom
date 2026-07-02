@@ -15,13 +15,18 @@ const DOCS = {
   // 복지부 — 복지 신청 핵심 증명(정부24 발급)
   '기초생활수급자 증명서': { site: 'gov24', capp: '14600000280' },
   '한부모가족 증명서': { site: 'gov24', capp: '10601000001' },
+  '국민연금 가입자 증명서': { site: 'gov24', capp: '14600000312' },
   '건강보험 자격득실확인서': { site: 'nhis' },
   '고용보험 피보험자격 이력내역서': { site: 'work24' },
+  // 국민연금공단 직접(전자민원) — 연금산정용 가입내역 등 상세 증명
+  '국민연금 가입내역확인서': { site: 'nps' },
 }
 const LOGIN_URLS = {
   gov24: 'https://plus.gov.kr/login',
   nhis: 'https://www.nhis.or.kr/nhis/etc/personalLoginPage.do',
   work24: 'https://www.work24.go.kr/cm/z/b/0210/openLginPageForAnyIdIntro.do',
+  // 국민연금 전자민원 가입자 가입증명 페이지(미로그인 시 로그인 유도)
+  nps: 'https://www.nps.or.kr/elctcvlcpt/comm/getOHAC0000M5.do?menuId=MN24001054',
 }
 const NHIS_CERT_URL = 'https://www.nhis.or.kr/nhis/minwon/jpAea00401.do'
 const issueUrl = (capp) =>
@@ -66,7 +71,7 @@ async function startJob(rawName, userInfo, webTabId) {
   const docName = resolveDoc(rawName)
   if (!docName) return { ok: false, error: `지원하지 않는 서류: ${rawName}` }
   const site = DOCS[docName].site
-  const siteName = { gov24: '정부24', nhis: '건강보험공단', work24: '고용24' }[site]
+  const siteName = { gov24: '정부24', nhis: '건강보험공단', work24: '고용24', nps: '국민연금공단' }[site]
   const tab = await chrome.tabs.create({ url: LOGIN_URLS[site], active: true })
   job = {
     id: 'job_' + Math.random().toString(36).slice(2, 9),
@@ -129,7 +134,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         return sendResponse({ kind: 'apply', serviceName: job.serviceName, serviceUrl: job.serviceUrl, userInfo: job.userInfo })
       }
       const info = DOCS[job.docName]
-      const iu = info.issue || (info.site === 'gov24' ? issueUrl(info.capp) : (info.site === 'nhis' ? NHIS_CERT_URL : ''))
+      const iu = info.issue || (info.site === 'gov24' ? issueUrl(info.capp)
+        : info.site === 'nhis' ? NHIS_CERT_URL
+        : info.site === 'nps' ? LOGIN_URLS.nps : '')
       return sendResponse({ kind: 'doc', docName: job.docName, site: info.site, userInfo: job.userInfo, issueUrl: iu })
     }
     if (msg.type === 'AGENT_STATUS') {
