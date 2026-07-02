@@ -13,7 +13,8 @@
     "https://www.nhis.or.kr/*",
     "https://www.work24.go.kr/*",
     "https://www.nps.or.kr/*",
-    "https://minwon.nps.or.kr/*"
+    "https://minwon.nps.or.kr/*",
+    "https://www.kosaf.go.kr/*"
   ],
   "externally_connectable": {
     "matches": [

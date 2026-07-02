@@ -184,6 +184,31 @@
     return
   }
 
+  // ── 한국장학재단(국가장학금 등 신청) ──
+  if (host === 'www.kosaf.go.kr' && isTop && job.kind === 'apply' && job.applySite === 'kosaf') {
+    await sleep(1500)
+    if (/login/i.test(url)) {
+      status('running', '한국장학재단 로그인 화면 준비 중…')
+      const clicked = await pollClick(() => clickText(['간편인증', '간편 인증', '간편로그인']), 12)
+      status('running', clicked
+        ? '간편인증을 선택했어요. 카카오톡으로 본인인증을 진행해 주세요. 📱'
+        : "화면에서 '간편인증'을 눌러 주세요.")
+      if (clicked) { await sleep(2800); await send({ type: 'REINJECT' }) }
+      return
+    }
+    // 로그인 후: 신청 페이지로 이동 → 안내
+    if (job.serviceUrl && !url.startsWith(job.serviceUrl.split('?')[0])) {
+      status('running', '로그인 완료 — 장학금 신청 페이지로 이동합니다.')
+      await sleep(400); await send({ type: 'GOTO', payload: { url: job.serviceUrl } })
+      return
+    }
+    await pollClick(() => clickText(['신청하기', '신청', '온라인신청']), 8)
+    status('running',
+      `✅ '${job.serviceName}' 신청 화면이 열렸어요. 내용을 확인하고 채운 뒤,\n` +
+      '⚠️ 최종 제출은 본인이 직접 눌러 주세요.')
+    return
+  }
+
   // ── 국민연금공단(전자민원 가입증명) ──
   if ((host === 'www.nps.or.kr' || host === 'minwon.nps.or.kr') && isTop && job.site === 'nps') {
     await sleep(1500)

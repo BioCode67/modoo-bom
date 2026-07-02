@@ -82,21 +82,27 @@ async function startJob(rawName, userInfo, webTabId) {
   return { ok: true, jobId: job.id }
 }
 
+const KOSAF_LOGIN_URL = 'https://www.kosaf.go.kr/ko/login.do'
 const isBokjiroUrl = (u) => typeof u === 'string' && /^https:\/\/www\.bokjiro\.go\.kr\//.test(u)
+const isKosafUrl = (u) => typeof u === 'string' && /kosaf\.go\.kr/.test(u)
 
 async function startApply(serviceName, userInfo, webTabId, applyUrl) {
-  // 프론트가 넘긴 실제 복지로 딥링크(wlfareInfoId) 우선, 없으면 내장 6종 맵 폴백.
-  // → 카탈로그의 모든 복지로 정책을 자동신청 대상으로 일반화.
-  const serviceUrl = isBokjiroUrl(applyUrl) ? applyUrl : SERVICE_URLS[serviceName]
-  if (!serviceUrl) return { ok: false, error: `자동신청 미지원 서비스: ${serviceName}` }
-  const tab = await chrome.tabs.create({ url: BOKJIRO_LOGIN_URL, active: true })
+  // 신청 URL로 사이트 라우팅: 복지로(wlfareInfoId 딥링크) 또는 한국장학재단(장학금).
+  // 복지로는 카탈로그 전 정책 일반화, 없으면 내장 6종 폴백.
+  let loginUrl, applySite, serviceUrl
+  if (isKosafUrl(applyUrl)) { loginUrl = KOSAF_LOGIN_URL; applySite = 'kosaf'; serviceUrl = applyUrl }
+  else if (isBokjiroUrl(applyUrl)) { loginUrl = BOKJIRO_LOGIN_URL; applySite = 'bokjiro'; serviceUrl = applyUrl }
+  else if (SERVICE_URLS[serviceName]) { loginUrl = BOKJIRO_LOGIN_URL; applySite = 'bokjiro'; serviceUrl = SERVICE_URLS[serviceName] }
+  else return { ok: false, error: `자동신청 미지원 서비스: ${serviceName}` }
+  const label = applySite === 'kosaf' ? '한국장학재단' : '복지로'
+  const tab = await chrome.tabs.create({ url: loginUrl, active: true })
   job = {
     id: 'job_' + Math.random().toString(36).slice(2, 9),
-    kind: 'apply', serviceName, serviceUrl,
+    kind: 'apply', applySite, serviceName, serviceUrl,
     docName: serviceName, userInfo: userInfo || {}, tabId: tab.id, webTabId,
-    phase: 'login', status: 'running', step: '복지로 로그인 페이지 여는 중…',
+    phase: 'login', status: 'running', step: `${label} 로그인 페이지 여는 중…`,
   }
-  pushStatus('running', '복지로 로그인 페이지 여는 중… 화면에서 간편인증을 진행해 주세요.')
+  pushStatus('running', `${label} 로그인 페이지 여는 중… 화면에서 간편인증을 진행해 주세요.`)
   return { ok: true, jobId: job.id }
 }
 
@@ -131,7 +137,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       const inJobTab = sender.tab && job && sender.tab.id === job.tabId
       if (!inJobTab) return sendResponse(null)
       if (job.kind === 'apply') {
-        return sendResponse({ kind: 'apply', serviceName: job.serviceName, serviceUrl: job.serviceUrl, userInfo: job.userInfo })
+        return sendResponse({ kind: 'apply', applySite: job.applySite, serviceName: job.serviceName, serviceUrl: job.serviceUrl, userInfo: job.userInfo })
       }
       const info = DOCS[job.docName]
       const iu = info.issue || (info.site === 'gov24' ? issueUrl(info.capp)

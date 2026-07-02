@@ -21,8 +21,10 @@ EXT = str(Path(__file__).resolve().parent)
 DOC = sys.argv[1] if len(sys.argv) > 1 else "주민등록등본"
 # 두 번째 인자가 'apply' 면 복지 자동신청(복지로) 검증
 MODE = sys.argv[2] if len(sys.argv) > 2 else "issue"
+APPLY_URL = sys.argv[3] if len(sys.argv) > 3 else ""
 _TYPE = "APPLY" if MODE == "apply" else "ISSUE"
 _KEY = "serviceName" if MODE == "apply" else "docName"
+_EXTRA = (",applyUrl:'%s'" % APPLY_URL) if APPLY_URL else ""
 
 PAGE = """<!doctype html><html><head><meta charset=utf-8></head><body>
 <script>
@@ -32,8 +34,8 @@ function req(type,payload){return new Promise(res=>{const id=Math.random().toStr
  const h=e=>{const d=e.data;if(d&&d.source==='modoo-ext'&&d.kind==='response'&&d.reqId===id){window.removeEventListener('message',h);res(d.resp)}};
  window.addEventListener('message',h);window.postMessage({source:'modoo-web',type,payload,reqId:id},'*');
  setTimeout(()=>res(null),3000)})}
-setTimeout(async()=>{window.__issue=await req('%s',{%s:'%s',userInfo:{user_name:'홍길동'}});},600);
-</script></body></html>""" % (_TYPE, _KEY, DOC)
+setTimeout(async()=>{window.__issue=await req('%s',{%s:'%s'%s,userInfo:{user_name:'홍길동'}});},600);
+</script></body></html>""" % (_TYPE, _KEY, DOC, _EXTRA)
 
 
 async def main() -> int:
@@ -56,7 +58,7 @@ async def main() -> int:
         for _ in range(40):
             await asyncio.sleep(1)
             for p in ctx.pages:
-                if any(k in p.url for k in ("plus.gov.kr", "gov.kr", "nhis.or.kr", "work24.go.kr", "bokjiro.go.kr", "nps.or.kr")):
+                if any(k in p.url for k in ("plus.gov.kr", "gov.kr", "nhis.or.kr", "work24.go.kr", "bokjiro.go.kr", "nps.or.kr", "kosaf.go.kr")):
                     gov_url = p.url
             sts = await page.evaluate("window.__statuses || []")
             if any(any(k in s.get("step", "") for k in ("간편인증을 선택", "카카오", "자동 입력", "인증 요청")) for s in sts):

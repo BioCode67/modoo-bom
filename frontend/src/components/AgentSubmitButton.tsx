@@ -31,14 +31,15 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
     })
   }, [policy.name])
 
-  // 복지로 딥링크를 가진 정책이면 확장으로 자동신청 가능(내장 6종에 국한하지 않음)
-  const isBokjiro = /bokjiro\.go\.kr/.test(policy.application || '')
-  const showApply = automatable || isBokjiro
+  // 복지로/한국장학재단 신청 URL을 가진 정책이면 확장으로 자동신청 가능(내장 6종에 국한하지 않음)
+  const app = policy.application || ''
+  const isExtApplyable = /bokjiro\.go\.kr/.test(app) || /kosaf\.go\.kr/.test(app)
+  const showApply = automatable || isExtApplyable
   if (!showApply) return null
 
-  // 실제 자동화 가능 여부: 확장(복지로 정책 전체) 또는 로컬 에이전트(내장 6종).
+  // 실제 자동화 가능 여부: 확장(복지로/장학재단) 또는 로컬 에이전트(내장 6종).
   const rpaReady = ready === true && !!caps?.rpa
-  const canExt = ext && isBokjiro
+  const canExt = ext && isExtApplyable
   const canLocal = rpaReady && automatable
   const canRpa = canExt || canLocal
   if (!canRpa) {
