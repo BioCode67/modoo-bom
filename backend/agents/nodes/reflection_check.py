@@ -3,6 +3,7 @@ import json
 from agents.utils import extract_json, safe_json_dumps
 from ..state import AgentState, NodeEvent
 from ..mock_responses import is_mock_mode, mock_reflection
+from ..llm import get_chat_llm
 
 MAX_RETRIES = 2
 
@@ -33,19 +34,16 @@ async def reflection_check_node(state: AgentState) -> dict:
     profile = state.user_profile
     eligible = state.eligible_policies
 
-    if is_mock_mode():
+    llm = None if is_mock_mode() else get_chat_llm(temperature=0, max_tokens=1024)
+    if llm is None:
         result = mock_reflection(eligible, profile)
     else:
-        from langchain_anthropic import ChatAnthropic
         from langchain_core.messages import SystemMessage, HumanMessage
-        import os
 
         profile_text = (
             f"나이: {profile.age}, 소득: 중위소득 {profile.income_percentile}%, "
             f"장애: {profile.disability}, 고용: {profile.employment_status}"
         )
-        model = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-6")
-        llm = ChatAnthropic(model=model, temperature=0, max_tokens=1024)
         response = await llm.ainvoke([
             SystemMessage(content=_SYSTEM_PROMPT),
             HumanMessage(content=f"프로필: {profile_text}\n\n판별 결과:\n{safe_json_dumps(eligible, indent=2)}"),

@@ -8,6 +8,9 @@ langgraph==0.2.56
 langchain==0.3.12
 langchain-anthropic>=0.3.0
 langchain-community==0.3.12
+# 무료 티어 AI provider (선택 — 키가 있으면 agents/llm.py가 자동 선택: Gemini > Groq > Anthropic)
+langchain-google-genai>=2.0.0
+langchain-groq>=0.2.0
 
 # ChromaDB
 chromadb==0.5.23

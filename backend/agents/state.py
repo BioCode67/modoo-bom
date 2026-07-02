@@ -81,4 +81,5 @@ class AgentState(BaseModel):
     # Node 10: orchestrator
     next_action: str = "profile_analyzer"
     final_response: str = ""
+    cash_headline: str = ""
     error: str = ""

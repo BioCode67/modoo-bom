@@ -3,6 +3,7 @@ import json
 from agents.utils import extract_json, safe_json_dumps
 from ..state import AgentState, NodeEvent
 from ..mock_responses import is_mock_mode, mock_guides
+from ..llm import get_chat_llm
 
 _SYSTEM_PROMPT = """당신은 복지 신청 도우미입니다. 쉬운 언어로 단계별 신청 가이드를 작성하세요.
 JSON으로만 응답:
@@ -28,20 +29,17 @@ async def guide_generator_node(state: AgentState) -> dict:
         new_events.append(NodeEvent(node="guide_generator", status="done", message="자격 있는 정책 없음"))
         return {"events": new_events, "application_guides": [], "required_docs": []}
 
-    if is_mock_mode():
+    llm = None if is_mock_mode() else get_chat_llm(temperature=0.3, max_tokens=2048)
+    if llm is None:
         result = mock_guides(eligible)
     else:
-        from langchain_anthropic import ChatAnthropic
         from langchain_core.messages import SystemMessage, HumanMessage
         from rag.sample_data import WELFARE_POLICIES
-        import os
 
         policy_map = {p["id"]: p for p in WELFARE_POLICIES}
         top = sorted(eligible, key=lambda x: x.get("confidence", 0), reverse=True)[:5]
         enriched = [{**ep, **policy_map.get(ep.get("id", ""), {})} for ep in top]
 
-        model = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-6")
-        llm = ChatAnthropic(model=model, temperature=0.3, max_tokens=2048)
         response = await llm.ainvoke([
             SystemMessage(content=_SYSTEM_PROMPT),
             HumanMessage(content=f"정책 목록:\n{safe_json_dumps(enriched, indent=2)}"),

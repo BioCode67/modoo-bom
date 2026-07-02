@@ -64,10 +64,9 @@ def _mock_answer(question: str, policies: list[dict]) -> str:
 # ── AI 기반 Q&A (Production 모드) ──────────────────────────────────────────
 
 async def _ai_answer(question: str, policies: list[dict]) -> str:
-    from langchain_anthropic import ChatAnthropic
     from langchain_core.messages import SystemMessage, HumanMessage
     from agents.utils import safe_json_dumps
-    import os
+    from agents.llm import get_chat_llm
 
     policy_context = safe_json_dumps(
         [{"name": p["name"], "target": p["target"], "benefit": p.get("benefit", ""),
@@ -86,10 +85,9 @@ async def _ai_answer(question: str, policies: list[dict]) -> str:
 - 3~5문단 이내로 간결하게 답변
 - 마지막에 신청 방법 안내 포함"""
 
-    llm = ChatAnthropic(
-        model=os.getenv("CLAUDE_MODEL", "claude-sonnet-4-6"),
-        temperature=0.3, max_tokens=1024,
-    )
+    llm = get_chat_llm(temperature=0.3, max_tokens=1024)
+    if llm is None:
+        raise RuntimeError("no AI provider — 규칙기반 폴백")
     response = await llm.ainvoke([
         SystemMessage(content=system),
         HumanMessage(content=f"관련 정책 정보:\n{policy_context}\n\n질문: {question}"),

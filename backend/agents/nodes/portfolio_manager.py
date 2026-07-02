@@ -31,14 +31,26 @@ async def portfolio_manager_node(state: AgentState) -> dict:
     medium = [p for p in eligible if p.get("priority") == "medium"]
     low    = [p for p in eligible if p.get("priority") == "low"]
 
-    # 샘플 데이터에서 benefit 텍스트 매핑
+    # 금액/현금성 조회: 시드(sample_data) + 실데이터 카탈로그(policies.json의 amount_krw/is_cash) 병합
     from rag.sample_data import WELFARE_POLICIES
     policy_benefit_map = {p["id"]: p.get("benefit", "") for p in WELFARE_POLICIES}
+    try:
+        from rag.catalog_loader import load_catalog
+        catalog_map = {p.get("id"): p for p in load_catalog()}
+    except Exception:
+        catalog_map = {}
 
     total_monthly = 0
+    cash_count = 0
     for p in eligible:
-        benefit_text = policy_benefit_map.get(p.get("id", ""), "")
-        total_monthly += _estimate_monthly_benefit(p.get("name", ""), benefit_text)
+        pid = p.get("id", "")
+        cat = catalog_map.get(pid, {})
+        # 카탈로그에 파생된 실제 금액이 있으면 우선, 없으면 시드 benefit 텍스트에서 추출
+        amt = cat.get("amount_krw") or _estimate_monthly_benefit(
+            p.get("name", ""), policy_benefit_map.get(pid, "") or cat.get("benefit", ""))
+        total_monthly += amt or 0
+        if cat.get("is_cash") or amt:
+            cash_count += 1
 
     # 카테고리 분류 (sample_data의 category 필드 사용)
     categories = list({
@@ -62,6 +74,9 @@ async def portfolio_manager_node(state: AgentState) -> dict:
         "medium_priority_count": len(medium),
         "low_priority_count": len(low),
         "total_benefit_amount": total_monthly,
+        "cash_benefit_count": cash_count,
+        "estimated_monthly_krw": total_monthly,
+        "estimated_annual_krw": total_monthly * 12,
         "categories": categories,
         "high_priority_policies": [
             {"id": p.get("id"), "name": p.get("name"), "reason": p.get("reason", "")}

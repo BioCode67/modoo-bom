@@ -3,6 +3,7 @@ import json
 from agents.utils import extract_json, safe_json_dumps, sanitize_text
 from ..state import AgentState, NodeEvent
 from ..mock_responses import is_mock_mode, mock_eligibility
+from ..llm import get_chat_llm
 
 _SYSTEM_PROMPT = """당신은 한국 복지 정책 자격 판별 전문가입니다.
 사용자 프로필과 복지 정책 목록을 분석하여 각 정책의 수혜 자격 여부를 판단하세요.
@@ -31,7 +32,7 @@ JSON 형식으로만 응답:
 
 
 async def eligibility_check_node(state: AgentState) -> dict:
-    label = "Claude 자격 판별 중..." if not is_mock_mode() else "자격 판별 중 (Mock 모드)..."
+    label = "AI 자격 판별 중..." if not is_mock_mode() else "자격 판별 중 (규칙기반)..."
     new_events = [NodeEvent(node="eligibility_check", status="running", message=label)]
 
     profile = state.user_profile
@@ -41,12 +42,11 @@ async def eligibility_check_node(state: AgentState) -> dict:
         new_events.append(NodeEvent(node="eligibility_check", status="done", message="검색된 정책 없음"))
         return {"events": new_events, "eligible_policies": [], "eligibility_reasoning": "검색 결과 없음"}
 
-    if is_mock_mode():
+    llm = None if is_mock_mode() else get_chat_llm(temperature=0, max_tokens=2048)
+    if llm is None:
         result = mock_eligibility(policies, profile)
     else:
-        from langchain_anthropic import ChatAnthropic
         from langchain_core.messages import SystemMessage, HumanMessage
-        import os
 
         profile_text = sanitize_text(
             f"나이: {profile.age}세, 성별: {profile.gender}, 지역: {profile.region}\n"
@@ -61,8 +61,6 @@ async def eligibility_check_node(state: AgentState) -> dict:
             indent=2,
         )
 
-        model = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-6")
-        llm = ChatAnthropic(model=model, temperature=0, max_tokens=2048)
         response = await llm.ainvoke([
             SystemMessage(content=_SYSTEM_PROMPT),
             HumanMessage(content=f"사용자 프로필:\n{profile_text}\n\n정책 목록:\n{policies_text}"),

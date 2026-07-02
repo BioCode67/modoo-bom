@@ -1,13 +1,18 @@
-"""Anthropic API 없이 동작하는 Mock 응답 — 데모/테스트용"""
+"""LLM 없이 동작하는 규칙기반 응답 — 데모/테스트/폴백용.
+
+'Mock 모드'는 이제 특정 벤더(Anthropic)가 아니라 '사용 가능한 AI provider가 하나도 없을 때'를
+의미한다. Gemini/Groq/Anthropic 중 어느 키라도 있으면 실제 LLM을 쓰고, 없으면 여기 규칙기반으로
+전 파이프라인이 동작한다(항상 동작 보장)."""
 import os
 from rag.sample_data import WELFARE_POLICIES as _ALL_POLICIES
+from .llm import active_provider
 
 _POLICY_MAP = {p["id"]: p for p in _ALL_POLICIES}
 
 
 def is_mock_mode() -> bool:
-    key = os.getenv("ANTHROPIC_API_KEY", "")
-    return not key or key == "mock"
+    """사용 가능한 AI provider가 없으면 True(규칙기반)."""
+    return active_provider() is None
 
 
 # ── profile_analyzer mock ────────────────────────────────────────────────────

@@ -3,6 +3,7 @@ import json
 from agents.utils import extract_json, sanitize_text
 from ..state import AgentState, NodeEvent
 from ..mock_responses import is_mock_mode, mock_profile_analysis
+from ..llm import get_chat_llm
 
 _SYSTEM_PROMPT = """당신은 복지 정책 전문가입니다.
 사용자 프로필을 분석하여 적합한 복지 정책 검색을 위한 한국어 키워드를 추출하세요.
@@ -18,12 +19,11 @@ async def profile_analyzer_node(state: AgentState) -> dict:
 
     profile = state.user_profile
 
-    if is_mock_mode():
+    llm = None if is_mock_mode() else get_chat_llm(temperature=0, max_tokens=1024)
+    if llm is None:
         result = mock_profile_analysis(profile)
     else:
-        from langchain_anthropic import ChatAnthropic
         from langchain_core.messages import SystemMessage, HumanMessage
-        import os
 
         profile_text = sanitize_text(
             f"이름: {profile.name}, 나이: {profile.age}세, 성별: {profile.gender}\n"
@@ -36,8 +36,6 @@ async def profile_analyzer_node(state: AgentState) -> dict:
             f"최근 생애이벤트: {', '.join(profile.life_events) if profile.life_events else '없음'}"
         )
 
-        model = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-6")
-        llm = ChatAnthropic(model=model, temperature=0, max_tokens=1024)
         response = await llm.ainvoke([
             SystemMessage(content=_SYSTEM_PROMPT),
             HumanMessage(content=f"사용자 프로필:\n{profile_text}"),
