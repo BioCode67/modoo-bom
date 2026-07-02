@@ -8,6 +8,7 @@ import { TrackedCard, STATUS_META } from '@/components/TrackedCard'
 import { PolicyDetailDrawer } from '@/components/PolicyDetailDrawer'
 import { CompareModal } from '@/components/CompareModal'
 import { DocumentCenter } from '@/components/DocumentCenter'
+import { AgentSummary } from '@/components/AgentSummary'
 import { MonitorFeed } from '@/components/MonitorFeed'
 import { WelfareCalendar } from '@/components/WelfareCalendar'
 import { HouseholdAnalyzer } from '@/components/HouseholdAnalyzer'
@@ -111,6 +112,8 @@ export function My() {
       <WelfareCalendar />
 
       <HouseholdAnalyzer onOpen={setSelected} />
+
+      <AgentSummary />
 
       <DocumentCenter />
 
