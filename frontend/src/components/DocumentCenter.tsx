@@ -94,6 +94,27 @@ export function DocumentCenter() {
         담은 복지에 필요한 서류 {docs.length}종이에요. 발급처로 바로 이동하거나{backend ? ' 에이전트로 자동 발급하세요.' : ' 직접 발급하세요.'}
         {backend && <span className="block mt-0.5 text-xs">🔒 카카오 본인인증은 보안을 위해 본인이 직접 진행해요.</span>}
       </p>
+
+      {/* 확장/로컬 에이전트 둘 다 없을 때 — 설치하면 이 브라우저에서 자동발급이 켜진다는 안내 */}
+      {!backend && (
+        <div className="mt-3 rounded-2xl border-2 border-dashed border-sprout-200 bg-sprout-50/50 p-3 flex items-start gap-2.5">
+          <span className="text-lg">🧩</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold">크롬 확장을 설치하면 여기서 <b>서류 자동발급</b>이 켜져요</p>
+            <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+              설치 없이 정부24 서류를 이 브라우저 안에서 자동 발급해요. 개인정보는 서버로 전송되지 않아요.
+              <b> 본인인증만 직접</b> 하시면 됩니다.
+            </p>
+            <a
+              href="https://github.com/BioCode67/modoo-bom/tree/main/extension#설치-개발자-모드--데모"
+              target="_blank" rel="noopener noreferrer"
+              className="btn-secondary !px-3 !py-1.5 text-xs mt-2"
+            >
+              <ExternalLink className="h-3.5 w-3.5" /> 확장 설치 방법
+            </a>
+          </div>
+        </div>
+      )}
       {backend && <RpaInfoForm />}
 
       <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
