@@ -7,6 +7,8 @@ const DOCS = {
   '주민등록초본': { site: 'gov24', capp: '13100000015' },
   '가족관계증명서': { site: 'gov24', capp: '14100000017' },
   '장애인증명서': { site: 'gov24', capp: '11100000006' },
+  // 소득금액증명(국세) — 소득심사형 복지에 필수. 발급이 홈택스로 연계될 수 있어 안내페이지로 연결.
+  '소득금액증명': { site: 'gov24', capp: '12100000021', issue: 'https://www.gov.kr/mw/AA020InfoCappView.do?CappBizCD=12100000021&HighCtgCD=A09002&Mcode=10200' },
   '건강보험 자격득실확인서': { site: 'nhis' },
   '고용보험 피보험자격 이력내역서': { site: 'work24' },
 }
@@ -43,8 +45,20 @@ function pushStatus(status, step) {
   }
 }
 
-async function startJob(docName, userInfo, webTabId) {
-  if (!DOCS[docName]) return { ok: false, error: `지원하지 않는 서류: ${docName}` }
+// 서류명 표기 변형(예: '소득금액증명원'/'주민등록 등본') 흡수 — 공백 제거 후 부분일치
+function resolveDoc(name) {
+  if (DOCS[name]) return name
+  const n = (name || '').replace(/\s/g, '')
+  for (const k of Object.keys(DOCS)) {
+    const kk = k.replace(/\s/g, '')
+    if (n && (n.includes(kk) || kk.includes(n))) return k
+  }
+  return null
+}
+
+async function startJob(rawName, userInfo, webTabId) {
+  const docName = resolveDoc(rawName)
+  if (!docName) return { ok: false, error: `지원하지 않는 서류: ${rawName}` }
   const site = DOCS[docName].site
   const siteName = { gov24: '정부24', nhis: '건강보험공단', work24: '고용24' }[site]
   const tab = await chrome.tabs.create({ url: LOGIN_URLS[site], active: true })
@@ -109,7 +123,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         return sendResponse({ kind: 'apply', serviceName: job.serviceName, serviceUrl: job.serviceUrl, userInfo: job.userInfo })
       }
       const info = DOCS[job.docName]
-      const iu = info.site === 'gov24' ? issueUrl(info.capp) : (info.site === 'nhis' ? NHIS_CERT_URL : '')
+      const iu = info.issue || (info.site === 'gov24' ? issueUrl(info.capp) : (info.site === 'nhis' ? NHIS_CERT_URL : ''))
       return sendResponse({ kind: 'doc', docName: job.docName, site: info.site, userInfo: job.userInfo, issueUrl: iu })
     }
     if (msg.type === 'AGENT_STATUS') {

@@ -20,6 +20,8 @@ export function docLink(doc: string): OfficialLink {
     return { label: '건강보험공단에서 발급', url: 'https://www.nhis.or.kr', rpa: true }
   if (d.includes('고용보험') || d.includes('피보험자격') || d.includes('이직확인'))
     return { label: '고용24에서 발급', url: 'https://www.work24.go.kr', rpa: true }
+  if (d.includes('소득금액증명') || (d.includes('소득') && d.includes('증명')))
+    return { label: '정부24/홈택스에서 발급', url: 'https://www.gov.kr/mw/AA020InfoCappView.do?CappBizCD=12100000021', rpa: true }
   if (d.includes('소득') || d.includes('재산') || d.includes('금융정보') || d.includes('동의서'))
     return { label: '주민센터 방문 작성', url: 'https://www.bokjiro.go.kr' }
   if (d.includes('출생') || d.includes('신분증') || d.includes('통장'))
@@ -50,7 +52,7 @@ export function applyLink(application: string): OfficialLink {
 
 /** RPA 자동발급 지원 서류 (백엔드 manager.py와 일치) */
 export const RPA_SUPPORTED_DOCS = [
-  '주민등록등본', '주민등록초본', '가족관계증명서', '장애인증명서',
+  '주민등록등본', '주민등록초본', '가족관계증명서', '장애인증명서', '소득금액증명',
   '건강보험 자격득실확인서', '고용보험 피보험자격 이력내역서',
 ]
 export function isRpaSupported(doc: string): boolean {
