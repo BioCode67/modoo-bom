@@ -81,6 +81,10 @@ curl -fsSL https://raw.githubusercontent.com/BioCode67/modoo-bom/main/scripts/se
 ## 5️⃣ 배포(재확인)
 
 - 재배포: `cd frontend && npm run deploy` (gh-pages 갱신) + `git push origin main`(소스) — **둘은 별개**
+- ⚠️ **Pages 빌드 무실행 이슈(실제 발생 2026-07-03)**: deploy가 Published 돼도 라이브가 구 버전을 계속 서빙하고
+  새 에셋이 404면, gh-pages 브랜치는 정상인데 **GitHub Pages 빌드가 조용히 실행 안 된 것** →
+  `npm run deploy` 한 번 더(새 커밋이 빌드 재트리거)로 해결. 검증: 라이브 index.html이 참조하는 번들 해시가
+  dist와 일치하는지 curl로 확인.
 - 로그인 끄고 배포(OAuth 등록 전): `mv frontend/.env .env.hold && npm run deploy && mv .env.hold .env`
 - ⚠️ 이 계정 PAT에 `workflow` 스코프가 없어 `.github/workflows`는 푸시 불가 → gh-pages 방식 유지
 
@@ -126,7 +130,9 @@ curl -fsSL https://raw.githubusercontent.com/BioCode67/modoo-bom/main/scripts/se
    추가, 신청서 미리채움도 `disabilityLabel()`로 현행 용어 일관화(+테스트 4). 결과 화면(Glossary 링크로 커버됨)·
    챗봇은 이미 쉬운 말이라 손 안 댐. 남으면 결과 카드 세부 문구 정도.
 5. **웹스토어 실제 제출**(개발자 등록 $5) → 일반인 원클릭 설치.
-6. **홈택스/LH 등 추가 사이트**: 홈택스=무거운 SPA(실계정 보정 필요), LH·근로복지공단=공동인증서 중심(다른 방식). 보류 중.
+6. **[신규] 백엔드 패리티**: 민간재단 9건(PRV-###)은 프론트 시드에만 있음 — 백엔드 `rag/sample_data.py`(Mock/RAG)에는
+   미반영. 백엔드 경유 분석(WS)에는 민간재단이 안 나옴. venv 구축 후 이식+pytest 확인 필요(프론트 단독 데모엔 무관).
+7. **홈택스/LH 등 추가 사이트**: 홈택스=무거운 SPA(실계정 보정 필요), LH·근로복지공단=공동인증서 중심(다른 방식). 보류 중.
 
 **검증/품질 도구**
 - 실사이트 셀렉터 점검: `cd backend && python ../extension/validate_live.py "<서류명>"` (본인인증 직전까지, 개인정보 미사용)
