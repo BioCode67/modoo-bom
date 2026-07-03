@@ -28,12 +28,17 @@ export function ChatWidget() {
   const toggleSaved = useAppStore((s) => s.toggleSaved)
   const endRef = useRef<HTMLDivElement>(null)
 
-  // 열 때 현재 상태(프로필·담아둔 복지)를 먼저 브리핑 — 능동적인 에이전트 인상. 최초 1회.
+  // 챗을 '여는 순간'의 최신 상태(프로필·담아둔 복지)로 브리핑 — 능동적인 에이전트 인상.
+  // 앱 로드 시점이 아니라 열 때 계산해야 분석을 나중에 마쳐도 stale 인사가 남지 않는다.
+  // 사용자가 대화를 시작(user 메시지)한 뒤에는 갱신하지 않고 대화를 보존.
   useEffect(() => {
-    const g = greetingReply(profile, tracked)
-    setMsgs([{ role: 'bot', text: g.text, cta: g.cta }])
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    if (!open) return
+    setMsgs((m) => {
+      if (m.some((x) => x.role === 'user')) return m
+      const g = greetingReply(profile, tracked)
+      return [{ role: 'bot', text: g.text, cta: g.cta }]
+    })
+  }, [open, profile, tracked])
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [msgs, open, step])
 
