@@ -57,6 +57,11 @@ export function DocumentCenter() {
   }
 
   const startRpa = async (doc: string) => {
+    // 본인인증 자동입력엔 실명·생년월일·휴대폰이 필요 — 비어 있으면 시작 전에 안내
+    if (!rpaInfo.name?.trim() || !rpaInfo.birth_date?.trim() || !rpaInfo.phone?.trim()) {
+      setRpa((s) => ({ ...s, [doc]: { status: 'error', step: '아래 "자동입력 추가정보"에 실명·생년월일·휴대폰을 먼저 입력해 주세요. (본인인증 자동입력용 — 내 기기에만 저장)', at: Date.now() } }))
+      return
+    }
     setRpa((s) => ({ ...s, [doc]: { status: 'running', step: '시작 중…', at: Date.now() } }))
     // 로컬 에이전트가 없고 확장만 있으면 브라우저 내 확장으로 발급(진행상태는 구독으로 수신)
     if (!localAgent && ext) {

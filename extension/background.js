@@ -239,7 +239,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       return sendResponse({ ok: true })
     }
     if (msg.type === 'CANCEL') {
-      if (job) { try { await chrome.tabs.remove(job.tabId) } catch {} job = null }
+      // ⚠️ clearJob()으로 storage까지 지워야 함 — job=null만 하면 SW 재시작 시 좀비 잡 부활
+      if (job) { try { await chrome.tabs.remove(job.tabId) } catch { /* noop */ } clearJob() }
       return sendResponse({ ok: true })
     }
     // 주입된 자동화 스크립트에서 오는 메시지
