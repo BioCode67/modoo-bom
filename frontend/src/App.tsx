@@ -28,9 +28,13 @@ function PageLoading() {
 export default function App() {
   const { view, elderly, highContrast } = useAppStore()
 
-  // 외부 정책 카탈로그(public/policies.json) 런타임 병합 — 있으면 자동 확장
+  // 외부 정책 카탈로그(public/policies.json, ~3.3MB) 런타임 병합 — 있으면 자동 확장.
+  // fetch+JSON.parse가 첫 페인트·상호작용과 경합하지 않게 유휴 시점으로 미룬다(시드 135건이 즉시 커버,
+  // 병합 완료 시 subscribeCatalog 구독으로 자동 리렌더).
   useEffect(() => {
-    loadExternalCatalog()
+    const w = window as unknown as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }
+    if (w.requestIdleCallback) w.requestIdleCallback(() => { loadExternalCatalog() }, { timeout: 2500 })
+    else setTimeout(() => { loadExternalCatalog() }, 800)
   }, [])
 
   // PWA 앱 바로가기(홈 아이콘 길게누르기) 딥링크 — ?go=analyze|explore|my 로 해당 화면 진입
