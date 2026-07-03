@@ -25,6 +25,20 @@ export interface EligiblePolicy extends Policy {
   confidence: number
 }
 
+/**
+ * 저장된 장애 정도값(엔진 호환용 1급/4급 등)을 현행 체계(심한/심하지 않은 장애) 표시 라벨로 변환.
+ * 장애등급제는 2019년 폐지 → 사용자에게는 현행 용어로 보여준다(내부 판정값은 유지).
+ */
+export function disabilityLabel(grade: string): string {
+  const g = (grade || '').trim()
+  if (!g) return '등록 장애'
+  if (['1급', '2급', '3급', '1', '2', '3'].includes(g)) return '심한 장애(중증)'
+  if (['4급', '5급', '6급', '4', '5', '6'].includes(g)) return '심하지 않은 장애(경증)'
+  if (g.includes('지적')) return '지적장애'
+  if (g.includes('자폐')) return '자폐성장애'
+  return g
+}
+
 export interface ApplicationGuide {
   policy_id: string
   name: string

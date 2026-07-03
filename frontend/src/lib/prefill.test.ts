@@ -30,7 +30,8 @@ describe('buildPrefill', () => {
   it('장애·자녀·임신 상황 반영', () => {
     const p: UserProfile = { ...base, disability: true, disability_grade: '1급', has_children: true, children_ages: [3, 6], is_pregnant: true }
     const map = Object.fromEntries(buildPrefill(p).map((x) => [x.label, x.value]))
-    expect(map['장애']).toContain('1급')
+    // 현행 체계(심한/심하지 않은 장애)로 표시 — 폐지된 1/2/3급 대신
+    expect(map['장애']).toContain('심한 장애')
     expect(map['자녀']).toContain('2명')
     expect(map['임신']).toBe('임신 중')
   })

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   extractKeywords, getEligiblePolicies, searchPolicies,
-  estimateBenefits, runAnalysis, checkPolicy, sidoOf, guOf, demographicMismatch, type UserProfile,
+  estimateBenefits, runAnalysis, checkPolicy, sidoOf, guOf, demographicMismatch, disabilityLabel, type UserProfile,
 } from './welfare-engine'
 import type { Policy } from '@/data/policies'
 
@@ -190,5 +190,22 @@ describe('estimateBenefits / runAnalysis', () => {
   })
   it('출산 프로필 → 출산 관련 알림 생성', () => {
     expect(runAnalysis(newborn).notifications.length).toBeGreaterThan(0)
+  })
+})
+
+describe('disabilityLabel — 현행 장애 체계 표시(2019 등급제 폐지)', () => {
+  it('구 중증등급(1~3급) → 심한 장애', () => {
+    for (const g of ['1급', '2급', '3급', '1']) expect(disabilityLabel(g)).toContain('심한 장애')
+  })
+  it('구 경증등급(4~6급) → 심하지 않은 장애', () => {
+    for (const g of ['4급', '5급', '6급']) expect(disabilityLabel(g)).toContain('심하지 않은 장애')
+  })
+  it('발달장애 유형은 유형명으로', () => {
+    expect(disabilityLabel('지적')).toBe('지적장애')
+    expect(disabilityLabel('자폐')).toBe('자폐성장애')
+  })
+  it('빈값 → 일반 안내, 알 수 없는 값 → 원문 유지', () => {
+    expect(disabilityLabel('')).toBe('등록 장애')
+    expect(disabilityLabel('기타')).toBe('기타')
   })
 })

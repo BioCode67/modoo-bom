@@ -1,4 +1,4 @@
-import type { UserProfile } from './welfare-engine'
+import { disabilityLabel, type UserProfile } from './welfare-engine'
 
 /**
  * 공식 신청서 '미리채움' — 프로필+연락처에서 신청서에 붙여넣을 비민감 항목을 만든다.
@@ -37,7 +37,7 @@ export function buildPrefill(profile: UserProfile | null, rpa?: RpaInfo): Prefil
   push('거주지', profile?.region)
   push('가구 형태', profile?.household_type)
   if (profile && profile.income_percentile > 0) push('소득 수준', `기준 중위소득 약 ${profile.income_percentile}% 이하`)
-  if (profile?.disability) push('장애', `등록 장애${profile.disability_grade ? ` (${profile.disability_grade})` : ''}`)
+  if (profile?.disability) push('장애', disabilityLabel(profile.disability_grade))
   if (profile?.has_children && profile.children_ages.length > 0) {
     push('자녀', `${profile.children_ages.length}명 (만 ${profile.children_ages.join(', ')}세)`)
   }
