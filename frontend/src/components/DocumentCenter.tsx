@@ -29,8 +29,13 @@ export function DocumentCenter() {
     const off = onExtensionStatus((s) => {
       if (!s.docName) return
       setRpa((prev) => {
-        const key = Object.keys(prev).find((k) => sameDocName(k, s.docName)) || s.docName!
-        return { ...prev, [key]: { status: s.status, step: s.step, at: Date.now() } }
+        // 확장은 서류명을 정규화(resolveDoc)해 보내므로, 표기가 다른 여러 카드('주민등록등본',
+        // '청년 주민등록등본' 등)가 같은 정규명으로 매칭될 수 있음 → 매칭되는 카드 전부 갱신
+        // (첫 카드만 갱신하면 나머지가 '대기열…'에 영구히 멈춤)
+        const keys = Object.keys(prev).filter((k) => sameDocName(k, s.docName))
+        const entry = { status: s.status, step: s.step, at: Date.now() }
+        const targets = keys.length ? keys : [s.docName!]
+        return { ...prev, ...Object.fromEntries(targets.map((k) => [k, entry])) }
       })
     })
     return () => { clearInterval(t); off() }
@@ -108,7 +113,18 @@ export function DocumentCenter() {
     }
     setRpa((s) => ({ ...s, ...Object.fromEntries(rpaDocs.map((d) => [d, { status: 'running', step: '대기열에 추가됨…', at: Date.now() }])) }))
     const r = await issueManyViaExtension(rpaDocs, userInfo)
-    if (!r.ok) setRpa((s) => ({ ...s, [rpaDocs[0]]: { status: 'error', step: r.error || '연쇄 발급을 시작하지 못했어요.', at: Date.now() } }))
+    if (!r.ok) { setRpa((s) => ({ ...s, [rpaDocs[0]]: { status: 'error', step: r.error || '연쇄 발급을 시작하지 못했어요.', at: Date.now() } })); return }
+    // 확장이 표기변형을 정규화·디듑해 실제 큐에 들어간 목록(r.docs)만 진행 대상 — 나머지 카드는
+    // 중복(같은 서류)이므로 '동일 서류로 함께 발급됨'으로 표시(영구 '대기열…' 방지)
+    if (r.docs && r.docs.length) {
+      setRpa((s) => {
+        const next = { ...s }
+        for (const d of rpaDocs) {
+          if (!r.docs!.some((rd) => sameDocName(rd, d))) next[d] = { status: 'running', step: '같은 서류로 함께 발급돼요…', at: Date.now() }
+        }
+        return next
+      })
+    }
   }
 
   return (
@@ -155,8 +171,8 @@ export function DocumentCenter() {
         </button>
       )}
 
-      {/* 🔍 진단 복사 — 발급이 멈추거나 오류일 때만 노출(문제 신고용, 개인정보 미포함) */}
-      {ext && Object.values(rpa).some((s) => s && (s.status === 'error' || (s.at && Date.now() - s.at > 30000))) && (
+      {/* 🔍 진단 복사 — 발급이 멈추거나 오류일 때만 노출(완료는 제외 — 성공 후에도 뜨면 오해) */}
+      {ext && Object.values(rpa).some((s) => s && (s.status === 'error' || (!['done', 'completed'].includes(s.status) && s.at && Date.now() - s.at > 30000))) && (
         <button
           onClick={async () => {
             const t = await getExtensionTrace()

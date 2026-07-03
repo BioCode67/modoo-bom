@@ -16,7 +16,7 @@ export function RpaInfoForm() {
       </p>
       <div className="grid grid-cols-2 gap-2">
         <input
-          value={rpaInfo.name}
+          value={rpaInfo.name ?? ''}
           onChange={(e) => setRpaInfo({ name: e.target.value })}
           placeholder="실명 (본인인증용)"
           className="rounded-lg border border-sprout-100 px-2.5 py-1.5 text-xs focus-ring"

@@ -129,6 +129,12 @@ export const useAppStore = create<AppState>()(
     {
       name: 'modoobom-store',
       partialize: (s) => ({ tracked: s.tracked, elderly: s.elderly, highContrast: s.highContrast, onboarded: s.onboarded, profile: s.profile, result: s.result, rpaInfo: s.rpaInfo }),
+      // ⚠️ persist 기본 병합은 top-level 얕은 병합 → 예전에 저장된 rpaInfo(name 없음)가 새 기본값을
+      //    통째로 덮어써 rpaInfo.name이 undefined가 됨. rpaInfo만 깊게 병합해 신규 필드 기본값 보존.
+      merge: (persisted, current) => {
+        const p = (persisted || {}) as Partial<AppState>
+        return { ...current, ...p, rpaInfo: { ...current.rpaInfo, ...(p.rpaInfo || {}) } }
+      },
     },
   ),
 )
