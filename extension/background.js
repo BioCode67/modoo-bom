@@ -47,10 +47,20 @@ const SERVICE_URLS = {
 // 현재 진행 중인 잡(단일). { id, docName, userInfo, tabId, webTabId, phase, status, step }
 let job = null
 
+// MV3 서비스워커는 유휴 시 종료→재시작되어 메모리의 job이 사라진다(로그인 중 흔함).
+// job을 storage에 저장하고, 핸들러 진입 시 복원해 '대기 중'으로 멈추는 문제를 막는다.
+function saveJob() { try { return chrome.storage.local.set({ job }) } catch { /* noop */ } }
+async function ensureJob() {
+  if (job) return
+  try { const s = await chrome.storage.local.get('job'); if (s && s.job) job = s.job } catch { /* noop */ }
+}
+function clearJob() { job = null; try { chrome.storage.local.remove('job') } catch { /* noop */ } }
+
 function pushStatus(status, step) {
   if (!job) return
   job.status = status
   job.step = step
+  saveJob()
   chrome.storage.local.set({ lastStatus: { status, step, docName: job.docName, at: Date.now() } })
   if (job.webTabId != null) {
     chrome.tabs.sendMessage(job.webTabId, { type: 'STATUS', payload: { jobId: job.id, status, step, docName: job.docName } }).catch(() => {})
@@ -151,6 +161,7 @@ async function startApply(serviceName, userInfo, webTabId, applyUrl) {
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   ;(async () => {
     if (!msg || !msg.type) return sendResponse({ ok: false })
+    await ensureJob() // 서비스워커 재시작으로 사라진 job 복원
     if (msg.type === 'PING') {
       return sendResponse({ ok: true, name: '모두봄 복지 에이전트', version: '0.1.0',
         capabilities: { rpa: true, kind: 'extension' },
@@ -213,9 +224,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 })
 
 // 잡 탭이 로드 완료될 때마다 자동화 주입(로그인→발급 페이지 전환 자동 대응)
-chrome.tabs.onUpdated.addListener((tabId, info) => {
-  if (!job || tabId !== job.tabId || info.status !== 'complete') return
+// ⚠️ 서비스워커 재시작으로 job이 비어있을 수 있으니 먼저 복원한 뒤 판단
+chrome.tabs.onUpdated.addListener(async (tabId, info) => {
+  if (info.status !== 'complete') return
+  await ensureJob()
+  if (!job || tabId !== job.tabId) return
   chrome.scripting.executeScript({ target: { tabId, allFrames: true }, files: ['automation.js'] }).catch(() => {})
 })
 
-chrome.tabs.onRemoved.addListener((tabId) => { if (job && tabId === job.tabId) job = null })
+chrome.tabs.onRemoved.addListener(async (tabId) => { await ensureJob(); if (job && tabId === job.tabId) clearJob() })
