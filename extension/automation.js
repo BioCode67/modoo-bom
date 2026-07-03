@@ -262,17 +262,41 @@
       await sleep(300); await send({ type: 'GOTO', payload: { url: job.issueUrl } })
       return
     }
-    // 로그인 화면: '간편인증'을 텍스트로 정확히 클릭(⚠️ button.login-type 같은 위치 셀렉터는
-    // 첫 번째 방식인 '모바일 신분증'을 잘못 여는 사고가 있어 제거). 최대 12초 폴링.
+    // 로그인 화면: '간편인증' 카드를 찾아 '진짜 클릭'(debugger)으로 연다.
+    // (⚠️ 로그인 방식 카드도 isTrusted 클릭만 받는 것으로 보임 — .click()은 무시됨.
+    //  ⚠️ button.login-type 같은 위치 셀렉터는 첫 방식 '모바일 신분증'을 잘못 열어 제거)
     status('running', '정부24 로그인 화면 준비 중…')
-    const pickEasy = () =>
-      clickText(['간편인증', '간편 인증', '간편로그인'], ['모바일', '신분증', '금융인증', 'QR', '비회원', '아이디']) ||
-      clickSel(["[data-tab='easy']", "[data-type='easy']"])
-    const clicked = await pollClick(pickEasy, 12)
+    const EASY_EXCL = ['모바일', '신분증', '금융인증', 'QR', '비회원', '아이디']
+    const findEasy = () => {
+      const els = Array.from(document.querySelectorAll('a,button,[role="button"],span,strong,em,p,li,div'))
+      let best = null, bestLen = 1e9, bestVis = false
+      for (const el of els) {
+        const t = norm(el.textContent)
+        if (!t || t.length > 60) continue
+        if (!['간편인증', '간편로그인'].some((x) => t.includes(x))) continue
+        if (EASY_EXCL.some((x) => t.includes(norm(x)))) continue
+        const vis = !!(el.getClientRects && el.getClientRects().length)
+        // 보이는 요소 우선, 같은 조건이면 텍스트가 짧은(더 정확한) 요소
+        if ((vis && !bestVis) || (vis === bestVis && t.length < bestLen)) { best = el; bestLen = t.length; bestVis = vis }
+      }
+      return best && (best.closest('a,button,[role="button"],li,[onclick]') || best)
+    }
+    const authWidgetOpen = () =>
+      !!document.querySelector('[id^="oacx_"], [class*="oacx"], input[placeholder*="홍길동"], input[placeholder*="01012341234"]') ||
+      Array.from(document.querySelectorAll('iframe')).some((f) => /oacx|simpleCert|nice|mip|mobile/i.test(f.src || ''))
+    const clickEasyOnce = async () => {
+      const el = findEasy() || document.querySelector("[data-tab='easy'], [data-type='easy']")
+      if (!el) return false
+      if (!(await trustedClickEl(el))) { try { el.click() } catch { return false } } // 진짜 클릭 → 실패 시 폴백
+      return true
+    }
+    // 위젯이 실제로 열릴 때까지 1초 간격 재시도(최대 20초)
+    let clicked = false
+    for (let i = 0; i < 20 && !authWidgetOpen(); i++) { clicked = (await clickEasyOnce()) || clicked; await sleep(1000) }
     status('running', clicked
       ? '간편인증을 선택했어요. 카카오톡으로 본인인증을 진행해 주세요. 📱'
-      : "화면에서 '간편인증'을 눌러 주세요. (보안 확인이 끝나면 자동으로 다시 시도해요)")
-    await sleep(2000); await send({ type: 'REINJECT' })
+      : "화면에서 '간편인증'을 눌러 주세요. (열리면 자동으로 입력해 드려요)")
+    await sleep(1000); await send({ type: 'REINJECT' })
     // 안전망 폴링: ①실수로 '모바일 신분증' 위젯이 열렸으면 닫고 간편인증 재선택
     //   ②위젯이 iframe이 아니라 같은 문서 모달이면 여기(top)서 카카오 선택+자동입력
     //   ③로그인 완료되면 발급 페이지로 (전환되면 onUpdated 재주입이 이어받음)
@@ -288,7 +312,7 @@
       // 모바일 신분증 위젯이 열려있고 간편인증이 아니면 → 닫고 간편인증으로 전환
       if (!topFilled && /모바일\s*신분증/.test(bt) && /인증\s*요청|PUSH|QR/.test(bt) && !/간편인증\s*사업자/.test(bt) &&
           !document.querySelector('[id^="oacx_"], [class*="oacx"]')) {
-        if (clickText(['닫기'])) { await sleep(800); pickEasy(); await sleep(1200); await send({ type: 'REINJECT' }); continue }
+        if (clickText(['닫기'])) { await sleep(800); await clickEasyOnce(); await sleep(1200); await send({ type: 'REINJECT' }); continue }
       }
       // 같은 문서 모달형 위젯 대응: 카카오톡 타일 선택 + 자동입력 시도(성공할 때까지)
       if (!topFilled) {
