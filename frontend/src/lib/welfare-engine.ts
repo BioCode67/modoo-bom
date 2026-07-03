@@ -2,6 +2,7 @@
 // 백엔드 없이 브라우저에서 동일한 키워드·규칙 기반 로직을 재현한다. 순수 함수, 외부 의존성 없음.
 import type { Policy } from '@/data/policies'
 import { getCatalog } from '@/data/catalog'
+import { isCashBenefit, parseMonthly } from '@/lib/format'
 
 export interface UserProfile {
   name: string
@@ -613,8 +614,11 @@ function buildPortfolio(eligible: EligiblePolicy[]): AnalysisResult['portfolio_s
   let anyMonthly = false
   for (const ep of eligible) {
     byCategory[ep.category] = (byCategory[ep.category] || 0) + 1
-    const amt = parseMonthlyAmount(ep.benefit)
-    if (amt !== null) {
+    // 정직한 합산: 현금성(매월 현금처럼 받는 지원)만 — 납입형 저축·대출한도·바우처가 섞이면
+    // '월 730만원' 같은 비현실 합계가 나온다(UI 미노출 지표라도 오용 방지 차원에서 동일 원칙 적용)
+    if (!isCashBenefit(ep.benefit, `${ep.name} ${ep.category}`)) continue
+    const amt = parseMonthly(ep.benefit) // 원-우선 보수 파서(format.ts와 동일) — '70만원 납입…33,000원 지원'은 33,000으로
+    if (amt > 0) {
       totalMonthly += amt
       anyMonthly = true
     }
@@ -623,6 +627,7 @@ function buildPortfolio(eligible: EligiblePolicy[]): AnalysisResult['portfolio_s
     total_policies: eligible.length,
     by_category: byCategory,
   }
+  // ⚠️ 이 값은 '전부 수급 시 이론적 최대'(중복수급 제한 미반영) — UI 헤드라인엔 쓰지 말 것(ResultsView는 별도 보수 합산 사용)
   if (anyMonthly) summary.total_monthly = totalMonthly
   return summary
 }
