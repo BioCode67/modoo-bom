@@ -232,12 +232,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, info) => {
   await ensureJob()
   if (!job || tabId !== job.tabId) return
   chrome.scripting.executeScript({ target: { tabId, allFrames: true }, files: ['automation.js'] }).catch(() => {})
-  // '인증 완료되었습니다' 같은 정보성 alert를 자동 통과(페이지 MAIN 월드에서 alert만 무력화).
-  // confirm(예/아니오)은 건드리지 않아 최종 제출 등 사용자 확인은 유지.
-  chrome.scripting.executeScript({
-    target: { tabId, allFrames: true }, world: 'MAIN',
-    func: () => { try { window.alert = () => {} } catch (e) { /* noop */ } },
-  }).catch(() => {})
+  // ('인증 완료' 등 정보성 alert 자동 통과는 manifest의 alert-suppress.js(MAIN, document_start)가 담당)
 })
 
 chrome.tabs.onRemoved.addListener(async (tabId) => { await ensureJob(); if (job && tabId === job.tabId) clearJob() })
