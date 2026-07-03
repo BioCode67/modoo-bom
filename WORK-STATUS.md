@@ -3,7 +3,22 @@
 > 이 파일은 **다른 Claude 세션(터미널/폰 원격)** 이 작업을 이어받기 위한 메모다.
 > 먼저 이 파일 → `CLAUDE.md` 순으로 읽고 이어서 진행하면 된다.
 
-## ⭐ 최신 현황 (2026-07-03) — 크롬 확장 RPA가 메인 경로
+## ⭐⭐ RPA 근본 해법 (2026-07-03 오후) — 진짜 크롬 + CDP 로컬 에이전트
+
+사용자가 "확장 말고 다른 방식(로컬/서버/원격제어) 다 좋으니 자동발급·신청만 되게 하라"고 해서 전환.
+- **핵심**: 사용자 진짜 크롬을 `--remote-debugging-port=9222`로 띄우고 Playwright `connect_over_cdp`로 연결.
+  → **navigator.webdriver=false라 정부24 Mbuster 통과(실측)** + Playwright 신뢰클릭·프레임 API(확장 debugger보다 안정).
+- **실측 성공**: 로그인→Mbuster통과→간편인증→`simpleCert.html` iframe→이름·생년월일·휴대폰뒤8자리·전체동의
+  자동입력까지 진짜 크롬으로 검증. 셀렉터 실측 확정(`#oacx_name/#oacx_birth/#oacx_phone2/#totalAgree`,
+  `button.login-type`+텍스트, `li:has-text('카카오톡')`, 요청버튼 `#oacx-request-btn-pc`).
+- **실행**: 루트 `run-agent-cdp.bat` 더블클릭 → 크롬 열림 + `backend/local_agent.py` 실행.
+  최초 1회 이름·생년월일·휴대폰 입력(→`backend/agent_profile.json`, 로컬 전용/gitignore).
+- 본인인증(카카오 폰 승인)만 사람 → 이후 발급폼·신청·문서출력(popup)·PDF저장(바탕화면\모두봄서류) 자동.
+- **남은 검증(사용자 실인증 필요)**: 카카오 승인 후 발급폼→신청→문서출력→PDF e2e 1회 완주.
+- Node CDP 탐색도구: scratchpad `pwtest/cdp-mbuster.mjs`(Mbuster통과 확인), `cdp-iframe.mjs`(위젯 셀렉터 매핑).
+- 확장(0.1.27)은 폴백으로 유지. 문서: `backend/LOCAL_AGENT.md`.
+
+## (이전) 2026-07-03 — 크롬 확장 RPA 경로
 
 - **RPA 메인 경로는 이제 크롬 확장(`extension/`, v0.1.21)**: 배포 사이트에서 서버·Python 없이
   등본 등 서류 13종 자동발급 + 복지로/장학재단 신청. 실사용자(김주형) 크롬에서 단계별 검증 중.
