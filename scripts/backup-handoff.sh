@@ -29,17 +29,29 @@ done
 [ -f "$ROOT/frontend/.env" ] && cp "$ROOT/frontend/.env" "$STAGE/frontend.env"
 [ -f "$ROOT/backend/.env" ]  && cp "$ROOT/backend/.env"  "$STAGE/backend.env"
 
-# 2) 클로드 메모리 (경로 인코딩: /Users/it → -Users-it)
+# 2) 클로드 메모리 — Mac(/Users/it → -Users-it) / Windows(C--Users-...-modoo-bom) 경로 인코딩 모두 대응
 USERENC="$(printf '%s' "$HOME" | sed 's#/#-#g')"
-MEMDIR="$HOME/.claude/projects/${USERENC}/memory"
-if [ -d "$MEMDIR" ]; then cp -R "$MEMDIR" "$STAGE/claude-memory"; echo "  + 클로드 메모리 ($(du -sh "$MEMDIR" | cut -f1))"; fi
+MEMDIR=""
+for cand in \
+  "$HOME/.claude/projects/${USERENC}/memory" \
+  "$HOME/.claude/projects/${USERENC}-Desktop-modoo-bom/memory"; do
+  [ -d "$cand" ] && MEMDIR="$cand" && break
+done
+# 못 찾으면 modoo-bom 관련 memory 폴더를 글롭으로 탐색(가장 안전)
+[ -z "$MEMDIR" ] && MEMDIR="$(ls -d "$HOME"/.claude/projects/*modoo-bom*/memory 2>/dev/null | head -1)"
+if [ -n "$MEMDIR" ] && [ -d "$MEMDIR" ]; then
+  cp -R "$MEMDIR" "$STAGE/claude-memory"; echo "  + 클로드 메모리 ($(du -sh "$MEMDIR" | cut -f1))"
+else
+  echo "  (클로드 메모리 폴더 못 찾음 — HANDOFF.md·CLAUDE.md로 흐름은 이어집니다)"
+fi
 
 # 프로젝트 컨텍스트 사본(참고용, 레포에도 있음)
 [ -f "$ROOT/CLAUDE.md" ] && cp "$ROOT/CLAUDE.md" "$STAGE/CLAUDE.md"
 [ -f "$ROOT/HANDOFF.md" ] && cp "$ROOT/HANDOFF.md" "$STAGE/HANDOFF.md"
 
-# 3) 클로드 대화기록 (선택 — 용량 큼)
+# 3) 클로드 대화기록 (선택 — 용량 큼). Windows는 memory의 상위(프로젝트) 폴더에 대화기록이 함께 있음.
 HISTDIR="$HOME/.claude/projects/${USERENC}-Desktop"
+if [ ! -d "$HISTDIR" ] && [ -n "$MEMDIR" ]; then HISTDIR="$(dirname "$MEMDIR")"; fi
 if [ -d "$HISTDIR" ]; then
   SZ="$(du -sh "$HISTDIR" | cut -f1)"
   printf "  클로드 대화기록 전체(%s)도 담을까요? [y/N] " "$SZ"
