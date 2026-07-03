@@ -82,12 +82,14 @@ function pushStatus(status, step, noAdvance) {
   }
   // 연쇄 발급 큐: 이 서류가 끝나면(로그인 세션 유지 상태) 다음 서류로 같은 탭 이동.
   // noAdvance=true(PDF 저장 완료 등 후행 이벤트)는 큐를 넘기지 않음 — 이중 advance 경합 방지.
-  // done이 여러 번 올 수 있어 advancing 플래그로 1회만 예약. chrome.alarms로 SW 재시작에도 생존.
+  // done이 여러 번 올 수 있어 advancing 플래그로 1회만 예약.
+  // 빠른 경로는 setTimeout(4s) — SW는 방금 활동으로 ~30s 살아있어 대부분 여기서 진행.
+  // 안전망으로 chrome.alarms(50s) — 그 사이 SW가 죽어도 알람이 살아남아 큐를 복구(30s 최소 클램프 회피).
   if (!noAdvance && status === 'done' && job.kind === 'doc' && job.queue && job.queue.length && !job.advancing) {
     job.advancing = true
     saveJob()
-    try { chrome.alarms.create('advanceQueue', { when: Date.now() + 4000 }) }
-    catch { setTimeout(() => { advanceQueue().catch(() => {}) }, 4000) }
+    setTimeout(() => { advanceQueue().catch(() => {}) }, 4000)
+    try { chrome.alarms.create('advanceQueue', { when: Date.now() + 50000 }) } catch { /* noop */ }
   }
 }
 
@@ -110,8 +112,11 @@ async function advanceQueue() {
     ? (info.issue || issueUrl(info.capp))
     : LOGIN_URLS[info.site]
   pushStatus('running', `이어서 '${next}' 발급을 진행해요… (남은 서류 ${job.queue.length}개)`)
-  try { await chrome.tabs.update(job.tabId, { url: target, active: true }); job.advancing = false; saveJob() }
-  catch { clearJob() }
+  try {
+    await chrome.tabs.update(job.tabId, { url: target, active: true })
+    job.advancing = false; saveJob()
+    try { await chrome.alarms.clear('advanceQueue') } catch { /* noop */ } // 안전망 알람 해제(이중 advance 방지)
+  } catch { clearJob() }
 }
 
 // 서류명 표기 변형(예: '소득금액증명원'/'주민등록 등본') 흡수 — 공백 제거 후 부분일치
@@ -204,7 +209,9 @@ try {
   chrome.alarms.onAlarm.addListener(async (alarm) => {
     if (alarm.name !== 'advanceQueue') return
     await ensureJob()
-    advanceQueue().catch(() => {})
+    // 안전망: advancing이 아직 true면 빠른 경로(setTimeout)가 못 돈 것(SW 사망) → 복구.
+    // 이미 진행됐으면 advancing=false라 아무것도 안 함(이중 advance 방지).
+    if (job && job.advancing) advanceQueue().catch(() => {})
   })
 } catch { /* alarms 권한 없으면 setTimeout 폴백 사용 */ }
 
