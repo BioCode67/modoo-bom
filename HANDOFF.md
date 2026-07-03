@@ -86,6 +86,39 @@ curl -fsSL https://raw.githubusercontent.com/BioCode67/modoo-bom/main/scripts/se
 
 ---
 
+## 6️⃣ 프로젝트 현재 상태 & 열린 TODO (2026-07-03 세션)
+
+> 새 노트북에서 클로드 코드를 열면 이 절부터 읽고 이어가면 됩니다. 상세는 `CLAUDE.md`·`DATA_SOURCES.md`·
+> `DEPLOY_CHECKLIST.md`·`DEMO_GUIDE.md`, 그리고 `~/.claude/.../memory/`(백업에 포함).
+
+**핵심 성과 (이번 세션의 큰 축 = 크롬 확장)**
+- **크롬 확장(`extension/`)이 핵심 기능**: 배포 사이트에서 **로컬서버 없이** 사용자 브라우저 안에서
+  정부 서류발급·복지신청을 자동화. 순수 웹은 동일출처 정책으로 정부사이트 조작 불가 → 확장이 답.
+- **접근 사이트 6개**(정부24·건강보험공단·고용24·국민연금공단·복지로·한국장학재단) —
+  전부 실서버에서 **로그인→간편인증 클릭까지 자동 도달** 검증(`extension/validate_live.py`).
+  본인인증(카카오)·최종제출은 사용자 직접(설계상 안전장치). 완전 무인 아님.
+- 서류 다수 + **복지로 신청은 카탈로그 전 정책 일반화**(프론트가 정책의 실제 딥링크를 확장에 전달).
+- 능동형 에이전트 3종: 선제 생애 타임라인(`lib/lifeAgent.ts`)·연속성 카드(`lib/continuity.ts`)·
+  에이전트 브리핑(`components/AgentBriefing.tsx`). 전부 온디바이스(서버 미전송).
+- 설치: 지금은 `chrome://extensions` 개발자모드 로드. 웹스토어 제출 패키지 준비됨(`extension/build.ps1`,`STORE.md`).
+
+**열린 TODO (우선순위 순)**
+1. **[진행 중, 미완] 복지로 wlfareInfoId 죽은 ID 2건 정정**: `extension/background.js`의 `SERVICE_URLS`에서
+   **부모급여 `WLF00010441`·첫만남이용권 `WLF00009878`** 가 빈 페이지(97byte) 반환 →
+   `frontend/public/policies.json`에서 올바른 wlfareInfoId 찾아 교체(백엔드 `apply_rpa.py`도 동일).
+   실사용 영향은 폴백 한정(프론트가 정책 실제 URL 전달). 찾기:
+   `node -e "const d=require('./frontend/public/policies.json');d.filter(p=>p.name.includes('부모급여')&&/wlfareInfoId/.test(p.application||'')).forEach(p=>console.log(p.name,p.application))"`
+2. **[완료] 정부24 코드 감사**: 가족관계 `97400000004`·장애인 `14600000273` 정정(커밋 40aa81d, 실측 title 확인). 나머지 코드 OK.
+3. **end-to-end 미검증**: 본인인증 이후(폼작성→발급/제출)는 실계정 필요 → 미확인. 데모 준비 때 실계정 1건 끝까지 시연(`DEMO_GUIDE.md`).
+4. **쉬운 말 2차 정비**: 첫 사용자 경로(프로필 입력·분석)의 남은 딱딱한 용어 정리(1차는 현금성→현금 지원 등 반영됨).
+5. **웹스토어 실제 제출**(개발자 등록 $5) → 일반인 원클릭 설치.
+6. **홈택스/LH 등 추가 사이트**: 홈택스=무거운 SPA(실계정 보정 필요), LH·근로복지공단=공동인증서 중심(다른 방식). 보류 중.
+
+**검증/품질 도구**
+- 실사이트 셀렉터 점검: `cd backend && python ../extension/validate_live.py "<서류명>"` (본인인증 직전까지, 개인정보 미사용)
+- 코드/URL 데이터 감사: `AA020InfoCappView.do?CappBizCD=<코드>` title 확인, 복지로 `moveTWAT52011M.do?wlfareInfoId=<ID>` len 확인
+- 품질 게이트: 프론트 `tsc/lint/test(177)/build`, 백엔드 `pytest(13)` — 변경마다 통과 유지.
+
 ## ✅ 체크리스트
 
 - [ ] 현재 노트북: `bash scripts/backup-handoff.sh` 실행 → 압축파일 USB/클라우드로 이동
