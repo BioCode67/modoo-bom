@@ -32,7 +32,7 @@ export function MonitorFeed({ onOpenItem }: { onOpenItem: (policyId: string) => 
 
       {feed.length === 0 ? (
         <div className="mt-4 flex items-center gap-2 rounded-2xl bg-white border border-sprout-100 px-4 py-4 text-sm text-muted-foreground">
-          <CheckCircle2 className="h-5 w-5 text-sprout-500 shrink-0" /> 지금 챙길 일이 없어요. 모두 정상이에요! ✨
+          <CheckCircle2 className="h-5 w-5 text-success-500 shrink-0" /> 지금 챙길 일이 없어요. 모두 정상이에요! ✨
         </div>
       ) : (
         <ul className="mt-4 space-y-2">

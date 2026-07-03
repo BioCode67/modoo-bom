@@ -22,7 +22,7 @@ export function ShareButton({ count, monthlyText }: { count: number; monthlyText
   return (
     <div className="inline-flex items-center gap-2">
       <button onClick={onShare} className="btn-secondary !py-2.5" aria-label="이웃에게 공유">
-        {msg ? <Check className="h-4 w-4 text-sprout-500" /> : <Share2 className="h-4 w-4" />} {msg || '공유'}
+        {msg ? <Check className="h-4 w-4 text-success-500" /> : <Share2 className="h-4 w-4" />} {msg || '공유'}
       </button>
       <button onClick={onCard} className="btn-secondary !py-2.5" aria-label="이미지 카드 저장">
         <ImageDown className="h-4 w-4" /> 이미지

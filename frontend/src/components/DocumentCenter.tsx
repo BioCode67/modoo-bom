@@ -130,7 +130,7 @@ export function DocumentCenter() {
                 {st ? (
                   <p className="text-xs flex items-center gap-1 mt-0.5">
                     {st.status === 'error' ? <AlertCircle className="h-3.5 w-3.5 text-rose-500" />
-                      : st.status === 'done' || st.status === 'completed' ? <CheckCircle2 className="h-3.5 w-3.5 text-sprout-500" />
+                      : st.status === 'done' || st.status === 'completed' ? <CheckCircle2 className="h-3.5 w-3.5 text-success-500" />
                       : <Loader2 className="h-3.5 w-3.5 animate-spin text-sky2-500" />}
                     <span className="text-muted-foreground truncate">{st.step || st.status}</span>
                   </p>

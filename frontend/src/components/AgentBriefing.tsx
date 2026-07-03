@@ -47,7 +47,7 @@ export function AgentBriefing({ onOpen }: { onOpen: (p: Policy | EligiblePolicy)
 
       {nothing ? (
         <p className="text-sm mt-2 flex items-center gap-1.5 text-muted-foreground">
-          <CheckCircle2 className="h-4 w-4 text-sprout-500" />
+          <CheckCircle2 className="h-4 w-4 text-success-500" />
           {name}님, 지금 급히 챙길 일은 없어요. 담아두신 복지 {tracked.length}건은 제가 계속 지켜볼게요.
         </p>
       ) : (

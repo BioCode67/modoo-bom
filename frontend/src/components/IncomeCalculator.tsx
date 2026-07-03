@@ -15,7 +15,7 @@ const ZONES: { to: number; cls: string }[] = [
   { to: 32, cls: 'bg-rose-300' },
   { to: 40, cls: 'bg-peach-300' },
   { to: 48, cls: 'bg-amber-300' },
-  { to: 50, cls: 'bg-sprout-300' },
+  { to: 50, cls: 'bg-success-300' },
   { to: 100, cls: 'bg-sky2-100' },
 ]
 
@@ -91,7 +91,7 @@ export function IncomeCalculator({
 
       {/* 예상 생계급여 실수령액 — "그래서 얼마 받나"를 구체 금액으로 */}
       {livelihood > 0 && (
-        <div className="mt-3 rounded-xl bg-sprout-500 text-white px-4 py-3 text-center shadow-soft">
+        <div className="mt-3 rounded-xl bg-success-600 text-white px-4 py-3 text-center shadow-soft">
           <p className="text-xs font-semibold text-white/85">예상 생계급여 (매월 받을 수 있어요)</p>
           <p className="text-2xl font-extrabold mt-0.5">약 {won(livelihood)}</p>
           <p className="text-[10px] text-white/80 mt-1">= {size}인 생계급여 기준액 − 내 소득 · 실제 소득인정액(재산 환산 포함)에 따라 달라져요</p>
@@ -109,8 +109,8 @@ export function IncomeCalculator({
                 <span className="text-[10px] text-muted-foreground">중위 {b.pct}%</span>
               </span>
               <span className="flex items-center gap-1.5">
-                <b className={cn(b.ok === true && 'text-sprout-600', b.ok === false && 'text-muted-foreground/60')}>≤ {won(b.cutoff)}</b>
-                {b.ok === true && <Check className="h-4 w-4 text-sprout-600" />}
+                <b className={cn(b.ok === true && 'text-success-600', b.ok === false && 'text-muted-foreground/60')}>≤ {won(b.cutoff)}</b>
+                {b.ok === true && <Check className="h-4 w-4 text-success-600" />}
                 {b.ok === false && <X className="h-3.5 w-3.5 text-muted-foreground/50" />}
               </span>
             </li>
@@ -119,8 +119,8 @@ export function IncomeCalculator({
 
         {pct != null && (
           qualified.length > 0 ? (
-            <div className="mt-2.5 rounded-lg bg-sprout-50 px-2.5 py-2">
-              <p className="text-xs font-semibold text-sprout-700">✓ {qualified.map((b) => b.label).join(', ')} 신청 대상이에요!</p>
+            <div className="mt-2.5 rounded-lg bg-success-50 px-2.5 py-2">
+              <p className="text-xs font-semibold text-success-700">✓ {qualified.map((b) => b.label).join(', ')} 신청 대상이에요!</p>
               {onPickBenefit && (
                 <div className="mt-1.5 flex flex-wrap gap-1.5">
                   {qualified.map((b) => (

@@ -103,7 +103,7 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
       ) : (
         <div className="mt-3">
           <p className="text-xs flex items-center gap-1.5">
-            {run.status === 'error' ? <AlertCircle className="h-4 w-4 text-rose-500" /> : done ? <ShieldCheck className="h-4 w-4 text-sprout-500" /> : <Loader2 className="h-4 w-4 animate-spin text-sprout-500" />}
+            {run.status === 'error' ? <AlertCircle className="h-4 w-4 text-rose-500" /> : done ? <ShieldCheck className="h-4 w-4 text-success-500" /> : <Loader2 className="h-4 w-4 animate-spin text-sprout-500" />}
             <span className="font-medium">{run.step}</span>
           </p>
           {run.shot && (

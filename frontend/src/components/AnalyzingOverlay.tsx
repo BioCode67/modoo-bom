@@ -54,7 +54,7 @@ export function AnalyzingOverlay({ onDone }: { onDone: () => void }) {
               i < active ? 'bg-sprout-50 text-sprout-700' : i === active ? 'bg-sprout-100 text-sprout-700' : 'bg-muted/40 text-muted-foreground')}
           >
             <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white">
-              {i < active ? <Check className="h-4 w-4 text-sprout-500" /> : i === active ? <Loader2 className="h-4 w-4 animate-spin text-sprout-500" /> : <span className="text-xs text-muted-foreground">{i + 1}</span>}
+              {i < active ? <Check className="h-4 w-4 text-success-500" /> : i === active ? <Loader2 className="h-4 w-4 animate-spin text-sprout-500" /> : <span className="text-xs text-muted-foreground">{i + 1}</span>}
             </span>
             {s}
           </motion.div>
