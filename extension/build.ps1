@@ -11,7 +11,8 @@ $manifest = Get-Content (Join-Path $root 'manifest.json') -Raw | ConvertFrom-Jso
 $version = $manifest.version
 
 # 웹스토어에 올릴 런타임 파일(개발/문서 파일 제외)
-$include = @('manifest.json','background.js','automation.js','bridge.js','popup.html','popup.js','icon128.png')
+# ⚠️ manifest가 content_scripts로 선언한 파일은 반드시 포함해야 로드 실패가 안 남(alert-suppress.js 포함)
+$include = @('manifest.json','background.js','automation.js','bridge.js','alert-suppress.js','popup.html','popup.js','icon128.png')
 $staging = Join-Path $env:TEMP ("modoo-agent-" + [System.Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Force -Path $staging | Out-Null
 foreach ($f in $include) {
