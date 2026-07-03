@@ -266,7 +266,12 @@ async def estimate_benefits(req: EstimateRequest):
                 "category": policy["category"],
                 "reason": reason,
                 "priority": priority,
+                "confidence": confidence,
             })
+
+    # ⚠️ 정렬 후 상위 10건 — 카탈로그 순서로 자르면 중요한 high 정책이 잘려나갈 수 있었음(프론트와 동일 정렬)
+    _rank = {"high": 3, "medium": 2, "low": 1}
+    eligible.sort(key=lambda e: (_rank.get(e["priority"], 0), e.get("confidence", 0)), reverse=True)
 
     return {
         "eligible_count": len(eligible),
