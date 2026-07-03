@@ -6,10 +6,10 @@ import { useAppStore } from '@/store/useAppStore'
 import { docLink, isRpaSupported } from '@/lib/officialLinks'
 import { API_BASE } from '@/lib/backend'
 import { useBackend } from '@/lib/useBackend'
-import { detectExtension, issueViaExtension, onExtensionStatus } from '@/lib/extension'
+import { detectExtension, issueViaExtension, onExtensionStatus, sameDocName } from '@/lib/extension'
 import { RpaInfoForm } from '@/components/RpaInfoForm'
 
-type RpaState = { status: string; step: string } | null
+type RpaState = { status: string; step: string; at?: number } | null
 
 export function DocumentCenter() {
   const { tracked, profile, rpaInfo } = useAppStore()
@@ -20,11 +20,19 @@ export function DocumentCenter() {
   const [rpa, setRpa] = useState<Record<string, RpaState>>({})
 
   // 확장 감지 + 진행상태 구독(확장은 서류명별 status를 푸시)
+  // ⚠️ 확장은 서류명을 정규화(resolveDoc)해 보내므로 퍼지매칭으로 기존 카드 키에 연결(불일치 시 '시작 중' 멈춤 방지)
+  const [tick, setTick] = useState(0)
   useEffect(() => {
     detectExtension().then(setExt)
-    return onExtensionStatus((s) => {
-      if (s.docName) setRpa((prev) => ({ ...prev, [s.docName!]: { status: s.status, step: s.step } }))
+    const t = setInterval(() => setTick((x) => x + 1), 7000) // 무응답 감지용 리렌더
+    const off = onExtensionStatus((s) => {
+      if (!s.docName) return
+      setRpa((prev) => {
+        const key = Object.keys(prev).find((k) => sameDocName(k, s.docName)) || s.docName!
+        return { ...prev, [key]: { status: s.status, step: s.step, at: Date.now() } }
+      })
     })
+    return () => { clearInterval(t); off() }
   }, [])
 
   // 담은 정책들의 필요 서류 → 어떤 복지들에 필요한지까지 집계 (공통 서류 우선 준비)
@@ -49,15 +57,15 @@ export function DocumentCenter() {
   }
 
   const startRpa = async (doc: string) => {
-    setRpa((s) => ({ ...s, [doc]: { status: 'running', step: '시작 중…' } }))
+    setRpa((s) => ({ ...s, [doc]: { status: 'running', step: '시작 중…', at: Date.now() } }))
     // 로컬 에이전트가 없고 확장만 있으면 브라우저 내 확장으로 발급(진행상태는 구독으로 수신)
     if (!localAgent && ext) {
-      const ok = await issueViaExtension(doc, {
+      const r = await issueViaExtension(doc, {
         // 본인인증엔 실명(rpaInfo.name)이 필요 — 프로필 이름(데모 페르소나일 수 있음)은 폴백
         user_name: rpaInfo.name || profile?.name || '사용자',
         birth_date: rpaInfo.birth_date, phone: rpaInfo.phone, carrier: rpaInfo.carrier,
       })
-      if (!ok) setRpa((s) => ({ ...s, [doc]: { status: 'error', step: '확장이 이 서류를 지원하지 않아요(정부24 서류만).' } }))
+      if (!r.ok) setRpa((s) => ({ ...s, [doc]: { status: 'error', step: r.error || '확장이 이 서류를 지원하지 않아요.', at: Date.now() } }))
       return
     }
     try {
@@ -123,6 +131,8 @@ export function DocumentCenter() {
           const link = docLink(doc)
           const supported = isRpaSupported(doc)
           const st = rpa[doc]
+          // 30초 넘게 진행상태가 안 오면(새 탭에서 사용자 조작 대기 등) 웹에서도 정직하게 안내
+          const stale = !!(st && !['done', 'completed', 'error'].includes(st.status) && st.at && Date.now() - st.at > 30000 && tick >= 0)
           return (
             <div key={doc} className="card-cute p-4 flex items-center gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-sky2-100 text-sky2-600"><FileText className="h-5 w-5" /></div>
@@ -135,6 +145,12 @@ export function DocumentCenter() {
                       : <Loader2 className="h-3.5 w-3.5 animate-spin text-sky2-500" />}
                     <span className="text-muted-foreground truncate">{st.step || st.status}</span>
                   </p>
+                  {stale && (
+                    <p className="text-[11px] text-amber-700 mt-0.5">
+                      진행이 잠시 멈춘 듯해요 — 확장이 연 <b>정부 사이트 탭</b>을 확인해 주세요(본인인증 등 직접 눌러야 하는 단계일 수 있어요).
+                      안 되면 <a href={link.url} target="_blank" rel="noopener noreferrer" className="underline font-semibold">공식 사이트에서 직접 발급</a>하세요.
+                    </p>
+                  )}
                 ) : (
                   <>
                     <p className="text-xs text-sprout-600 font-semibold truncate">{needText(doc)}</p>
