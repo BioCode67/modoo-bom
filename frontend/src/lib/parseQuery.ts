@@ -18,9 +18,16 @@ export function parseProfileFromText(text: string): UserProfile {
   const p: UserProfile = { ...BASE, life_events: [] }
   if (!t) return p
 
+  // ── 자녀 나이 선처리 ── "아이가 셋이에요 7살 5살 2살"처럼 자녀 맥락에서 나이가 여러 개 나열되면
+  // 전부 자녀 나이로 보고, 부모 나이 추출에서는 제외한다(첫 토큰을 부모 나이로 오인 방지).
+  const kidContext = /아이|애(?!인)|자녀|아들|딸|아기|애들/.test(t)
+  const ageTokens = [...t.matchAll(/(\d{1,2})\s*(?:살|세)/g)].map((m) => parseInt(m[1], 10))
+  const multiKidAges = kidContext && ageTokens.length >= 2 && ageTokens.every((a) => a <= 18) ? ageTokens : null
+  const tForAge = multiKidAges ? t.replace(/\d{1,2}\s*(?:살|세)/g, '') : t
+
   // ── 나이 ── (단, "5살 아이"처럼 자녀를 가리키는 N살/세는 부모 나이로 잡지 않음)
-  const exact = t.match(/(\d{1,3})\s*(?:세|살)(?!\s*(?:아이|자녀|아들|딸|아기|아동|손주|손자|손녀))/)
-  const decade = t.match(/(\d0)\s*대/)
+  const exact = tForAge.match(/(\d{1,3})\s*(?:세|살)(?!\s*(?:아이|자녀|아들|딸|아기|아동|손주|손자|손녀))/)
+  const decade = tForAge.match(/(\d0)\s*대/)
   if (exact) p.age = parseInt(exact[1], 10)
   else if (decade) p.age = parseInt(decade[1], 10) + 5
   else if (/노인|어르신|고령|할머니|할아버지|경로/.test(t)) p.age = 70
@@ -32,7 +39,7 @@ export function parseProfileFromText(text: string): UserProfile {
   if (/신혼/.test(t)) p.household_type = '신혼부부'
   if (/다자녀|아이.*(셋|3|세 명)|자녀.*(셋|3명)/.test(t)) p.household_type = '다자녀가구'
   if (/다문화|결혼이민|외국인.*(배우자|결혼)/.test(t)) p.household_type = '다문화가족'
-  if (/한부모|미혼모|미혼부|혼자.*키우|홀로.*키우|이혼.*아이/.test(t)) p.household_type = '한부모가족'
+  if (/한부모|미혼모|미혼부|혼자.*키[우워]|홀로.*키[우워]|이혼.*(아이|애|자녀)|(남편|아내|배우자).*(죽|잃|사별)|사별/.test(t)) p.household_type = '한부모가족'
   if (/조손|손주.*키우|할머니.*키우/.test(t)) p.household_type = '조손가구'
 
   // ── 소득 ──
@@ -51,13 +58,23 @@ export function parseProfileFromText(text: string): UserProfile {
   // ── 임신·자녀 ──
   if (/임신|임산부|만삭|출산\s*예정|곧\s*출산/.test(t)) { p.is_pregnant = true; p.life_events.push('출산') }
   const kids = [...t.matchAll(/(\d{1,2})\s*(살|세)\s*(아이|자녀|아들|딸|아기)/g)]
-  if (kids.length) { p.has_children = true; p.children_ages = kids.map((m) => parseInt(m[1], 10)) }
-  else if (/아이|자녀|아들|딸|육아|아기|영유아|어린이집|유치원/.test(t)) {
+  const kidCount = t.match(/(?:아이|애들?|자녀)\s*(둘|두|셋|세|넷|[2-4])\s*(?:명|이|을|이에요|입니다)?/)
+  const COUNT: Record<string, number> = { 둘: 2, 두: 2, 셋: 3, 세: 3, 넷: 4 }
+  if (multiKidAges) { p.has_children = true; p.children_ages = multiKidAges }
+  else if (kids.length) { p.has_children = true; p.children_ages = kids.map((m) => parseInt(m[1], 10)) }
+  else if (/아이|자녀|아들|딸|육아|아기|영유아|어린이집|유치원|키[우워]|쌍둥이|신생아|갓\s*태어/.test(t)) {
     p.has_children = true
-    if (/신생아|갓난|0\s*살|돌\s*전/.test(t)) p.children_ages = [0]
+    if (/신생아|갓난|갓\s*태어|쌍둥이|0\s*살|돌\s*전/.test(t)) p.children_ages = /쌍둥이/.test(t) ? [0, 0] : [0]
+    else if (kidCount) p.children_ages = Array(COUNT[kidCount[1]] ?? parseInt(kidCount[1], 10)).fill(5)
     else if (!p.children_ages.length) p.children_ages = [3]
   }
+  if (p.children_ages.length >= 3) p.household_type = p.household_type || '다자녀가구'
   if (/출산|아기.*낳|애.*낳/.test(t) && !p.life_events.includes('출산')) p.life_events.push('출산')
+
+  // ── 질병(투병·입원) ── 갑작스러운 질병은 긴급복지·의료 신호
+  if (/암(이|에|을|으로|\s|$)|백혈병|투병|입원(했|중|하)|큰\s*병|수술\s*받/.test(t) && !p.life_events.includes('질병')) {
+    p.life_events.push('질병')
+  }
 
   // ── 고용 ──
   if (/실직|실업|퇴사|해고|잘렸|일자리.*(잃|없)|직장.*잃/.test(t)) {

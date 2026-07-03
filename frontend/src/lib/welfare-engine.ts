@@ -122,6 +122,9 @@ export function extractKeywords(p: UserProfile): { summary: string; keywords: st
   if (events.includes('장애진단')) {
     keywords = keywords.concat(['장애인연금', '활동지원', '장애수당'])
   }
+  if (events.includes('질병')) {
+    keywords = keywords.concat(['의료', '의료비', '긴급복지'])
+  }
 
   // dict.fromkeys → 순서 보존 중복 제거, fallback, 최대 8개
   let deduped = Array.from(new Set(keywords.length ? keywords : ['복지', '사회보장']))

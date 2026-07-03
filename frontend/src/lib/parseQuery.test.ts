@@ -60,3 +60,29 @@ describe('parseProfileFromText', () => {
     expect(p.life_events).toEqual([])
   })
 })
+
+
+describe('실사용 문장 회귀(2026-07 품질 스윕)', () => {
+  it('사별+혼자 키움 → 한부모 + 자녀 수 인식', () => {
+    const p = parseProfileFromText('남편이 죽고 애 둘을 혼자 키워요')
+    expect(p.household_type).toBe('한부모가족')
+    expect(p.children_ages.length).toBe(2)
+  })
+  it('자녀 나이 나열은 부모 나이로 오인하지 않음', () => {
+    const p = parseProfileFromText('아이가 셋이에요 7살 5살 2살')
+    expect(p.age).toBe(30) // 기본값 유지(7살을 부모로 오인 X)
+    expect(p.children_ages).toEqual([7, 5, 2])
+    expect(p.household_type).toBe('다자녀가구')
+  })
+  it('쌍둥이 신생아 → 0세 둘', () => {
+    expect(parseProfileFromText('갓 태어난 쌍둥이가 있어요').children_ages).toEqual([0, 0])
+  })
+  it('암 투병 → 질병 이벤트', () => {
+    expect(parseProfileFromText('암 진단을 받았어요').life_events).toContain('질병')
+  })
+  it('회귀: 성인 나이는 그대로(65살 남편 → 65세, 자녀 오인 없음)', () => {
+    const p = parseProfileFromText('65살 남편이랑 둘이 살아요')
+    expect(p.age).toBe(65)
+    expect(p.has_children).toBe(false)
+  })
+})
