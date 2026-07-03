@@ -102,16 +102,16 @@
     let isLoggedIn = loggedIn()
     if (!isLoggedIn) { for (let i = 0; i < 6 && !isLoggedIn; i++) { await sleep(500); isLoggedIn = loggedIn() } }
     if (isLoggedIn) {
-      // 1) 현재 페이지(메인의 '자주 찾는 서비스' 등)에 해당 서류 바로가기가 있으면 직접 클릭
-      //    — 크로스도메인 GOTO가 메인으로 튕기는 문제를 피하는 가장 안정적인 길
-      const svcClicked = job.docName && clickText([job.docName])
+      // 로그인 후: 메인 '자주 찾는 서비스' 등에서 해당 서류 바로가기를 폴링해 직접 클릭.
+      // (세션이 plus.gov.kr에 있어 www.gov.kr로 직접 이동하면 메인으로 튕기므로, 사이트 자체 링크를 탄다)
+      status('running', `'${job.docName}' 발급 바로가기를 찾는 중…`)
+      const svcClicked = await pollClick(() => job.docName && clickText([job.docName]), 8)
       if (svcClicked) {
         status('running', `'${job.docName}' 발급 화면으로 이동 중…`)
         return
       }
-      // 2) 바로가기가 없으면 발급 URL로 이동
-      status('running', '로그인 완료 — 발급 페이지로 이동합니다.')
-      await sleep(400); await send({ type: 'GOTO', payload: { url: job.issueUrl } })
+      // 못 찾으면(도메인 튕김 루프 방지 위해 GOTO 대신) 수동 안내
+      status('waiting', `화면에서 '${job.docName}'을(를) 직접 눌러 발급을 진행해 주세요. (누르면 이후는 자동)`)
       return
     }
     // 로그인 화면: 간편인증 버튼을 최대 12초 폴링(보안페이지 후 늦게 렌더 대비)
