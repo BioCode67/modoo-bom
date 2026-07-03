@@ -80,8 +80,8 @@
       return  // 클릭 후 네비게이션되면 재주입되어 발급으로 이어짐
     }
     // 발급 완료 목록(서비스 신청 내역) — 문서출력 클릭 + PDF 자동 저장
-    if (/mbrAplySrvcList/i.test(location.href) ||
-        (document.body && /서비스\s*신청\s*내역/.test(document.body.innerText))) {
+    // ⚠️ URL로만 매칭(메인 페이지에도 '서비스 신청 내역' 링크 텍스트가 있어 오인 방지)
+    if (/mbrAplySrvcList/i.test(location.href)) {
       const hasOutput = /문서출력/.test((document.body && document.body.innerText) || '')
       if (hasOutput) {
         const ymd = new Date().toISOString().slice(0, 10).replace(/-/g, '')
