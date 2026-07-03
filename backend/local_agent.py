@@ -173,9 +173,20 @@ def run(doc_name: str):
             log("로그인 완료를 확인하지 못했어요. 인증을 끝내면 다시 실행해 주세요.")
             return
         log("로그인 완료! 발급 페이지로 이동…")
+        # 로그인 직후 '회원정보 재확인' 안내가 뜨면 건너뛰기(현재 정보 유지)
+        try:
+            if "회원정보" in (page.inner_text("body") or "") and "재확인" in (page.inner_text("body") or ""):
+                for t in ["현재 정보 유지", "다음에 변경", "나중에", "유지"]:
+                    b = page.get_by_text(t, exact=False)
+                    if b.count():
+                        b.first.click(timeout=3000)
+                        page.wait_for_timeout(1500)
+                        break
+        except Exception:
+            pass
         page.goto(issue_url(capp), wait_until="domcontentloaded", timeout=45000)
         page.wait_for_timeout(2500)
-        # 발급 폼으로: AA040 직접 링크 우선
+        # 발급 폼으로: AA040 직접 링크 우선(회원/비회원 모달·신뢰클릭 이슈 우회)
         try:
             link = page.locator("a[href*='AA040OfferMainFrm']").first
             if link.count():
@@ -183,6 +194,14 @@ def run(doc_name: str):
                 page.wait_for_timeout(2500)
         except Exception:
             pass
+        # 초본이면 '초본' 유형 선택(등본은 기본값)
+        if doc_name == "주민등록초본":
+            try:
+                lab = page.get_by_text("초본", exact=True)
+                if lab.count():
+                    lab.first.click(timeout=2500)
+            except Exception:
+                pass
         # 신청하기(Playwright 신뢰 클릭)
         log("발급 정보 확인 후 신청… (5초 후 자동 신청)")
         page.wait_for_timeout(5000)
@@ -203,19 +222,35 @@ def run(doc_name: str):
                 pass
         log("신청 제출 중… 전자서명 창이 뜨면 본인 확인해 주세요." if clicked
             else "화면의 '신청하기'를 눌러 주세요.")
-        # 문서출력 → PDF
-        for _ in range(60):
+        # 문서출력 → PDF. 출력은 새 탭(popup)으로 열릴 수 있어 popup을 우선 저장.
+        ymd = time.strftime("%Y%m%d")
+        fname = f"모두봄_{doc_name}_{ymd}.pdf"
+        saved = False
+        for _ in range(120):  # 전자서명·처리에 시간이 걸릴 수 있어 최대 ~2분 대기
             try:
-                if "문서출력" in (page.inner_text("body") or ""):
-                    page.get_by_text("문서출력", exact=False).first.click(timeout=3000)
-                    page.wait_for_timeout(2500)
-                    ymd = time.strftime("%Y%m%d")
-                    save_pdf(page, f"모두봄_{doc_name}_{ymd}.pdf")
-                    break
+                body = page.inner_text("body") or ""
+                if "문서출력" in body:
+                    ctx = page.context
+                    try:
+                        with ctx.expect_page(timeout=6000) as pop:  # 새 탭으로 열리면 그 탭 저장
+                            page.get_by_text("문서출력", exact=False).first.click(timeout=3000)
+                        newp = pop.value
+                        newp.wait_for_load_state("domcontentloaded")
+                        newp.wait_for_timeout(1500)
+                        saved = save_pdf(newp, fname)
+                    except Exception:
+                        # 새 탭이 아니면 현재 페이지 저장
+                        page.wait_for_timeout(1500)
+                        saved = save_pdf(page, fname)
+                    if saved:
+                        break
             except Exception:
                 pass
             page.wait_for_timeout(1000)
-        log("완료. 발급 문서를 확인하세요.")
+        if saved:
+            log(f"🎉 발급 완료! PDF 저장: {SAVE_DIR / fname}")
+        else:
+            log("발급이 진행 중이거나 [문서출력]을 기다리고 있어요. 완료되면 화면의 [문서출력]으로 저장하세요.")
 
 if __name__ == "__main__":
     doc = sys.argv[1] if len(sys.argv) > 1 else "주민등록등본"
