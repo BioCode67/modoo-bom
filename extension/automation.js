@@ -100,6 +100,31 @@
       }
       return
     }
+    // 실제 발급 신청 폼(plus.gov.kr/minwon/apply/applyMinwonForm) — 이걸 인식해야 '헛도는' 루프가 멈춤
+    if (/applyMinwonForm|\/minwon\/apply\//i.test(location.href)) {
+      await sleep(2500) // '잠시만 기다려 주세요' 로딩 대기
+      const bt = () => (document.body && document.body.innerText) || ''
+      // (a) 발급 결과화면(문서출력)이면 PDF 저장
+      if (/문서출력/.test(bt())) {
+        const ymd = new Date().toISOString().slice(0, 10).replace(/-/g, '')
+        await send({ type: 'SAVE_ON_POPUP', payload: { filename: `모두봄_${(job.docName || '문서').replace(/\s/g, '')}_${ymd}.pdf` } })
+        const out = await pollClick(() => clickText(['문서출력']), 10)
+        status('done', out
+          ? '✅ 발급 완료! 문서를 PDF로 저장하는 중이에요… (다운로드 폴더 확인)'
+          : '✅ 발급 완료! 화면의 [문서출력]을 누르면 저장돼요.')
+        return
+      }
+      // (b) 신청 폼: 저장 예약 후 발급/신청 제출(전자서명이 뜨면 본인 확인)
+      const ymd = new Date().toISOString().slice(0, 10).replace(/-/g, '')
+      await send({ type: 'SAVE_ON_POPUP', payload: { filename: `모두봄_${(job.docName || '문서').replace(/\s/g, '')}_${ymd}.pdf` } })
+      const submitted = await pollClick(() =>
+        clickText(['민원신청하기', '신청하기', '발급하기', '발급', '제출', '신청']) ||
+        clickSel(['#btnMinwonApply', '#btnApply', '#btnIssue', "input[value*='신청']", "input[value*='발급']"]), 10)
+      status(submitted ? 'running' : 'waiting', submitted
+        ? '발급 신청을 제출하는 중이에요… (전자서명 창이 뜨면 본인 확인해 주세요)'
+        : "발급 폼이에요. 필수 항목 확인 후 아래 '신청/발급' 버튼을 눌러 주세요. (누르면 이후는 자동)")
+      return
+    }
     // 로그인 상태를 잠깐 기다렸다 확인(로그아웃 링크가 늦게 렌더될 수 있음)
     let isLoggedIn = loggedIn()
     if (!isLoggedIn) { for (let i = 0; i < 6 && !isLoggedIn; i++) { await sleep(500); isLoggedIn = loggedIn() } }
@@ -149,6 +174,16 @@
     if (phone) {
       const tail = phone.startsWith('010') && phone.length >= 10 ? phone.slice(3) : phone
       filled = fill(['#oacx_phone2', '#oku_phone2', 'input.phone', 'input[name*="phone"]'], tail) || filled
+    }
+    // 통신사(앱에서 입력) — select면 텍스트 매칭으로 선택
+    const carrier = (u.carrier || '').trim()
+    if (carrier) {
+      const cs = document.querySelector("select[name*='telecom' i], select[name*='carrier' i], select[name*='mbl' i], #oacx_telecom")
+      if (cs && cs.options) {
+        for (const o of cs.options) {
+          if ((o.text || '').includes(carrier)) { cs.value = o.value; cs.dispatchEvent(new Event('change', { bubbles: true })); filled = true; break }
+        }
+      }
     }
     // 전체동의
     const agree = document.querySelector('#totalAgree, input#totalAgree')
