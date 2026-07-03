@@ -122,7 +122,20 @@
     status('running', clicked
       ? '간편인증을 선택했어요. 카카오톡을 고르고 본인인증을 진행해 주세요. 📱'
       : "화면에서 '간편인증'을 눌러 주세요. (보안 확인이 끝나면 자동으로 다시 시도해요)")
-    if (clicked) { await sleep(2500); await send({ type: 'REINJECT' }) }
+    if (clicked) {
+      await sleep(2500); await send({ type: 'REINJECT' })
+      // 안전망: 페이지 전환 없이(AJAX) 로그인되는 경우 대비 — 로그인 완료를 폴링해 발급 진행
+      // (전환이 일어나면 이 인스턴스는 사라지고 onUpdated 재주입이 이어받음)
+      for (let i = 0; i < 300; i++) {
+        await sleep(1000)
+        if (loggedIn()) {
+          status('running', '로그인 완료 — 발급 페이지로 이동합니다.')
+          const svc = job.docName && clickText([job.docName])
+          if (!svc) await send({ type: 'GOTO', payload: { url: job.issueUrl } })
+          return
+        }
+      }
+    }
     return
   }
 
