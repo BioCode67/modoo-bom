@@ -159,6 +159,9 @@ curl -fsSL https://raw.githubusercontent.com/BioCode67/modoo-bom/main/scripts/se
 **검증/품질 도구**
 - 실사이트 셀렉터 점검: `cd backend && python ../extension/validate_live.py "<서류명>"` (본인인증 직전까지, 개인정보 미사용)
 - 코드/URL 데이터 감사: `AA020InfoCappView.do?CappBizCD=<코드>` title 확인, 복지로 `moveTWAT52011M.do?wlfareInfoId=<ID>` len 확인
+- **E2E 스모크(실브라우저)**: `backend/venv/Scripts/python.exe frontend/e2e/smoke.py` — 홈·분석(민간재단 섹션)·
+  챗 에이전트·탐색 필터 4여정 + 페이지에러 0을 headless chromium으로 검증(전용 e2e-dist 빌드라 dist 경합 없음).
+  데모 직전 1회 실행 권장.
 - 품질 게이트: 프론트 `tsc/lint/test(224)/build`, 백엔드 `pytest(13)` — 변경마다 통과 유지.
 
 ## ✅ 체크리스트
