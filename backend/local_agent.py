@@ -297,6 +297,25 @@ def run(doc_names):
                 ok_count += 1
         log(f"끝! 총 {len(docs)}건 중 {ok_count}건 저장 완료. (바탕화면\\모두봄서류)")
 
+def pick_docs_interactive():
+    """인자가 없을 때 발급할 서류를 번호로 고르게 한다(여러 개는 쉼표). 기본=등본."""
+    names = list(DOCS.keys())
+    print("\n발급할 서류를 고르세요 (여러 개면 쉼표로, 예: 1,3). 그냥 Enter = 주민등록등본")
+    for i, n in enumerate(names, 1):
+        print(f"  {i}) {n}")
+    sel = input("선택: ").strip()
+    if not sel:
+        return ["주민등록등본"]
+    out = []
+    for tok in sel.replace(" ", "").split(","):
+        if tok.isdigit() and 1 <= int(tok) <= len(names):
+            out.append(names[int(tok) - 1])
+        elif tok:
+            r = resolve_doc(tok)
+            if r:
+                out.append(r)
+    return out or ["주민등록등본"]
+
 if __name__ == "__main__":
     args = sys.argv[1:]
-    run(args if args else ["주민등록등본"])
+    run(args if args else pick_docs_interactive())
