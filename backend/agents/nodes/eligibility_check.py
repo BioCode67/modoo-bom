@@ -67,7 +67,23 @@ async def eligibility_check_node(state: AgentState) -> dict:
         ])
         result = extract_json(str(response.content))
 
-    eligible = [p for p in result.get("eligible_policies", []) if p.get("eligible")]
+    # 우선순위(high>med>low) → 신뢰도 정렬 + 이름 중복 제거(프론트 엔진과 일관).
+    # RAG 검색 순서로 두면 기초연금(high)이 문화누리카드(medium) 아래로 묻히는 문제 해결.
+    _rank = {"high": 3, "medium": 2, "low": 1}
+    ordered = sorted(
+        result.get("eligible_policies", []),
+        key=lambda p: (_rank.get(p.get("priority"), 0), p.get("confidence", 0)),
+        reverse=True,
+    )
+    seen, deduped = set(), []
+    for p in ordered:
+        key = (p.get("name") or "").replace(" ", "").replace("(", "").replace(")", "")
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        deduped.append(p)
+
+    eligible = [p for p in deduped if p.get("eligible")]
     new_events.append(NodeEvent(
         node="eligibility_check",
         status="done",
@@ -77,6 +93,6 @@ async def eligibility_check_node(state: AgentState) -> dict:
 
     return {
         "events": new_events,
-        "eligible_policies": result.get("eligible_policies", []),
+        "eligible_policies": deduped,
         "eligibility_reasoning": result.get("reasoning_summary", ""),
     }
