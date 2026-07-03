@@ -20,14 +20,16 @@ describe('buildAiAnswer', () => {
     expect(s).not.toContain('문장을 이해했어요')
   })
 
-  it('영어 질의: 언어 안내 포함', () => {
-    const s = buildAiAnswer([{ name: 'A', benefit: '' }], 'I need help')
-    expect(s.startsWith('English 문장을 이해했어요.')).toBe(true)
+  it('영어 질의: 영어로 답변(질의 언어 응답) + 통역 129 안내', () => {
+    const s = buildAiAnswer([{ name: '기초연금', benefit: '월 최대 35만원' }], 'I am an elderly person living alone')
+    expect(s).toMatch(/match you best/)
+    expect(s).toContain('129')
+    expect(s).toContain('기초연금') // 정책명은 한국어 유지(실제 신청 시스템)
   })
 
-  it('베트남어 질의: 언어 안내 포함', () => {
-    const s = buildAiAnswer([{ name: 'A', benefit: '' }], 'Tôi cần giúp đỡ')
-    expect(s.startsWith('Tiếng Việt 문장을 이해했어요.')).toBe(true)
+  it('베트남어 질의: 베트남어로 답변', () => {
+    const s = buildAiAnswer([{ name: '기초연금', benefit: '' }], 'Tôi là người già sống một mình, không có tiền')
+    expect(s).toMatch(/phúc lợi phù hợp/)
   })
 
   it('대표 복지 이름 중복 제거', () => {
