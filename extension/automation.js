@@ -38,10 +38,19 @@
   }
   // 정부 버튼은 isTrusted=false(.click())를 무시 → background의 debugger로 '진짜 클릭'을 쏜다.
   // 최상위 프레임에서만 유효(좌표=뷰포트 CSS픽셀). el을 화면에 보이게 스크롤 후 중심 좌표 전송.
+  // ⚠️ 순서 중요: debugger attach 시 상단 '디버깅 중' 안내바가 생기며 페이지가 아래로 밀림.
+  //   → 먼저 attach(TRUSTED_PREP)하고, 밀린 뒤의 좌표를 다시 계산해서 클릭(TRUSTED_CLICK)한다.
   const trustedClickEl = async (el) => {
     if (!el || !isTop) return false
+    const prep = await send({ type: 'TRUSTED_PREP' })
+    if (!prep || !prep.ok) {
+      // 개발자도구(F12)가 열려 있으면 debugger를 못 붙임 → 사용자에게 알림
+      status('waiting', '⚠️ 자동 클릭을 하려면 개발자도구(F12) 창을 닫아 주세요. 닫으면 자동으로 다시 시도해요.')
+      return false
+    }
+    await sleep(700) // 안내바 렌더로 뷰포트가 안정될 때까지 대기
     try { el.scrollIntoView({ block: 'center', inline: 'center' }) } catch { /* noop */ }
-    await sleep(150)
+    await sleep(250)
     const r = el.getBoundingClientRect()
     if (!r || (r.width === 0 && r.height === 0)) return false
     const x = Math.round(r.left + r.width / 2)
@@ -49,8 +58,9 @@
     const res = await send({ type: 'TRUSTED_CLICK', payload: { x, y } })
     return !!(res && res.ok)
   }
-  // 텍스트/셀렉터로 버튼을 찾아 '진짜 클릭'(실패 시 일반 .click() 폴백)
-  const realClick = async (texts, sels = []) => {
+  // 텍스트/셀렉터로 버튼을 찾아 '진짜 클릭'. trustedOnly=true면 debugger 클릭 성공만 성공으로 침
+  // (.click() 폴백은 정부 버튼에선 무시되는 경우가 많아, 재시도 루프에선 성공으로 오판하면 안 됨)
+  const realClick = async (texts, sels = [], trustedOnly = false) => {
     let el = null
     const cand = Array.from(document.querySelectorAll('a,button,[role="button"],input[type="button"],input[type="submit"],span,li,div[onclick]'))
     for (const c of cand) {
@@ -60,6 +70,7 @@
     if (!el) { for (const s of sels) { const q = document.querySelector(s); if (q) { el = q; break } } }
     if (!el) return false
     if (await trustedClickEl(el)) return true
+    if (trustedOnly) return false
     try { el.click(); return true } catch { return false }
   }
   // React/Vue 등 프레임워크 폼도 인식하도록 네이티브 setter로 값 설정 후 input/change 발생
@@ -180,10 +191,16 @@
       await sleep(5000)
       const ymd = new Date().toISOString().slice(0, 10).replace(/-/g, '')
       await send({ type: 'SAVE_ON_POPUP', payload: { filename: `모두봄_${(job.docName || '문서').replace(/\s/g, '')}_${ymd}.pdf` } })
-      // 정부 버튼은 진짜 클릭만 먹으므로 debugger 기반 realClick 사용(실패 시 .click 폴백)
-      const submitted = await realClick(
-        ['민원신청하기', '신청하기'],
-        ['#btnMinwonApply', '#btnApply', "input[value*='신청']", "a[onclick*='apply' i]", "button[onclick*='apply' i]"])
+      // 정부 버튼은 진짜 클릭만 먹으므로 debugger 기반 realClick 사용(실패 시 .click 폴백).
+      // 개발자도구가 열려 있는 등 일시 실패면 3초 간격으로 최대 60초 재시도.
+      let submitted = false
+      const SUBMIT_TEXTS = ['민원신청하기', '신청하기']
+      const SUBMIT_SELS = ['#btnMinwonApply', '#btnApply', "input[value*='신청']", "a[onclick*='apply' i]", "button[onclick*='apply' i]"]
+      for (let i = 0; i < 20 && !submitted; i++) { // 진짜 클릭만 성공으로 인정, 3초 간격 재시도
+        submitted = await realClick(SUBMIT_TEXTS, SUBMIT_SELS, true)
+        if (!submitted) await sleep(3000)
+      }
+      if (!submitted) submitted = await realClick(SUBMIT_TEXTS, SUBMIT_SELS) // 마지막 시도: .click() 폴백 허용
       status(submitted ? 'running' : 'waiting', submitted
         ? '발급 신청을 제출하는 중이에요… (전자서명 창이 뜨면 본인 확인해 주세요)'
         : "화면 하단의 '신청하기' 버튼을 눌러 주세요. (누르면 이후는 자동)")

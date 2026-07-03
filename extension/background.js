@@ -103,10 +103,21 @@ async function savePdf(tabId, filename) {
 // 정부 사이트 버튼 다수는 프로그램적 .click()(isTrusted=false)을 무시한다.
 // chrome.debugger의 Input.dispatchMouseEvent로 '진짜 사람 클릭'과 동일한 이벤트를 만든다.
 // 좌표는 최상위 프레임 뷰포트 기준(CSS 픽셀). content script가 버튼 중심 좌표를 넘겨준다.
+// ⚠️ attach하면 상단 '디버깅 중' 안내바가 생겨 페이지가 아래로 밀림 → 좌표는 attach 후 재계산해야 함.
+// 그래서 2단계: TRUSTED_PREP(attach만) → content가 좌표 재계산 → TRUSTED_CLICK(dispatch+detach).
+async function trustedAttach(tabId) {
+  try { await chrome.debugger.attach({ tabId }, '1.3'); return { ok: true } }
+  catch (e) {
+    const err = String((e && e.message) || e)
+    if (/already attached/i.test(err)) return { ok: true } // 이미 붙어있으면 그대로 사용
+    return { ok: false, err } // 개발자도구(F12)가 열려있으면 여기로 옴
+  }
+}
 async function trustedClick(tabId, x, y) {
   const target = { tabId }
   try {
-    await chrome.debugger.attach(target, '1.3')
+    const at = await trustedAttach(tabId)
+    if (!at.ok) return false
     const base = { x, y, button: 'left', clickCount: 1 }
     await chrome.debugger.sendCommand(target, 'Input.dispatchMouseEvent', Object.assign({ type: 'mouseMoved' }, base))
     await chrome.debugger.sendCommand(target, 'Input.dispatchMouseEvent', Object.assign({ type: 'mousePressed' }, base))
@@ -232,8 +243,15 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       pendingSave = { filename: fn, until: Date.now() + 15000 }
       return sendResponse({ ok: true })
     }
+    if (msg.type === 'TRUSTED_PREP') {
+      // 1단계: debugger만 먼저 attach(안내바로 뷰포트가 밀린 뒤 content가 좌표 재계산)
+      if (job && sender.tab && sender.tab.id === job.tabId && (sender.frameId === 0 || sender.frameId == null)) {
+        return sendResponse(await trustedAttach(job.tabId))
+      }
+      return sendResponse({ ok: false })
+    }
     if (msg.type === 'TRUSTED_CLICK') {
-      // content script가 찾은 버튼 중심 좌표에 '진짜 클릭'을 쏜다(최상위 프레임만).
+      // 2단계: content script가 attach 후 재계산한 버튼 중심 좌표에 '진짜 클릭'을 쏜다(최상위 프레임만).
       if (job && sender.tab && sender.tab.id === job.tabId && (sender.frameId === 0 || sender.frameId == null)) {
         const ok = await trustedClick(job.tabId, msg.payload.x, msg.payload.y)
         return sendResponse({ ok })
