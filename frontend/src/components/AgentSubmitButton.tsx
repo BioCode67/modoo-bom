@@ -5,11 +5,11 @@ import type { EligiblePolicy } from '@/lib/welfare-engine'
 import { useBackend } from '@/lib/useBackend'
 import { isApplyAutomatable, applyLink } from '@/lib/officialLinks'
 import { API_BASE } from '@/lib/backend'
-import { detectExtension, applyViaExtension, onExtensionStatus } from '@/lib/extension'
+import { detectExtension, applyViaExtension, onExtensionStatus, sameDocName } from '@/lib/extension'
 import { RpaInfoForm } from '@/components/RpaInfoForm'
 import { useAppStore } from '@/store/useAppStore'
 
-type RunState = { status: string; step: string; shot?: string } | null
+type RunState = { status: string; step: string; shot?: string; at?: number } | null
 
 /**
  * 에이전트 신청 자동화 — 정직한 human-in-the-loop.
@@ -23,12 +23,15 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
   const [ext, setExt] = useState(false)
   const automatable = isApplyAutomatable(policy.name)
 
-  // 확장 감지 + 진행상태 구독(해당 서비스만)
+  // 확장 감지 + 진행상태 구독(해당 서비스만 — 표기 차이는 퍼지매칭) + 무응답 감지용 틱
+  const [tick, setTick] = useState(0)
   useEffect(() => {
     detectExtension().then(setExt)
-    return onExtensionStatus((s) => {
-      if (s.docName === policy.name) setRun({ status: s.status, step: s.step })
+    const t = setInterval(() => setTick((x) => x + 1), 7000)
+    const off = onExtensionStatus((s) => {
+      if (sameDocName(s.docName, policy.name)) setRun({ status: s.status, step: s.step, at: Date.now() })
     })
+    return () => { clearInterval(t); off() }
   }, [policy.name])
 
   // 복지로/한국장학재단 신청 URL을 가진 정책이면 확장으로 자동신청 가능(내장 6종에 국한하지 않음)
@@ -58,13 +61,13 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
   }
 
   const start = async () => {
-    setRun({ status: 'running', step: '에이전트 시작 — 복지로 접속 중…' })
+    setRun({ status: 'running', step: '에이전트 시작 — 새 탭에서 복지로에 접속해요…', at: Date.now() })
     // 로컬 에이전트(내장 6종)가 되면 백엔드 우선, 아니면 확장으로 신청(복지로 딥링크 전달)
     if (!canLocal && canExt) {
-      const ok = await applyViaExtension(policy.name, {
+      const r = await applyViaExtension(policy.name, {
         user_name: rpaInfo.name || profile?.name || '사용자', birth_date: rpaInfo.birth_date, phone: rpaInfo.phone, carrier: rpaInfo.carrier,
       }, policy.application)
-      if (!ok) setRun({ status: 'error', step: '이 서비스는 확장 자동신청을 아직 지원하지 않아요.' })
+      if (!r.ok) setRun({ status: 'error', step: r.error || '이 서비스는 확장 자동신청을 아직 지원하지 않아요.', at: Date.now() })
       return
     }
     try {
@@ -86,6 +89,8 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
   }
 
   const done = run && ['done', 'error', 'completed'].includes(run.status)
+  // 30초 넘게 진행상태가 안 오면(새 탭에서 본인인증 대기 등) 멈춘 게 아니라는 걸 정직하게 안내
+  const stale = !!(run && !done && run.at && Date.now() - run.at > 30000 && tick >= 0)
 
   return (
     <div className="rounded-2xl border-2 border-sprout-200 bg-sprout-50/50 p-4">
@@ -106,6 +111,16 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
             {run.status === 'error' ? <AlertCircle className="h-4 w-4 text-rose-500" /> : done ? <ShieldCheck className="h-4 w-4 text-success-500" /> : <Loader2 className="h-4 w-4 animate-spin text-sprout-500" />}
             <span className="font-medium">{run.step}</span>
           </p>
+          {stale && (
+            <div className="mt-2 rounded-xl bg-amber-50 border border-amber-200 px-3 py-2 text-[11px] text-amber-800">
+              진행이 잠시 멈춘 듯해요 — 확장이 연 <b>복지로 탭</b>을 확인해 주세요. 본인인증·'신청하기'처럼
+              <b> 직접 눌러야 하는 단계</b>일 수 있어요(그 탭 화면의 안내를 따라주세요).
+              <span className="block mt-1">
+                <a href={applyLink(policy.application).url} target="_blank" rel="noopener noreferrer" className="underline font-semibold">공식 페이지에서 직접 신청</a>
+                {' · '}<button onClick={() => setRun(null)} className="underline font-semibold">처음부터 다시</button>
+              </span>
+            </div>
+          )}
           {run.shot && (
             <img src={`data:image/jpeg;base64,${run.shot}`} alt="에이전트 진행 화면" className="mt-2 w-full rounded-xl border border-sprout-100" />
           )}
