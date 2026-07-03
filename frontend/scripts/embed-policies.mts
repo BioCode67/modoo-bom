@@ -12,13 +12,15 @@
 import { pipeline } from '@huggingface/transformers'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { WELFARE_POLICIES, type Policy } from '../src/data/policies.ts'
+import { PRIVATE_POLICIES } from '../src/data/privatePolicies.ts'
 
 const MODEL = 'Xenova/multilingual-e5-small'
 const DIM = 384
 
 // ── 통합 카탈로그 구성(런타임 catalog.ts 병합 규칙과 동일: 시드 우선, 외부 동명 스킵) ──
-const policies: Policy[] = [...WELFARE_POLICIES]
-const seedNames = new Set(WELFARE_POLICIES.map((p) => p.name.replace(/\s/g, '')))
+const SEEDS: Policy[] = [...WELFARE_POLICIES, ...PRIVATE_POLICIES] // 정부 + 민간재단 큐레이션
+const policies: Policy[] = [...SEEDS]
+const seedNames = new Set(SEEDS.map((p) => p.name.replace(/\s/g, '')))
 try {
   const ext = JSON.parse(readFileSync(new URL('../public/policies.json', import.meta.url), 'utf-8'))
   const list: Policy[] = Array.isArray(ext) ? ext : ext.policies || []
