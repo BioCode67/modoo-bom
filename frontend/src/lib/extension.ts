@@ -7,8 +7,18 @@
  */
 
 export interface ExtStatus { jobId?: string; status: string; step: string; docName?: string }
+export interface ExtStartResult { ok: boolean; error?: string }
 
-interface ExtResponse { ok?: boolean; jobId?: string; capabilities?: { rpa?: boolean }; docs?: string[]; services?: string[] }
+interface ExtResponse { ok?: boolean; jobId?: string; error?: string; capabilities?: { rpa?: boolean }; docs?: string[]; services?: string[] }
+
+/** 서류/서비스명 퍼지 비교 — 확장이 이름을 정규화(resolveDoc)해 status를 보내므로
+ *  '주민등록 등본' vs '주민등록등본' 같은 표기 차이로 진행상태가 유실되지 않게 한다. */
+export function sameDocName(a?: string, b?: string): boolean {
+  const na = (a || '').replace(/\s/g, '')
+  const nb = (b || '').replace(/\s/g, '')
+  if (!na || !nb) return false
+  return na === nb || na.includes(nb) || nb.includes(na)
+}
 
 let cachedPresent: boolean | null = null
 
@@ -52,10 +62,12 @@ export function onExtensionStatus(cb: (s: ExtStatus) => void): () => void {
   return () => window.removeEventListener('message', handler)
 }
 
-/** 확장으로 서류 발급 시작. 성공 시 true(진행상태는 onExtensionStatus 로 수신). */
-export async function issueViaExtension(docName: string, userInfo: Record<string, unknown>): Promise<boolean> {
-  const resp = await request('ISSUE', { docName, userInfo }, 3000)
-  return !!(resp && resp.ok)
+/** 확장으로 서류 발급 시작(진행상태는 onExtensionStatus 로 수신).
+ *  탭 생성이 느릴 수 있어 타임아웃을 넉넉히 두고, 실패 시 확장의 실제 오류 메시지를 전달한다. */
+export async function issueViaExtension(docName: string, userInfo: Record<string, unknown>): Promise<ExtStartResult> {
+  const resp = await request('ISSUE', { docName, userInfo }, 10000)
+  if (!resp) return { ok: false, error: '확장 응답이 늦어요 — 새 탭이 열렸다면 그 탭에서 계속 진행돼요.' }
+  return { ok: !!resp.ok, error: resp.error }
 }
 
 /** 확장이 자동신청 지원하는 복지 서비스 목록(미설치면 빈 배열). */
@@ -64,8 +76,9 @@ export async function extensionServices(): Promise<string[]> {
   return resp && resp.ok && Array.isArray(resp.services) ? resp.services : []
 }
 
-/** 확장으로 복지 서비스 자동신청 시작. applyUrl(실제 복지로 딥링크)이 있으면 그 서비스로 이동. 성공 시 true. */
-export async function applyViaExtension(serviceName: string, userInfo: Record<string, unknown>, applyUrl?: string): Promise<boolean> {
-  const resp = await request('APPLY', { serviceName, userInfo, applyUrl }, 3000)
-  return !!(resp && resp.ok)
+/** 확장으로 복지 서비스 자동신청 시작. applyUrl(실제 복지로 딥링크)이 있으면 그 서비스로 이동. */
+export async function applyViaExtension(serviceName: string, userInfo: Record<string, unknown>, applyUrl?: string): Promise<ExtStartResult> {
+  const resp = await request('APPLY', { serviceName, userInfo, applyUrl }, 10000)
+  if (!resp) return { ok: false, error: '확장 응답이 늦어요 — 새 탭이 열렸다면 그 탭에서 계속 진행돼요.' }
+  return { ok: !!resp.ok, error: resp.error }
 }
