@@ -615,24 +615,6 @@ export function generateGuides(eligible: EligiblePolicy[]): ApplicationGuide[] {
   return guides
 }
 
-// ── 월 지급액 파싱: benefit 문자열에서 "월 ... 334,810원" 형태 첫 금액 추출 ──
-function parseMonthlyAmount(benefit: string): number | null {
-  if (!benefit.includes('월')) return null
-  // '월' 이후 텍스트에서 '원' 단위를 우선, 없으면 '만원' 단위를 환산해 첫 금액을 찾는다.
-  const after = benefit.slice(benefit.indexOf('월'))
-  const won = after.match(/([0-9][0-9,]*)\s*원/)
-  if (won) {
-    const n = parseInt(won[1].replace(/,/g, ''), 10)
-    if (!Number.isNaN(n)) return n
-  }
-  const man = after.match(/([0-9]+(?:\.[0-9]+)?)\s*만\s*원/)
-  if (man) {
-    const n = Math.round(parseFloat(man[1]) * 10000)
-    if (!Number.isNaN(n)) return n
-  }
-  return null
-}
-
 function buildPortfolio(eligible: EligiblePolicy[]): AnalysisResult['portfolio_summary'] {
   const byCategory: Record<string, number> = {}
   let totalMonthly = 0
