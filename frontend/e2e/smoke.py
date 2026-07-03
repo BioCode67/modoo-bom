@@ -13,6 +13,7 @@
   2) 복지 찾기 → 데모 페르소나(독거 어르신) → 분석 결과 + 민간재단 💝 섹션
   3) 챗 에이전트 열기 → 개인화 인사(프로필 이름)
   4) 정책 탐색 → 민간재단 필터 → 현대차 정몽구 스칼러십 노출
+  5) 모바일 뷰포트(390px) 홈·복지찾기 진입
   + 전 구간 페이지 에러(pageerror) 0건
 """
 import io as _io
@@ -137,6 +138,20 @@ def main() -> int:
             page.click("text=민간재단")
             page.wait_for_selector("text=현대차 정몽구 스칼러십", timeout=15000)
             print("[e2e] ✅ 4. 탐색 민간재단 필터 + 큐레이션 노출")
+
+            # 5) 모바일 뷰포트(iPhone급) — 핸드폰에서 홈·주 흐름이 깨지지 않는지
+            mpage = browser.new_page(viewport={"width": 390, "height": 844}, is_mobile=True, has_touch=True)
+            mpage.on("pageerror", lambda e: errors.append(f"[mobile] {e}"))
+            mpage.goto(BASE, wait_until="domcontentloaded", timeout=30000)
+            mpage.wait_for_selector("text=정부·지자체·민간 복지", timeout=15000)
+            try:
+                mpage.click('[aria-label="닫기"]', timeout=3000)
+            except Exception:
+                pass
+            mpage.click('[aria-label="하단 메뉴"] >> text=복지 찾기')  # 모바일은 하단 탭바(데스크탑 nav는 hidden)
+            mpage.wait_for_selector("text=독거 어르신", timeout=10000)
+            print("[e2e] ✅ 5. 모바일(390px) 홈·복지찾기 정상")
+            mpage.close()
 
             browser.close()
 
