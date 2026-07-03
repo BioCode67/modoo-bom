@@ -114,14 +114,16 @@ curl -fsSL https://raw.githubusercontent.com/BioCode67/modoo-bom/main/scripts/se
    6개 사이트 로그인/발급 URL 생존도 실측 확인(gov24·nhis·work24·nps·bokjiro·gov24발급 모두 응답).
 3. **end-to-end 미검증**: 본인인증 이후(폼작성→발급/제출)는 실계정 필요 → 미확인. 데모 준비 때 실계정 1건 끝까지 시연(`DEMO_GUIDE.md`).
 4. **[일부 완료] 쉬운 말 2차 정비**: 프로필 위저드 소득 섹션('기준 중위소득'→쉬운 설명+생활어 병기)·장애 정도
-   (폐지된 1/2/3급→현행 '심한/심하지 않은 장애', 저장값은 엔진 호환 유지) 정비 완료. 결과 화면·챗봇 쪽 용어는 추후.
+   (폐지된 1/2/3급→현행 '심한/심하지 않은 장애', 저장값은 엔진 호환 유지) 정비 완료. 용어사전에 '장애 정도' 항목
+   추가, 신청서 미리채움도 `disabilityLabel()`로 현행 용어 일관화(+테스트 4). 결과 화면(Glossary 링크로 커버됨)·
+   챗봇은 이미 쉬운 말이라 손 안 댐. 남으면 결과 카드 세부 문구 정도.
 5. **웹스토어 실제 제출**(개발자 등록 $5) → 일반인 원클릭 설치.
 6. **홈택스/LH 등 추가 사이트**: 홈택스=무거운 SPA(실계정 보정 필요), LH·근로복지공단=공동인증서 중심(다른 방식). 보류 중.
 
 **검증/품질 도구**
 - 실사이트 셀렉터 점검: `cd backend && python ../extension/validate_live.py "<서류명>"` (본인인증 직전까지, 개인정보 미사용)
 - 코드/URL 데이터 감사: `AA020InfoCappView.do?CappBizCD=<코드>` title 확인, 복지로 `moveTWAT52011M.do?wlfareInfoId=<ID>` len 확인
-- 품질 게이트: 프론트 `tsc/lint/test(177)/build`, 백엔드 `pytest(13)` — 변경마다 통과 유지.
+- 품질 게이트: 프론트 `tsc/lint/test(181)/build`, 백엔드 `pytest(13)` — 변경마다 통과 유지.
 
 ## ✅ 체크리스트
 
