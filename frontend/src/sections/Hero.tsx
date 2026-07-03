@@ -7,8 +7,8 @@ import { parseProfileFromText } from '@/lib/parseQuery'
 import { runAnalysis } from '@/lib/welfare-engine'
 
 const STATS = [
-  { value: '5,000+', label: '전국 복지 정책' },
-  { value: '6종', label: '서류 자동발급' },
+  { value: '5,000+', label: '정부·지자체·민간 복지' }, // 공공데이터 + 민간재단 큐레이션(PRV)까지
+  { value: '13종', label: '서류 자동발급' }, // extension/background.js DOCS 실측(2026-07)
   { value: '무료', label: '평생 이용' },
 ]
 
