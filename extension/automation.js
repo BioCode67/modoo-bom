@@ -96,8 +96,18 @@
       }
       return
     }
-    // 이미 로그인 상태면 발급 페이지로 이동
-    if (loggedIn()) {
+    // 로그인 상태를 잠깐 기다렸다 확인(로그아웃 링크가 늦게 렌더될 수 있음)
+    let isLoggedIn = loggedIn()
+    if (!isLoggedIn) { for (let i = 0; i < 6 && !isLoggedIn; i++) { await sleep(500); isLoggedIn = loggedIn() } }
+    if (isLoggedIn) {
+      // 1) 현재 페이지(메인의 '자주 찾는 서비스' 등)에 해당 서류 바로가기가 있으면 직접 클릭
+      //    — 크로스도메인 GOTO가 메인으로 튕기는 문제를 피하는 가장 안정적인 길
+      const svcClicked = job.docName && clickText([job.docName])
+      if (svcClicked) {
+        status('running', `'${job.docName}' 발급 화면으로 이동 중…`)
+        return
+      }
+      // 2) 바로가기가 없으면 발급 URL로 이동
       status('running', '로그인 완료 — 발급 페이지로 이동합니다.')
       await sleep(400); await send({ type: 'GOTO', payload: { url: job.issueUrl } })
       return

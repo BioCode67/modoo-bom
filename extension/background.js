@@ -101,9 +101,15 @@ chrome.tabs.onCreated.addListener((tab) => {
   chrome.tabs.onUpdated.addListener(onUpd)
 })
 
+async function closePrevJobTab() {
+  // 이전 잡 탭이 남아 있으면 닫아 오래된(멈춘) 탭 혼란 방지
+  if (job && job.tabId != null) { try { await chrome.tabs.remove(job.tabId) } catch { /* noop */ } }
+}
+
 async function startJob(rawName, userInfo, webTabId) {
   const docName = resolveDoc(rawName)
   if (!docName) return { ok: false, error: `지원하지 않는 서류: ${rawName}` }
+  await closePrevJobTab()
   const site = DOCS[docName].site
   const siteName = { gov24: '정부24', nhis: '건강보험공단', work24: '고용24', nps: '국민연금공단' }[site]
   const tab = await chrome.tabs.create({ url: LOGIN_URLS[site], active: true })
@@ -128,6 +134,7 @@ async function startApply(serviceName, userInfo, webTabId, applyUrl) {
   else if (isBokjiroUrl(applyUrl)) { loginUrl = BOKJIRO_LOGIN_URL; applySite = 'bokjiro'; serviceUrl = applyUrl }
   else if (SERVICE_URLS[serviceName]) { loginUrl = BOKJIRO_LOGIN_URL; applySite = 'bokjiro'; serviceUrl = SERVICE_URLS[serviceName] }
   else return { ok: false, error: `자동신청 미지원 서비스: ${serviceName}` }
+  await closePrevJobTab()
   const label = applySite === 'kosaf' ? '한국장학재단' : '복지로'
   const tab = await chrome.tabs.create({ url: loginUrl, active: true })
   job = {
