@@ -34,11 +34,11 @@ _JUMIN_URL = (
 )
 _FAMILY_URL = (
     "https://www.gov.kr/mw/AA020InfoCappView.do"
-    "?CappBizCD=14100000017&HighCtgCD=A01010001&tp_seq=01&Mcode=10200"
+    "?CappBizCD=97400000004&HighCtgCD=A01010001&tp_seq=01&Mcode=10200"
 )
 _DISABLED_URL = (
     "https://www.gov.kr/mw/AA020InfoCappView.do"
-    "?CappBizCD=11100000006&HighCtgCD=A01010001&tp_seq=01&Mcode=10200"
+    "?CappBizCD=14600000273&HighCtgCD=A01010001&tp_seq=01&Mcode=10200"
 )
 DOC_URLS = {
     "주민등록등본": _JUMIN_URL,
@@ -60,8 +60,8 @@ def _issue_url(capp_biz_cd: str) -> str:
 ISSUE_URLS = {
     "주민등록등본": _issue_url("13100000015"),
     "주민등록초본": _issue_url("13100000015"),
-    "가족관계증명서": _issue_url("14100000017"),
-    "장애인증명서": _issue_url("11100000006"),
+    "가족관계증명서": _issue_url("97400000004"),
+    "장애인증명서": _issue_url("14600000273"),
 }
 
 # plus.gov.kr 간편인증 선택자 (신 UI: button.login-type)
