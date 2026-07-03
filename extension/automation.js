@@ -60,7 +60,11 @@
       try { el.scrollIntoView({ block: mode, inline: 'center' }) } catch { /* noop */ }
       await sleep(300)
       const r = el.getBoundingClientRect()
-      if (!r || (r.width === 0 && r.height === 0)) { trace('click-skip', { el: elInfo, mode, reason: 'rect0' }); return false }
+      if (!r || (r.width === 0 && r.height === 0)) {
+        trace('click-skip', { el: elInfo, mode, reason: 'rect0' })
+        await send({ type: 'TRUSTED_ABORT' }) // attach만 하고 끝나면 '디버깅 중' 바가 남으므로 해제
+        return false
+      }
       const x = Math.round(r.left + r.width / 2)
       const y = Math.round(r.top + r.height / 2)
       const at = document.elementFromPoint(x, y)
@@ -78,6 +82,7 @@
       trace('click-forced', { el: elInfo, ok: !!(res && res.ok) })
       return !!(res && res.ok)
     }
+    await send({ type: 'TRUSTED_ABORT' })
     return false
   }
   // 텍스트/셀렉터로 버튼 후보를 모두 모아 보이는 것·정확한 것부터 '진짜 클릭' 시도.
@@ -146,18 +151,23 @@
   }
 
   // 본인인증 위젯(간편인증 oacx / 모바일 신분증) 자동입력 — iframe이든 같은 문서 모달이든 동작.
-  // 현재 문서에서 이름·생년월일·휴대폰·통신사·전체동의를 채운다. 하나라도 채우면 true.
+  // 이름·생년월일·휴대폰·통신사·전체동의를 채운다.
+  // 반환 { any, all }: any=하나라도 채움, all=필요한 값(이름·생년월일·휴대폰 중 프로필에 있는 것)이 전부 채워짐.
+  // ⚠️ all을 봐야 함 — 위젯이 필드를 점진적 렌더할 때 이름만 채우고 latch되면 나머지가 비게 됨.
   const autofillAuth = () => {
     const u = job.userInfo || {}
     const name = (u.user_name || u.name || '').trim()
     const birth = String(u.birth_date || '').replace(/[^0-9]/g, '')
     const phone = String(u.phone || '').replace(/[^0-9]/g, '')
     let filled = false
+    let okName = !name, okBirth = !birth, okPhone = !phone // 프로필에 없으면 '충족'으로 간주
     // 이름 — id/name/placeholder 우선, 안 잡히면 라벨 텍스트로(공격적)
-    filled = (fill(['#oacx_name', 'input[name*="name" i]', 'input[placeholder*="이름"]', 'input[placeholder*="홍길동"]'], name)
-      || fillByLabel(['이름', '성명', '한글이름'], name)) || filled
-    filled = (fill(['#oacx_birth', 'input[name*="birth" i]', 'input[placeholder*="생년월일"]'], birth)
-      || fillByLabel(['생년월일', '생일'], birth)) || filled
+    const nameHit = fill(['#oacx_name', 'input[name*="name" i]', 'input[placeholder*="이름"]', 'input[placeholder*="홍길동"]'], name)
+      || fillByLabel(['이름', '성명', '한글이름'], name)
+    if (nameHit) { filled = true; okName = true }
+    const birthHit = fill(['#oacx_birth', 'input[name*="birth" i]', 'input[placeholder*="생년월일"]'], birth)
+      || fillByLabel(['생년월일', '생일'], birth)
+    if (birthHit) { filled = true; okBirth = true }
     if (phone) {
       const tail = phone.startsWith('010') && phone.length >= 10 ? phone.slice(3) : phone
       // ①앞자리(010) select가 따로 있는 위젯이면 → 옆 입력칸에 '뒷자리만' 넣는다
@@ -178,7 +188,7 @@
         'input[name*="hpNo" i]', 'input[name*="mbl" i]', 'input[name*="phone" i]'], phone)
       if (!done) done = fillByLabel(['휴대폰', '휴대전화', '핸드폰', '전화번호'], phone)
       if (!done) done = fill(['#oacx_phone2', '#oku_phone2', 'input.phone'], tail)
-      filled = filled || done
+      if (done) { filled = true; okPhone = true }
     }
     // 통신사(앱에서 입력) — select면 텍스트 매칭으로 선택
     const carrier = (u.carrier || '').trim()
@@ -197,7 +207,7 @@
       if (lab) { const f = lab.getAttribute && lab.getAttribute('for'); agreeEl = (f && document.getElementById(f)) || lab.querySelector('input[type="checkbox"]') || lab }
     }
     if (agreeEl) { if (agreeEl.tagName === 'INPUT') { if (!agreeEl.checked) agreeEl.click() } else agreeEl.click() }
-    return filled
+    return { any: filled, all: okName && okBirth && okPhone }
   }
 
   // 버튼이 늦게 렌더되거나(보안 인터스티셜 후) 하는 경우를 위해 폴링 클릭
@@ -403,15 +413,16 @@
           !document.querySelector('[id^="oacx_"], [class*="oacx"]')) {
         if (clickText(['닫기'])) { await sleep(800); await clickEasyOnce(); await sleep(1200); await send({ type: 'REINJECT' }); continue }
       }
-      // 같은 문서 모달형 위젯 대응: 카카오톡 타일 선택 + 자동입력 시도(성공할 때까지)
+      // 같은 문서 모달형 위젯 대응: 카카오톡 타일 선택 + 자동입력(모든 필드가 찰 때까지 매 루프 재시도)
       if (!topFilled) {
         const hasWidget = document.querySelector('[id^="oacx_"], [class*="oacx"]') ||
           document.querySelector('input[placeholder*="홍길동"], input[placeholder*="01012341234"]')
         if (hasWidget) {
           clickText(['카카오톡', 'TALK'], ['카카오뱅크', 'BANK'])
           await sleep(500)
-          topFilled = autofillAuth()
-          if (topFilled) status('waiting', "✅ 인증 정보를 자동 입력했어요. '인증 요청'을 누르고 📱 카카오톡에서 [인증 허용]만 하세요.")
+          const af = autofillAuth()
+          if (af.all) { topFilled = true; status('waiting', "✅ 인증 정보를 자동 입력했어요. '인증 요청'을 누르고 📱 카카오톡에서 [인증 허용]만 하세요.") }
+          else if (af.any) status('waiting', '인증 정보를 채우는 중이에요…')
         }
       }
     }
@@ -424,10 +435,16 @@
     await sleep(800)
     clickText(['카카오톡', 'TALK', '카카오'], ['카카오뱅크', 'BANK'])
     await sleep(600)
-    const filled = autofillAuth()
-    trace('autofill', { filled })
+    // 필드가 점진적으로 렌더될 수 있어, 전부 채워질 때까지 최대 30초 재시도(가드로 재실행 불가하므로 여기서)
+    let af = autofillAuth()
+    for (let i = 0; i < 30 && !af.all; i++) {
+      await sleep(1000)
+      clickText(['카카오톡', 'TALK', '카카오'], ['카카오뱅크', 'BANK'])
+      af = autofillAuth()
+    }
+    trace('autofill', af)
     status('waiting',
-      filled
+      af.any
         ? "✅ 이름·생년월일·휴대폰을 자동 입력했어요. '인증 요청'을 누르고 📱 카카오톡 알림에서 [인증 허용]만 하세요."
         : "카카오톡 선택 후 본인인증 정보를 입력하고 '인증 요청'을 눌러 주세요. 📱")
     return
@@ -481,18 +498,27 @@
       // nhis는 .click()으로 간편인증 도달이 검증됨 → 경량 폴링(불필요한 debugger 배너 회피)
       await pollClick(() => clickText(['간편인증 로그인', '간편인증', '간편 인증']), 12)
       await sleep(2500)
+      // 위젯이 같은 문서에 늦게 뜰 수 있어 채워질 때까지 폴링(가드로 재실행 불가)
       clickText(['카카오톡', 'TALK'], ['카카오뱅크', 'BANK'])
       await sleep(800)
-      const filled = autofillAuth() // 공용 자동입력(라벨 폴백 포함)
-      status('waiting', filled
+      let af = autofillAuth()
+      for (let i = 0; i < 25 && !af.all; i++) {
+        await sleep(1000)
+        clickText(['카카오톡', 'TALK'], ['카카오뱅크', 'BANK'])
+        af = autofillAuth()
+      }
+      status('waiting', af.any
         ? "✅ 정보를 자동 입력했어요. '인증 요청' 후 📱 카카오톡 [인증 허용]만 하세요."
         : "카카오톡 선택 후 정보를 입력하고 '인증 요청'을 눌러 주세요. 📱")
       return
     }
     if (/jpAea00401/i.test(url)) {
       trace('branch', { name: 'nhis-issue' })
-      await pollClick(() => clickText(['확인서 발급', '발급하기', '발급', '출력', '인쇄']), 8)
-      status('done', '✅ 건강보험 자격득실확인서 발급 화면까지 진행했어요. 인쇄창에서 저장(PDF)하세요.')
+      // ⚠️ 실제로 발급 버튼을 눌렀을 때만 'done'(안 그러면 큐가 미발급 문서를 건너뜀)
+      const issued = await pollClick(() => clickText(['확인서 발급', '발급하기', '발급', '출력', '인쇄']), 8)
+      status(issued ? 'done' : 'waiting', issued
+        ? '✅ 건강보험 자격득실확인서 발급 화면까지 진행했어요. 인쇄창에서 저장(PDF)하세요.'
+        : "화면에서 '발급'을 눌러 주세요.")
       return
     }
     status('running', '로그인 완료 — 자격득실확인서 페이지로 이동합니다.')

@@ -56,7 +56,7 @@ async function ensureJob() {
   if (job) return
   try { const s = await chrome.storage.local.get('job'); if (s && s.job) job = s.job } catch { /* noop */ }
 }
-function clearJob() { job = null; try { chrome.storage.local.remove('job') } catch { /* noop */ } }
+function clearJob() { job = null; try { chrome.storage.local.remove('job') } catch { /* noop */ } try { chrome.alarms.clear('advanceQueue') } catch { /* noop */ } }
 
 // ── 진단 추적(trace): 자동화의 매 단계를 기록 → 팝업 '진단 복사'로 개발자에게 전달 ──
 // (개인정보는 기록하지 않음 — 단계명/URL 경로/버튼 후보 요약만)
@@ -70,7 +70,7 @@ async function addTrace(entry) {
   } catch { /* noop */ }
 }
 
-function pushStatus(status, step) {
+function pushStatus(status, step, noAdvance) {
   if (!job) return
   job.status = status
   job.step = step
@@ -81,23 +81,27 @@ function pushStatus(status, step) {
     chrome.tabs.sendMessage(job.webTabId, { type: 'STATUS', payload: { jobId: job.id, status, step, docName: job.docName } }).catch(() => {})
   }
   // 연쇄 발급 큐: 이 서류가 끝나면(로그인 세션 유지 상태) 다음 서류로 같은 탭 이동.
-  // done이 여러 번 올 수 있어(접수→PDF저장) advancing 플래그로 1회만 예약. PDF 팝업 처리 시간 4초 대기.
-  if (status === 'done' && job.kind === 'doc' && job.queue && job.queue.length && !job.advancing) {
+  // noAdvance=true(PDF 저장 완료 등 후행 이벤트)는 큐를 넘기지 않음 — 이중 advance 경합 방지.
+  // done이 여러 번 올 수 있어 advancing 플래그로 1회만 예약. chrome.alarms로 SW 재시작에도 생존.
+  if (!noAdvance && status === 'done' && job.kind === 'doc' && job.queue && job.queue.length && !job.advancing) {
     job.advancing = true
     saveJob()
-    setTimeout(() => { advanceQueue().catch(() => {}) }, 4000)
+    try { chrome.alarms.create('advanceQueue', { when: Date.now() + 4000 }) }
+    catch { setTimeout(() => { advanceQueue().catch(() => {}) }, 4000) }
   }
 }
 
 // 큐의 다음 서류로 진행 — 정부24는 로그인 유지라 안내페이지(AA020)로 바로,
 // 타 사이트(건보 등)는 해당 로그인 페이지로(재인증 필요하지만 이동·입력은 자동).
+// ⚠️ job.advancing은 네비게이션이 실제로 시작될 때까지 true로 유지 — 이전 페이지에서
+//    'done'이 한 번 더 날아와도(접수→PDF저장) 큐를 두 번 건너뛰지 않게 한다.
 async function advanceQueue() {
   await ensureJob()
-  if (!job || !job.queue || !job.queue.length) return
-  const next = job.queue.shift()
-  const info = DOCS[next]
-  if (!info) { job.advancing = false; saveJob(); return advanceQueue() }
-  job.advancing = false
+  if (!job || !job.queue || !job.queue.length) { if (job) { job.advancing = false; saveJob() } return }
+  // 유효한 다음 서류를 찾을 때까지 큐에서 꺼냄(미지원 서류는 건너뜀)
+  let next = null, info = null
+  while (job.queue.length) { next = job.queue.shift(); info = DOCS[next]; if (info) break; next = null }
+  if (!next || !info) { job.advancing = false; saveJob(); return }
   job.docName = next
   job.site = info.site
   job.phase = 'issue'
@@ -106,7 +110,8 @@ async function advanceQueue() {
     ? (info.issue || issueUrl(info.capp))
     : LOGIN_URLS[info.site]
   pushStatus('running', `이어서 '${next}' 발급을 진행해요… (남은 서류 ${job.queue.length}개)`)
-  try { await chrome.tabs.update(job.tabId, { url: target, active: true }) } catch { clearJob() }
+  try { await chrome.tabs.update(job.tabId, { url: target, active: true }); job.advancing = false; saveJob() }
+  catch { clearJob() }
 }
 
 // 서류명 표기 변형(예: '소득금액증명원'/'주민등록 등본') 흡수 — 공백 제거 후 부분일치
@@ -131,11 +136,13 @@ async function savePdf(tabId, filename) {
     const res = await chrome.debugger.sendCommand(target, 'Page.printToPDF', { printBackground: true })
     try { await chrome.debugger.detach(target) } catch { /* noop */ }
     await chrome.downloads.download({ url: 'data:application/pdf;base64,' + res.data, filename, saveAs: false })
-    pushStatus('done', '📄 발급 문서를 PDF로 저장했어요! (다운로드 폴더 확인)')
+    // ⚠️ noAdvance: PDF 저장 완료의 'done'이 큐를 또 넘기지 않게(이전 문서 저장이 늦게 끝나
+    //    다음 문서를 건너뛰는 경합 방지). 실제 큐 진행은 자동화의 'done'만 담당.
+    pushStatus('done', '📄 발급 문서를 PDF로 저장했어요! (다운로드 폴더 확인)', true)
     return true
   } catch (e) {
     try { await chrome.debugger.detach(target) } catch { /* noop */ }
-    pushStatus('done', "문서가 열렸어요. Ctrl+P → 'PDF로 저장'으로 저장하세요.")
+    pushStatus('done', "문서가 열렸어요. Ctrl+P → 'PDF로 저장'으로 저장하세요.", true)
     return false
   }
 }
@@ -145,13 +152,22 @@ async function savePdf(tabId, filename) {
 // 좌표는 최상위 프레임 뷰포트 기준(CSS 픽셀). content script가 버튼 중심 좌표를 넘겨준다.
 // ⚠️ attach하면 상단 '디버깅 중' 안내바가 생겨 페이지가 아래로 밀림 → 좌표는 attach 후 재계산해야 함.
 // 그래서 2단계: TRUSTED_PREP(attach만) → content가 좌표 재계산 → TRUSTED_CLICK(dispatch+detach).
+// ⚠️ '이미 attach됨' 오류는 '내가 붙임'과 'DevTools가 붙음' 둘 다에서 같은 문자열이 나온다.
+//    → 문자열 파싱 대신 '내가 붙인 탭' 집합(selfAttached)으로 구분해야 F12 감지가 동작.
+const selfAttached = new Set()
+try { chrome.debugger.onDetach.addListener((src) => { if (src && src.tabId != null) selfAttached.delete(src.tabId) }) } catch { /* noop */ }
 async function trustedAttach(tabId) {
-  try { await chrome.debugger.attach({ tabId }, '1.3'); return { ok: true } }
+  if (selfAttached.has(tabId)) return { ok: true } // 내가 이미 붙여둠
+  try { await chrome.debugger.attach({ tabId }, '1.3'); selfAttached.add(tabId); return { ok: true } }
   catch (e) {
     const err = String((e && e.message) || e)
-    if (/already attached/i.test(err)) return { ok: true } // 이미 붙어있으면 그대로 사용
-    return { ok: false, err } // 개발자도구(F12)가 열려있으면 여기로 옴
+    // 내가 붙인 게 아닌데 '이미 붙어있음' → DevTools(F12)가 점유 중 → 진짜 클릭 불가
+    return { ok: false, err }
   }
+}
+async function trustedDetach(tabId) {
+  try { await chrome.debugger.detach({ tabId }) } catch { /* noop */ }
+  selfAttached.delete(tabId)
 }
 async function trustedClick(tabId, x, y) {
   const target = { tabId }
@@ -162,10 +178,10 @@ async function trustedClick(tabId, x, y) {
     await chrome.debugger.sendCommand(target, 'Input.dispatchMouseEvent', Object.assign({ type: 'mouseMoved' }, base))
     await chrome.debugger.sendCommand(target, 'Input.dispatchMouseEvent', Object.assign({ type: 'mousePressed' }, base))
     await chrome.debugger.sendCommand(target, 'Input.dispatchMouseEvent', Object.assign({ type: 'mouseReleased' }, base))
-    try { await chrome.debugger.detach(target) } catch { /* noop */ }
+    await trustedDetach(tabId)
     return true
   } catch (e) {
-    try { await chrome.debugger.detach(target) } catch { /* noop */ }
+    await trustedDetach(tabId)
     return false
   }
 }
@@ -183,6 +199,15 @@ chrome.tabs.onCreated.addListener((tab) => {
   chrome.tabs.onUpdated.addListener(onUpd)
 })
 
+// 연쇄 발급 진행 알람 — setTimeout과 달리 서비스워커가 재시작돼도 살아남아 큐가 멈추지 않는다.
+try {
+  chrome.alarms.onAlarm.addListener(async (alarm) => {
+    if (alarm.name !== 'advanceQueue') return
+    await ensureJob()
+    advanceQueue().catch(() => {})
+  })
+} catch { /* alarms 권한 없으면 setTimeout 폴백 사용 */ }
+
 async function closePrevJobTab() {
   // 이전 잡 탭이 남아 있으면 닫아 오래된(멈춘) 탭 혼란 방지
   if (job && job.tabId != null) { try { await chrome.tabs.remove(job.tabId) } catch { /* noop */ } }
@@ -192,6 +217,7 @@ async function startJob(rawName, userInfo, webTabId) {
   const docName = resolveDoc(rawName)
   if (!docName) return { ok: false, error: `지원하지 않는 서류: ${rawName}` }
   await closePrevJobTab()
+  try { await chrome.alarms.clear('advanceQueue') } catch { /* noop */ } // 이전 체인의 알람 제거
   try { await chrome.storage.local.remove('trace') } catch { /* noop */ } // 새 발급마다 진단 새로 시작
   const site = DOCS[docName].site
   const siteName = { gov24: '정부24', nhis: '건강보험공단', work24: '고용24', nps: '국민연금공단' }[site]
@@ -322,6 +348,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         return sendResponse({ ok })
       }
       return sendResponse({ ok: false })
+    }
+    if (msg.type === 'TRUSTED_ABORT') {
+      // PREP는 했으나 클릭을 못 쏜 경우(버튼 rect 0 등) → attach 해제해 '디버깅 중' 바 제거
+      if (job && sender.tab && sender.tab.id === job.tabId) await trustedDetach(job.tabId)
+      return sendResponse({ ok: true })
     }
     if (msg.type === 'REINJECT') {
       // 간편인증 클릭 뒤 늦게 뜨는 인증 iframe에도 자동화를 주입
