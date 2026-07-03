@@ -285,7 +285,19 @@ def run(doc_names):
     prof = load_profile()
     with sync_playwright() as pw:
         log("진짜 크롬에 연결 중(CDP)…")
-        browser = pw.chromium.connect_over_cdp(CDP_URL)
+        # 크롬이 원격 디버깅으로 뜨는 데 시간이 걸릴 수 있어 최대 ~15초 재시도
+        browser = None
+        for attempt in range(10):
+            try:
+                browser = pw.chromium.connect_over_cdp(CDP_URL)
+                break
+            except Exception:
+                if attempt == 0:
+                    log("크롬 연결 대기 중… (run-agent-cdp.bat가 크롬을 띄웠는지 확인)")
+                time.sleep(1.5)
+        if browser is None:
+            log("❌ 크롬에 연결하지 못했어요. run-agent-cdp.bat로 실행했는지, 9222 포트가 열렸는지 확인해 주세요.")
+            return
         page = get_page(browser)
         if not do_login(page, prof):
             return
