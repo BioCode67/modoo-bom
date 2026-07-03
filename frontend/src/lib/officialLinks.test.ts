@@ -62,6 +62,24 @@ describe('docLink', () => {
     expect(r.label).toContain('본인 지참')
     expect(r.rpa).toBeFalsy()
   })
+  it('병원·은행·회사 발급 서류는 발급 주체를 정직하게 안내', () => {
+    expect(docLink('진단서').label).toContain('병원')
+    expect(docLink('임신확인서').label).toContain('병원')
+    expect(docLink('출생증명서').label).toContain('병원')
+    expect(docLink('통장 사본').label).toContain('은행')
+    expect(docLink('근로계약서').label).toContain('회사')
+    expect(docLink('재직확인 서류').label).toContain('회사')
+  })
+  it('기관 직링크: 건보료 납부확인·등기부·장기요양·사업자등록증명·생활기록부', () => {
+    expect(docLink('건강보험료 납부확인서').url).toContain('nhis.or.kr')
+    expect(docLink('건물 등기부등본').url).toContain('iros.go.kr')
+    expect(docLink('장기요양인정서').url).toContain('longtermcare.or.kr')
+    expect(docLink('사업자등록증').url).toContain('CappBizCD=12100000016')
+    expect(docLink('성적증명서').url).toContain('CappBizCD=13410000019')
+  })
+  it('장애인등록증·장애인증명서 → 정부24 직링크(실측 코드)', () => {
+    expect(docLink('장애인등록증').url).toContain('CappBizCD=14600000273')
+  })
   it('발급 불가/본인 지참 서류는 RPA 자동발급 대상이 아님', () => {
     expect(isRpaSupported('임대차계약서')).toBe(false)
     expect(isRpaSupported('신분증')).toBe(false)

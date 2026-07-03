@@ -41,7 +41,7 @@ export function docLink(doc: string): OfficialLink {
   if (/재직|근로계약서|임금대장|근로자\s*명부|경력증명|원천징수/.test(d))
     return { label: '재직 회사에서 발급', url: `https://www.gov.kr/search?srhQuery=${encodeURIComponent(doc)}` }
   // 건강보험(자격득실 외): 보험료 납부확인서·건강보험증 등 — 건보공단 민원
-  if (d.includes('건강보험') || d.includes('보험료 납부'))
+  if (d.includes('건강보험') || d.includes('보험료납부'))
     return { label: '건강보험공단(민원여기요)에서 발급', url: 'https://www.nhis.or.kr' }
   // 부동산 등기: 인터넷등기소
   if (/등기부|등기사항/.test(d))
