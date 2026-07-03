@@ -70,7 +70,9 @@ export default defineConfig(({ command }) => ({
       output: {
         // 3D/애니메이션 라이브러리는 별도 청크로 분리 → 초기 로딩 가볍게, 캐시 효율↑
         manualChunks: {
-          three: ['three', '@react-three/fiber', '@react-three/drei'],
+          // ⚠️ three를 여기 넣으면(객체형 manualChunks) 청크가 초기 정적 그래프로 승격돼
+          // index.html에 modulepreload되어 첫 로드에 ~973KB가 실린다(레이지 무력화, LH 성능 55의 주범).
+          // three는 HeroScene(dynamic import)에서만 쓰므로 명시하지 않으면 자연히 비동기 청크가 된다.
           motion: ['framer-motion'],
         },
       },

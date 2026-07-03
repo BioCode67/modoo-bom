@@ -18,7 +18,7 @@ export function Faq() {
             <details key={i} className="group card-cute overflow-hidden">
               <summary className="flex items-center justify-between gap-4 cursor-pointer px-5 py-4 font-bold list-none hover:bg-sprout-50/50 transition-colors">
                 <span className="flex items-center gap-2">
-                  <span className="text-sprout-500">Q.</span> {q}
+                  <span className="text-sprout-700">Q.</span> {q}
                 </span>
                 <span className="text-sprout-400 group-open:rotate-180 transition-transform text-xl leading-none shrink-0">⌄</span>
               </summary>
