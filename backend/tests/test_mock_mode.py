@@ -15,7 +15,7 @@ def test_is_mock_mode():
 
 def test_sample_data_count():
     from rag.sample_data import WELFARE_POLICIES
-    assert len(WELFARE_POLICIES) == 120
+    assert len(WELFARE_POLICIES) == 131  # 정부 큐레이션 120 + 민간재단(PRV-) 11
     # 필수 필드 확인
     for p in WELFARE_POLICIES:
         assert "id" in p

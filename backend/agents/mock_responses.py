@@ -82,6 +82,20 @@ def mock_profile_analysis(profile) -> dict:
 def _check_policy(doc: str, name: str, pid: str, profile) -> tuple[bool, str, str, float]:
     """(eligible, reason, priority, confidence) 반환"""
 
+    # ── 민간재단(PRV-) 가드: 심사·선발형이라 정밀 룰(일반 소득룰 포함)로 '자격 충족'을 단정하지 않는다.
+    # 프로필 신호가 맞으면 저신뢰 '관련 지원'으로만 제시 — 프론트 엔진(welfare-engine.ts)과 동일 원칙.
+    if pid.startswith("PRV-"):
+        text = f"{name} {doc}"
+        signal = (
+            (19 <= profile.age <= 34 and ("대학생" in text or "장학" in text))
+            or (profile.disability and "장애" in text)
+            or (profile.has_children and any(k in text for k in ["아동", "환아", "청소년"]))
+            or (profile.income_percentile <= 60 and any(k in text for k in ["저소득", "위기", "치료비"]))
+        )
+        if signal:
+            return True, "민간재단 심사·선발형 지원 — 조건이 맞으면 신청해볼 만해요(자세한 자격은 재단 공고 확인)", "low", 0.6
+        return False, "", "low", 0.0
+
     # ── 노인 계열 ──────────────────────────────────────────────────────────
     if any(k in doc for k in ["만 65세", "65세 이상", "만65세"]):
         if profile.age >= 65:
