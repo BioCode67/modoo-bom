@@ -159,6 +159,9 @@ curl -fsSL https://raw.githubusercontent.com/BioCode67/modoo-bom/main/scripts/se
 **검증/품질 도구**
 - 실사이트 셀렉터 점검: `cd backend && python ../extension/validate_live.py "<서류명>"` (본인인증 직전까지, 개인정보 미사용)
 - 코드/URL 데이터 감사: `AA020InfoCappView.do?CappBizCD=<코드>` title 확인, 복지로 `moveTWAT52011M.do?wlfareInfoId=<ID>` len 확인
+- **민간재단 검증 감사(7-04 새벽)**: 데스크탑 추가분 9곳 URL 전수 생존·신원 확인(포스코청암·CJ도너스캠프·
+  아름다운·아산나눔·행복나눔·열매나눔·기아대책·일주 ✓). **한화 항목은 실측 정정** — 한화문화재단은 학생 장학이
+  아니라 신진 예술가 레지던시 지원이라 사실대로 재작성(PRV-016). ⚠️신규 재단 추가 시 URL·사업 실체 검증 필수.
 - **야간 자율 세션(7-04) 성과**: 페르소나 골든 6 + 카탈로그(5,200) 검색 골든 8 · E2E 8여정(계산기·긴급진단·용어사전ESC·모바일) ·
   three.js 초기 1MB 지연화(manualChunks 함정) · '하위N%' 소득단위 교정(기초연금 과배제) · **AI 답변 7개 언어**(en·vi·zh·ja·th·ru·ar) ·
   Lighthouse 실측(접근성96·BP100·SEO100·성능55—데이터 특성) · 심사용 '품질·정직성 리포트'(docs/기획서자료).
