@@ -77,7 +77,7 @@ export function recommend(a: GuideAnswers): { text: string; policies: EligiblePo
   return {
     text: `조건에 맞는 복지를 ${elig.length}개 찾았어요! 추천 ${top.length}가지는 👇\n${lines.join('\n')}` +
       (total > 0 ? `\n\n예상 월 합계는 약 ${formatWon(total)}이에요.` : '') +
-      '\n\n아래 정책을 눌러 자세히 보거나, "내 복지 찾기"에서 정밀 분석을 받아보세요.',
+      '\n\n마음에 드는 건 아래에서 바로 담아두세요("다 담아줘"라고 하셔도 돼요). 더 정확히는 정밀 분석으로!',
     policies: top,
   }
 }

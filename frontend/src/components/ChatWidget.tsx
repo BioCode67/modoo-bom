@@ -77,7 +77,12 @@ export function ChatWidget() {
   const advance = (next: GuideAnswers) => {
     const ns = step + 1
     if (ns < GUIDE_STEPS.length) { setStep(ns); setMultiSel([]); setTimeout(() => botSay(GUIDE_STEPS[ns].question), 300) }
-    else { setStep(-1); const { text } = recommend(next); setTimeout(() => botSay(text), 300) }
+    else {
+      setStep(-1)
+      // 상담 결과도 에이전트 일관성: 정책 칩(바로 담기)+CTA를 붙이고, "다 담아줘" 맥락에도 잡히게 한다
+      const { text, policies } = recommend(next)
+      setTimeout(() => botSay(text, { policies, cta: { view: 'analyze', label: '정밀 분석하기' } }), 300)
+    }
   }
   const pickSingle = (o: { value: string; label: string }) => {
     const cur = GUIDE_STEPS[step]
