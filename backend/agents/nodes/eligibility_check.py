@@ -70,9 +70,11 @@ async def eligibility_check_node(state: AgentState) -> dict:
     # 우선순위(high>med>low) → 신뢰도 정렬 + 이름 중복 제거(프론트 엔진과 일관).
     # RAG 검색 순서로 두면 기초연금(high)이 문화누리카드(medium) 아래로 묻히는 문제 해결.
     _rank = {"high": 3, "medium": 2, "low": 1}
+    # eligible 우선(True>False) → 우선순위 → 신뢰도. 동명 항목 중 '자격있음'을 반드시 남긴다
+    # (LLM 모드에서 자격없음 사본이 우선순위만 높아 자격있음을 덮어쓰던 경우 방지).
     ordered = sorted(
         result.get("eligible_policies", []),
-        key=lambda p: (_rank.get(p.get("priority"), 0), p.get("confidence", 0)),
+        key=lambda p: (bool(p.get("eligible")), _rank.get(p.get("priority"), 0), p.get("confidence", 0)),
         reverse=True,
     )
     seen, deduped = set(), []

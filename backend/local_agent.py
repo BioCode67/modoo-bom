@@ -115,7 +115,8 @@ def fill_auth(frame: Frame, prof: dict) -> bool:
     name = (prof.get("name") or "").strip()
     birth = "".join(ch for ch in str(prof.get("birth") or "") if ch.isdigit())
     phone = "".join(ch for ch in str(prof.get("phone") or "") if ch.isdigit())
-    tail = phone[3:] if phone.startswith("010") and len(phone) >= 10 else phone  # 010 뒤 8자리
+    # 휴대폰 앞 3자리(01X) 뒤 자리만 입력칸에 채움 — 010뿐 아니라 011/016~019도 대응
+    tail = phone[3:] if phone.startswith("01") and len(phone) >= 10 else phone
     for sel, val in [("#oacx_name", name), ("#oacx_birth", birth), ("#oacx_phone2", tail)]:
         if not val:
             continue
@@ -301,13 +302,17 @@ def run(doc_names):
         page = get_page(browser)
         if not do_login(page, prof):
             return
-        # 한 번의 로그인으로 여러 서류를 연달아 발급(로그인 세션 재사용)
+        # 한 번의 로그인으로 여러 서류를 연달아 발급(로그인 세션 재사용).
+        # ⚠️ 한 서류에서 예외(타임아웃·탭 닫힘 등)가 나도 전체가 죽지 않고 다음 서류로 계속.
         ok_count = 0
         for i, d in enumerate(docs):
             if i > 0:
                 log(f"다음 서류로 진행… (남은 {len(docs) - i}건)")
-            if issue_one(page, d):
-                ok_count += 1
+            try:
+                if issue_one(page, d):
+                    ok_count += 1
+            except Exception as e:
+                log(f"'{d}' 처리 중 문제가 있어 건너뜁니다({str(e)[:50]}). 나머지는 계속 진행해요.")
         log(f"끝! 총 {len(docs)}건 중 {ok_count}건 저장 완료. (바탕화면\\모두봄서류)")
 
 def pick_docs_interactive():
