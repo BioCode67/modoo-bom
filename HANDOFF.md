@@ -134,6 +134,17 @@ curl -fsSL https://raw.githubusercontent.com/BioCode67/modoo-bom/main/scripts/se
    미반영. 백엔드 경유 분석(WS)에는 민간재단이 안 나옴. venv 구축 후 이식+pytest 확인 필요(프론트 단독 데모엔 무관).
 7. **홈택스/LH 등 추가 사이트**: 홈택스=무거운 SPA(실계정 보정 필요), LH·근로복지공단=공동인증서 중심(다른 방식). 보류 중.
 
+**🐛 실사용 버그 리포트(2026-07-03, 사용자 재현 — 데스크탑(확장) 세션 확인 요망)**
+- **증상**: 정부24 새 포털 발급 폼 `plus.gov.kr/minwon/apply/applyMinwonForm?cappBizCd=13100000015&tpSeq=01`
+  (주민등록 등본)에서 폼은 전부 채워진 상태(주소·전체발급·온라인발급 선택됨)로 **'신청하기'가 클릭되지 않고 멈춤**.
+- **분석**(터미널 세션): automation.js에 applyMinwonForm 분기(신청하기 대기→5초 검토→자동클릭 재시도→실패 시
+  "직접 눌러 주세요" 안내)가 있는데도 정지. 유력 후보: (a) SPA 라우트 전환으로 콘텐트스크립트 1회성 main()이
+  이 화면에서 재실행 안 됨(재주입 필요), (b) 새 포털 '신청하기'가 신뢰클릭(CDP debugger) 필요한데 이 경로 미적용,
+  (c) STATUS가 웹탭에 안 닿아 사용자가 안내문구를 못 봄. trace 로그에서 'applyMinwonForm' branch 발화 여부 확인 권장.
+- **웹(프론트) 측 완화 배포됨**: 시작 타임아웃 3s→10s(오역 제거)·확장 실제 오류 표시·서류명 퍼지매칭·
+  30초 무응답 시 "정부 사이트 탭 확인+직접 클릭 안내+공식 폴백/재시도" 워치독(서류센터·자동신청 둘 다).
+- **사용자 즉시 우회**: 그 화면에서 '신청하기'를 직접 누르면 됨(이후 전자서명은 원래 본인 단계).
+
 **검증/품질 도구**
 - 실사이트 셀렉터 점검: `cd backend && python ../extension/validate_live.py "<서류명>"` (본인인증 직전까지, 개인정보 미사용)
 - 코드/URL 데이터 감사: `AA020InfoCappView.do?CappBizCD=<코드>` title 확인, 복지로 `moveTWAT52011M.do?wlfareInfoId=<ID>` len 확인
