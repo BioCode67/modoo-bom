@@ -83,13 +83,14 @@
   // 텍스트/셀렉터로 버튼 후보를 모두 모아 보이는 것·정확한 것부터 '진짜 클릭' 시도.
   // (⚠️ 첫 매칭만 잡으면 숨은 요소(rect 없음)에 걸려 영원히 실패할 수 있음 — 후보 정렬·순차 시도)
   // trustedOnly=true면 debugger 클릭 성공만 성공으로 침(.click()은 정부 버튼이 무시하므로 오판 방지)
-  const realClick = async (texts, sels = [], trustedOnly = false) => {
+  const realClick = async (texts, sels = [], trustedOnly = false, exclude = []) => {
     const cands = []
     const seen = new Set()
     for (const c of document.querySelectorAll('a,button,[role="button"],input[type="button"],input[type="submit"],span,li,div[onclick]')) {
       const t = norm(c.textContent) + norm(c.value || '')
       if (!t || t.length > 80) continue
       if (!texts.some((x) => t.includes(norm(x)))) continue
+      if (exclude.some((x) => t.includes(norm(x)))) continue
       const el = c.closest('a,button,[role="button"],input,li,[onclick]') || c
       if (seen.has(el)) continue
       seen.add(el)
@@ -204,6 +205,11 @@
     for (let i = 0; i < secs * 2; i++) { if (fn()) return true; await sleep(500) }
     return false
   }
+  // 진짜 클릭 버전 폴링 — 버튼이 뜰 때까지 기다렸다가 trusted 우선(실패 시 .click 폴백)으로 클릭
+  const pollRealClick = async (texts, sels = [], secs = 12) => {
+    for (let i = 0; i < secs; i++) { if (await realClick(texts, sels)) return true; await sleep(1000) }
+    return false
+  }
   const loggedIn = () =>
     /로그아웃|logout/i.test((document.body && document.body.innerText) || '') ||
     !!document.querySelector('a[href*="logout" i], a[href*="Logout"]')
@@ -242,6 +248,7 @@
     // 발급 완료 목록(서비스 신청 내역) — 문서출력 클릭 + PDF 자동 저장
     // ⚠️ URL로만 매칭(메인 페이지에도 '서비스 신청 내역' 링크 텍스트가 있어 오인 방지)
     if (/mbrAplySrvcList/i.test(location.href)) {
+      trace('branch', { name: 'mbrAplySrvcList' })
       const hasOutput = /문서출력/.test((document.body && document.body.innerText) || '')
       if (hasOutput) {
         const ymd = new Date().toISOString().slice(0, 10).replace(/-/g, '')
@@ -311,6 +318,7 @@
       await sleep(300); await send({ type: 'GOTO', payload: { url: job.issueUrl } })
       return
     }
+    trace('branch', { name: 'gov24-login', loggedIn: false })
     // 로그인 화면: '간편인증' 카드를 찾아 '진짜 클릭'(debugger)으로 연다.
     // (⚠️ 로그인 방식 카드도 isTrusted 클릭만 받는 것으로 보임 — .click()은 무시됨.
     //  ⚠️ button.login-type 같은 위치 셀렉터는 첫 방식 '모바일 신분증'을 잘못 열어 제거)
@@ -328,7 +336,11 @@
         // 보이는 요소 우선, 같은 조건이면 텍스트가 짧은(더 정확한) 요소
         if ((vis && !bestVis) || (vis === bestVis && t.length < bestLen)) { best = el; bestLen = t.length; bestVis = vis }
       }
-      return best && (best.closest('a,button,[role="button"],li,[onclick]') || best)
+      if (!best) return null
+      // 실제 클릭 대상은 버튼/링크가 정확 — li 같은 컨테이너에 걸렸으면 안의 버튼으로 내려감
+      return best.closest('a,button,[role="button"],[onclick]') ||
+        (best.querySelector && best.querySelector('button,a,[role="button"]')) ||
+        best.closest('li') || best
     }
     const authWidgetOpen = () =>
       !!document.querySelector('[id^="oacx_"], [class*="oacx"], input[placeholder*="홍길동"], input[placeholder*="01012341234"]') ||
@@ -380,10 +392,12 @@
 
   // ── 2) 간편인증 iframe: 카카오톡 선택 + 정보 자동입력 ──
   if (isAuthFrame()) {
+    trace('branch', { name: 'auth-frame', top: isTop })
     await sleep(800)
     clickText(['카카오톡', 'TALK', '카카오'], ['카카오뱅크', 'BANK'])
     await sleep(600)
     const filled = autofillAuth()
+    trace('autofill', { filled })
     status('waiting',
       filled
         ? "✅ 이름·생년월일·휴대폰을 자동 입력했어요. '인증 요청'을 누르고 📱 카카오톡 알림에서 [인증 허용]만 하세요."
@@ -397,8 +411,10 @@
     if (/loginView/i.test(url)) {
       // 로그인 페이지: eForm 간편인증 버튼 폴링 클릭 → 인증 iframe에도 주입 요청
       status('running', '복지로 로그인 화면 준비 중…')
-      const clicked = await pollClick(() =>
-        clickEform(['간편인증', '간편 인증', '간편로그인']) || clickText(['간편인증', '간편 인증']), 12)
+      trace('branch', { name: 'bokjiro-login' })
+      // eForm(.cl-button) 텍스트 클릭 우선 → 안 되면 진짜 클릭(trusted)까지
+      let clicked = await pollClick(() => clickEform(['간편인증', '간편 인증', '간편로그인']), 6)
+      if (!clicked) clicked = await pollRealClick(['간편인증', '간편 인증', '간편로그인'], [], 8)
       status('running', clicked
         ? '복지로 간편인증을 선택했어요. 카카오톡으로 본인인증을 진행해 주세요. 📱'
         : "화면에서 '간편인증'을 눌러 주세요.")
@@ -406,8 +422,10 @@
       return
     }
     if (/moveTWAT|wlfareInfoId/i.test(url)) {
-      // 서비스 신청 페이지(임의 wlfareInfoId): 신청하기 클릭 + 기본 정보 자동 입력
-      await pollClick(() => clickEform(['신청하기', '온라인신청', '모바일신청']) || clickText(['신청하기', '온라인신청']), 8)
+      trace('branch', { name: 'bokjiro-apply' })
+      // 서비스 신청 페이지(임의 wlfareInfoId): 신청하기 클릭(eForm→진짜 클릭 순) + 기본 정보 자동 입력
+      const opened = await pollClick(() => clickEform(['신청하기', '온라인신청', '모바일신청']), 5)
+      if (!opened) await pollRealClick(['신청하기', '온라인신청', '모바일신청'], [], 6)
       await sleep(1500)
       const u = job.userInfo || {}
       const name = (u.user_name || u.name || '').trim()
@@ -431,27 +449,21 @@
   if (host === 'www.nhis.or.kr' && isTop && job.site === 'nhis') {
     await sleep(1500)
     if (/personalLoginPage/i.test(url)) {
+      trace('branch', { name: 'nhis-login' })
       status('running', '건강보험공단 로그인 화면 준비 중…')
-      await pollClick(() => clickText(['간편인증 로그인', '간편인증', '간편 인증']), 12)
+      await pollRealClick(['간편인증 로그인', '간편인증', '간편 인증'], [], 12)
       await sleep(2500)
       clickText(['카카오톡', 'TALK'], ['카카오뱅크', 'BANK'])
       await sleep(800)
-      const u = job.userInfo || {}
-      const name = (u.user_name || u.name || '').trim()
-      const birth = String(u.birth_date || '').replace(/[^0-9]/g, '')
-      const phone = String(u.phone || '').replace(/[^0-9]/g, '')
-      let filled = false
-      filled = fill(['#oacx_name'], name) || filled
-      filled = fill(['#oacx_birth'], birth) || filled
-      if (phone) { const tail = phone.startsWith('010') && phone.length >= 10 ? phone.slice(3) : phone; filled = fill(['#oacx_phone2', '#oku_phone2'], tail) || filled }
-      const agree = document.querySelector('#totalAgree'); if (agree && !agree.checked) agree.click()
+      const filled = autofillAuth() // 공용 자동입력(라벨 폴백 포함)
       status('waiting', filled
         ? "✅ 정보를 자동 입력했어요. '인증 요청' 후 📱 카카오톡 [인증 허용]만 하세요."
         : "카카오톡 선택 후 정보를 입력하고 '인증 요청'을 눌러 주세요. 📱")
       return
     }
     if (/jpAea00401/i.test(url)) {
-      clickText(['확인서 발급', '발급하기', '발급', '출력', '인쇄'])
+      trace('branch', { name: 'nhis-issue' })
+      await realClick(['확인서 발급', '발급하기', '발급', '출력', '인쇄'])
       status('done', '✅ 건강보험 자격득실확인서 발급 화면까지 진행했어요. 인쇄창에서 저장(PDF)하세요.')
       return
     }
@@ -464,8 +476,9 @@
   if (host === 'www.kosaf.go.kr' && isTop && job.kind === 'apply' && job.applySite === 'kosaf') {
     await sleep(1500)
     if (/login/i.test(url)) {
+      trace('branch', { name: 'kosaf-login' })
       status('running', '한국장학재단 로그인 화면 준비 중…')
-      const clicked = await pollClick(() => clickText(['간편인증', '간편 인증', '간편로그인']), 12)
+      const clicked = await pollRealClick(['간편인증', '간편 인증', '간편로그인'], [], 12)
       status('running', clicked
         ? '간편인증을 선택했어요. 카카오톡으로 본인인증을 진행해 주세요. 📱'
         : "화면에서 '간편인증'을 눌러 주세요.")
@@ -478,7 +491,8 @@
       await sleep(400); await send({ type: 'GOTO', payload: { url: job.serviceUrl } })
       return
     }
-    await pollClick(() => clickText(['신청하기', '신청', '온라인신청']), 8)
+    trace('branch', { name: 'kosaf-apply' })
+    await pollRealClick(['신청하기', '신청', '온라인신청'], [], 8)
     status('running',
       `✅ '${job.serviceName}' 신청 화면이 열렸어요. 내용을 확인하고 채운 뒤,\n` +
       '⚠️ 최종 제출은 본인이 직접 눌러 주세요.')
@@ -490,17 +504,18 @@
     await sleep(1500)
     if (loggedIn()) {
       // 로그인 상태: 발급/조회 버튼
-      const issued = await pollClick(() => clickText(['발급', '출력', '인쇄', '조회']), 8)
+      trace('branch', { name: 'nps-issue' })
+      const issued = await pollRealClick(['발급', '출력', '인쇄', '조회'], [], 8)
       status(issued ? 'done' : 'running', issued
         ? '✅ 국민연금 가입내역확인서 발급 화면까지 진행했어요. 인쇄창에서 저장하세요.'
         : '화면에서 발급/조회 버튼을 눌러 주세요.')
       return
     }
     // 로그인/간편인증 유도
+    trace('branch', { name: 'nps-login' })
     status('running', '국민연금 전자민원 로그인 화면 준비 중…')
-    const clicked = await pollClick(() =>
-      clickText(['간편인증', '간편 인증', '간편인증 로그인']) ||
-      clickSel(["a[href*='simple' i]", "button[onclick*='simple' i]", ".btn-easy"]), 12)
+    const clicked = await pollRealClick(['간편인증', '간편 인증', '간편인증 로그인'],
+      ["a[href*='simple' i]", "button[onclick*='simple' i]", '.btn-easy'], 12)
     status('running', clicked
       ? '간편인증을 선택했어요. 카카오톡으로 본인인증을 진행해 주세요. 📱'
       : "화면에서 '간편인증' 후 로그인해 주세요. 로그인되면 자동으로 발급을 이어가요.")
@@ -512,20 +527,22 @@
   if (host === 'www.work24.go.kr' && isTop && job.site === 'work24') {
     await sleep(1500)
     if (/openLginPage|AnyId|login/i.test(url)) {
+      trace('branch', { name: 'work24-login' })
       status('running', '고용24 로그인 화면 준비 중…')
-      const clicked = await pollClick(() =>
-        clickSel(['a.link-easy-anyId', 'a[class*="easy-anyId"]', 'a[onclick*="anyidAdaptor"]', '.btn_quick_login']) || clickText(['간편인증']), 12)
+      const clicked = await pollRealClick(['간편인증'],
+        ['a.link-easy-anyId', 'a[class*="easy-anyId"]', 'a[onclick*="anyidAdaptor"]', '.btn_quick_login'], 12)
       status('running', clicked
         ? '간편인증을 선택했어요. 카카오톡으로 본인인증을 진행해 주세요. 📱'
         : "화면에서 '간편인증'을 눌러 주세요.")
       if (clicked) { await sleep(2800); await send({ type: 'REINJECT' }) }
       return
     }
-    clickText(['피보험자격이력', '피보험 자격이력', '이력내역서', '피보험자격 이력'])
+    trace('branch', { name: 'work24-issue' })
+    await realClick(['피보험자격이력', '피보험 자격이력', '이력내역서', '피보험자격 이력'])
     await sleep(1500)
-    clickText(['조회', '확인'])
+    await realClick(['조회', '확인'])
     await sleep(1500)
-    const issued = clickText(['발급', '출력', '인쇄'])
+    const issued = await realClick(['발급', '출력', '인쇄'])
     status(issued ? 'done' : 'running', issued
       ? '✅ 고용보험 피보험자격 이력내역서 발급 화면까지 진행했어요. 인쇄창에서 저장하세요.'
       : "화면에서 '피보험자격이력' 메뉴 → 조회 → 발급을 진행해 주세요.")
@@ -544,20 +561,29 @@
     //    (⚠️ 발급하기 후 모달이 '페이지 전환 없이' 뜨므로 재주입이 안 됨 → 여기서 이어서 클릭해야 함)
     //    (⚠️ '비회원 신청하기'가 '회원 신청하기'를 문자열로 포함하므로 exclude로 배제)
     if (/AA020InfoCappView/i.test(url)) {
+      trace('branch', { name: 'AA020' })
       // 발급 폼 직접 링크(a[href*=AA040OfferMainFrm])로 바로 이동 → 회원/비회원 모달과
       // '신뢰된 클릭만 먹는' 회원 신청하기 버튼을 우회(로그인 상태면 폼이 바로 뜸).
       const a = document.querySelector('a[href*="AA040OfferMainFrm"]')
       if (a && a.href) { status('running', '발급 폼으로 이동 중…'); location.href = a.href; return }
-      // 폴백: 직접 링크가 없으면 발급하기 클릭(모달의 회원 신청하기는 사용자가 눌러야 함)
+      // 폴백: 발급하기 클릭 → 모달의 '회원 신청하기'는 진짜 클릭(debugger)으로 처리
       const clicked = await pollClick(() => clickText(['발급하기']), 8)
-      status(clicked ? 'waiting' : 'waiting', clicked
-        ? "모달이 뜨면 '회원 신청하기'를 눌러 주세요. (버튼 보안상 자동클릭 불가)"
-        : "화면에서 '발급하기'를 눌러 주세요.")
+      if (clicked) {
+        await sleep(1200)
+        const member = await realClick(['회원 신청하기'], [], false, ['비회원'])
+        status(member ? 'running' : 'waiting', member
+          ? '회원 신청으로 진행 중…'
+          : "모달이 뜨면 '회원 신청하기'를 눌러 주세요.")
+      } else {
+        status('waiting', "화면에서 '발급하기'를 눌러 주세요.")
+      }
       return
     }
-    // 2) (다른 진입에서) 회원/비회원 모달이 있으면 회원 신청하기
-    if (clickText(['회원 신청하기'], ['비회원'])) {
-      status('running', '회원 신청으로 진행 중…'); return
+    // 2) (다른 진입에서) 회원/비회원 모달이 있으면 회원 신청하기(진짜 클릭)
+    if (/회원\s*신청하기/.test((document.body && document.body.innerText) || '')) {
+      if (await realClick(['회원 신청하기'], [], false, ['비회원'])) {
+        status('running', '회원 신청으로 진행 중…'); return
+      }
     }
 
     const bodyTxt = () => (document.body && document.body.innerText) || ''
@@ -581,10 +607,10 @@
     const sel = document.querySelector("select[name*='purpose'], select[name*='issuPurps'], #issuPurps, select")
     if (sel && sel.options && sel.options.length) sel.selectedIndex = Math.min(1, sel.options.length - 1)
 
-    // 4) 발급/신청 제출 — 폼이 늦게 렌더될 수 있어 폴링
-    const submitted = await pollClick(() =>
-      clickSel(['#btnIssue', '#btnApply', "input[value*='발급']", "input[value*='신청']"]) ||
-      clickText(['민원신청하기', '신청하기', '발급하기', '발급', '제출']), 8)
+    // 4) 발급/신청 제출 — 진짜 클릭(폼이 늦게 렌더될 수 있어 폴링)
+    trace('branch', { name: 'AA040-form' })
+    const submitted = await pollRealClick(['민원신청하기', '신청하기', '발급하기', '발급', '제출'],
+      ['#btnIssue', '#btnApply', "input[value*='발급']", "input[value*='신청']"], 8)
     status(submitted ? 'running' : 'running', submitted
       ? '발급 신청을 제출하는 중이에요…'
       : '발급 폼 처리 중… (화면을 잠시 지켜봐 주세요)')
