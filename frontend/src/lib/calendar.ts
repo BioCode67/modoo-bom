@@ -1,5 +1,6 @@
 import type { Policy } from '@/data/policies'
 import type { TrackedItem } from '@/store/useAppStore'
+import { deadlineHint } from '@/lib/deadline'
 
 const DAY = 86400000
 
@@ -22,9 +23,15 @@ export function buildEvents(tracked: TrackedItem[], map: Record<string, Policy>)
     const p = map[t.policyId]
     if (!p) continue
     if (t.status === 'idle' || t.status === 'tracking') {
+      // '준비' 알림은 담아둔 시점(savedAt)에 앵커해 실제로 카운트다운되게 한다.
+      // (과거엔 Date.now()+3일로 계산해 매 렌더마다 '지금 기준 3일' → 영원히 D-3으로 고정되던 버그)
+      // 기한 신호가 급한(일 단위) 정책은 준비를 더 앞당기고, 정책의 실제 기한 텍스트를 노트에 함께 노출.
+      const hint = deadlineHint(p)
+      const prepDays = hint?.urgent ? 1 : 3
       events.push({
-        id: `${t.policyId}-prepare`, date: Date.now() + 3 * DAY, kind: 'prepare',
-        title: `${p.name} 신청 준비`, note: `필요 서류: ${(p.required_docs || []).join(', ') || '주민센터 확인'}`,
+        id: `${t.policyId}-prepare`, date: t.savedAt + prepDays * DAY, kind: 'prepare',
+        title: `${p.name} 신청 준비`,
+        note: `${hint ? `기한: ${hint.label} · ` : ''}필요 서류: ${(p.required_docs || []).join(', ') || '주민센터 확인'}`,
       })
     }
     if (t.status === 'applied' && t.appliedAt) {
