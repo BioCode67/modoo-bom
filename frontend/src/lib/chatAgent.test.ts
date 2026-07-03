@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { agentReply, greetingReply, matchSaveIntent } from './chatAgent'
+import { agentReply, greetingReply, matchSaveIntent, docsReply } from './chatAgent'
 import type { UserProfile, AnalysisResult, EligiblePolicy } from './welfare-engine'
 import type { Policy } from '@/data/policies'
 import type { TrackedItem } from '@/store/useAppStore'
@@ -92,5 +92,23 @@ describe('matchSaveIntent — 대화 맥락 기억(직전 복지를 가리켜 �
   })
   it('밋밋한 "담아줘" + 여러 개 → 보여준 것 전부', () => {
     expect(matchSaveIntent('담아줘', ctx)).toHaveLength(3)
+  })
+})
+
+
+describe('docsReply — 서류 의도(행동형)', () => {
+  it('담은 게 없으면 분석 유도', () => {
+    expect(docsReply([]).cta?.view).toBe('analyze')
+  })
+  it('담은 복지의 필요 서류를 빈도순 요약 + 서류센터 CTA', () => {
+    const r = docsReply([mkT('POL-001'), mkT('POL-002')]) // 기초연금·생계급여 — 둘 다 등본 필요
+    expect(r.text).toContain('주민등록등본')
+    expect(r.text).toContain('2곳에서 필요')
+    expect(r.cta?.view).toBe('my')
+  })
+  it('agentReply가 서류 질문을 서류 의도로 라우팅', () => {
+    const r = agentReply('서류 뭐 필요해?', { profile: null, result: null, tracked: [mkT('POL-001')] })
+    expect(r.text).toContain('서류')
+    expect(r.cta?.view).toBe('my')
   })
 })

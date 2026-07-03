@@ -115,6 +115,33 @@ function searchReply(query: string, profile: UserProfile | null): AgentReply {
   }
 }
 
+const DOCS_RE = /(서류|준비물|구비).*(뭐|무엇|필요|어떤|알려|준비)|무슨\s*서류|필요.*서류/
+
+/** '서류 뭐 필요해?' — 담아둔 복지들의 필요 서류를 빈도순 요약 + 서류센터 연결(행동) */
+export function docsReply(tracked: TrackedItem[]): AgentReply {
+  if (!tracked.length) {
+    return {
+      text: '아직 담아둔 복지가 없어요. 먼저 분석으로 받을 복지를 찾아 담아두시면, 필요한 서류를 제가 모아서 챙겨드릴게요.',
+      cta: { view: 'analyze', label: '내 복지 분석하기' },
+    }
+  }
+  const map = getPolicyMap()
+  const freq = new Map<string, number>()
+  for (const t of tracked) for (const d of map[t.policyId]?.required_docs ?? []) freq.set(d, (freq.get(d) ?? 0) + 1)
+  const top = [...freq.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5)
+  if (!top.length) {
+    return { text: '담아두신 복지는 별도 서류 없이 신청 가능한 것들이에요. 상세에서 신청 방법을 확인하세요.', cta: { view: 'my', label: '나의 복지 보기' } }
+  }
+  const lines = top.map(([d, n]) => `• ${d}${n > 1 ? ` (${n}곳에서 필요)` : ''}`).join('\n')
+  return {
+    text: `담아두신 복지 ${tracked.length}건에 필요한 서류를 모아봤어요 👇
+${lines}
+
+'나의 복지 → 서류 준비 도우미'에서 발급처 연결과 자동발급(지원 서류)까지 도와드려요.`,
+    cta: { view: 'my', label: '서류 준비 도우미 열기' },
+  }
+}
+
 const SAVE_RE = /담(아|어|을|기|아줘|아둬|아주|아 줘)|저장|추가|찜|관심\s*목록|넣어/
 const ORD: Record<string, number> = { 첫: 0, 1: 0, 하나: 0, 두: 1, 2: 1, 둘: 1, 세: 2, 3: 2, 셋: 2, 네: 3, 4: 3, 넷: 3 }
 
@@ -135,10 +162,11 @@ export function matchSaveIntent(raw: string, context: Policy[]): Policy[] | null
 }
 
 /** 메인 진입점 — 자유문장을 의도로 나눠 개인화·행동형으로 응답 */
-export function agentReply(raw: string, ctx: { profile: UserProfile | null; result: AnalysisResult | null }): AgentReply {
+export function agentReply(raw: string, ctx: { profile: UserProfile | null; result: AnalysisResult | null; tracked?: TrackedItem[] }): AgentReply {
   const q = raw.trim()
   if (!q) return { text: '' }
   if (GREET_RE.test(q)) return greetingReply(ctx.profile, [])
+  if (DOCS_RE.test(q)) return docsReply(ctx.tracked ?? [])
   if (ELIG_RE.test(q)) return eligibilityReply(ctx.profile, ctx.result)
   return searchReply(q, ctx.profile)
 }

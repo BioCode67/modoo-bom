@@ -63,7 +63,7 @@ export function ChatWidget() {
       setTimeout(() => botSay(msg, { cta: { view: 'my', label: '나의 복지 보기' } }), 300)
       return
     }
-    const r = agentReply(q, { profile, result })
+    const r = agentReply(q, { profile, result, tracked })
     setTimeout(() => botSay(r.text, { policies: r.policies, cta: r.cta }), 350)
   }
 
