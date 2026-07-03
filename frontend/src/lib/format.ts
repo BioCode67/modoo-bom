@@ -16,6 +16,7 @@ export const PRIORITY_META: Record<'high' | 'medium' | 'low', { label: string; c
 /** 카테고리별 이모지/색 (탐색기·카드 표시용). 미지정 카테고리는 기본값. */
 export function categoryMeta(category: string): { emoji: string; cls: string } {
   const c = category || ''
+  if (c.includes('민간')) return { emoji: '💝', cls: 'bg-rose-50 text-rose-600' } // 민간재단(장학·의료·위기) — 정부와 구분
   if (c.includes('노인')) return { emoji: '👵', cls: 'bg-amber-100 text-amber-700' }
   if (c.includes('아동') || c.includes('영유아') || c.includes('보육')) return { emoji: '👶', cls: 'bg-pink-100 text-pink-700' }
   if (c.includes('청년')) return { emoji: '🧑', cls: 'bg-sky2-100 text-sky2-600' }

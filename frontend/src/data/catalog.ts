@@ -1,4 +1,8 @@
 import { WELFARE_POLICIES, type Policy } from '@/data/policies'
+import { PRIVATE_POLICIES } from '@/data/privatePolicies'
+
+// 시드 = 정부 큐레이션(POL-) + 민간재단 큐레이션(PRV-, 전 항목 실측 검증)
+const SEED_POLICIES: Policy[] = [...WELFARE_POLICIES, ...PRIVATE_POLICIES]
 
 /**
  * 통합 복지 카탈로그.
@@ -23,8 +27,8 @@ function dedupeByName(list: Policy[]): Policy[] {
 }
 
 // CATALOG(표시용)은 이름 디듑, MAP(조회용)은 모든 id를 유지해 추적/참조가 깨지지 않게 함.
-let CATALOG: Policy[] = dedupeByName(WELFARE_POLICIES)
-let MAP: Record<string, Policy> = Object.fromEntries(WELFARE_POLICIES.map((p) => [p.id, p]))
+let CATALOG: Policy[] = dedupeByName(SEED_POLICIES)
+let MAP: Record<string, Policy> = Object.fromEntries(SEED_POLICIES.map((p) => [p.id, p]))
 let loaded = false
 const subs = new Set<() => void>()
 
