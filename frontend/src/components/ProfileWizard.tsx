@@ -25,9 +25,15 @@ const EMPLOYMENT = [
   { v: 'student', l: '학생' }, { v: 'self', l: '자영업' }, { v: 'retired', l: '은퇴' },
 ]
 const LIFE_EVENTS = ['실직', '출산', '장애진단', '결혼', '이사', '질병', '졸업', '창업']
+// 표시는 현행 체계(심한/심하지 않은), 저장값(v)은 판정 엔진 호환을 위해 유지(중증=1급 매칭). 장애등급제는 2019년 폐지됨.
+const DISABILITY = [
+  { v: '1급', l: '심한 장애 (중증)' }, { v: '4급', l: '심하지 않은 장애 (경증)' },
+  { v: '지적', l: '지적장애' }, { v: '자폐', l: '자폐성장애' }, { v: '기타', l: '잘 모르겠어요' },
+]
+// 라벨은 생활어(쉬운 말) + 괄호에 행정 기준(%)을 병기 — 어르신·저자력층 이해를 돕기 위함
 const INCOME_STEPS = [
-  { v: 25, l: '하위 25% 이하' }, { v: 50, l: '중위소득 50%' },
-  { v: 80, l: '중위소득 80%' }, { v: 120, l: '중위소득 120%' }, { v: 180, l: '상위권' },
+  { v: 25, l: '소득이 적은 편', sub: '하위 25%' }, { v: 50, l: '가운데보다 낮아요', sub: '중위 50%' },
+  { v: 80, l: '가운데쯤이에요', sub: '중위 80%' }, { v: 120, l: '가운데보다 높아요', sub: '중위 120%' }, { v: 180, l: '소득이 많은 편', sub: '상위권' },
 ]
 
 export function ProfileWizard({ onSubmit }: { onSubmit: (p: UserProfile) => void }) {
@@ -110,14 +116,20 @@ export function ProfileWizard({ onSubmit }: { onSubmit: (p: UserProfile) => void
                   ))}
                 </div>
               </Field>
-              <Field label={`소득 수준 (기준 중위소득${p.income_percentile ? ` · 현재 ${p.income_percentile}%` : ''})`}>
+              <Field label="우리 집 소득은 어느 정도인가요?">
+                <p className="-mt-1 mb-2 text-xs text-muted-foreground leading-relaxed">
+                  잘 모르시겠으면 대략만 골라도 돼요. <span className="font-medium text-foreground">중위소득</span>은 전국 가구를
+                  소득 순서로 세웠을 때 딱 <span className="font-medium text-foreground">가운데</span>인 소득이에요 — 복지 자격은 보통 이걸 기준으로 정해져요.
+                </p>
                 <div className="flex flex-wrap gap-2">
                   {INCOME_STEPS.map((s) => (
-                    <Choice key={s.v} active={p.income_percentile === s.v} onClick={() => set({ income_percentile: s.v })} small>{s.l}</Choice>
+                    <Choice key={s.v} active={p.income_percentile === s.v} onClick={() => set({ income_percentile: s.v })} small>
+                      {s.l} <span className="opacity-60 font-normal">({s.sub})</span>
+                    </Choice>
                   ))}
                 </div>
                 <button onClick={() => setShowCalc((v) => !v)} className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-sky2-600 hover:underline">
-                  <Calculator className="h-3.5 w-3.5" /> 내 소득 %를 모르겠어요 (계산기)
+                  <Calculator className="h-3.5 w-3.5" /> 내 소득이 어디쯤인지 모르겠어요 (계산기)
                 </button>
                 {showCalc && (
                   <div className="mt-2">
@@ -160,10 +172,10 @@ export function ProfileWizard({ onSubmit }: { onSubmit: (p: UserProfile) => void
               )}
               <Toggle label="♿ 등록 장애인" on={p.disability} onClick={() => set({ disability: !p.disability, disability_grade: !p.disability ? '1급' : '' })} />
               {p.disability && (
-                <Field label="장애 정도">
+                <Field label="장애 정도 (2019년부터 '심한/심하지 않은'으로 바뀌었어요)">
                   <div className="flex flex-wrap gap-2">
-                    {['1급', '2급', '3급', '지적', '자폐', '기타'].map((g) => (
-                      <Choice key={g} active={p.disability_grade === g} onClick={() => set({ disability_grade: g })} small>{g}</Choice>
+                    {DISABILITY.map((d) => (
+                      <Choice key={d.v} active={p.disability_grade === d.v} onClick={() => set({ disability_grade: d.v })} small>{d.l}</Choice>
                     ))}
                   </div>
                 </Field>
