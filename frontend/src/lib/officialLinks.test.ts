@@ -38,9 +38,18 @@ describe('docLink', () => {
     expect(docLink('소득증빙').url).toContain('CappBizCD=12100000021')
     expect(docLink('소득확인서류').label).toContain('소득금액증명')
   })
-  it('재학증명서·학교재학 확인서 → 정부24(초·중·고) 안내', () => {
-    expect(docLink('재학증명서').url).toContain('gov.kr')
-    expect(docLink('학교재학 확인서').label).toContain('학교')
+  it('재학증명서 → 정부24 초·중·고 발급 코드(실측)', () => {
+    const r = docLink('재학증명서')
+    expect(r.url).toContain('CappBizCD=13410000017')
+    expect(r.label).toContain('초·중·고')
+  })
+  it('대학교 재학증명서 → 정부24 대학 발급 코드(실측)', () => {
+    const r = docLink('대학교 재학증명서')
+    expect(r.url).toContain('CappBizCD=13404000010')
+    expect(r.label).toContain('대학')
+  })
+  it('대학 졸업증명서 → 정부24 대학 졸업 코드', () => {
+    expect(docLink('대학 졸업증명서').url).toContain('CappBizCD=13404000009')
   })
   it('임대차계약서 → 발급 서류 아님(본인 보관), 확정일자는 인터넷등기소', () => {
     const r = docLink('임대차계약서')

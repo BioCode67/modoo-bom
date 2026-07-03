@@ -33,9 +33,16 @@ export function docLink(doc: string): OfficialLink {
   // 소득 증빙류(소득증빙·소득확인서류 등)는 소득금액증명 발급으로 안내(정부24/홈택스)
   if (d.includes('소득증빙') || d.includes('소득확인') || (d.includes('소득') && (d.includes('증빙') || d.includes('확인'))))
     return { label: '정부24/홈택스에서 발급 (소득금액증명)', url: 'https://www.gov.kr/mw/AA020InfoCappView.do?CappBizCD=12100000021' }
-  // 재학·졸업·성적 증명은 학교 발급 — 초·중·고는 정부24, 대학은 각 학교 포털
-  if (d.includes('재학') || d.includes('졸업증명') || d.includes('성적증명'))
-    return { label: '정부24에서 발급(초·중·고) · 대학은 학교 포털', url: 'https://www.gov.kr/search?srhQuery=재학증명서' }
+  // 재학·졸업 증명은 정부24에서 무료 발급(실측 검증한 CappBizCD). 학교급별로 코드가 다름(초·중·고 vs 대학).
+  if (d.includes('재학') || d.includes('졸업증명') || (d.includes('졸업') && d.includes('증명'))) {
+    const univ = d.includes('대학')
+    const grad = d.includes('졸업')
+    const capp = grad ? (univ ? '13404000009' : '13410000020') : (univ ? '13404000010' : '13410000017')
+    return {
+      label: `정부24에서 발급 (${univ ? '대학' : '초·중·고'}${grad ? ' 졸업' : ' 재학'})`,
+      url: `https://www.gov.kr/mw/AA020InfoCappView.do?CappBizCD=${capp}`,
+    }
+  }
   // 임대차계약서는 정부 발급 서류가 아님(사인 간 계약) — 본인 보관본을 제출, 확정일자는 인터넷등기소에서 확인
   if (d.includes('임대차') || d.includes('전월세') || d.includes('임대계약') || d.includes('월세계약'))
     return { label: '본인 보관 계약서 제출 (확정일자는 인터넷등기소)', url: 'https://www.iros.go.kr' }
