@@ -58,10 +58,23 @@ async function ensureJob() {
 }
 function clearJob() { job = null; try { chrome.storage.local.remove('job') } catch { /* noop */ } }
 
+// ── 진단 추적(trace): 자동화의 매 단계를 기록 → 팝업 '진단 복사'로 개발자에게 전달 ──
+// (개인정보는 기록하지 않음 — 단계명/URL 경로/버튼 후보 요약만)
+async function addTrace(entry) {
+  try {
+    const s = await chrome.storage.local.get('trace')
+    const arr = (s && s.trace) || []
+    arr.push(entry)
+    while (arr.length > 300) arr.shift()
+    await chrome.storage.local.set({ trace: arr })
+  } catch { /* noop */ }
+}
+
 function pushStatus(status, step) {
   if (!job) return
   job.status = status
   job.step = step
+  addTrace({ t: Date.now(), tag: 'status', data: { status, step } })
   saveJob()
   chrome.storage.local.set({ lastStatus: { status, step, docName: job.docName, at: Date.now() } })
   if (job.webTabId != null) {
@@ -152,6 +165,7 @@ async function startJob(rawName, userInfo, webTabId) {
   const docName = resolveDoc(rawName)
   if (!docName) return { ok: false, error: `지원하지 않는 서류: ${rawName}` }
   await closePrevJobTab()
+  try { await chrome.storage.local.remove('trace') } catch { /* noop */ } // 새 발급마다 진단 새로 시작
   const site = DOCS[docName].site
   const siteName = { gov24: '정부24', nhis: '건강보험공단', work24: '고용24', nps: '국민연금공단' }[site]
   const tab = await chrome.tabs.create({ url: LOGIN_URLS[site], active: true })
@@ -211,6 +225,18 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     }
     if (msg.type === 'STATUS_GET') {
       return sendResponse({ ok: true, job: job && { id: job.id, docName: job.docName, status: job.status, step: job.step } })
+    }
+    if (msg.type === 'TRACE') {
+      await addTrace({ t: Date.now(), tag: msg.payload.tag, url: msg.payload.url, data: msg.payload.data })
+      return sendResponse({ ok: true })
+    }
+    if (msg.type === 'TRACE_GET') {
+      const s = await chrome.storage.local.get('trace')
+      return sendResponse({ ok: true, trace: (s && s.trace) || [], version: chrome.runtime.getManifest().version })
+    }
+    if (msg.type === 'TRACE_CLEAR') {
+      await chrome.storage.local.remove('trace')
+      return sendResponse({ ok: true })
     }
     if (msg.type === 'CANCEL') {
       if (job) { try { await chrome.tabs.remove(job.tabId) } catch {} job = null }

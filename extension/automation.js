@@ -13,10 +13,14 @@
 
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
   const status = (s, step) => send({ type: 'AGENT_STATUS', payload: { status: s, step } })
+  // 진단 추적 — 개인정보 없이 단계/좌표/후보 요약만 기록(팝업 '진단 복사'로 확인)
+  const trace = (tag, data) => send({ type: 'TRACE', payload: { tag, data, url: location.href.slice(0, 140) } })
   const host = location.hostname
   const url = location.href
   const isTop = window.top === window
   const norm = (t) => (t || '').replace(/\s/g, '')
+
+  if (isTop) trace('inject', { host })
 
   const visible = (el) => !!(el && el.getClientRects && el.getClientRects().length)
   const clickText = (texts, exclude = []) => {
@@ -45,18 +49,36 @@
     const prep = await send({ type: 'TRUSTED_PREP' })
     if (!prep || !prep.ok) {
       // 개발자도구(F12)가 열려 있으면 debugger를 못 붙임 → 사용자에게 알림
+      trace('prep-fail', { err: (prep && prep.err) || 'no-response' })
       status('waiting', '⚠️ 자동 클릭을 하려면 개발자도구(F12) 창을 닫아 주세요. 닫으면 자동으로 다시 시도해요.')
       return false
     }
     await sleep(700) // 안내바 렌더로 뷰포트가 안정될 때까지 대기
-    try { el.scrollIntoView({ block: 'center', inline: 'center' }) } catch { /* noop */ }
-    await sleep(250)
+    const elInfo = el.tagName + (el.id ? '#' + el.id : '') + ' "' + (el.textContent || el.value || '').trim().slice(0, 20) + '"'
+    // 스크롤 위치를 바꿔가며 '그 좌표에 실제로 이 버튼이 있는지'(가림 여부) 확인 후 클릭
+    for (const mode of ['center', 'nearest', 'end']) {
+      try { el.scrollIntoView({ block: mode, inline: 'center' }) } catch { /* noop */ }
+      await sleep(300)
+      const r = el.getBoundingClientRect()
+      if (!r || (r.width === 0 && r.height === 0)) { trace('click-skip', { el: elInfo, mode, reason: 'rect0' }); return false }
+      const x = Math.round(r.left + r.width / 2)
+      const y = Math.round(r.top + r.height / 2)
+      const at = document.elementFromPoint(x, y)
+      const hit = !!(at && (at === el || el.contains(at) || at.contains(el)))
+      trace('click-try', { el: elInfo, mode, x, y, hit, at: at ? at.tagName + (at.id ? '#' + at.id : '') : 'null' })
+      if (!hit) continue // 다른 요소(고정바/오버레이)가 가리는 중 → 스크롤 바꿔 재시도
+      const res = await send({ type: 'TRUSTED_CLICK', payload: { x, y } })
+      trace('click-sent', { el: elInfo, ok: !!(res && res.ok) })
+      return !!(res && res.ok)
+    }
+    // 모든 위치에서 가려짐 → 마지막으로 중심 좌표 강행
     const r = el.getBoundingClientRect()
-    if (!r || (r.width === 0 && r.height === 0)) return false
-    const x = Math.round(r.left + r.width / 2)
-    const y = Math.round(r.top + r.height / 2)
-    const res = await send({ type: 'TRUSTED_CLICK', payload: { x, y } })
-    return !!(res && res.ok)
+    if (r && (r.width || r.height)) {
+      const res = await send({ type: 'TRUSTED_CLICK', payload: { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) } })
+      trace('click-forced', { el: elInfo, ok: !!(res && res.ok) })
+      return !!(res && res.ok)
+    }
+    return false
   }
   // 텍스트/셀렉터로 버튼 후보를 모두 모아 보이는 것·정확한 것부터 '진짜 클릭' 시도.
   // (⚠️ 첫 매칭만 잡으면 숨은 요소(rect 없음)에 걸려 영원히 실패할 수 있음 — 후보 정렬·순차 시도)
@@ -77,6 +99,7 @@
       const q = document.querySelector(s)
       if (q && !seen.has(q)) { seen.add(q); cands.push({ el: q, len: 0, vis: (q.getClientRects && q.getClientRects().length) ? 1 : 0 }) }
     }
+    trace('realClick-cands', { texts: texts.join(','), n: cands.length, top: cands.slice(0, 3).map((c) => c.el.tagName + ':' + (c.vis ? 'vis' : 'hid') + ':' + (c.el.textContent || c.el.value || '').trim().slice(0, 15)) })
     if (!cands.length) return false
     cands.sort((a, b) => (b.vis - a.vis) || (a.len - b.len)) // 보이는 것 우선 → 텍스트 짧은(정확한) 것 우선
     for (const { el } of cands.slice(0, 4)) { if (await trustedClickEl(el)) return true }
@@ -235,6 +258,7 @@
     }
     // 실제 발급 신청 폼(plus.gov.kr/minwon/apply/applyMinwonForm) — 이걸 인식해야 '헛도는' 루프가 멈춤
     if (/applyMinwonForm|\/minwon\/apply\//i.test(location.href)) {
+      trace('branch', { name: 'applyMinwonForm' })
       await sleep(2500) // '잠시만 기다려 주세요' 로딩 대기
       const bt = () => (document.body && document.body.innerText) || ''
       // (a) 발급 결과화면(문서출력)이면 PDF 저장
@@ -270,6 +294,7 @@
         status('running', `'신청하기' 자동 클릭 중… (${i + 1}번째 시도)`)
         const hit = await realClick(SUBMIT_TEXTS, SUBMIT_SELS, i < 7) // 마지막 시도만 .click() 폴백 허용
         if (hit) { await sleep(3000); submitted = movedOn() } else await sleep(2000)
+        trace('submit-attempt', { i: i + 1, hit, moved: submitted })
       }
       status(submitted ? 'running' : 'waiting', submitted
         ? '발급 신청을 제출했어요! (전자서명 창이 뜨면 본인 확인해 주세요)'
