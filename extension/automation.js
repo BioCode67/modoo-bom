@@ -36,11 +36,65 @@
     for (const s of sels) { const el = document.querySelector(s); if (el) { el.click(); return true } }
     return false
   }
+  // 정부 버튼은 isTrusted=false(.click())를 무시 → background의 debugger로 '진짜 클릭'을 쏜다.
+  // 최상위 프레임에서만 유효(좌표=뷰포트 CSS픽셀). el을 화면에 보이게 스크롤 후 중심 좌표 전송.
+  const trustedClickEl = async (el) => {
+    if (!el || !isTop) return false
+    try { el.scrollIntoView({ block: 'center', inline: 'center' }) } catch { /* noop */ }
+    await sleep(150)
+    const r = el.getBoundingClientRect()
+    if (!r || (r.width === 0 && r.height === 0)) return false
+    const x = Math.round(r.left + r.width / 2)
+    const y = Math.round(r.top + r.height / 2)
+    const res = await send({ type: 'TRUSTED_CLICK', payload: { x, y } })
+    return !!(res && res.ok)
+  }
+  // 텍스트/셀렉터로 버튼을 찾아 '진짜 클릭'(실패 시 일반 .click() 폴백)
+  const realClick = async (texts, sels = []) => {
+    let el = null
+    const cand = Array.from(document.querySelectorAll('a,button,[role="button"],input[type="button"],input[type="submit"],span,li,div[onclick]'))
+    for (const c of cand) {
+      const t = norm(c.textContent) + norm(c.value || '')
+      if (texts.some((x) => t.includes(norm(x)))) { el = c.closest('a,button,[role="button"],input,li,[onclick]') || c; break }
+    }
+    if (!el) { for (const s of sels) { const q = document.querySelector(s); if (q) { el = q; break } } }
+    if (!el) return false
+    if (await trustedClickEl(el)) return true
+    try { el.click(); return true } catch { return false }
+  }
+  // React/Vue 등 프레임워크 폼도 인식하도록 네이티브 setter로 값 설정 후 input/change 발생
+  const setVal = (el, val) => {
+    try {
+      const proto = el.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype
+      const setter = Object.getOwnPropertyDescriptor(proto, 'value')
+      el.focus()
+      if (setter && setter.set) setter.set.call(el, val); else el.value = val
+      el.dispatchEvent(new Event('input', { bubbles: true }))
+      el.dispatchEvent(new Event('change', { bubbles: true }))
+      el.dispatchEvent(new Event('keyup', { bubbles: true }))
+      el.blur()
+    } catch (e) { el.value = val }
+  }
   const fill = (sels, val) => {
     if (!val) return false
     for (const s of sels) {
       const el = document.querySelector(s)
-      if (el) { el.focus(); el.value = val; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); return true }
+      if (el) { setVal(el, val); return true }
+    }
+    return false
+  }
+  // 라벨/placeholder 텍스트로 입력칸을 찾아 채움(내부 id/name을 몰라도 됨 — 공격적)
+  const fillByLabel = (labels, val) => {
+    if (!val) return false
+    const inputs = [...document.querySelectorAll('input:not([type=hidden]):not([type=checkbox]):not([type=radio]):not([type=button]):not([type=submit])')]
+    for (const el of inputs) {
+      if (!el.offsetParent && !(el.getClientRects && el.getClientRects().length)) continue // 보이는 것만
+      let ctx = norm(el.placeholder || '') + norm(el.name || '') + norm(el.id || '') + norm(el.getAttribute('aria-label') || '')
+      // 연결된 label
+      if (el.id) { const lab = document.querySelector(`label[for="${el.id}"]`); if (lab) ctx += norm(lab.textContent) }
+      // 부모/앞쪽 텍스트(td/th, 형제)
+      const cell = el.closest('td,li,div,dd,p'); if (cell) ctx += norm(cell.previousElementSibling ? cell.previousElementSibling.textContent : '')
+      if (labels.some((l) => ctx.includes(norm(l)))) { setVal(el, val); return true }
     }
     return false
   }
@@ -126,8 +180,10 @@
       await sleep(5000)
       const ymd = new Date().toISOString().slice(0, 10).replace(/-/g, '')
       await send({ type: 'SAVE_ON_POPUP', payload: { filename: `모두봄_${(job.docName || '문서').replace(/\s/g, '')}_${ymd}.pdf` } })
-      const submitted = clickText(['민원신청하기', '신청하기']) ||
-        clickSel(['#btnMinwonApply', '#btnApply', "input[value*='신청']"])
+      // 정부 버튼은 진짜 클릭만 먹으므로 debugger 기반 realClick 사용(실패 시 .click 폴백)
+      const submitted = await realClick(
+        ['민원신청하기', '신청하기'],
+        ['#btnMinwonApply', '#btnApply', "input[value*='신청']", "a[onclick*='apply' i]", "button[onclick*='apply' i]"])
       status(submitted ? 'running' : 'waiting', submitted
         ? '발급 신청을 제출하는 중이에요… (전자서명 창이 뜨면 본인 확인해 주세요)'
         : "화면 하단의 '신청하기' 버튼을 눌러 주세요. (누르면 이후는 자동)")
@@ -177,13 +233,16 @@
     const birth = String(u.birth_date || '').replace(/[^0-9]/g, '')
     const phone = String(u.phone || '').replace(/[^0-9]/g, '')
     let filled = false
-    // 이름 — id/name/placeholder 모두 대응(간편인증 oacx + 모바일 신분증 위젯)
-    filled = fill(['#oacx_name', 'input[name*="name" i]', 'input[placeholder*="이름"]', 'input[placeholder*="홍길동"]'], name) || filled
-    filled = fill(['#oacx_birth', 'input[name*="birth" i]', 'input[placeholder*="생년월일"]'], birth) || filled
+    // 이름 — id/name/placeholder 우선, 안 잡히면 라벨 텍스트로(공격적)
+    filled = (fill(['#oacx_name', 'input[name*="name" i]', 'input[placeholder*="이름"]', 'input[placeholder*="홍길동"]'], name)
+      || fillByLabel(['이름', '성명', '한글이름'], name)) || filled
+    filled = (fill(['#oacx_birth', 'input[name*="birth" i]', 'input[placeholder*="생년월일"]'], birth)
+      || fillByLabel(['생년월일', '생일'], birth)) || filled
     if (phone) {
       // 전체 번호 필드(모바일 신분증: placeholder 01012341234) 우선, 없으면 뒷자리(oacx 분할)
-      const full = fill(['input[placeholder*="01012341234"]', 'input[placeholder*="휴대폰"]', 'input[placeholder*="휴대전화"]',
+      let full = fill(['input[placeholder*="01012341234"]', 'input[placeholder*="휴대폰"]', 'input[placeholder*="휴대전화"]',
         'input[name*="hpNo" i]', 'input[name*="mbl" i]', 'input[name*="phone" i]'], phone)
+      if (!full) full = fillByLabel(['휴대폰', '휴대전화', '핸드폰', '전화번호'], phone)
       if (!full) {
         const tail = phone.startsWith('010') && phone.length >= 10 ? phone.slice(3) : phone
         fill(['#oacx_phone2', '#oku_phone2', 'input.phone'], tail)

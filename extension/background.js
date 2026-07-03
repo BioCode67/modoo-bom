@@ -100,6 +100,25 @@ async function savePdf(tabId, filename) {
   }
 }
 
+// 정부 사이트 버튼 다수는 프로그램적 .click()(isTrusted=false)을 무시한다.
+// chrome.debugger의 Input.dispatchMouseEvent로 '진짜 사람 클릭'과 동일한 이벤트를 만든다.
+// 좌표는 최상위 프레임 뷰포트 기준(CSS 픽셀). content script가 버튼 중심 좌표를 넘겨준다.
+async function trustedClick(tabId, x, y) {
+  const target = { tabId }
+  try {
+    await chrome.debugger.attach(target, '1.3')
+    const base = { x, y, button: 'left', clickCount: 1 }
+    await chrome.debugger.sendCommand(target, 'Input.dispatchMouseEvent', Object.assign({ type: 'mouseMoved' }, base))
+    await chrome.debugger.sendCommand(target, 'Input.dispatchMouseEvent', Object.assign({ type: 'mousePressed' }, base))
+    await chrome.debugger.sendCommand(target, 'Input.dispatchMouseEvent', Object.assign({ type: 'mouseReleased' }, base))
+    try { await chrome.debugger.detach(target) } catch { /* noop */ }
+    return true
+  } catch (e) {
+    try { await chrome.debugger.detach(target) } catch { /* noop */ }
+    return false
+  }
+}
+
 chrome.tabs.onCreated.addListener((tab) => {
   if (!pendingSave || Date.now() > pendingSave.until) { pendingSave = null; return }
   const filename = pendingSave.filename
@@ -212,6 +231,14 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       const fn = (msg.payload && msg.payload.filename) || 'gov-document.pdf'
       pendingSave = { filename: fn, until: Date.now() + 15000 }
       return sendResponse({ ok: true })
+    }
+    if (msg.type === 'TRUSTED_CLICK') {
+      // content script가 찾은 버튼 중심 좌표에 '진짜 클릭'을 쏜다(최상위 프레임만).
+      if (job && sender.tab && sender.tab.id === job.tabId && (sender.frameId === 0 || sender.frameId == null)) {
+        const ok = await trustedClick(job.tabId, msg.payload.x, msg.payload.y)
+        return sendResponse({ ok })
+      }
+      return sendResponse({ ok: false })
     }
     if (msg.type === 'REINJECT') {
       // 간편인증 클릭 뒤 늦게 뜨는 인증 iframe에도 자동화를 주입
