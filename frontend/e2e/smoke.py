@@ -15,43 +15,63 @@
   4) 정책 탐색 → 민간재단 필터 → 현대차 정몽구 스칼러십 노출
   + 전 구간 페이지 에러(pageerror) 0건
 """
+import io as _io
+import os
 import socket
 import subprocess
 import sys
 import time
 from pathlib import Path
 
+# Windows 콘솔(cp949)에서도 이모지 출력이 죽지 않게 UTF-8 강제
+sys.stdout = _io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+sys.stderr = _io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
+
 FRONTEND = Path(__file__).resolve().parents[1]
-PORT = 4173
-BASE = f"http://localhost:{PORT}/modoo-bom/"
+
+
+def free_port() -> int:
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+
+PORT = free_port()  # 고정 포트 충돌(좀비 프리뷰 등) 회피
+BASE = f"http://localhost:{PORT}/"  # e2e-dist는 --base / 로 빌드(vite preview가 serve 모드 base(/)로 서빙하므로)
 
 
 def wait_port(port: int, timeout: float = 30) -> bool:
+    """vite가 IPv6(::1)로만 바인딩하기도 하므로 localhost 해석(v4/v6 모두)으로 확인"""
     end = time.time() + timeout
     while time.time() < end:
-        with socket.socket() as s:
-            s.settimeout(1)
-            try:
-                s.connect(("127.0.0.1", port))
+        try:
+            with socket.create_connection(("localhost", port), timeout=1):
                 return True
-            except OSError:
-                time.sleep(0.5)
+        except OSError:
+            time.sleep(0.5)
     return False
 
 
 def main() -> int:
-    if not (FRONTEND / "dist" / "index.html").exists():
-        print("[e2e] dist 없음 — 먼저 `npm run build` 를 실행하세요")
+    # 전용 출력 폴더(e2e-dist)로 직접 빌드 — 같은 폴더에서 병행 작업(다른 세션)의
+    # dist 빌드와 경합해 index.html/assets가 어긋나는 문제를 원천 차단한다.
+    print("[e2e] e2e-dist 빌드 중 …")
+    log = open(os.path.join(str(FRONTEND), "e2e", "preview.log"), "w", encoding="utf-8")
+    r = subprocess.run(
+        "npm run build -- --outDir e2e-dist --emptyOutDir --base /",
+        cwd=str(FRONTEND), shell=True, stdout=log, stderr=subprocess.STDOUT,
+    )
+    if r.returncode != 0:
+        print("[e2e] ❌ 빌드 실패 — e2e/preview.log 확인")
         return 2
 
     print(f"[e2e] vite preview 기동(:{PORT}) …")
     server = subprocess.Popen(
-        f"npm run preview -- --port {PORT} --strictPort",
-        cwd=str(FRONTEND), shell=True,
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        f"npm run preview -- --outDir e2e-dist --port {PORT} --strictPort",
+        cwd=str(FRONTEND), shell=True, stdout=log, stderr=subprocess.STDOUT,
     )
     try:
-        if not wait_port(PORT):
+        if not wait_port(PORT, timeout=60):
             print("[e2e] ❌ preview 서버가 뜨지 않음")
             return 1
 
@@ -62,11 +82,42 @@ def main() -> int:
             browser = p.chromium.launch()
             page = browser.new_page()
             page.on("pageerror", lambda e: errors.append(str(e)))
+            page.on("console", lambda m: errors.append(f"console.{m.type}: {m.text}") if m.type == "error" else None)
+            bad: list[str] = []
+            page.on("response", lambda r: bad.append(f"{r.status} {r.url}") if r.status >= 400 else None)
+            page.on("requestfailed", lambda r: bad.append(f"FAIL {r.url} {r.failure}"))
+
+            def dump(tag: str):
+                """실패 원인 진단 — 페이지 에러·스크린샷 저장"""
+                print(f"[e2e][debug] url={page.url} title={page.title()!r}")
+                try:
+                    kids = page.evaluate("document.getElementById('root')?.childElementCount")
+                    entry = page.evaluate("performance.getEntriesByType('resource').length")
+                    print(f"[e2e][debug] #root children={kids} resources={entry}")
+                except Exception as ex:
+                    print("[e2e][debug] evaluate 실패:", ex)
+                for b in bad[:8]:
+                    print("   [net]", b[:200])
+                for e in errors[:6]:
+                    print("   [pageerror]", e[:220])
+                shot = FRONTEND / "e2e" / f"fail-{tag}.png"
+                page.screenshot(path=str(shot))
+                print(f"[e2e][debug] 스크린샷: {shot}")
 
             # 1) 홈
             page.goto(BASE, wait_until="domcontentloaded", timeout=30000)
-            page.wait_for_selector("text=정부·지자체·민간 복지", timeout=15000)
+            try:
+                page.wait_for_selector("text=정부·지자체·민간 복지", timeout=15000)
+            except Exception:
+                dump("home")
+                raise
             print("[e2e] ✅ 1. 홈 로드 + 히어로 통계")
+
+            # 첫 방문 온보딩 모달이 클릭을 가로채므로 닫는다(있을 때만)
+            try:
+                page.click('[aria-label="닫기"]', timeout=3000)
+            except Exception:
+                pass
 
             # 2) 분석: 복지 찾기 → 데모 페르소나 → 결과
             page.click("text=복지 찾기")
@@ -97,7 +148,12 @@ def main() -> int:
         print("[e2e] 🎉 스모크 전 구간 통과 (페이지 에러 0)")
         return 0
     finally:
-        server.terminate()
+        # Windows에서 terminate()는 npm 래퍼만 죽이고 node 자식이 살아남음 → 프로세스 트리째 종료
+        if os.name == "nt":
+            subprocess.run(f"taskkill /F /T /PID {server.pid}", shell=True,
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        else:
+            server.terminate()
         try:
             server.wait(timeout=5)
         except Exception:
