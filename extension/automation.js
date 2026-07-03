@@ -19,11 +19,13 @@
   const norm = (t) => (t || '').replace(/\s/g, '')
 
   const clickText = (texts, exclude = []) => {
-    const els = Array.from(document.querySelectorAll('a,button,li,span,div[role="button"],input[type="button"],input[type="submit"]'))
+    // 텍스트 라벨(제목 span/strong 포함)을 찾되, 실제 눌리는 상위 요소(카드/링크/버튼)를 클릭
+    const els = Array.from(document.querySelectorAll('a,button,li,span,strong,em,p,div[role="button"],input[type="button"],input[type="submit"]'))
     for (const el of els) {
-      const t = norm(el.textContent) + norm(el.value)
+      const t = norm(el.textContent) + norm(el.value || '')
       if (texts.some((x) => t.includes(norm(x))) && !exclude.some((x) => t.includes(norm(x)))) {
-        el.click(); return true
+        const target = el.closest('a,button,[role="button"],li,[onclick]') || el
+        target.click(); return true
       }
     }
     return false
