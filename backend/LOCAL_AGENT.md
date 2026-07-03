@@ -56,6 +56,15 @@ cd backend && venv\Scripts\python.exe selftest_agent.py    # 로그인~인증 �
 진짜 크롬을 띄워 로그인→Mbuster통과→간편인증→simpleCert iframe→자동입력까지 확인한다
 ('인증 요청'은 누르지 않음 — 실인증은 사람만). 크롬/playwright 없으면 SKIP.
 
+## 접근법의 일반화 (실측 확인)
+
+진짜 크롬+CDP는 정부24뿐 아니라 다른 정부·공공 사이트에도 접근 가능함을 확인:
+- **건강보험공단(nhis)**: 로그인 페이지 로드 OK, 간편인증 진입 시 `webplay.jsp` iframe(정부24 oacx와 다른 위젯) — 셀렉터만 다르면 확장 가능.
+- **복지로(bokjiro)**: 로드 OK. 단 Clipsoft eForm SPA라 DOM이 비표준(cl-button 등) — 자동화 난도 높음.
+
+즉 Mbuster류 안티봇을 통과하는 '진짜 크롬' 접근은 사이트 무관하게 유효하며, 남는 건 사이트별
+셀렉터 매핑뿐이다. 현재 에이전트는 **검증된 정부24 8종**에 집중(정직성).
+
 ## 주의
 
 - 정부 사이트 DOM 변경에 취약(선택자 유지보수). 셀렉터는 `simpleCert` 실측 기준(2026-07).
