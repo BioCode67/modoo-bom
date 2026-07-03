@@ -20,20 +20,15 @@
 
   const visible = (el) => !!(el && el.getClientRects && el.getClientRects().length)
   const clickText = (texts, exclude = []) => {
-    // 텍스트 라벨(제목 span/strong 포함)을 찾되, '보이는' 요소의 실제 클릭가능 상위(카드/링크/버튼)를 클릭.
-    // 캐러셀 등 숨은 복제 요소 헛클릭 방지 위해 visible 체크 + 링크는 href로 직접 이동.
+    // 텍스트 라벨(제목 span/strong 포함)을 찾아 실제 클릭가능 상위(카드/링크/버튼)를 클릭.
+    // (검증된 단순 버전 — visible 체크는 간편인증을 걸러내는 오판이 있어 제외)
     const els = Array.from(document.querySelectorAll('a,button,li,span,strong,em,p,div[role="button"],input[type="button"],input[type="submit"]'))
     for (const el of els) {
       const t = norm(el.textContent) + norm(el.value || '')
-      if (!texts.some((x) => t.includes(norm(x)))) continue
-      if (exclude.some((x) => t.includes(norm(x)))) continue
-      const target = el.closest('a,button,[role="button"],li,[onclick]') || el
-      if (!visible(target)) continue
-      const a = target.closest('a[href]') || (target.tagName === 'A' ? target : null)
-      if (a && a.href && !/^javascript:/i.test(a.href) && !/about:blank/.test(a.href)) {
-        location.href = a.href; return true
+      if (texts.some((x) => t.includes(norm(x))) && !exclude.some((x) => t.includes(norm(x)))) {
+        const target = el.closest('a,button,[role="button"],li,[onclick]') || el
+        target.click(); return true
       }
-      target.click(); return true
     }
     return false
   }
@@ -321,18 +316,18 @@
     // 각 단계는 '한 동작 → 페이지 전환 → 재주입이 이어받기' 방식(전환마다 return).
     // ⚠️ 안내페이지의 인쇄 아이콘을 '출력'으로 오인하지 않도록, 출력 처리는 발급 폼/결과에서만.
 
-    // 1) 회원/비회원 모달 → 회원 신청하기
-    if (clickText(['회원 신청하기', '회원신청'])) {
-      status('running', '회원 신청으로 진행 중…'); return
-    }
-    // 2) 안내페이지(AA020) → '발급하기' 폴링 클릭 후 신청 화면으로(전환되면 재주입이 이어받음)
+    // 1) 안내페이지(AA020) → '발급하기'만 폴링 클릭
+    //    (⚠️ 회원신청보다 먼저! AA020 본문에 '회원신청' 텍스트가 있어 먼저 처리하면 헛클릭돼 멈춤)
     if (/AA020InfoCappView/i.test(url)) {
-      const clicked = await pollClick(() =>
-        clickText(['발급하기', '온라인발급', '온라인 발급', '인터넷발급', '발급신청', '신청하기']), 8)
+      const clicked = await pollClick(() => clickText(['발급하기']), 8)
       status(clicked ? 'running' : 'waiting', clicked
         ? '발급하기 클릭 — 신청 화면으로 이동 중…'
         : "화면에서 '발급하기'를 눌러 주세요. (누르면 이후는 자동)")
       return
+    }
+    // 2) 회원/비회원 선택 모달 → 회원 신청하기 (발급하기 이후 뜨는 모달)
+    if (clickText(['회원 신청하기', '회원신청'])) {
+      status('running', '회원 신청으로 진행 중…'); return
     }
 
     // 3) 발급 폼(AA040): 문서 유형/목적 선택 후 제출
