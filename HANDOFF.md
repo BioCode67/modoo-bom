@@ -159,6 +159,8 @@ curl -fsSL https://raw.githubusercontent.com/BioCode67/modoo-bom/main/scripts/se
 **검증/품질 도구**
 - 실사이트 셀렉터 점검: `cd backend && python ../extension/validate_live.py "<서류명>"` (본인인증 직전까지, 개인정보 미사용)
 - 코드/URL 데이터 감사: `AA020InfoCappView.do?CappBizCD=<코드>` title 확인, 복지로 `moveTWAT52011M.do?wlfareInfoId=<ID>` len 확인
+- **사이클5(7-04 새벽)**: 외부 카탈로그(3.3MB) 로드를 유휴 시점으로 지연(첫 페인트 경합 제거, E2E 9여정 그린).
+  Pages 빌드 스톨 장기화(GitHub 큐 추정) — gh-pages 브랜치는 정상, 전파 감시 지속.
 - **사이클4(7-04 새벽)**: ⚠️중요 회귀 수리 — 지역게이트 수정 여파로 민간재단이 추론 캡(120)에 밀려 💝섹션이
   통째로 사라진 것을 E2E가 감지 → PRV 전용 레인 분리+풀카탈로그 회귀테스트(배포). + 두산연강 장학 추가
   (PRV-021, 2026 공고 실측: 학기 400만·소득 6분위) + E2E 챗 행동 스토리(담기→서류 요약). 유닛 262·E2E 9여정.
