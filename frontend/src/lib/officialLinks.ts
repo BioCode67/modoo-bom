@@ -15,7 +15,7 @@ export function docLink(doc: string): OfficialLink {
   if (d.includes('가족관계'))
     return { label: '전자가족관계등록시스템', url: 'https://efamily.scourt.go.kr', rpa: true }
   if (d.includes('장애인등록') || d.includes('장애인증명'))
-    return { label: '정부24에서 발급', url: 'https://www.gov.kr/portal/main', rpa: true }
+    return { label: '정부24에서 발급 (장애인증명서)', url: 'https://www.gov.kr/mw/AA020InfoCappView.do?CappBizCD=14600000273', rpa: true }
   if (d.includes('건강보험') && (d.includes('자격') || d.includes('득실')))
     return { label: '건강보험공단에서 발급', url: 'https://www.nhis.or.kr', rpa: true }
   if (d.includes('고용보험') || d.includes('피보험자격') || d.includes('이직확인'))
@@ -30,10 +30,37 @@ export function docLink(doc: string): OfficialLink {
     return { label: '정부24에서 발급', url: 'https://www.gov.kr/mw/AA020InfoCappView.do?CappBizCD=10601000001', rpa: true }
   if (d.includes('국민연금') || (d.includes('연금') && d.includes('가입')))
     return { label: '국민연금공단에서 발급', url: 'https://www.nps.or.kr/elctcvlcpt/comm/getOHAC0000M5.do?menuId=MN24001054', rpa: true }
+  // ── 기관·민간 발급 서류(정부24 아님) — 어디서 받는지 정직하게 안내 ──
+  // 병원 발급: 진단서·소견서·임신확인서·출생증명서 등은 진료한 병원에서만 발급된다
+  if (/진단서|소견서|임신확인서|임신\s*확인|출생증명/.test(d))
+    return { label: '진료받은 병원에서 발급', url: `https://www.gov.kr/search?srhQuery=${encodeURIComponent(doc)}` }
+  // 은행 발급: 통장사본·계좌 확인은 거래 은행 앱(모바일)이나 영업점에서
+  if (/통장|계좌/.test(d))
+    return { label: '거래 은행 앱·영업점에서 발급', url: `https://www.gov.kr/search?srhQuery=${encodeURIComponent(doc)}` }
+  // 회사 발급: 재직·경력·급여 관련은 재직(했던) 회사에서
+  if (/재직|근로계약서|임금대장|근로자\s*명부|경력증명|원천징수/.test(d))
+    return { label: '재직 회사에서 발급', url: `https://www.gov.kr/search?srhQuery=${encodeURIComponent(doc)}` }
+  // 건강보험(자격득실 외): 보험료 납부확인서·건강보험증 등 — 건보공단 민원
+  if (d.includes('건강보험') || d.includes('보험료 납부'))
+    return { label: '건강보험공단(민원여기요)에서 발급', url: 'https://www.nhis.or.kr' }
+  // 부동산 등기: 인터넷등기소
+  if (/등기부|등기사항/.test(d))
+    return { label: '인터넷등기소에서 발급', url: 'https://www.iros.go.kr' }
+  // 장기요양 인정서·등급: 노인장기요양보험
+  if (d.includes('장기요양'))
+    return { label: '노인장기요양보험에서 조회·발급', url: 'https://www.longtermcare.or.kr' }
+  // 사업자등록증(명): 정부24 실측 코드(12100000016) — 홈택스에서도 가능
+  if (d.includes('사업자등록'))
+    return { label: '정부24/홈택스에서 발급 (사업자등록증명)', url: 'https://www.gov.kr/mw/AA020InfoCappView.do?CappBizCD=12100000016' }
+  // 의료급여증: 시·군·구(주민센터) 발급
+  if (d.includes('의료급여증'))
+    return { label: '주민센터(시·군·구)에서 발급', url: 'https://www.bokjiro.go.kr' }
   // 소득 증빙류(소득증빙·소득확인서류 등)는 소득금액증명 발급으로 안내(정부24/홈택스)
   if (d.includes('소득증빙') || d.includes('소득확인') || (d.includes('소득') && (d.includes('증빙') || d.includes('확인'))))
     return { label: '정부24/홈택스에서 발급 (소득금액증명)', url: 'https://www.gov.kr/mw/AA020InfoCappView.do?CappBizCD=12100000021' }
   // 재학·졸업 증명은 정부24에서 무료 발급(실측 검증한 CappBizCD). 학교급별로 코드가 다름(초·중·고 vs 대학).
+  if (/성적증명|생활기록부/.test(d))
+    return { label: '정부24에서 발급 (초·중·고 생활기록부) · 대학은 학교 포털', url: 'https://www.gov.kr/mw/AA020InfoCappView.do?CappBizCD=13410000019' }
   if (d.includes('재학') || d.includes('졸업증명') || (d.includes('졸업') && d.includes('증명'))) {
     const univ = d.includes('대학')
     const grad = d.includes('졸업')
