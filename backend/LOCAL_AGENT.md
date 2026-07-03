@@ -47,6 +47,15 @@
 - `run-agent-cdp.bat` — 진짜 크롬(원격 디버깅) 실행 + 에이전트 호출(PYTHONUTF8=1).
 - `backend/agent_profile.json` — 본인인증 정보(gitignore, 로컬 전용).
 
+## 자가검증 (회귀 테스트)
+
+정부24 셀렉터/DOM 변경을 조기에 잡기 위한 도구(확장의 `selftest.mjs`에 대응):
+```bash
+cd backend && venv\Scripts\python.exe selftest_agent.py    # 로그인~인증 자동입력 9/9 검증
+```
+진짜 크롬을 띄워 로그인→Mbuster통과→간편인증→simpleCert iframe→자동입력까지 확인한다
+('인증 요청'은 누르지 않음 — 실인증은 사람만). 크롬/playwright 없으면 SKIP.
+
 ## 주의
 
 - 정부 사이트 DOM 변경에 취약(선택자 유지보수). 셀렉터는 `simpleCert` 실측 기준(2026-07).
