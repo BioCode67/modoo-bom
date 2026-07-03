@@ -21,9 +21,10 @@ export function ResultsView({ result, profile, onReset }: { result: AnalysisResu
   const [showRelated, setShowRelated] = useState(false)
   const setView = useAppStore((s) => s.setView)
   const eligible = result.eligible_policies
-  // 정밀 추천(큐레이션 시드, 룰 기반) vs 관련 복지(공공데이터, 텍스트 신호) 분리
+  // 정밀 추천(큐레이션 시드) / 민간재단(심사·선발형) / 관련 복지(공공데이터 텍스트 신호) 3분리
   const primary = eligible.filter((p) => /^POL-/.test(p.id))
-  const related = eligible.filter((p) => !/^POL-/.test(p.id))
+  const privateRel = eligible.filter((p) => /^PRV-/.test(p.id)) // 민간재단 — 접힌 목록에 묻히지 않게 별도 노출
+  const related = eligible.filter((p) => !/^(POL|PRV)-/.test(p.id))
   // 강력추천(high) 중 '현금성'만 합산(바우처·서비스·현물·고용주지원 제외) → 보수적·신뢰 가능한 헤드라인.
   // 자활·구직수당처럼 근로능력/상황 전제이거나 중복불가인 항목까지 더해 과장되지 않도록 의도적으로 좁힘.
   const monthly = sumCashMonthly(primary.filter((p) => p.priority === 'high'))
@@ -130,6 +131,22 @@ export function ResultsView({ result, profile, onReset }: { result: AnalysisResu
               <PolicyCard key={p.id} policy={p} index={i} onOpen={setSelected} />
             ))}
           </div>
+
+          {/* 민간재단 지원 — 정부 데이터에 없는 사각지대(장학·의료비·위기지원). 심사·선발형임을 정직히 안내 */}
+          {privateRel.length > 0 && (
+            <div className="mt-8">
+              <h2 className="mb-1 text-lg font-extrabold">민간재단 지원 <span className="text-rose-500">{privateRel.length}</span> 💝</h2>
+              <p className="text-xs text-muted-foreground mb-3">
+                정부가 아닌 기업·재단의 장학금·의료비·위기지원이에요. <b>심사·선발로 뽑는 방식</b>이라 신청해도
+                안 될 수 있지만, 정부 복지와 <b>별개로 함께</b> 받을 수 있는 경우가 많아요. 모집 시기를 놓치지 마세요.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {privateRel.map((p, i) => (
+                  <PolicyCard key={p.id} policy={p} index={i} onOpen={setSelected} />
+                ))}
+              </div>
+            </div>
+          )}
 
           {related.length > 0 && (
             <div className="mt-6">
