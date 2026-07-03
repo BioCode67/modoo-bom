@@ -127,6 +127,14 @@ describe('checkPolicy 소득 정밀 선정기준 (2026: 생계32·의료40·주�
 })
 
 describe('소득 상한 게이트 — 연령이 맞아도 소득 초과면 제외(현실성 핵심)', () => {
+  it('회귀: 하위70%(기초연금)를 중위70으로 오인해 중위 80% 어르신을 배제하지 않음', () => {
+    const r = getEligiblePolicies({ ...base, age: 72, income_percentile: 80 })
+    expect(r.some((p) => p.id === 'POL-001')).toBe(true) // 기초연금 유지
+    // 반대로 명백한 초과(중위 150%)는 제외
+    const rich = getEligiblePolicies({ ...base, age: 72, income_percentile: 150 })
+    expect(rich.some((p) => p.id === 'POL-001')).toBe(false)
+  })
+
   const mk = (eligibility: string, name = '테스트'): Policy => ({
     id: 'T', name, category: '기타', target: eligibility, benefit: '',
     eligibility, required_docs: [], application: '', department: '', renewal: '',
@@ -155,7 +163,8 @@ describe('소득 상한 게이트 — 연령이 맞아도 소득 초과면 제�
   it('incomeCeiling: 차상위=50, 기초생활=50, 하위 70%=70', () => {
     expect(incomeCeiling('차상위계층 대상')).toBe(50)
     expect(incomeCeiling('기초생활수급자')).toBe(50)
-    expect(incomeCeiling('소득 하위 70% 어르신')).toBe(70)
+    // '하위 N%'는 백분위 → 중위% 근사 환산(×1.4): 기초연금 하위70% ≈ 중위 96~98(2026 실측 앵커)
+    expect(incomeCeiling('소득 하위 70% 어르신')).toBe(100)
     expect(incomeCeiling('기준 중위소득 80% 이하')).toBe(80)
   })
 })
