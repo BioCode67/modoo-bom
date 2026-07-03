@@ -79,8 +79,11 @@ function eligibilityReply(profile: UserProfile | null, result: AnalysisResult | 
     }
   }
   const body = top.map((p) => line(p, p.reason)).join('\n')
+  // 민간재단(심사·선발형)은 top3에 안 들어도 존재를 알려준다 — 장학·의료비 사각지대 발견성
+  const prvCount = elig.filter((p) => p.id.startsWith('PRV-')).length
+  const prvNote = prvCount > 0 ? `\n💝 이 외에 민간재단 지원(장학·의료비 등) ${prvCount}건도 관련돼요 — 분석 결과의 '민간재단 지원' 섹션을 확인하세요.` : ''
   return {
-    text: `${profile.name || '회원'}님(${HH(profile)}) 기준으로 지금 챙기면 좋은 복지예요 👇\n${body}\n\n마음에 드는 걸 바로 담아두면 제가 마감·서류까지 챙겨드릴게요.`,
+    text: `${profile.name || '회원'}님(${HH(profile)}) 기준으로 지금 챙기면 좋은 복지예요 👇\n${body}${prvNote}\n\n마음에 드는 걸 바로 담아두면 제가 마감·서류까지 챙겨드릴게요.`,
     policies: top,
     cta: { view: 'my', label: '담아둔 복지 관리' },
   }
