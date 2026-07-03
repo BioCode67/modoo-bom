@@ -329,31 +329,34 @@
       status('running', '회원 신청으로 진행 중…'); return
     }
 
-    // 3) 발급 폼(AA040): 문서 유형/목적 선택 후 제출
+    const bodyTxt = () => (document.body && document.body.innerText) || ''
+
+    // 5) 발급 완료 결과화면(문서출력 버튼) → PDF 저장. (신청내역 페이지는 별도 분기가 처리)
+    if (/문서출력/.test(bodyTxt())) {
+      const ymd = new Date().toISOString().slice(0, 10).replace(/-/g, '')
+      await send({ type: 'SAVE_ON_POPUP', payload: { filename: `모두봄_${(job.docName || '문서').replace(/\s/g, '')}_${ymd}.pdf` } })
+      const out = await pollClick(() => clickText(['문서출력']), 8)
+      status('done', out
+        ? '✅ 발급 완료! 문서를 PDF로 저장하는 중이에요… (다운로드 폴더 확인)'
+        : '✅ 발급 완료! 화면의 [문서출력]을 누르면 저장돼요.')
+      return
+    }
+
+    // 3) 발급 폼(AA040): 문서 유형/목적 선택
     if (job.docName === '주민등록초본') {
       const lab = Array.from(document.querySelectorAll('label,span,td')).find((e) => e.textContent.trim() === '초본')
       if (lab) { const f = lab.getAttribute('for'); (f && document.getElementById(f) || lab).click() }
     }
     const sel = document.querySelector("select[name*='purpose'], select[name*='issuPurps'], #issuPurps, select")
     if (sel && sel.options && sel.options.length) sel.selectedIndex = Math.min(1, sel.options.length - 1)
-    await sleep(600)
 
-    // 4) 발급/신청 제출
-    const submitted = clickText(['민원신청하기', '신청하기', '발급', '제출', '확인']) ||
-      clickSel(["input[type='submit']", "button[type='submit']", '#btnIssue', '#btnApply'])
-    if (submitted) { status('running', '발급 신청을 제출하는 중이에요…'); return }
-
-    // 5) 결과/출력 페이지 → 문서출력 클릭 + PDF 저장
-    if (/출력|인쇄|문서출력/.test((document.body && document.body.innerText) || '')) {
-      const ymd = new Date().toISOString().slice(0, 10).replace(/-/g, '')
-      await send({ type: 'SAVE_ON_POPUP', payload: { filename: `모두봄_${(job.docName || '문서').replace(/\s/g, '')}_${ymd}.pdf` } })
-      const out = await pollClick(() => clickText(['문서출력', '출력', '인쇄', '다운로드']), 8)
-      status('done', out
-        ? '✅ 발급 완료! 문서를 PDF로 저장하는 중이에요… (다운로드 폴더 확인)'
-        : '✅ 발급 화면까지 왔어요. 화면의 출력 버튼을 누르면 저장돼요.')
-      return
-    }
-    status('running', '발급 신청 처리 중… (화면을 잠시 지켜봐 주세요)')
+    // 4) 발급/신청 제출 — 폼이 늦게 렌더될 수 있어 폴링
+    const submitted = await pollClick(() =>
+      clickSel(['#btnIssue', '#btnApply', "input[value*='발급']", "input[value*='신청']"]) ||
+      clickText(['민원신청하기', '신청하기', '발급하기', '발급', '제출']), 8)
+    status(submitted ? 'running' : 'running', submitted
+      ? '발급 신청을 제출하는 중이에요…'
+      : '발급 폼 처리 중… (화면을 잠시 지켜봐 주세요)')
     return
   }
 })()
