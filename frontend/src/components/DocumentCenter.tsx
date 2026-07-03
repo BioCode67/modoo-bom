@@ -139,6 +139,7 @@ export function DocumentCenter() {
               <div className="flex-1 min-w-0">
                 <p className="font-bold text-sm truncate">{doc}</p>
                 {st ? (
+                  <>
                   <p className="text-xs flex items-center gap-1 mt-0.5">
                     {st.status === 'error' ? <AlertCircle className="h-3.5 w-3.5 text-rose-500" />
                       : st.status === 'done' || st.status === 'completed' ? <CheckCircle2 className="h-3.5 w-3.5 text-success-500" />
@@ -151,6 +152,7 @@ export function DocumentCenter() {
                       안 되면 <a href={link.url} target="_blank" rel="noopener noreferrer" className="underline font-semibold">공식 사이트에서 직접 발급</a>하세요.
                     </p>
                   )}
+                  </>
                 ) : (
                   <>
                     <p className="text-xs text-sprout-600 font-semibold truncate">{needText(doc)}</p>
