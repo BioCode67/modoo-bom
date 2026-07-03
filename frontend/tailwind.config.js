@@ -34,12 +34,11 @@ export default {
           DEFAULT: 'hsl(var(--destructive))',
           foreground: 'hsl(var(--destructive-foreground))',
         },
-        // 모두봄 기본 팔레트 — '정부24' 느낌의 신뢰감 있는 관공서 블루로 리테마(2026-07).
-        // 컴포넌트는 그대로 sprout-* 을 쓰되 값만 블루로 교체 → 앱 전체가 한 번에 깔끔한 공공서비스 톤.
+        // 모두봄 카툰 팔레트 — 봄/새싹 테마
         sprout: {
-          50: '#eff5ff', 100: '#dbe8fe', 200: '#bdd4fd', 300: '#8fb6fb',
-          400: '#5b8ff5', 500: '#2a63d6', 600: '#1e4fb8', 700: '#1b4194',
-          800: '#1a3876', 900: '#183160',
+          50: '#f0fdf4', 100: '#dcfce7', 200: '#bbf7d0', 300: '#86efac',
+          400: '#4ade80', 500: '#22c55e', 600: '#16a34a', 700: '#15803d',
+          800: '#166534', 900: '#14532d',
         },
         // 상태 의미색(성공) — KRDS처럼 브랜드(블루)와 분리해 '충족·완료·수급'은 초록으로 표현.
         success: {
@@ -70,10 +69,9 @@ export default {
         blob: '42% 58% 63% 37% / 41% 44% 56% 59%',
       },
       boxShadow: {
-        // 관공서 톤: 옅고 뉴트럴한 그림자(장난감 느낌 제거, 깔끔·신뢰)
-        soft: '0 4px 16px -6px rgba(23, 42, 82, 0.12)',
-        pop: '0 6px 0 0 rgba(23, 42, 82, 0.05)',
-        cute: '0 10px 28px -10px rgba(42, 99, 214, 0.20)',
+        soft: '0 8px 30px -8px rgba(34, 139, 87, 0.18)',
+        pop: '0 10px 0 0 rgba(0,0,0,0.06)',
+        cute: '0 12px 40px -12px rgba(249, 115, 22, 0.25)',
       },
       keyframes: {
         'fade-in': { from: { opacity: '0', transform: 'translateY(10px)' }, to: { opacity: '1', transform: 'translateY(0)' } },

@@ -29,7 +29,7 @@ export function BenefitBreakdown({ policies }: { policies: EligiblePolicy[] }) {
                 initial={{ width: 0 }}
                 animate={{ width: `${Math.max(8, (r.won / max) * 100)}%` }}
                 transition={{ duration: 0.7, delay: i * 0.08, ease: 'easeOut' }}
-                className="h-full rounded-full bg-gradient-to-r from-sprout-400 to-sky2-500"
+                className="h-full rounded-full bg-gradient-to-r from-sprout-400 to-emerald-500"
               />
             </div>
           </div>
