@@ -29,8 +29,10 @@ const LOGIN_URLS = {
   nps: 'https://www.nps.or.kr/elctcvlcpt/comm/getOHAC0000M5.do?menuId=MN24001054',
 }
 const NHIS_CERT_URL = 'https://www.nhis.or.kr/nhis/minwon/jpAea00401.do'
+// 발급은 '공개 안내페이지(AA020)'로 이동 후 그 안의 발급하기(applyConfirm)를 누른다.
+// (AA020은 로그인 없이도 열려 크로스도메인 튕김이 없고, 발급은 사이트 자체 함수로 세션 유지)
 const issueUrl = (capp) =>
-  `https://www.gov.kr/mw/AA040OfferMainFrm.do?capp_biz_cd=${capp}&HighCtgCD=A01010001&FAX_TYPE=N&img=02&selectedSeq=01`
+  `https://www.gov.kr/mw/AA020InfoCappView.do?CappBizCD=${capp}&HighCtgCD=A01010001&tp_seq=01&Mcode=10200`
 
 // 복지로 신청 — Clipsoft eForm SPA. 로그인 후 서비스별 딥링크(wlfareInfoId)로 이동해 신청.
 const BOKJIRO_LOGIN_URL = 'https://www.bokjiro.go.kr/ssis-tbu/loginView.do'
@@ -230,6 +232,12 @@ chrome.tabs.onUpdated.addListener(async (tabId, info) => {
   await ensureJob()
   if (!job || tabId !== job.tabId) return
   chrome.scripting.executeScript({ target: { tabId, allFrames: true }, files: ['automation.js'] }).catch(() => {})
+  // '인증 완료되었습니다' 같은 정보성 alert를 자동 통과(페이지 MAIN 월드에서 alert만 무력화).
+  // confirm(예/아니오)은 건드리지 않아 최종 제출 등 사용자 확인은 유지.
+  chrome.scripting.executeScript({
+    target: { tabId, allFrames: true }, world: 'MAIN',
+    func: () => { try { window.alert = () => {} } catch (e) { /* noop */ } },
+  }).catch(() => {})
 })
 
 chrome.tabs.onRemoved.addListener(async (tabId) => { await ensureJob(); if (job && tabId === job.tabId) clearJob() })

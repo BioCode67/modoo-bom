@@ -104,16 +104,10 @@
     let isLoggedIn = loggedIn()
     if (!isLoggedIn) { for (let i = 0; i < 6 && !isLoggedIn; i++) { await sleep(500); isLoggedIn = loggedIn() } }
     if (isLoggedIn) {
-      // 로그인 후: 메인 '자주 찾는 서비스' 등에서 해당 서류 바로가기를 폴링해 직접 클릭.
-      // (세션이 plus.gov.kr에 있어 www.gov.kr로 직접 이동하면 메인으로 튕기므로, 사이트 자체 링크를 탄다)
-      status('running', `'${job.docName}' 발급 바로가기를 찾는 중…`)
-      const svcClicked = await pollClick(() => job.docName && clickText([job.docName]), 8)
-      if (svcClicked) {
-        status('running', `'${job.docName}' 발급 화면으로 이동 중…`)
-        return
-      }
-      // 못 찾으면(도메인 튕김 루프 방지 위해 GOTO 대신) 수동 안내
-      status('waiting', `화면에서 '${job.docName}'을(를) 직접 눌러 발급을 진행해 주세요. (누르면 이후는 자동)`)
+      // 로그인 후: 공개 안내페이지(AA020)로 바로 이동 → 거기서 발급하기(applyConfirm)를 누른다.
+      // (메인 '자주 찾는 서비스'는 캐러셀이라 숨은 복제 타일 헛클릭 위험 → 아예 회피)
+      status('running', '로그인 완료 — 발급 안내 페이지로 이동합니다.')
+      await sleep(300); await send({ type: 'GOTO', payload: { url: job.issueUrl } })
       return
     }
     // 로그인 화면: 간편인증 버튼을 최대 12초 폴링(보안페이지 후 늦게 렌더 대비)
@@ -131,9 +125,8 @@
       for (let i = 0; i < 300; i++) {
         await sleep(1000)
         if (loggedIn()) {
-          status('running', '로그인 완료 — 발급 페이지로 이동합니다.')
-          const svc = job.docName && clickText([job.docName])
-          if (!svc) await send({ type: 'GOTO', payload: { url: job.issueUrl } })
+          status('running', '로그인 완료 — 발급 안내 페이지로 이동합니다.')
+          await send({ type: 'GOTO', payload: { url: job.issueUrl } })
           return
         }
       }
