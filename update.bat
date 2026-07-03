@@ -14,12 +14,19 @@ git merge --abort >nul 2>&1
 
 echo.
 echo [1/2] 최신 코드 받는 중...
-git pull --rebase
+rem --autostash: 커밋 안 된 로컬 수정이 있어도 잠깐 치워두고 받은 뒤 자동 복원
+git pull --rebase --autostash
 if errorlevel 1 (
   echo.
-  echo !! 받기 실패 — 이 창을 캡처해서 보여주세요.
-  pause
-  exit /b 1
+  echo    일반 받기 실패 — 로컬 수정을 백업하고 다시 시도합니다...
+  git stash push -u -m "update.bat 자동백업"
+  git pull --rebase
+  if errorlevel 1 (
+    echo.
+    echo !! 받기 실패 — 이 창을 캡처해서 보여주세요.
+    pause
+    exit /b 1
+  )
 )
 
 echo.
