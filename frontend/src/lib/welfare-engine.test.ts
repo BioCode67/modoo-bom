@@ -160,7 +160,7 @@ describe('소득 상한 게이트 — 연령이 맞아도 소득 초과면 제�
     expect(incomeCeiling('만 19~34세 청년 누구나')).toBe(null)
     expect(checkPolicy(mk('만 19~34세 청년 누구나', '보편 청년'), youth(150)).eligible).toBe(true)
   })
-  it('incomeCeiling: 차상위=50, 기초생활=50, 하위 70%=70', () => {
+  it('incomeCeiling: 차상위=50, 기초생활=50, 하위 70%→중위 100(×1.4 환산)', () => {
     expect(incomeCeiling('차상위계층 대상')).toBe(50)
     expect(incomeCeiling('기초생활수급자')).toBe(50)
     // '하위 N%'는 백분위 → 중위% 근사 환산(×1.4): 기초연금 하위70% ≈ 중위 96~98(2026 실측 앵커)

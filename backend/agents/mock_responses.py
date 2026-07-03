@@ -81,27 +81,6 @@ def mock_profile_analysis(profile) -> dict:
 # ── eligibility_check mock ───────────────────────────────────────────────────
 
 def _income_ceiling(doc: str):
-    """정책 문구의 소득 상한(기준중위소득 %)을 추출. 없으면 None. 프론트 incomeCeiling()과 동일 규칙.
-
-    연령 규칙이 먼저 매칭돼 소득 상한을 무시하고 저소득 정책을 추천하던 오탐 방지용.
-    과배제 방지: 여러 %면 가장 관대한(높은) 값, 막연한 '저소득'만으론 게이트 안 함.
-    """
-    ceil = None
-    for m in re.finditer(r"(?:중위소득|중위|하위)\s*([0-9]{2,3})\s*%", doc):
-        try:
-            v = int(m.group(1))
-        except ValueError:
-            continue
-        if ceil is None or v > ceil:
-            ceil = v
-    if ceil is None and "차상위" in doc:
-        ceil = 50
-    if ceil is None and any(k in doc for k in ["기초생활", "생계급여", "기초생활수급", "기초수급"]):
-        ceil = 50
-    return ceil
-
-
-def _income_ceiling(doc: str):
     """소득 상한(기준중위소득 %) 추출 — 프론트 welfare-engine.ts incomeCeiling과 동일 로직(패리티).
     '중위소득 N%'는 그대로, '하위 N%'(백분위)는 ×1.4 근사 환산(기초연금 하위70%≈중위96%, 2026 실측 앵커).
     여러 값이면 가장 관대한(높은) 상한. 숫자 없는 '저소득'만으로는 게이트하지 않음."""
@@ -123,12 +102,6 @@ def _income_ceiling(doc: str):
 
 def _check_policy(doc: str, name: str, pid: str, profile) -> tuple[bool, str, str, float]:
     """(eligible, reason, priority, confidence) 반환"""
-
-    # ── 소득 상한 게이트: 문구에 명시 상한이 있고 사용자가 명백히 초과하면 연령이 맞아도 제외 ──
-    if not pid.startswith("PRV-"):
-        _ceil = _income_ceiling(doc)
-        if _ceil is not None and profile.income_percentile > _ceil:
-            return False, "", "low", 0.0
 
     # 소득 상한 게이트 — 명시 상한이 있고 명백히 초과하면 연령이 맞아도 대상 아님(프론트와 동일)
     ceil = _income_ceiling(doc)
