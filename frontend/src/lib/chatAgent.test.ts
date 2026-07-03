@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { agentReply, greetingReply } from './chatAgent'
+import { agentReply, greetingReply, matchSaveIntent } from './chatAgent'
 import type { UserProfile, AnalysisResult, EligiblePolicy } from './welfare-engine'
+import type { Policy } from '@/data/policies'
 
 const profile: UserProfile = {
   name: '김복순', age: 72, gender: 'female', region: '서울', household_type: '1인가구',
@@ -50,5 +51,36 @@ describe('agentReply — 개인화·행동형 응답', () => {
     expect(r.policies).toBeTruthy()
     // 프로필 기반이면 ✅ 또는 조건 확인 코멘트가 붙는다
     expect(r.text).toMatch(/✅|조건 확인/)
+  })
+})
+
+const mkP = (id: string, name: string): Policy =>
+  ({ id, name, category: '', target: '', benefit: '', eligibility: '', application: '', required_docs: [], department: '', renewal: '' } as Policy)
+const ctx = [mkP('A', '기초연금'), mkP('B', '아동수당'), mkP('C', '주거급여')]
+
+describe('matchSaveIntent — 대화 맥락 기억(직전 복지를 가리켜 담기)', () => {
+  it('맥락 없거나 저장 의도 아니면 null', () => {
+    expect(matchSaveIntent('담아줘', [])).toBeNull()
+    expect(matchSaveIntent('기초연금이 뭐야', ctx)).toBeNull()
+  })
+  it('"다 담아줘" → 전체', () => {
+    expect(matchSaveIntent('다 담아줘', ctx)).toHaveLength(3)
+    expect(matchSaveIntent('전부 저장해줘', ctx)).toHaveLength(3)
+  })
+  it('서수("첫번째/두번째") → 해당 항목', () => {
+    expect(matchSaveIntent('첫번째 담아줘', ctx)?.[0].id).toBe('A')
+    expect(matchSaveIntent('두번째 저장', ctx)?.[0].id).toBe('B')
+  })
+  it('이름 직접 언급 → 해당 정책', () => {
+    expect(matchSaveIntent('아동수당 담아줘', ctx)?.[0].id).toBe('B')
+  })
+  it('"그거 담아줘" → 첫 번째(가장 관련)', () => {
+    expect(matchSaveIntent('그거 담아줘', ctx)?.[0].id).toBe('A')
+  })
+  it('맥락이 하나뿐이면 밋밋한 "담아줘"도 그 항목', () => {
+    expect(matchSaveIntent('담아줘', [ctx[0]])?.[0].id).toBe('A')
+  })
+  it('밋밋한 "담아줘" + 여러 개 → 보여준 것 전부', () => {
+    expect(matchSaveIntent('담아줘', ctx)).toHaveLength(3)
   })
 })

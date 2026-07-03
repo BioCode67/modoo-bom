@@ -4,7 +4,7 @@ import { MessageCircleHeart, X, Send, Mic, Compass, Sparkles, ArrowRight, Plus, 
 import type { Policy } from '@/data/policies'
 import { useSpeech } from '@/lib/useSpeech'
 import { GUIDE_STEPS, recommend, type GuideAnswers } from '@/lib/guidedChat'
-import { agentReply, greetingReply, type AgentReply } from '@/lib/chatAgent'
+import { agentReply, greetingReply, matchSaveIntent, type AgentReply } from '@/lib/chatAgent'
 import { useAppStore } from '@/store/useAppStore'
 import { SproutLogo } from '@/ui/SproutLogo'
 import { cn } from '@/lib/utils'
@@ -44,6 +44,20 @@ export function ChatWidget() {
     if (!q) return
     setMsgs((m) => [...m, { role: 'user', text: q }])
     setInput('')
+    // 대화 맥락 기억: 직전에 보여준 복지를 "그거/첫번째/다 담아줘"로 가리키면 실제로 담는다
+    const context = [...msgs].reverse().find((m) => m.role === 'bot' && m.policies?.length)?.policies ?? []
+    const toSave = matchSaveIntent(q, context)
+    if (toSave) {
+      const added: string[] = []
+      toSave.forEach((p) => {
+        if (!tracked.some((t) => t.policyId === p.id)) { toggleSaved(p); added.push(p.name) }
+      })
+      const msg = added.length
+        ? `${added.join(', ')} 담았어요 ✅ 마감·서류는 제가 챙길게요.`
+        : `${toSave.map((p) => p.name).join(', ')}는 이미 담겨 있어요 🙂`
+      setTimeout(() => botSay(msg, { cta: { view: 'my', label: '나의 복지 보기' } }), 300)
+      return
+    }
     const r = agentReply(q, { profile, result })
     setTimeout(() => botSay(r.text, { policies: r.policies, cta: r.cta }), 350)
   }

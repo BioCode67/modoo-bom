@@ -99,6 +99,25 @@ function searchReply(query: string, profile: UserProfile | null): AgentReply {
   }
 }
 
+const SAVE_RE = /담(아|어|을|기|아줘|아둬|아주|아 줘)|저장|추가|찜|관심\s*목록|넣어/
+const ORD: Record<string, number> = { 첫: 0, 1: 0, 하나: 0, 두: 1, 2: 1, 둘: 1, 세: 2, 3: 2, 셋: 2, 네: 3, 4: 3, 넷: 3 }
+
+/**
+ * 대화 맥락 기억 — 직전에 보여준 복지들(context)을 "그거/첫번째/다 담아줘"처럼 가리키는 저장 의도를 해석.
+ * 반환: 담을 정책 목록(없으면 null=저장 의도 아님). 실제 저장(toggleSaved)은 호출부(스토어)에서 수행.
+ */
+export function matchSaveIntent(raw: string, context: Policy[]): Policy[] | null {
+  if (!context.length || !SAVE_RE.test(raw)) return null
+  const t = raw.replace(/\s/g, '')
+  if (/(다|전부|모두|전체|모든|다들)담|담.*(다|전부|모두)|이것들|그것들|다넣/.test(t)) return context
+  const ord = t.match(/(첫|두|세|네|하나|둘|셋|넷|[1-4])(번째|째|번)?/)
+  if (ord && ORD[ord[1]] !== undefined && context[ORD[ord[1]]]) return [context[ORD[ord[1]]]]
+  const byName = context.filter((p) => t.includes(p.name.replace(/\s/g, '')))
+  if (byName.length) return byName
+  if (/(그거|이거|저거|그것|이것|그걸|이걸)/.test(t) || context.length === 1) return [context[0]]
+  return context // 밋밋한 "담아줘" + 여러 개 → 보여준 것 전부
+}
+
 /** 메인 진입점 — 자유문장을 의도로 나눠 개인화·행동형으로 응답 */
 export function agentReply(raw: string, ctx: { profile: UserProfile | null; result: AnalysisResult | null }): AgentReply {
   const q = raw.trim()
