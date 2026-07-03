@@ -100,6 +100,13 @@ curl -fsSL https://raw.githubusercontent.com/BioCode67/modoo-bom/main/scripts/se
 - 서류 다수 + **복지로 신청은 카탈로그 전 정책 일반화**(프론트가 정책의 실제 딥링크를 확장에 전달).
 - 능동형 에이전트 3종: 선제 생애 타임라인(`lib/lifeAgent.ts`)·연속성 카드(`lib/continuity.ts`)·
   에이전트 브리핑(`components/AgentBriefing.tsx`). 전부 온디바이스(서버 미전송).
+- **챗봇 → 개인화·행동형 에이전트 승격**(`lib/chatAgent.ts`): 프로필 기반 "내가 뭐 받을 수 있어?" 답변,
+  답변 속 복지 채팅에서 바로 담기, 대화 맥락 기억("그거/첫번째/다 담아줘"=`matchSaveIntent`),
+  열면 급한 마감·서류 먼저 브리핑. 전부 규칙엔진(LLM/서버 없음).
+- **UI '정부24 느낌' 리테마**: sprout 팔레트를 관공서 블루로 교체(중앙 리스킨) + 상태 의미색 분리
+  (성공=초록 `success-*`, KRDS식 브랜드≠상태색). 반경·그림자 크리스프하게. 새싹 로고는 초록 유지.
+- **'D-3 고정' 일정 버그 수정**(`lib/calendar.ts`): 준비 일정이 `Date.now()+3일`로 매번 리셋되던 것을
+  `savedAt` 앵커로 → 실제 카운트다운. 급한 기한 정책은 하루 앞당김 + 실제 기한 텍스트 노출.
 - 설치: 지금은 `chrome://extensions` 개발자모드 로드. 웹스토어 제출 패키지 준비됨(`extension/build.ps1`,`STORE.md`).
 
 **열린 TODO (우선순위 순)**
@@ -123,7 +130,7 @@ curl -fsSL https://raw.githubusercontent.com/BioCode67/modoo-bom/main/scripts/se
 **검증/품질 도구**
 - 실사이트 셀렉터 점검: `cd backend && python ../extension/validate_live.py "<서류명>"` (본인인증 직전까지, 개인정보 미사용)
 - 코드/URL 데이터 감사: `AA020InfoCappView.do?CappBizCD=<코드>` title 확인, 복지로 `moveTWAT52011M.do?wlfareInfoId=<ID>` len 확인
-- 품질 게이트: 프론트 `tsc/lint/test(191)/build`, 백엔드 `pytest(13)` — 변경마다 통과 유지.
+- 품질 게이트: 프론트 `tsc/lint/test(206)/build`, 백엔드 `pytest(13)` — 변경마다 통과 유지.
 
 ## ✅ 체크리스트
 
