@@ -430,10 +430,15 @@ function inferFromText(policy: Policy, p: UserProfile): CheckResult | null {
 }
 
 /** 요약본(공공데이터)·민간재단 정책 여부 — 정밀 룰 대신 텍스트 신호로 보조 매칭.
- *  민간재단(PRV-)은 심사·선발형이라 자격을 단정할 수 없어 의도적으로 저신뢰 '관련 복지'로만 노출. */
+ *  민간재단(PRV-)은 심사·선발형이라 자격을 단정할 수 없어 의도적으로 저신뢰 '관련 복지'로만 노출.
+ *  ⚠️ 지자체(LOC-)는 target에 "[시도 시군구] " 접두사가 붙어 eligibility와 원문이 같아도 ===가 안 됨.
+ *     접두사를 벗겨 비교해야 LOC가 요약본으로 인식돼 '관련 복지'(지역 필터)로 가고, 정밀 분기의
+ *     지역 무필터 오탐(예: 서울 사용자에게 하동군 정책이 강력추천)을 막는다. */
 function isSummaryPolicy(policy: Policy): boolean {
   if (/^PRV-/.test(policy.id)) return true
-  return /^(GOV|LOC)-/.test(policy.id) && policy.target === policy.eligibility
+  if (!/^(GOV|LOC)-/.test(policy.id)) return false
+  const target = policy.target.replace(/^\[[^\]]+\]\s*/, '')
+  return target === policy.eligibility
 }
 
 const PRIORITY_RANK: Record<'high' | 'medium' | 'low', number> = { high: 3, medium: 2, low: 1 }
@@ -498,7 +503,10 @@ export function getEligiblePolicies(p: UserProfile): EligiblePolicy[] {
     if (demographicMismatch(policy.name, `${policy.eligibility} ${policy.target} ${policy.name}`, p)) continue
     // 민간재단(PRV-)은 심사·선발형 — 일반 소득룰 등 정밀 매칭으로 '자격 충족'을 단정하지 않고
     // 항상 아래 저신뢰 텍스트 신호(inferFromText)로만 '관련 복지'로 제시한다(과장 방지).
-    if (!policy.id.startsWith('PRV-')) {
+    // ⚠️ 지자체(LOC-)도 정밀 분기에서 제외 — LOC target/eligibility의 요약문에 '만 65세'·'중증장애인'
+    //    같은 문구가 있으면 checkPolicy가 지역을 무시하고 고신뢰 정밀 매칭해, 타 지역 정책이
+    //    강력추천으로 새어나갔다(예: 서울 사용자에게 하동군 정책). LOC는 항상 아래 inferred(지역 필터)로.
+    if (!policy.id.startsWith('PRV-') && !policy.id.startsWith('LOC-')) {
       const c = checkPolicy(policy, p)
       if (c.eligible) {
         precise.push({ ...policy, reason: c.reason, priority: c.priority, confidence: c.confidence })

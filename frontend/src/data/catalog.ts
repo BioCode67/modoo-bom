@@ -94,7 +94,8 @@ export async function loadExternalCatalog(): Promise<number> {
       if (!item || typeof item !== 'object') continue
       const p = normalize(item as Record<string, unknown>)
       if (!p.id || !p.name) continue
-      if (seedNames.has(nameKey(p.name))) continue // 시드와 이름 중복(표기변형 포함) → 스킵
+      // 지자체(LOC-)는 지역별 동명 사업이 별개이므로 시드와 이름 겹쳐도 유지(dedupeByName과 동일 원칙).
+      if (!p.id.startsWith('LOC-') && seedNames.has(nameKey(p.name))) continue // 시드와 이름 중복 → 스킵
       merged.set(p.id, p)
     }
     if (merged.size !== before) {
