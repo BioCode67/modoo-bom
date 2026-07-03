@@ -5,7 +5,7 @@ import { useAppStore } from '@/store/useAppStore'
 import { SproutLogo } from '@/ui/SproutLogo'
 
 const STEPS = [
-  { icon: Globe, title: '🌍 다국어 AI 의미 검색', desc: '한국어·English·Tiếng Việt 등 어떤 언어로 말·글이든, AI가 내 기기에서 뜻을 이해해 복지를 찾아 요약해드려요 (서버 전송 없음)', tint: 'text-white bg-gradient-to-br from-sprout-500 to-emerald-500' },
+  { icon: Globe, title: '🌍 다국어 AI 의미 검색', desc: '한국어·English·Tiếng Việt 등 어떤 언어로 말·글이든, AI가 내 기기에서 뜻을 이해해 복지를 찾아 요약해드려요 (서버 전송 없음)', tint: 'text-white bg-gradient-to-br from-sprout-500 to-sky2-500' },
   { icon: Search, title: '내 복지 찾기', desc: '“72세 혼자 사는데 소득이 적어요”처럼 한 문장(또는 음성)이면 맞춤 복지를 바로 찾아드려요', tint: 'text-sprout-600 bg-sprout-100' },
   { icon: Compass, title: '정책 탐색', desc: '전국 5,000여 개 복지를 검색·정렬해서 둘러봐요', tint: 'text-sky2-600 bg-sky2-100' },
   { icon: Heart, title: '나의 복지', desc: '관심 복지 저장·신청 준비·사후 관리까지', tint: 'text-peach-600 bg-peach-100' },

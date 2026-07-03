@@ -146,7 +146,7 @@ function SyncBadge() {
 
 function SummaryCard({ icon, value, label, sub, highlight }: { icon: React.ReactNode; value: string; label: string; sub?: string; highlight?: boolean }) {
   return (
-    <div className={cn('rounded-2xl px-4 py-4', highlight ? 'bg-gradient-to-br from-sprout-500 to-emerald-500 text-white shadow-soft' : 'card-cute')}>
+    <div className={cn('rounded-2xl px-4 py-4', highlight ? 'bg-gradient-to-br from-sprout-500 to-sky2-500 text-white shadow-soft' : 'card-cute')}>
       <div className={cn('flex items-center gap-1', highlight ? 'text-white/90' : 'text-sprout-500')}>{icon}</div>
       <p className={cn('text-xl font-extrabold mt-1', highlight ? 'text-white' : 'text-foreground')}>{value}</p>
       {sub && <p className={cn('text-[11px]', highlight ? 'text-white/80' : 'text-muted-foreground')}>{sub}</p>}

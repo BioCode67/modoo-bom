@@ -5,7 +5,7 @@ import { useAppStore } from '@/store/useAppStore'
 import { cn } from '@/lib/utils'
 
 const FEATURES = [
-  { icon: Globe, title: '다국어 AI 의미 검색', desc: '한국어·English·Tiếng Việt 등 어떤 언어로 물어도, AI가 뜻을 이해해 복지를 찾아드려요. 모델은 내 기기 안에서 직접 실행(서버 전송 없음).', tint: 'text-white bg-gradient-to-br from-sprout-500 to-emerald-500', badge: 'NEW' },
+  { icon: Globe, title: '다국어 AI 의미 검색', desc: '한국어·English·Tiếng Việt 등 어떤 언어로 물어도, AI가 뜻을 이해해 복지를 찾아드려요. 모델은 내 기기 안에서 직접 실행(서버 전송 없음).', tint: 'text-white bg-gradient-to-br from-sprout-500 to-sky2-500', badge: 'NEW' },
   { icon: Search, title: '맞춤 복지 탐색', desc: '내 상황에 딱 맞는 혜택만 AI가 골라드려요. 키워드·카테고리 검색도 가능.', tint: 'text-sprout-600 bg-sprout-100' },
   { icon: Calculator, title: '예상 금액 계산', desc: '매달 얼마나 받을 수 있는지 한눈에. 우선순위 높은 혜택부터 안내해요.', tint: 'text-peach-600 bg-peach-100' },
   { icon: FileCheck, title: '서류 자동 준비', desc: '필요 서류를 체크리스트로 정리하고, 정부24·건보공단에서 자동 발급까지.', tint: 'text-sky2-600 bg-sky2-100' },

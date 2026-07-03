@@ -249,7 +249,7 @@ export function Explore() {
             className={cn(
               'inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold border-2 transition-all',
               aiMode
-                ? 'bg-gradient-to-r from-sprout-500 to-emerald-500 border-transparent text-white shadow-cute'
+                ? 'bg-gradient-to-r from-sprout-500 to-sky2-500 border-transparent text-white shadow-cute'
                 : 'bg-white border-sprout-200 text-sprout-700 hover:border-sprout-300',
             )}
           >
@@ -384,7 +384,7 @@ export function Explore() {
       </div>
 
       {aiMode && aiAnswer && (
-        <div className="mt-3 rounded-2xl border-2 border-sprout-200 bg-gradient-to-br from-sprout-50 to-emerald-50 p-4">
+        <div className="mt-3 rounded-2xl border-2 border-sprout-200 bg-gradient-to-br from-sprout-50 to-sky2-50 p-4">
           <div className="flex items-start gap-2.5">
             <span className="text-xl leading-none">🤖</span>
             <div className="min-w-0 flex-1">
