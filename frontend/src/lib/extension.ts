@@ -78,6 +78,17 @@ export async function issueManyViaExtension(docNames: string[], userInfo: Record
   return { ok: !!resp.ok, error: resp.error, docs: (resp as { docs?: string[] }).docs }
 }
 
+/** 확장의 진단 추적 기록을 텍스트로 가져온다(문제 발생 시 개발자에게 전달용, 개인정보 미포함). */
+export async function getExtensionTrace(): Promise<string | null> {
+  const resp = await request('TRACE_GET', null, 3000) as (ExtResponse & { trace?: Array<{ t: number; tag: string; url?: string; data?: unknown }>; version?: string }) | null
+  if (!resp || !resp.ok || !Array.isArray(resp.trace)) return null
+  const lines = resp.trace.map((e) => {
+    const time = new Date(e.t).toTimeString().slice(0, 8)
+    return `${time} [${e.tag}] ${e.url ? e.url.replace(/^https?:\/\//, '') + ' ' : ''}${JSON.stringify(e.data)}`
+  })
+  return `모두봄 확장 진단 v${resp.version || '?'} (${lines.length}건)\n` + lines.join('\n')
+}
+
 /** 확장이 자동신청 지원하는 복지 서비스 목록(미설치면 빈 배열). */
 export async function extensionServices(): Promise<string[]> {
   const resp = await request('PING', null, 1200)

@@ -6,7 +6,7 @@ import { useAppStore } from '@/store/useAppStore'
 import { docLink, isRpaSupported } from '@/lib/officialLinks'
 import { API_BASE } from '@/lib/backend'
 import { useBackend } from '@/lib/useBackend'
-import { detectExtension, issueViaExtension, issueManyViaExtension, onExtensionStatus, sameDocName } from '@/lib/extension'
+import { detectExtension, issueViaExtension, issueManyViaExtension, getExtensionTrace, onExtensionStatus, sameDocName } from '@/lib/extension'
 import { RpaInfoForm } from '@/components/RpaInfoForm'
 
 type RpaState = { status: string; step: string; at?: number } | null
@@ -18,6 +18,7 @@ export function DocumentCenter() {
   const [ext, setExt] = useState(false)              // 크롬 확장(브라우저 내 자동화)
   const backend = localAgent || ext                  // 둘 중 하나면 자동발급 노출
   const [rpa, setRpa] = useState<Record<string, RpaState>>({})
+  const [diagCopied, setDiagCopied] = useState(false)
 
   // 확장 감지 + 진행상태 구독(확장은 서류명별 status를 푸시)
   // ⚠️ 확장은 서류명을 정규화(resolveDoc)해 보내므로 퍼지매칭으로 기존 카드 키에 연결(불일치 시 '시작 중' 멈춤 방지)
@@ -151,6 +152,19 @@ export function DocumentCenter() {
       {ext && rpaDocs.length > 1 && (
         <button onClick={startAll} className="btn-primary w-full mt-3 !py-2.5 text-sm">
           🚀 필요한 서류 {rpaDocs.length}종 전부 자동발급 (한 번 인증으로 이어서)
+        </button>
+      )}
+
+      {/* 🔍 진단 복사 — 발급이 멈추거나 오류일 때만 노출(문제 신고용, 개인정보 미포함) */}
+      {ext && Object.values(rpa).some((s) => s && (s.status === 'error' || (s.at && Date.now() - s.at > 30000))) && (
+        <button
+          onClick={async () => {
+            const t = await getExtensionTrace()
+            if (t) { try { await navigator.clipboard.writeText(t); setDiagCopied(true); setTimeout(() => setDiagCopied(false), 3000) } catch { /* noop */ } }
+          }}
+          className="btn-secondary w-full mt-2 !py-2 text-xs"
+        >
+          {diagCopied ? '✅ 진단이 복사됐어요 — 개발자에게 붙여넣어 주세요' : '🔍 진단 복사 (발급이 안 될 때 눌러 신고)'}
         </button>
       )}
 
