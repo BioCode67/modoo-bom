@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   extractKeywords, getEligiblePolicies, searchPolicies,
-  estimateBenefits, runAnalysis, checkPolicy, incomeCeiling, sidoOf, guOf, demographicMismatch, disabilityLabel, type UserProfile,
+  estimateBenefits, runAnalysis, checkPolicy, incomeCeiling, situationRelevance, sidoOf, guOf, demographicMismatch, disabilityLabel, type UserProfile,
 } from './welfare-engine'
 import type { Policy } from '@/data/policies'
 
@@ -166,6 +166,31 @@ describe('소득 상한 게이트 — 연령이 맞아도 소득 초과면 제�
     // '하위 N%'는 백분위 → 중위% 근사 환산(×1.4): 기초연금 하위70% ≈ 중위 96~98(2026 실측 앵커)
     expect(incomeCeiling('소득 하위 70% 어르신')).toBe(100)
     expect(incomeCeiling('기준 중위소득 80% 이하')).toBe(80)
+  })
+})
+
+describe('situationRelevance — 핵심 상황 우선 개인화', () => {
+  const mk = (name: string, category = '기타'): Policy => ({
+    id: 'T', name, category, target: '', benefit: '', eligibility: '',
+    required_docs: [], application: '', department: '', renewal: '',
+  })
+  it('장애인은 장애 정책에 가점, 부수적 청년 정책엔 0', () => {
+    const p: UserProfile = { ...base, age: 26, disability: true, disability_grade: '1급' }
+    expect(situationRelevance(mk('장애인연금'), p)).toBeGreaterThan(situationRelevance(mk('청년 도약계좌'), p))
+  })
+  it('영아 부모는 육아·출산 정책이 청년 정책보다 높은 관련도', () => {
+    const p: UserProfile = { ...base, age: 33, has_children: true, children_ages: [0] }
+    expect(situationRelevance(mk('부모급여'), p)).toBeGreaterThan(situationRelevance(mk('청년 월세 지원'), p))
+  })
+  it('해당 상황이 아니면 가점 없음(무관 정책)', () => {
+    expect(situationRelevance(mk('장애인연금'), base)).toBe(0)
+  })
+  it('정렬: 장애인 결과에서 장애 정책이 부수적 청년 정책보다 앞', () => {
+    const p: UserProfile = { ...base, age: 26, disability: true, disability_grade: '1급', income_percentile: 30 }
+    const list = getEligiblePolicies(p)
+    const iDis = list.findIndex((x) => /장애인연금/.test(x.name))
+    const iYouth = list.findIndex((x) => /청년.*도약계좌|청년.*내일저축/.test(x.name))
+    if (iDis !== -1 && iYouth !== -1) expect(iDis).toBeLessThan(iYouth)
   })
 })
 

@@ -15,11 +15,17 @@ const SEED_POLICIES: Policy[] = [...WELFARE_POLICIES, ...PRIVATE_POLICIES]
  * ⚠️ 지자체(LOC-)는 같은 이름이라도 지역이 다르면 별개 사업(예: 여러 시군구의 '출산장려금')이므로
  *    절대 이름으로 합치지 않고 모두 유지한다(고유 id로 이미 구분됨).
  */
+// 이름 정규화 키 — 공백 + 괄호문자 제거로 표기변형까지 같은 것으로 본다
+// (예: '지원 (국민행복카드)' == '지원 국민행복카드'). 괄호 '내용'은 유지해 1종/2종 등 실제 차이는 보존.
+export function nameKey(name: string): string {
+  return (name || '').replace(/[\s()（）]/g, '')
+}
+
 function dedupeByName(list: Policy[]): Policy[] {
   const seen = new Set<string>()
   return list.filter((p) => {
     if (/^LOC-/.test(p.id)) return true // 지자체: 지역별 동명 사업 모두 유지
-    const k = (p.name || '').replace(/\s/g, '')
+    const k = nameKey(p.name)
     if (!k || seen.has(k)) return false
     seen.add(k)
     return true
@@ -83,12 +89,12 @@ export async function loadExternalCatalog(): Promise<number> {
     const merged = new Map<string, Policy>(Object.entries(MAP))
     const before = merged.size
     // 시드(큐레이션·상세)가 외부(요약)보다 우선 — 같은 이름은 시드 유지
-    const seedNames = new Set([...merged.values()].map((p) => p.name.replace(/\s/g, '')))
+    const seedNames = new Set([...merged.values()].map((p) => nameKey(p.name)))
     for (const item of list) {
       if (!item || typeof item !== 'object') continue
       const p = normalize(item as Record<string, unknown>)
       if (!p.id || !p.name) continue
-      if (seedNames.has(p.name.replace(/\s/g, ''))) continue // 시드와 이름 중복 → 스킵
+      if (seedNames.has(nameKey(p.name))) continue // 시드와 이름 중복(표기변형 포함) → 스킵
       merged.set(p.id, p)
     }
     if (merged.size !== before) {

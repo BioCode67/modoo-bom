@@ -467,6 +467,28 @@ export function guOf(target: string): string {
 // 지자체(LOC) '관련' 추론 결과 상한 — 전국 수천 건이 쏟아지지 않게(신뢰도 상위 우선)
 const MAX_INFERRED = 120
 
+/**
+ * 상황 관련도(situation relevance) — 사용자를 '규정하는' 상황과 정책이 맞을수록 높은 점수.
+ * 같은 우선순위(priority) 안에서 신뢰도보다 먼저 정렬해, 부수적 속성(예: 나이만 맞는 청년 정책)보다
+ * 핵심 상황(장애·출산·한부모·노인·육아·실직·생존)에 맞는 정책이 위로 오게 한다.
+ * → '내게 진짜 중요한 것부터' — AI Agent다운 개인화.
+ */
+export function situationRelevance(policy: Policy, p: UserProfile): number {
+  const t = `${policy.name} ${policy.category}`
+  const infant = p.is_pregnant || (p.children_ages || []).some((a) => a <= 1)
+  let s = 0
+  if (p.disability && /장애/.test(t)) s += 5
+  if (infant && /임신|임산부|출산|출생|산모|영아|신생아|난임|모유|부모급여|첫만남|아동수당/.test(t)) s += 5
+  if (p.household_type.includes('한부모') && /한부모|모자|부자가정|조손|양육/.test(t)) s += 4
+  if (p.household_type.includes('다문화') && /다문화|결혼이민|이주|외국인/.test(t)) s += 4
+  if (p.age >= 65 && /노인|어르신|경로|기초연금|장기요양|치매|틀니/.test(t)) s += 4
+  if (p.has_children && /아동|보육|육아|어린이|자녀|양육|유아|급식|돌봄|부모급여|다자녀|출산|출생|첫만남/.test(t)) s += 3
+  if (p.employment_status === 'unemployed' && /실업|구직|취업|재취업|일자리|자활/.test(t)) s += 3
+  if (p.income_percentile <= 32 && /생계|긴급|기초생활|의료급여/.test(t)) s += 3   // 생존 욕구 우선
+  else if (p.income_percentile <= 50 && /저소득|차상위|주거급여|교육급여|바우처/.test(t)) s += 2
+  return s
+}
+
 export function getEligiblePolicies(p: UserProfile): EligiblePolicy[] {
   const userSido = sidoOf(p.region)
   const precise: EligiblePolicy[] = []
@@ -500,9 +522,12 @@ export function getEligiblePolicies(p: UserProfile): EligiblePolicy[] {
   // 추론(저신뢰)은 신뢰도 상위 일부만 — 정밀 매칭은 모두 유지
   inferred.sort((a, b) => b.confidence - a.confidence)
   const result = [...precise, ...inferred.slice(0, MAX_INFERRED)]
+  // 정렬: 우선순위(high>med>low) → 상황 관련도(핵심 상황 우선) → 신뢰도
   result.sort((a, b) => {
     const pr = PRIORITY_RANK[b.priority] - PRIORITY_RANK[a.priority]
     if (pr !== 0) return pr
+    const rel = situationRelevance(b, p) - situationRelevance(a, p)
+    if (rel !== 0) return rel
     return b.confidence - a.confidence
   })
   return result
