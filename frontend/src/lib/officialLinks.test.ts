@@ -34,6 +34,30 @@ describe('docLink', () => {
   it('미지정 서류는 정부24 검색으로 폴백', () => {
     expect(docLink('희귀서류명').url).toContain('gov.kr/search')
   })
+  it('소득증빙·소득확인서류 → 소득금액증명 발급 안내', () => {
+    expect(docLink('소득증빙').url).toContain('CappBizCD=12100000021')
+    expect(docLink('소득확인서류').label).toContain('소득금액증명')
+  })
+  it('재학증명서·학교재학 확인서 → 정부24(초·중·고) 안내', () => {
+    expect(docLink('재학증명서').url).toContain('gov.kr')
+    expect(docLink('학교재학 확인서').label).toContain('학교')
+  })
+  it('임대차계약서 → 발급 서류 아님(본인 보관), 확정일자는 인터넷등기소', () => {
+    const r = docLink('임대차계약서')
+    expect(r.url).toContain('iros.go.kr')
+    expect(r.label).toContain('본인 보관')
+    expect(r.rpa).toBeFalsy() // 정부 자동발급 대상 아님
+  })
+  it('신분증은 본인 지참(발급 서류 아님) — 재발급만 정부24 안내', () => {
+    const r = docLink('신분증')
+    expect(r.label).toContain('본인 지참')
+    expect(r.rpa).toBeFalsy()
+  })
+  it('발급 불가/본인 지참 서류는 RPA 자동발급 대상이 아님', () => {
+    expect(isRpaSupported('임대차계약서')).toBe(false)
+    expect(isRpaSupported('신분증')).toBe(false)
+    expect(isRpaSupported('재학증명서')).toBe(false)
+  })
 })
 
 describe('RPA/자동신청 지원 판별', () => {

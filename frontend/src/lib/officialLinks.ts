@@ -30,9 +30,21 @@ export function docLink(doc: string): OfficialLink {
     return { label: '정부24에서 발급', url: 'https://www.gov.kr/mw/AA020InfoCappView.do?CappBizCD=10601000001', rpa: true }
   if (d.includes('국민연금') || (d.includes('연금') && d.includes('가입')))
     return { label: '국민연금공단에서 발급', url: 'https://www.nps.or.kr/elctcvlcpt/comm/getOHAC0000M5.do?menuId=MN24001054', rpa: true }
+  // 소득 증빙류(소득증빙·소득확인서류 등)는 소득금액증명 발급으로 안내(정부24/홈택스)
+  if (d.includes('소득증빙') || d.includes('소득확인') || (d.includes('소득') && (d.includes('증빙') || d.includes('확인'))))
+    return { label: '정부24/홈택스에서 발급 (소득금액증명)', url: 'https://www.gov.kr/mw/AA020InfoCappView.do?CappBizCD=12100000021' }
+  // 재학·졸업·성적 증명은 학교 발급 — 초·중·고는 정부24, 대학은 각 학교 포털
+  if (d.includes('재학') || d.includes('졸업증명') || d.includes('성적증명'))
+    return { label: '정부24에서 발급(초·중·고) · 대학은 학교 포털', url: 'https://www.gov.kr/search?srhQuery=재학증명서' }
+  // 임대차계약서는 정부 발급 서류가 아님(사인 간 계약) — 본인 보관본을 제출, 확정일자는 인터넷등기소에서 확인
+  if (d.includes('임대차') || d.includes('전월세') || d.includes('임대계약') || d.includes('월세계약'))
+    return { label: '본인 보관 계약서 제출 (확정일자는 인터넷등기소)', url: 'https://www.iros.go.kr' }
   if (d.includes('소득') || d.includes('재산') || d.includes('금융정보') || d.includes('동의서'))
     return { label: '주민센터 방문 작성', url: 'https://www.bokjiro.go.kr' }
-  if (d.includes('출생') || d.includes('신분증') || d.includes('통장'))
+  // 신분증은 발급 서류가 아니라 본인이 지참 — 분실 시 재발급은 정부24에서 신청
+  if (d.includes('신분증') || d.includes('주민등록증') || d.includes('운전면허'))
+    return { label: '본인 지참 (재발급 신청은 정부24)', url: 'https://www.gov.kr/search?srhQuery=주민등록증+재발급' }
+  if (d.includes('출생') || d.includes('통장') || d.includes('가족사진'))
     return { label: '본인 준비 서류', url: 'https://www.gov.kr/portal/main' }
   return { label: '정부24에서 검색', url: `https://www.gov.kr/search?srhQuery=${encodeURIComponent(doc)}` }
 }
