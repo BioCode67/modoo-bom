@@ -1,58 +1,51 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { MessageCircleHeart, X, Send, Mic, Compass, Sparkles, ArrowRight } from 'lucide-react'
-import { getCatalog } from '@/data/catalog'
-import { searchPolicies } from '@/lib/search'
-import { parseMonthly, formatWon } from '@/lib/format'
-import { applyLink } from '@/lib/officialLinks'
+import { MessageCircleHeart, X, Send, Mic, Compass, Sparkles, ArrowRight, Plus, Check } from 'lucide-react'
+import type { Policy } from '@/data/policies'
 import { useSpeech } from '@/lib/useSpeech'
 import { GUIDE_STEPS, recommend, type GuideAnswers } from '@/lib/guidedChat'
+import { agentReply, greetingReply, type AgentReply } from '@/lib/chatAgent'
 import { useAppStore } from '@/store/useAppStore'
 import { SproutLogo } from '@/ui/SproutLogo'
 import { cn } from '@/lib/utils'
 
-interface Msg { role: 'user' | 'bot'; text: string }
+interface Msg { role: 'user' | 'bot'; text: string; policies?: Policy[]; cta?: AgentReply['cta'] }
 
-const SUGGESTIONS = ['기초연금', '출산·육아', '청년', '실업급여']
-
-function answer(q: string): string {
-  const query = q.trim()
-  if (!query) return ''
-  if (/안녕|하이|hello|반가/i.test(query)) return '안녕하세요! 🌱 어떤 복지가 궁금하세요? 나이나 상황을 알려주시면 딱 맞는 혜택을 찾아드릴게요.'
-  // 도메인 검색(동의어·개념 랭킹) — '전세→주거', '애기→아동' 등 생활어도 잘 답함
-  const found = searchPolicies(getCatalog(), query).slice(0, 3)
-  if (found.length === 0) {
-    return `'${query}'에 딱 맞는 정책을 바로 찾지 못했어요. 😅 "내 복지 찾기"에서 상황을 입력하면 더 정확하게 안내해 드릴 수 있어요. 급하시면 복지로(129) 무료 상담도 좋아요.`
-  }
-  const lines = found.map((p) => {
-    const m = parseMonthly(p.benefit)
-    const amt = m > 0 ? ` (월 ${formatWon(m)}까지)` : ''
-    return `• ${p.name}${amt} — ${applyLink(p.application).label}`
-  })
-  return `이런 복지가 있어요! 👇\n${lines.join('\n')}\n\n자세한 내용은 "정책 탐색"에서 확인할 수 있어요.`
-}
+const SUGGESTIONS = ['내가 받을 수 있는 거', '기초연금', '출산·육아', '청년', '실업급여']
 
 export function ChatWidget() {
   const [open, setOpen] = useState(false)
-  const [msgs, setMsgs] = useState<Msg[]>([{ role: 'bot', text: '안녕하세요! 복지 도우미예요 🌱\n"🧭 맞춤 상담"으로 몇 가지만 답하면 딱 맞는 복지를 찾아드려요.' }])
+  const [msgs, setMsgs] = useState<Msg[]>([])
   const [input, setInput] = useState('')
   const [step, setStep] = useState(-1) // -1: 가이드 비활성
   const [answers, setAnswers] = useState<GuideAnswers>({ situations: [] })
   const [multiSel, setMultiSel] = useState<{ v: string; l: string }[]>([])
   const setView = useAppStore((s) => s.setView)
   const view = useAppStore((s) => s.view)
+  const profile = useAppStore((s) => s.profile)
+  const result = useAppStore((s) => s.result)
+  const tracked = useAppStore((s) => s.tracked)
+  const toggleSaved = useAppStore((s) => s.toggleSaved)
   const endRef = useRef<HTMLDivElement>(null)
+
+  // 열 때 현재 상태(프로필·담아둔 복지)를 먼저 브리핑 — 능동적인 에이전트 인상. 최초 1회.
+  useEffect(() => {
+    const g = greetingReply(profile, tracked.length)
+    setMsgs([{ role: 'bot', text: g.text, cta: g.cta }])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [msgs, open, step])
 
-  const botSay = (text: string) => setMsgs((m) => [...m, { role: 'bot', text }])
+  const botSay = (text: string, extra?: Partial<Msg>) => setMsgs((m) => [...m, { role: 'bot', text, ...extra }])
 
   const send = (text: string) => {
     const q = text.trim()
     if (!q) return
     setMsgs((m) => [...m, { role: 'user', text: q }])
     setInput('')
-    setTimeout(() => botSay(answer(q)), 350)
+    const r = agentReply(q, { profile, result })
+    setTimeout(() => botSay(r.text, { policies: r.policies, cta: r.cta }), 350)
   }
 
   // ── 가이드형 상담 ──
@@ -115,16 +108,39 @@ export function ChatWidget() {
               <SproutLogo withFace className="h-8 w-8 bg-white/20 rounded-full p-0.5" />
               <div>
                 <p className="font-bold leading-tight">복지 도우미</p>
-                <p className="text-[11px] text-white/80">무엇이든 물어보세요</p>
+                <p className="text-[11px] text-white/80">{profile ? `${profile.name || '회원'}님 맞춤 · 담기까지 도와드려요` : '무엇이든 물어보세요'}</p>
               </div>
             </div>
 
             <div className="flex-1 overflow-y-auto nice-scroll p-3 space-y-2.5 bg-sprout-50/30" role="log" aria-live="polite" aria-label="대화 내용">
               {msgs.map((m, i) => (
-                <div key={i} className={m.role === 'user' ? 'flex justify-end' : 'flex justify-start'}>
-                  <div className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm whitespace-pre-line leading-relaxed ${m.role === 'user' ? 'bg-sprout-500 text-white rounded-br-sm' : 'bg-white border border-sprout-100 rounded-bl-sm'}`}>
+                <div key={i} className={m.role === 'user' ? 'flex justify-end' : 'flex flex-col items-start gap-1.5'}>
+                  <div className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm whitespace-pre-line leading-relaxed ${m.role === 'user' ? 'bg-sprout-500 text-white rounded-br-sm self-end' : 'bg-white border border-sprout-100 rounded-bl-sm'}`}>
                     {m.text}
                   </div>
+                  {m.role === 'bot' && (!!m.policies?.length || m.cta) && (
+                    <div className="flex flex-wrap gap-1.5 max-w-[95%]">
+                      {m.policies?.map((p) => {
+                        const on = tracked.some((t) => t.policyId === p.id)
+                        return (
+                          <button
+                            key={p.id}
+                            onClick={() => toggleSaved(p)}
+                            aria-pressed={on}
+                            className={cn('chip text-xs transition-colors', on ? 'bg-sprout-500 text-white' : 'bg-white border border-sprout-200 text-sprout-700 hover:bg-sprout-50')}
+                          >
+                            {on ? <Check className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
+                            {p.name.length > 11 ? p.name.slice(0, 11) + '…' : p.name}
+                          </button>
+                        )
+                      })}
+                      {m.cta && (
+                        <button onClick={() => { setView(m.cta!.view); setOpen(false) }} className="chip text-xs bg-sprout-600 text-white font-bold hover:bg-sprout-700">
+                          {m.cta.label} <ArrowRight className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
               <div ref={endRef} />
