@@ -394,8 +394,10 @@ function inferFromText(policy: Policy, p: UserProfile): CheckResult | null {
   }
 }
 
-/** 요약본(공공데이터) 정책 여부 — 정밀 룰 대신 텍스트 신호로 보조 매칭 */
+/** 요약본(공공데이터)·민간재단 정책 여부 — 정밀 룰 대신 텍스트 신호로 보조 매칭.
+ *  민간재단(PRV-)은 심사·선발형이라 자격을 단정할 수 없어 의도적으로 저신뢰 '관련 복지'로만 노출. */
 function isSummaryPolicy(policy: Policy): boolean {
+  if (/^PRV-/.test(policy.id)) return true
   return /^(GOV|LOC)-/.test(policy.id) && policy.target === policy.eligibility
 }
 
@@ -437,10 +439,14 @@ export function getEligiblePolicies(p: UserProfile): EligiblePolicy[] {
   for (const policy of getCatalog()) {
     // 인구통계 하드 미스매치(예: 72세에 청년·유아 정책)는 정밀·추론 양쪽 모두에서 제외
     if (demographicMismatch(policy.name, `${policy.eligibility} ${policy.target} ${policy.name}`, p)) continue
-    const c = checkPolicy(policy, p)
-    if (c.eligible) {
-      precise.push({ ...policy, reason: c.reason, priority: c.priority, confidence: c.confidence })
-      continue
+    // 민간재단(PRV-)은 심사·선발형 — 일반 소득룰 등 정밀 매칭으로 '자격 충족'을 단정하지 않고
+    // 항상 아래 저신뢰 텍스트 신호(inferFromText)로만 '관련 복지'로 제시한다(과장 방지).
+    if (!policy.id.startsWith('PRV-')) {
+      const c = checkPolicy(policy, p)
+      if (c.eligible) {
+        precise.push({ ...policy, reason: c.reason, priority: c.priority, confidence: c.confidence })
+        continue
+      }
     }
     // 정밀 룰이 못 잡은 요약본(공공데이터) 정책은 상황 신호로 보조 매칭
     if (!isSummaryPolicy(policy)) continue
