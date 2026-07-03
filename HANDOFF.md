@@ -130,8 +130,9 @@ curl -fsSL https://raw.githubusercontent.com/BioCode67/modoo-bom/main/scripts/se
    추가, 신청서 미리채움도 `disabilityLabel()`로 현행 용어 일관화(+테스트 4). 결과 화면(Glossary 링크로 커버됨)·
    챗봇은 이미 쉬운 말이라 손 안 댐. 남으면 결과 카드 세부 문구 정도.
 5. **웹스토어 실제 제출**(개발자 등록 $5) → 일반인 원클릭 설치.
-6. **[신규] 백엔드 패리티**: 민간재단 9건(PRV-###)은 프론트 시드에만 있음 — 백엔드 `rag/sample_data.py`(Mock/RAG)에는
-   미반영. 백엔드 경유 분석(WS)에는 민간재단이 안 나옴. venv 구축 후 이식+pytest 확인 필요(프론트 단독 데모엔 무관).
+6. **[완료] 백엔드 패리티**: 민간재단 11건을 `rag/sample_data.py`에 이식(총 131건) + `_check_policy`에 PRV
+   정직성 가드(심사·선발형은 저신뢰 관련 지원만). venv 구축됨(`backend/venv`), **pytest 13/13 통과**.
+   ⚠️ requirements.txt 일괄 설치가 일부 환경에서 중간 실패함 → 누락 모듈 나오면 개별 `pip install <모듈>` 반복.
 7. **홈택스/LH 등 추가 사이트**: 홈택스=무거운 SPA(실계정 보정 필요), LH·근로복지공단=공동인증서 중심(다른 방식). 보류 중.
 
 **🐛 실사용 버그 리포트(2026-07-03, 사용자 재현 — 데스크탑(확장) 세션 확인 요망)**
@@ -148,7 +149,7 @@ curl -fsSL https://raw.githubusercontent.com/BioCode67/modoo-bom/main/scripts/se
 **검증/품질 도구**
 - 실사이트 셀렉터 점검: `cd backend && python ../extension/validate_live.py "<서류명>"` (본인인증 직전까지, 개인정보 미사용)
 - 코드/URL 데이터 감사: `AA020InfoCappView.do?CappBizCD=<코드>` title 확인, 복지로 `moveTWAT52011M.do?wlfareInfoId=<ID>` len 확인
-- 품질 게이트: 프론트 `tsc/lint/test(217)/build`, 백엔드 `pytest(13)` — 변경마다 통과 유지.
+- 품질 게이트: 프론트 `tsc/lint/test(224)/build`, 백엔드 `pytest(13)` — 변경마다 통과 유지.
 
 ## ✅ 체크리스트
 
