@@ -31,11 +31,14 @@ if not exist "venv\Scripts\python.exe" (
   pause & exit /b 1
 )
 
-set "DOC=%~1"
-if "%DOC%"=="" set "DOC=주민등록등본"
-echo [2/2] 에이전트 시작: %DOC%
+rem 인자로 서류들을 넘기면 한 번 로그인으로 연달아 발급. 없으면 등본 기본.
+echo [2/2] 에이전트 시작...
 echo.
-"venv\Scripts\python.exe" local_agent.py "%DOC%"
+if "%~1"=="" (
+  "venv\Scripts\python.exe" local_agent.py "주민등록등본"
+) else (
+  "venv\Scripts\python.exe" local_agent.py %*
+)
 
 echo.
 echo 끝났습니다. 이 창을 닫아도 됩니다.

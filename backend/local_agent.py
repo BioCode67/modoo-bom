@@ -33,8 +33,23 @@ DOCS = {
     "주민등록초본": "13100000015",
     "가족관계증명서": "97400000004",
     "장애인증명서": "14600000273",
-    "건강보험 자격득실확인서": None,   # 정부24 아님(별도) — 후속 확장
+    "소득금액증명": "12100000021",
+    "지방세 납세증명서": "13100000056",
+    "지방세 세목별 과세증명서": "13100000084",
+    "기초생활수급자 증명서": "14600000280",
+    "한부모가족 증명서": "10601000001",
+    "국민연금 가입자 증명서": "14600000312",
 }
+
+def resolve_doc(name: str):
+    """표기 변형 흡수(공백 무시 부분일치). 미지원이면 None."""
+    if name in DOCS:
+        return name
+    n = (name or "").replace(" ", "")
+    for k in DOCS:
+        if n and (n in k.replace(" ", "") or k.replace(" ", "") in n):
+            return k
+    return None
 
 def log(msg: str):
     print(f"[모두봄] {msg}", flush=True)
@@ -143,125 +158,145 @@ def save_pdf(page: Page, filename: str):
         log(f"PDF 저장 실패({e}) — 화면에서 Ctrl+P로 저장하세요.")
         return False
 
-def run(doc_name: str):
-    capp = DOCS.get(doc_name)
-    if not capp:
-        log(f"현재 이 스크립트가 지원하는 정부24 서류가 아니에요: {doc_name}")
+def do_login(page: Page, prof: dict) -> bool:
+    """로그인 1회 — Mbuster 통과 → 간편인증 → 인증창 자동입력 → [사용자 카카오 승인] → 로그인 완료."""
+    log("정부24 로그인 페이지 여는 중…")
+    page.goto("https://plus.gov.kr/login", wait_until="domcontentloaded", timeout=45000)
+    if not wait_mbuster(page):
+        log("보안 확인이 오래 걸려요. 창을 확인해 주세요.")
+    log("간편인증 선택…")
+    try:
+        page.locator("button.login-type", has_text="간편인증").first.click(timeout=8000)
+    except Exception:
+        log("'간편인증' 버튼을 찾지 못했어요. 화면에서 직접 눌러 주세요.")
+    frame = simplecert_frame(page)
+    if frame:
+        ok = fill_auth(frame, prof)
+        log("✅ 인증 정보 자동 입력 완료." if ok else "인증 창에 정보를 입력해 주세요.")
+    log("📱 이제 화면의 '인증 요청'을 누르고 카카오톡에서 [인증하기]를 완료해 주세요. (대기 중…)")
+    if not wait_logged_in(page):
+        log("로그인 완료를 확인하지 못했어요. 인증을 끝내면 다시 실행해 주세요.")
+        return False
+    log("로그인 완료!")
+    # 로그인 직후 '회원정보 재확인' 안내가 뜨면 건너뛰기(현재 정보 유지)
+    try:
+        body = page.inner_text("body") or ""
+        if "회원정보" in body and "재확인" in body:
+            for t in ["현재 정보 유지", "다음에 변경", "나중에", "유지"]:
+                b = page.get_by_text(t, exact=False)
+                if b.count():
+                    b.first.click(timeout=3000)
+                    page.wait_for_timeout(1500)
+                    break
+    except Exception:
+        pass
+    return True
+
+def issue_one(page: Page, doc_name: str) -> bool:
+    """로그인 상태에서 서류 1건 발급 → 문서출력 → PDF 저장. (로그인은 do_login에서 1회)"""
+    capp = DOCS[doc_name]
+    log(f"── '{doc_name}' 발급 시작 ──")
+    page.goto(issue_url(capp), wait_until="domcontentloaded", timeout=45000)
+    page.wait_for_timeout(2500)
+    # '발급하기'(= a[href*=AA040OfferMainFrm]) 신뢰 클릭. href가 상대경로라 goto 아닌 클릭으로 이동(실측).
+    try:
+        link = page.locator("a[href*='AA040OfferMainFrm']").first
+        if link.count():
+            try:
+                link.click(timeout=6000)
+            except Exception:
+                href = link.get_attribute("href") or ""
+                if href.startswith("/"):
+                    href = "https://www.gov.kr" + href
+                if href.startswith("http"):
+                    page.goto(href, wait_until="domcontentloaded")
+            page.wait_for_load_state("domcontentloaded")
+            page.wait_for_timeout(2500)
+    except Exception:
+        pass
+    if doc_name == "주민등록초본":  # 초본 유형 선택(등본은 기본값)
+        try:
+            lab = page.get_by_text("초본", exact=True)
+            if lab.count():
+                lab.first.click(timeout=2500)
+        except Exception:
+            pass
+    log("발급 정보 확인 후 신청… (5초 후 자동 신청)")
+    page.wait_for_timeout(5000)
+    clicked = False
+    for sel in ["#btnMinwonApply", "#btnApply"]:
+        try:
+            if page.locator(sel).count():
+                page.locator(sel).first.click(timeout=4000)
+                clicked = True
+                break
+        except Exception:
+            pass
+    if not clicked:
+        try:
+            page.get_by_text("신청하기", exact=False).first.click(timeout=4000)
+            clicked = True
+        except Exception:
+            pass
+    log("신청 제출 중… 전자서명 창이 뜨면 본인 확인해 주세요." if clicked else "화면의 '신청하기'를 눌러 주세요.")
+    # 문서출력 → PDF(새 탭 popup 우선 저장)
+    ymd = time.strftime("%Y%m%d")
+    fname = f"모두봄_{doc_name}_{ymd}.pdf"
+    saved = False
+    for _ in range(120):
+        try:
+            if "문서출력" in (page.inner_text("body") or ""):
+                ctx = page.context
+                try:
+                    with ctx.expect_page(timeout=6000) as pop:
+                        page.get_by_text("문서출력", exact=False).first.click(timeout=3000)
+                    newp = pop.value
+                    newp.wait_for_load_state("domcontentloaded")
+                    newp.wait_for_timeout(1500)
+                    saved = save_pdf(newp, fname)
+                except Exception:
+                    page.wait_for_timeout(1500)
+                    saved = save_pdf(page, fname)
+                if saved:
+                    break
+        except Exception:
+            pass
+        page.wait_for_timeout(1000)
+    if saved:
+        log(f"🎉 '{doc_name}' 발급 완료! PDF: {SAVE_DIR / fname}")
+    else:
+        log(f"'{doc_name}' 발급이 진행 중… 완료되면 화면의 [문서출력]으로 저장하세요.")
+    return saved
+
+def run(doc_names):
+    if isinstance(doc_names, str):
+        doc_names = [doc_names]
+    docs = []
+    for n in doc_names:
+        r = resolve_doc(n)
+        if r and r not in docs:
+            docs.append(r)
+        elif not r:
+            log(f"이 스크립트가 지원하는 정부24 서류가 아니에요(건너뜀): {n}")
+    if not docs:
+        log("발급할 정부24 서류가 없어요.")
         return
     prof = load_profile()
     with sync_playwright() as pw:
         log("진짜 크롬에 연결 중(CDP)…")
         browser = pw.chromium.connect_over_cdp(CDP_URL)
         page = get_page(browser)
-
-        log("정부24 로그인 페이지 여는 중…")
-        page.goto("https://plus.gov.kr/login", wait_until="domcontentloaded", timeout=45000)
-        if not wait_mbuster(page):
-            log("보안 확인이 오래 걸려요. 창을 확인해 주세요.")
-        log("간편인증 선택…")
-        try:
-            page.locator("button.login-type", has_text="간편인증").first.click(timeout=8000)
-        except Exception:
-            log("'간편인증' 버튼을 찾지 못했어요. 화면에서 직접 눌러 주세요.")
-        frame = simplecert_frame(page)
-        if frame:
-            ok = fill_auth(frame, prof)
-            log("✅ 인증 정보 자동 입력 완료." if ok else "인증 창에 정보를 입력해 주세요.")
-        log("📱 이제 화면의 '인증 요청'을 누르고 카카오톡에서 [인증하기]를 완료해 주세요. (대기 중…)")
-
-        if not wait_logged_in(page):
-            log("로그인 완료를 확인하지 못했어요. 인증을 끝내면 다시 실행해 주세요.")
+        if not do_login(page, prof):
             return
-        log("로그인 완료! 발급 페이지로 이동…")
-        # 로그인 직후 '회원정보 재확인' 안내가 뜨면 건너뛰기(현재 정보 유지)
-        try:
-            if "회원정보" in (page.inner_text("body") or "") and "재확인" in (page.inner_text("body") or ""):
-                for t in ["현재 정보 유지", "다음에 변경", "나중에", "유지"]:
-                    b = page.get_by_text(t, exact=False)
-                    if b.count():
-                        b.first.click(timeout=3000)
-                        page.wait_for_timeout(1500)
-                        break
-        except Exception:
-            pass
-        page.goto(issue_url(capp), wait_until="domcontentloaded", timeout=45000)
-        page.wait_for_timeout(2500)
-        # 발급 폼으로: '발급하기'(= a[href*=AA040OfferMainFrm]) 링크를 신뢰 클릭.
-        # ⚠️ href가 상대경로(/mw/AA040...)라 goto가 아니라 클릭으로 이동해야 함(실측 확인).
-        try:
-            link = page.locator("a[href*='AA040OfferMainFrm']").first
-            if link.count():
-                try:
-                    link.click(timeout=6000)
-                except Exception:
-                    # 클릭이 안 되면 절대경로로 이동(origin 기준 해석)
-                    href = link.get_attribute("href") or ""
-                    if href.startswith("/"):
-                        href = "https://www.gov.kr" + href
-                    if href.startswith("http"):
-                        page.goto(href, wait_until="domcontentloaded")
-                page.wait_for_load_state("domcontentloaded")
-                page.wait_for_timeout(2500)
-        except Exception:
-            pass
-        # 초본이면 '초본' 유형 선택(등본은 기본값)
-        if doc_name == "주민등록초본":
-            try:
-                lab = page.get_by_text("초본", exact=True)
-                if lab.count():
-                    lab.first.click(timeout=2500)
-            except Exception:
-                pass
-        # 신청하기(Playwright 신뢰 클릭)
-        log("발급 정보 확인 후 신청… (5초 후 자동 신청)")
-        page.wait_for_timeout(5000)
-        clicked = False
-        for sel in ["#btnMinwonApply", "#btnApply"]:
-            try:
-                if page.locator(sel).count():
-                    page.locator(sel).first.click(timeout=4000)
-                    clicked = True
-                    break
-            except Exception:
-                pass
-        if not clicked:
-            try:
-                page.get_by_text("신청하기", exact=False).first.click(timeout=4000)
-                clicked = True
-            except Exception:
-                pass
-        log("신청 제출 중… 전자서명 창이 뜨면 본인 확인해 주세요." if clicked
-            else "화면의 '신청하기'를 눌러 주세요.")
-        # 문서출력 → PDF. 출력은 새 탭(popup)으로 열릴 수 있어 popup을 우선 저장.
-        ymd = time.strftime("%Y%m%d")
-        fname = f"모두봄_{doc_name}_{ymd}.pdf"
-        saved = False
-        for _ in range(120):  # 전자서명·처리에 시간이 걸릴 수 있어 최대 ~2분 대기
-            try:
-                body = page.inner_text("body") or ""
-                if "문서출력" in body:
-                    ctx = page.context
-                    try:
-                        with ctx.expect_page(timeout=6000) as pop:  # 새 탭으로 열리면 그 탭 저장
-                            page.get_by_text("문서출력", exact=False).first.click(timeout=3000)
-                        newp = pop.value
-                        newp.wait_for_load_state("domcontentloaded")
-                        newp.wait_for_timeout(1500)
-                        saved = save_pdf(newp, fname)
-                    except Exception:
-                        # 새 탭이 아니면 현재 페이지 저장
-                        page.wait_for_timeout(1500)
-                        saved = save_pdf(page, fname)
-                    if saved:
-                        break
-            except Exception:
-                pass
-            page.wait_for_timeout(1000)
-        if saved:
-            log(f"🎉 발급 완료! PDF 저장: {SAVE_DIR / fname}")
-        else:
-            log("발급이 진행 중이거나 [문서출력]을 기다리고 있어요. 완료되면 화면의 [문서출력]으로 저장하세요.")
+        # 한 번의 로그인으로 여러 서류를 연달아 발급(로그인 세션 재사용)
+        ok_count = 0
+        for i, d in enumerate(docs):
+            if i > 0:
+                log(f"다음 서류로 진행… (남은 {len(docs) - i}건)")
+            if issue_one(page, d):
+                ok_count += 1
+        log(f"끝! 총 {len(docs)}건 중 {ok_count}건 저장 완료. (바탕화면\\모두봄서류)")
 
 if __name__ == "__main__":
-    doc = sys.argv[1] if len(sys.argv) > 1 else "주민등록등본"
-    run(doc)
+    args = sys.argv[1:]
+    run(args if args else ["주민등록등본"])
