@@ -71,6 +71,14 @@
       status('running', '정부24 보안 확인 중이에요… 잠시만 기다려 주세요. (자동 진행)')
       return
     }
+    // 로그인 후 '회원정보 재확인' 안내창 — '현재 정보 유지'로 건너뛰고 발급으로 진행
+    if (/infoConfirmation/i.test(location.href) ||
+        (document.body && /회원정보\s*재확인|회원정보를?\s*최신화/.test(document.body.innerText))) {
+      status('running', '정부24 회원정보 확인 화면 — 건너뛰는 중…')
+      const skipped = await pollClick(() => clickText(['현재 정보 유지', '다음에 변경', '나중에', '유지']), 6)
+      if (!skipped) status('running', "화면에서 '현재 정보 유지'를 눌러 주세요. (그러면 발급으로 넘어가요)")
+      return  // 클릭 후 네비게이션되면 재주입되어 발급으로 이어짐
+    }
     // 이미 로그인 상태면 발급 페이지로 이동
     if (loggedIn()) {
       status('running', '로그인 완료 — 발급 페이지로 이동합니다.')
