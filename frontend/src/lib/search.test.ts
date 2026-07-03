@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { expandQuery, relevance, searchPolicies } from './search'
+import { getCatalog } from '@/data/catalog'
 import type { Policy } from '@/data/policies'
 
 const P = (id: string, name: string, category: string, target = '', eligibility = '', benefit = ''): Policy =>
@@ -70,5 +71,27 @@ describe('searchPolicies', () => {
     // '청년월세 특별지원'은 동의어(청년→여러 청년정책)로 확장되지만, 원문이 이름인 POL-3가 최상위
     const r = searchPolicies(CATALOG, '청년월세 특별지원')
     expect(r[0].id).toBe('POL-3')
+  })
+})
+
+describe('실사용 질의 회귀(2026-07 품질 스윕)', () => {
+  const cat = getCatalog()
+  it('범용어("지원")는 개념에서 제외 — "월세 지원"은 주거 정책이 상위', () => {
+    const r = searchPolicies(cat, '월세 지원')
+    expect(r.length).toBeGreaterThan(0)
+    expect(/주거|월세|임대|전세/.test(r[0].name + r[0].category)).toBe(true)
+  })
+  it('생활어 확장: 보청기→장애·의료 / 이혼→한부모 / 군인→보훈', () => {
+    expect(searchPolicies(cat, '보청기').some((p) => /장애/.test(p.name + p.category))).toBe(true)
+    expect(searchPolicies(cat, '이혼했어요').some((p) => /한부모/.test(p.name + p.category))).toBe(true)
+    expect(searchPolicies(cat, '군인 가족').some((p) => /보훈/.test(p.name + p.category))).toBe(true)
+  })
+  it('보호아동 계열: 고아·소년소녀가장 → 0건 아님(디딤씨앗 등)', () => {
+    expect(searchPolicies(cat, '고아').length).toBeGreaterThan(0)
+    expect(searchPolicies(cat, '소년소녀가장').length).toBeGreaterThan(0)
+  })
+  it('1글자 동의어 오탐 방지: "월세" 결과 1위가 보육 정책이 아님', () => {
+    const r = searchPolicies(cat, '월세')
+    expect(/보육|어린이집/.test(r[0].name)).toBe(false)
   })
 })
