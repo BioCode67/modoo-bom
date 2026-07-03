@@ -44,3 +44,27 @@ describe('통합 카탈로그(5,000+) 실질 검색 골든', () => {
     expect(searchPolicies(CAT, '김치냉장고').length).toBe(0)
   })
 })
+
+
+describe('풀 카탈로그에서 민간재단 레인 보존(캡 밀림 회귀 방지)', () => {
+  it('어르신(중위25%)·풀 카탈로그에서도 민간재단이 결과에 남는다', async () => {
+    const { getEligiblePolicies } = await import('@/lib/welfare-engine')
+    const catalog = await import('@/data/catalog')
+    // 테스트 환경의 카탈로그 싱글톤에 외부 데이터 주입(브라우저 병합과 동일 경로)
+    const ext = JSON.parse(readFileSync(new URL('../../public/policies.json', import.meta.url), 'utf-8'))
+    const g = globalThis as { fetch?: unknown }
+    const orig = g.fetch
+    g.fetch = (async () => ({ ok: true, json: async () => ext })) as unknown as typeof fetch
+    try {
+      await catalog.loadExternalCatalog()
+      const r = getEligiblePolicies({
+        name: '', age: 72, gender: 'other', region: '', household_type: '1인가구', income_percentile: 25,
+        disability: false, disability_grade: '', employment_status: '', has_children: false,
+        children_ages: [], is_pregnant: false, life_events: [],
+      })
+      expect(r.some((p) => p.id.startsWith('PRV-'))).toBe(true)
+    } finally {
+      g.fetch = orig
+    }
+  })
+})

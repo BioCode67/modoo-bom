@@ -139,6 +139,18 @@ def main() -> int:
             page.click('[aria-label="복지 도우미 챗봇 열기"]')
             page.wait_for_selector("text=김복순", timeout=10000)
             print("[e2e] ✅ 3. 챗 에이전트 개인화 브리핑")
+
+            # 3.5) 에이전트 행동 스토리: 검색 → "담아줘"(맥락 저장) → "서류 뭐 필요해"(서류 요약)
+            page.fill('[aria-label="질문 입력"]', "기초연금")
+            page.keyboard.press("Enter")
+            page.wait_for_selector("text=이런 복지가 있어요", timeout=8000)
+            page.fill('[aria-label="질문 입력"]', "담아줘")
+            page.keyboard.press("Enter")
+            page.wait_for_selector("text=담았어요", timeout=8000)
+            page.fill('[aria-label="질문 입력"]', "서류 뭐 필요해?")
+            page.keyboard.press("Enter")
+            page.wait_for_selector("text=주민등록등본", timeout=8000)
+            print("[e2e] ✅ 3.5 챗 행동 스토리(담기→서류 요약)")
             page.keyboard.press("Escape")
 
             # 4) 탐색: 민간재단 필터 → 큐레이션 노출

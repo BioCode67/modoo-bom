@@ -527,9 +527,13 @@ export function getEligiblePolicies(p: UserProfile): EligiblePolicy[] {
     }
     inferred.push({ ...policy, reason: inf.reason, priority: inf.priority, confidence: inf.confidence })
   }
-  // 추론(저신뢰)은 신뢰도 상위 일부만 — 정밀 매칭은 모두 유지
+  // 추론(저신뢰)은 신뢰도 상위 일부만 — 정밀 매칭은 모두 유지.
+  // 민간재단(PRV)은 공공 5,000건과 같은 캡을 두고 경쟁시키지 않는다(전용 💝 섹션의 소스이고
+  // 최대 ~20건뿐인데, 데이터가 커지면 신뢰도 컷에 밀려 통째로 사라지는 회귀가 실제 발생).
   inferred.sort((a, b) => b.confidence - a.confidence)
-  const result = [...precise, ...inferred.slice(0, MAX_INFERRED)]
+  const prvInferred = inferred.filter((p) => p.id.startsWith('PRV-'))
+  const pubInferred = inferred.filter((p) => !p.id.startsWith('PRV-'))
+  const result = [...precise, ...prvInferred, ...pubInferred.slice(0, MAX_INFERRED)]
   // 정렬: 우선순위(high>med>low) → 상황 관련도(핵심 상황 우선) → 신뢰도
   result.sort((a, b) => {
     const pr = PRIORITY_RANK[b.priority] - PRIORITY_RANK[a.priority]
