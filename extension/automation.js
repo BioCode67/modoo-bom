@@ -412,9 +412,9 @@
       // 로그인 페이지: eForm 간편인증 버튼 폴링 클릭 → 인증 iframe에도 주입 요청
       status('running', '복지로 로그인 화면 준비 중…')
       trace('branch', { name: 'bokjiro-login' })
-      // eForm(.cl-button) 텍스트 클릭 우선 → 안 되면 진짜 클릭(trusted)까지
-      let clicked = await pollClick(() => clickEform(['간편인증', '간편 인증', '간편로그인']), 6)
-      if (!clicked) clicked = await pollRealClick(['간편인증', '간편 인증', '간편로그인'], [], 8)
+      // eForm(.cl-button) 텍스트 클릭 우선(검증된 경로) → 안 되면 일반 텍스트 클릭
+      const clicked = await pollClick(() =>
+        clickEform(['간편인증', '간편 인증', '간편로그인']) || clickText(['간편인증', '간편 인증']), 12)
       status('running', clicked
         ? '복지로 간편인증을 선택했어요. 카카오톡으로 본인인증을 진행해 주세요. 📱'
         : "화면에서 '간편인증'을 눌러 주세요.")
@@ -423,9 +423,8 @@
     }
     if (/moveTWAT|wlfareInfoId/i.test(url)) {
       trace('branch', { name: 'bokjiro-apply' })
-      // 서비스 신청 페이지(임의 wlfareInfoId): 신청하기 클릭(eForm→진짜 클릭 순) + 기본 정보 자동 입력
-      const opened = await pollClick(() => clickEform(['신청하기', '온라인신청', '모바일신청']), 5)
-      if (!opened) await pollRealClick(['신청하기', '온라인신청', '모바일신청'], [], 6)
+      // 서비스 신청 페이지(임의 wlfareInfoId): 신청하기 클릭(eForm/텍스트) + 기본 정보 자동 입력
+      await pollClick(() => clickEform(['신청하기', '온라인신청', '모바일신청']) || clickText(['신청하기', '온라인신청']), 8)
       await sleep(1500)
       const u = job.userInfo || {}
       const name = (u.user_name || u.name || '').trim()
@@ -451,7 +450,8 @@
     if (/personalLoginPage/i.test(url)) {
       trace('branch', { name: 'nhis-login' })
       status('running', '건강보험공단 로그인 화면 준비 중…')
-      await pollRealClick(['간편인증 로그인', '간편인증', '간편 인증'], [], 12)
+      // nhis는 .click()으로 간편인증 도달이 검증됨 → 경량 폴링(불필요한 debugger 배너 회피)
+      await pollClick(() => clickText(['간편인증 로그인', '간편인증', '간편 인증']), 12)
       await sleep(2500)
       clickText(['카카오톡', 'TALK'], ['카카오뱅크', 'BANK'])
       await sleep(800)
@@ -463,7 +463,7 @@
     }
     if (/jpAea00401/i.test(url)) {
       trace('branch', { name: 'nhis-issue' })
-      await realClick(['확인서 발급', '발급하기', '발급', '출력', '인쇄'])
+      await pollClick(() => clickText(['확인서 발급', '발급하기', '발급', '출력', '인쇄']), 8)
       status('done', '✅ 건강보험 자격득실확인서 발급 화면까지 진행했어요. 인쇄창에서 저장(PDF)하세요.')
       return
     }
@@ -478,7 +478,7 @@
     if (/login/i.test(url)) {
       trace('branch', { name: 'kosaf-login' })
       status('running', '한국장학재단 로그인 화면 준비 중…')
-      const clicked = await pollRealClick(['간편인증', '간편 인증', '간편로그인'], [], 12)
+      const clicked = await pollClick(() => clickText(['간편인증', '간편 인증', '간편로그인']), 12)
       status('running', clicked
         ? '간편인증을 선택했어요. 카카오톡으로 본인인증을 진행해 주세요. 📱'
         : "화면에서 '간편인증'을 눌러 주세요.")
@@ -492,7 +492,7 @@
       return
     }
     trace('branch', { name: 'kosaf-apply' })
-    await pollRealClick(['신청하기', '신청', '온라인신청'], [], 8)
+    await pollClick(() => clickText(['신청하기', '신청', '온라인신청']), 8)
     status('running',
       `✅ '${job.serviceName}' 신청 화면이 열렸어요. 내용을 확인하고 채운 뒤,\n` +
       '⚠️ 최종 제출은 본인이 직접 눌러 주세요.')
@@ -505,7 +505,7 @@
     if (loggedIn()) {
       // 로그인 상태: 발급/조회 버튼
       trace('branch', { name: 'nps-issue' })
-      const issued = await pollRealClick(['발급', '출력', '인쇄', '조회'], [], 8)
+      const issued = await pollClick(() => clickText(['발급', '출력', '인쇄', '조회']), 8)
       status(issued ? 'done' : 'running', issued
         ? '✅ 국민연금 가입내역확인서 발급 화면까지 진행했어요. 인쇄창에서 저장하세요.'
         : '화면에서 발급/조회 버튼을 눌러 주세요.')
@@ -514,8 +514,9 @@
     // 로그인/간편인증 유도
     trace('branch', { name: 'nps-login' })
     status('running', '국민연금 전자민원 로그인 화면 준비 중…')
-    const clicked = await pollRealClick(['간편인증', '간편 인증', '간편인증 로그인'],
-      ["a[href*='simple' i]", "button[onclick*='simple' i]", '.btn-easy'], 12)
+    const clicked = await pollClick(() =>
+      clickText(['간편인증', '간편 인증', '간편인증 로그인']) ||
+      clickSel(["a[href*='simple' i]", "button[onclick*='simple' i]", '.btn-easy']), 12)
     status('running', clicked
       ? '간편인증을 선택했어요. 카카오톡으로 본인인증을 진행해 주세요. 📱'
       : "화면에서 '간편인증' 후 로그인해 주세요. 로그인되면 자동으로 발급을 이어가요.")
@@ -529,8 +530,9 @@
     if (/openLginPage|AnyId|login/i.test(url)) {
       trace('branch', { name: 'work24-login' })
       status('running', '고용24 로그인 화면 준비 중…')
-      const clicked = await pollRealClick(['간편인증'],
-        ['a.link-easy-anyId', 'a[class*="easy-anyId"]', 'a[onclick*="anyidAdaptor"]', '.btn_quick_login'], 12)
+      const clicked = await pollClick(() =>
+        clickSel(['a.link-easy-anyId', 'a[class*="easy-anyId"]', 'a[onclick*="anyidAdaptor"]', '.btn_quick_login']) ||
+        clickText(['간편인증']), 12)
       status('running', clicked
         ? '간편인증을 선택했어요. 카카오톡으로 본인인증을 진행해 주세요. 📱'
         : "화면에서 '간편인증'을 눌러 주세요.")
@@ -538,11 +540,11 @@
       return
     }
     trace('branch', { name: 'work24-issue' })
-    await realClick(['피보험자격이력', '피보험 자격이력', '이력내역서', '피보험자격 이력'])
+    clickText(['피보험자격이력', '피보험 자격이력', '이력내역서', '피보험자격 이력'])
     await sleep(1500)
-    await realClick(['조회', '확인'])
+    clickText(['조회', '확인'])
     await sleep(1500)
-    const issued = await realClick(['발급', '출력', '인쇄'])
+    const issued = clickText(['발급', '출력', '인쇄'])
     status(issued ? 'done' : 'running', issued
       ? '✅ 고용보험 피보험자격 이력내역서 발급 화면까지 진행했어요. 인쇄창에서 저장하세요.'
       : "화면에서 '피보험자격이력' 메뉴 → 조회 → 발급을 진행해 주세요.")
