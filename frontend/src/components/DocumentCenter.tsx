@@ -53,7 +53,8 @@ export function DocumentCenter() {
     // 로컬 에이전트가 없고 확장만 있으면 브라우저 내 확장으로 발급(진행상태는 구독으로 수신)
     if (!localAgent && ext) {
       const ok = await issueViaExtension(doc, {
-        user_name: profile?.name || '사용자',
+        // 본인인증엔 실명(rpaInfo.name)이 필요 — 프로필 이름(데모 페르소나일 수 있음)은 폴백
+        user_name: rpaInfo.name || profile?.name || '사용자',
         birth_date: rpaInfo.birth_date, phone: rpaInfo.phone, carrier: rpaInfo.carrier,
       })
       if (!ok) setRpa((s) => ({ ...s, [doc]: { status: 'error', step: '확장이 이 서류를 지원하지 않아요(정부24 서류만).' } }))
@@ -63,7 +64,7 @@ export function DocumentCenter() {
       const res = await fetch(`${API_BASE}/api/documents/rpa-issue`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          doc_name: doc, user_name: profile?.name || '사용자',
+          doc_name: doc, user_name: rpaInfo.name || profile?.name || '사용자',
           birth_date: rpaInfo.birth_date, phone: rpaInfo.phone, carrier: rpaInfo.carrier,
         }),
       })

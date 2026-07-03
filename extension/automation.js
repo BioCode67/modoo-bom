@@ -58,20 +58,31 @@
     const res = await send({ type: 'TRUSTED_CLICK', payload: { x, y } })
     return !!(res && res.ok)
   }
-  // 텍스트/셀렉터로 버튼을 찾아 '진짜 클릭'. trustedOnly=true면 debugger 클릭 성공만 성공으로 침
-  // (.click() 폴백은 정부 버튼에선 무시되는 경우가 많아, 재시도 루프에선 성공으로 오판하면 안 됨)
+  // 텍스트/셀렉터로 버튼 후보를 모두 모아 보이는 것·정확한 것부터 '진짜 클릭' 시도.
+  // (⚠️ 첫 매칭만 잡으면 숨은 요소(rect 없음)에 걸려 영원히 실패할 수 있음 — 후보 정렬·순차 시도)
+  // trustedOnly=true면 debugger 클릭 성공만 성공으로 침(.click()은 정부 버튼이 무시하므로 오판 방지)
   const realClick = async (texts, sels = [], trustedOnly = false) => {
-    let el = null
-    const cand = Array.from(document.querySelectorAll('a,button,[role="button"],input[type="button"],input[type="submit"],span,li,div[onclick]'))
-    for (const c of cand) {
+    const cands = []
+    const seen = new Set()
+    for (const c of document.querySelectorAll('a,button,[role="button"],input[type="button"],input[type="submit"],span,li,div[onclick]')) {
       const t = norm(c.textContent) + norm(c.value || '')
-      if (texts.some((x) => t.includes(norm(x)))) { el = c.closest('a,button,[role="button"],input,li,[onclick]') || c; break }
+      if (!t || t.length > 80) continue
+      if (!texts.some((x) => t.includes(norm(x)))) continue
+      const el = c.closest('a,button,[role="button"],input,li,[onclick]') || c
+      if (seen.has(el)) continue
+      seen.add(el)
+      cands.push({ el, len: t.length, vis: (el.getClientRects && el.getClientRects().length) ? 1 : 0 })
     }
-    if (!el) { for (const s of sels) { const q = document.querySelector(s); if (q) { el = q; break } } }
-    if (!el) return false
-    if (await trustedClickEl(el)) return true
+    for (const s of sels) {
+      const q = document.querySelector(s)
+      if (q && !seen.has(q)) { seen.add(q); cands.push({ el: q, len: 0, vis: (q.getClientRects && q.getClientRects().length) ? 1 : 0 }) }
+    }
+    if (!cands.length) return false
+    cands.sort((a, b) => (b.vis - a.vis) || (a.len - b.len)) // 보이는 것 우선 → 텍스트 짧은(정확한) 것 우선
+    for (const { el } of cands.slice(0, 4)) { if (await trustedClickEl(el)) return true }
     if (trustedOnly) return false
-    try { el.click(); return true } catch { return false }
+    for (const { el } of cands.slice(0, 2)) { try { el.click(); return true } catch { /* noop */ } }
+    return false
   }
   // React/Vue 등 프레임워크 폼도 인식하도록 네이티브 setter로 값 설정 후 input/change 발생
   const setVal = (el, val) => {
@@ -124,15 +135,26 @@
     filled = (fill(['#oacx_birth', 'input[name*="birth" i]', 'input[placeholder*="생년월일"]'], birth)
       || fillByLabel(['생년월일', '생일'], birth)) || filled
     if (phone) {
-      // 전체 번호 필드(모바일 신분증: placeholder 01012341234) 우선, 없으면 뒷자리(oacx 분할)
-      let full = fill(['input[placeholder*="01012341234"]', 'input[placeholder*="휴대폰"]', 'input[placeholder*="휴대전화"]',
-        'input[name*="hpNo" i]', 'input[name*="mbl" i]', 'input[name*="phone" i]'], phone)
-      if (!full) full = fillByLabel(['휴대폰', '휴대전화', '핸드폰', '전화번호'], phone)
-      if (!full) {
-        const tail = phone.startsWith('010') && phone.length >= 10 ? phone.slice(3) : phone
-        full = fill(['#oacx_phone2', '#oku_phone2', 'input.phone'], tail)
+      const tail = phone.startsWith('010') && phone.length >= 10 ? phone.slice(3) : phone
+      // ①앞자리(010) select가 따로 있는 위젯이면 → 옆 입력칸에 '뒷자리만' 넣는다
+      const telSel = Array.from(document.querySelectorAll('select')).find((s) =>
+        Array.from(s.options || []).some((o) => /^01[016789]$/.test((o.text || '').trim())))
+      let done = false
+      if (telSel) {
+        let inp = null, scope = telSel.parentElement
+        for (let d = 0; d < 3 && scope && !inp; d++) { // select 주변에서 가장 가까운 입력칸
+          inp = scope.querySelector('input:not([type=hidden]):not([type=checkbox]):not([type=radio])')
+          scope = scope.parentElement
+        }
+        if (!inp) inp = document.querySelector('#oacx_phone2, #oku_phone2, input.phone')
+        if (inp) { setVal(inp, tail); done = true }
       }
-      filled = filled || full
+      // ②전체 번호 한 칸짜리(모바일 신분증: placeholder 01012341234)
+      if (!done) done = fill(['input[placeholder*="01012341234"]', 'input[placeholder*="휴대폰"]', 'input[placeholder*="휴대전화"]',
+        'input[name*="hpNo" i]', 'input[name*="mbl" i]', 'input[name*="phone" i]'], phone)
+      if (!done) done = fillByLabel(['휴대폰', '휴대전화', '핸드폰', '전화번호'], phone)
+      if (!done) done = fill(['#oacx_phone2', '#oku_phone2', 'input.phone'], tail)
+      filled = filled || done
     }
     // 통신사(앱에서 입력) — select면 텍스트 매칭으로 선택
     const carrier = (u.carrier || '').trim()
@@ -225,31 +247,33 @@
           : '✅ 발급 완료! 화면의 [문서출력]을 누르면 저장돼요.')
         return
       }
-      // (b) 신청 폼: 로딩(스피너) 끝나고 '신청하기'가 뜰 때까지 대기 → 사용자 검토 시간 → 자동 신청
+      // (b) 신청 폼: 로딩(스피너) 끝나고 '신청하기'가 뜰 때까지 대기(최대 60초 — SPA 렌더가 늦어도
+      //     이 인스턴스가 끝까지 기다림. 12초에 포기하면 guard 때문에 다시 못 돎) → 검토 시간 → 자동 신청
       let ready = false
-      for (let i = 0; i < 24; i++) { // 최대 ~12초
+      for (let i = 0; i < 120; i++) {
         if (/신청하기/.test(bt()) && !/잠시만\s*기다/.test(bt())) { ready = true; break }
+        if (i % 10 === 0) status('running', '발급 폼 불러오는 중…')
         await sleep(500)
       }
-      if (!ready) { status('running', '발급 폼 불러오는 중…'); return } // 다음 재주입에서 재시도
+      if (!ready) { status('waiting', "폼이 늦게 떠요 — '신청하기'가 보이면 직접 눌러 주세요. (누르면 이후는 자동)"); return }
       // 기본값(전체발급 / 온라인발급-본인출력)은 이미 선택돼 있음. 잘못된 정보는 이 5초 동안 사용자가 직접 수정 가능.
       status('waiting', '발급 정보를 확인하세요. 잘못된 항목이 있으면 지금 수정하세요 — 5초 후 자동으로 신청합니다.')
       await sleep(5000)
       const ymd = new Date().toISOString().slice(0, 10).replace(/-/g, '')
       await send({ type: 'SAVE_ON_POPUP', payload: { filename: `모두봄_${(job.docName || '문서').replace(/\s/g, '')}_${ymd}.pdf` } })
-      // 정부 버튼은 진짜 클릭만 먹으므로 debugger 기반 realClick 사용(실패 시 .click 폴백).
-      // 개발자도구가 열려 있는 등 일시 실패면 3초 간격으로 최대 60초 재시도.
+      // 진짜 클릭(debugger) 후 화면이 실제로 넘어갔는지 검증 — 안 넘어가면 재시도(최대 8회)
       let submitted = false
       const SUBMIT_TEXTS = ['민원신청하기', '신청하기']
       const SUBMIT_SELS = ['#btnMinwonApply', '#btnApply', "input[value*='신청']", "a[onclick*='apply' i]", "button[onclick*='apply' i]"]
-      for (let i = 0; i < 20 && !submitted; i++) { // 진짜 클릭만 성공으로 인정, 3초 간격 재시도
-        submitted = await realClick(SUBMIT_TEXTS, SUBMIT_SELS, true)
-        if (!submitted) await sleep(3000)
+      const movedOn = () => !/신청하기/.test(bt()) || /전자서명|간편\s*서명|서명\s*요청|처리\s*중|접수(되|됐|완료)/.test(bt()) || location.href !== url
+      for (let i = 0; i < 8 && !submitted; i++) {
+        status('running', `'신청하기' 자동 클릭 중… (${i + 1}번째 시도)`)
+        const hit = await realClick(SUBMIT_TEXTS, SUBMIT_SELS, i < 7) // 마지막 시도만 .click() 폴백 허용
+        if (hit) { await sleep(3000); submitted = movedOn() } else await sleep(2000)
       }
-      if (!submitted) submitted = await realClick(SUBMIT_TEXTS, SUBMIT_SELS) // 마지막 시도: .click() 폴백 허용
       status(submitted ? 'running' : 'waiting', submitted
-        ? '발급 신청을 제출하는 중이에요… (전자서명 창이 뜨면 본인 확인해 주세요)'
-        : "화면 하단의 '신청하기' 버튼을 눌러 주세요. (누르면 이후는 자동)")
+        ? '발급 신청을 제출했어요! (전자서명 창이 뜨면 본인 확인해 주세요)'
+        : "자동 클릭이 안 먹네요 — 화면 하단의 '신청하기'를 직접 눌러 주세요. (누르면 이후는 자동)")
       return
     }
     // 로그인 상태를 잠깐 기다렸다 확인(로그아웃 링크가 늦게 렌더될 수 있음)

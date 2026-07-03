@@ -16,6 +16,13 @@ export function RpaInfoForm() {
       </p>
       <div className="grid grid-cols-2 gap-2">
         <input
+          value={rpaInfo.name}
+          onChange={(e) => setRpaInfo({ name: e.target.value })}
+          placeholder="실명 (본인인증용)"
+          className="rounded-lg border border-sprout-100 px-2.5 py-1.5 text-xs focus-ring"
+          aria-label="실명"
+        />
+        <input
           value={rpaInfo.birth_date}
           onChange={(e) => setRpaInfo({ birth_date: e.target.value })}
           placeholder="생년월일 (예: 19600101)"

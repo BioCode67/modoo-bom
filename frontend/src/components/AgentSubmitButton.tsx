@@ -62,7 +62,7 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
     // 로컬 에이전트(내장 6종)가 되면 백엔드 우선, 아니면 확장으로 신청(복지로 딥링크 전달)
     if (!canLocal && canExt) {
       const ok = await applyViaExtension(policy.name, {
-        user_name: profile?.name || '사용자', birth_date: rpaInfo.birth_date, phone: rpaInfo.phone, carrier: rpaInfo.carrier,
+        user_name: rpaInfo.name || profile?.name || '사용자', birth_date: rpaInfo.birth_date, phone: rpaInfo.phone, carrier: rpaInfo.carrier,
       }, policy.application)
       if (!ok) setRun({ status: 'error', step: '이 서비스는 확장 자동신청을 아직 지원하지 않아요.' })
       return
@@ -70,7 +70,7 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
     try {
       const res = await fetch(`${API_BASE}/api/apply/start`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ service_name: policy.name, user_name: profile?.name || '사용자', profile: { ...(profile || {}), ...rpaInfo } }),
+        body: JSON.stringify({ service_name: policy.name, user_name: rpaInfo.name || profile?.name || '사용자', profile: { ...(profile || {}), ...rpaInfo } }),
       })
       if (!res.ok) throw new Error('이 서비스는 자동 신청을 지원하지 않아요')
       const { task_id } = await res.json()
