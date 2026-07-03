@@ -68,6 +68,39 @@ function resolveDoc(name) {
   return null
 }
 
+// ── 발급 문서 자동 저장(문서출력 팝업 → PDF) ─────────────────────────────────
+// 문서출력이 새 창/탭으로 열리면 그 탭을 debugger로 printToPDF 해서 다운로드한다.
+let pendingSave = null // { filename, until }
+
+async function savePdf(tabId, filename) {
+  const target = { tabId }
+  try {
+    await chrome.debugger.attach(target, '1.3')
+    const res = await chrome.debugger.sendCommand(target, 'Page.printToPDF', { printBackground: true })
+    try { await chrome.debugger.detach(target) } catch { /* noop */ }
+    await chrome.downloads.download({ url: 'data:application/pdf;base64,' + res.data, filename, saveAs: false })
+    pushStatus('done', '📄 발급 문서를 PDF로 저장했어요! (다운로드 폴더 확인)')
+    return true
+  } catch (e) {
+    try { await chrome.debugger.detach(target) } catch { /* noop */ }
+    pushStatus('done', "문서가 열렸어요. Ctrl+P → 'PDF로 저장'으로 저장하세요.")
+    return false
+  }
+}
+
+chrome.tabs.onCreated.addListener((tab) => {
+  if (!pendingSave || Date.now() > pendingSave.until) { pendingSave = null; return }
+  const filename = pendingSave.filename
+  pendingSave = null
+  const onUpd = (tid, info) => {
+    if (tid === tab.id && info.status === 'complete') {
+      chrome.tabs.onUpdated.removeListener(onUpd)
+      setTimeout(() => savePdf(tab.id, filename), 1500)
+    }
+  }
+  chrome.tabs.onUpdated.addListener(onUpd)
+})
+
 async function startJob(rawName, userInfo, webTabId) {
   const docName = resolveDoc(rawName)
   if (!docName) return { ok: false, error: `지원하지 않는 서류: ${rawName}` }
@@ -152,6 +185,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     }
     if (msg.type === 'GOTO') {
       if (job && sender.tab && sender.tab.id === job.tabId) { chrome.tabs.update(job.tabId, { url: msg.payload.url }) }
+      return sendResponse({ ok: true })
+    }
+    if (msg.type === 'SAVE_ON_POPUP') {
+      // 다음에 열리는 문서출력 팝업을 PDF로 저장 예약(15초 유효)
+      const fn = (msg.payload && msg.payload.filename) || 'gov-document.pdf'
+      pendingSave = { filename: fn, until: Date.now() + 15000 }
       return sendResponse({ ok: true })
     }
     if (msg.type === 'REINJECT') {

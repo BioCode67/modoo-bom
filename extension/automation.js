@@ -79,6 +79,23 @@
       if (!skipped) status('running', "화면에서 '현재 정보 유지'를 눌러 주세요. (그러면 발급으로 넘어가요)")
       return  // 클릭 후 네비게이션되면 재주입되어 발급으로 이어짐
     }
+    // 발급 완료 목록(서비스 신청 내역) — 문서출력 클릭 + PDF 자동 저장
+    if (/mbrAplySrvcList/i.test(location.href) ||
+        (document.body && /서비스\s*신청\s*내역/.test(document.body.innerText))) {
+      const hasOutput = /문서출력/.test((document.body && document.body.innerText) || '')
+      if (hasOutput) {
+        const ymd = new Date().toISOString().slice(0, 10).replace(/-/g, '')
+        const fn = `모두봄_${(job.docName || '문서').replace(/\s/g, '')}_${ymd}.pdf`
+        await send({ type: 'SAVE_ON_POPUP', payload: { filename: fn } })
+        const clicked = await pollClick(() => clickText(['문서출력']), 5)
+        status('done', clicked
+          ? '✅ 발급 완료! 문서를 PDF로 저장하는 중이에요… (다운로드 폴더 확인)'
+          : '✅ 발급 완료! 목록의 [문서출력]을 누르면 저장돼요.')
+      } else {
+        status('done', '✅ 발급 신청 접수됨. 처리완료되면 [문서출력]으로 저장하세요.')
+      }
+      return
+    }
     // 이미 로그인 상태면 발급 페이지로 이동
     if (loggedIn()) {
       status('running', '로그인 완료 — 발급 페이지로 이동합니다.')
