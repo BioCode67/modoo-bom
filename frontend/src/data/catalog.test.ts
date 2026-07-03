@@ -1,8 +1,10 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { WELFARE_POLICIES } from './policies'
+import { PRIVATE_POLICIES } from './privatePolicies'
 
 // 카탈로그(표시용)는 이름 기준 디듑되므로 시드 기준선도 '이름 유일' 개수로 잡는다.
-const SEED = new Set(WELFARE_POLICIES.map((p) => p.name.replace(/\s/g, ''))).size
+// 시드 = 정부 큐레이션(POL-) + 민간재단 큐레이션(PRV-)
+const SEED = new Set([...WELFARE_POLICIES, ...PRIVATE_POLICIES].map((p) => p.name.replace(/\s/g, ''))).size
 
 /** ok/throw 가능한 fetch 목 */
 function mockFetch(payload: unknown, ok = true) {
