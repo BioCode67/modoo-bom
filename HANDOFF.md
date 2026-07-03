@@ -159,6 +159,8 @@ curl -fsSL https://raw.githubusercontent.com/BioCode67/modoo-bom/main/scripts/se
 **검증/품질 도구**
 - 실사이트 셀렉터 점검: `cd backend && python ../extension/validate_live.py "<서류명>"` (본인인증 직전까지, 개인정보 미사용)
 - 코드/URL 데이터 감사: `AA020InfoCappView.do?CappBizCD=<코드>` title 확인, 복지로 `moveTWAT52011M.do?wlfareInfoId=<ID>` len 확인
+- **사이클3(7-04 새벽)**: 챗 에이전트 '서류' 의도 추가 — "서류 뭐 필요해?" → 담은 복지 필요서류 빈도순 요약+
+  서류 준비 도우미 연결(테스트 261, 배포됨). 확장 DOCS 13종 변화 없음(RPA 목록 동기화 불필요 확인).
 - **민간재단 검증 감사(7-04 새벽)**: 데스크탑 추가분 9곳 URL 전수 생존·신원 확인(포스코청암·CJ도너스캠프·
   아름다운·아산나눔·행복나눔·열매나눔·기아대책·일주 ✓). **한화 항목은 실측 정정** — 한화문화재단은 학생 장학이
   아니라 신진 예술가 레지던시 지원이라 사실대로 재작성(PRV-016). ⚠️신규 재단 추가 시 URL·사업 실체 검증 필수.
