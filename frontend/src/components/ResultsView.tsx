@@ -90,6 +90,20 @@ export function ResultsView({ result, profile, onReset }: { result: AnalysisResu
         </div>
       </motion.div>
 
+      {/* 🌱 에이전트의 한마디 — 분석 결과를 1인칭으로 정리·우선순위 권고(AI Agent 목소리) */}
+      {result.final_response && primary.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
+          className="mt-5 flex items-start gap-3 rounded-2xl border-2 border-sprout-200 bg-white p-4"
+        >
+          <span className="text-xl shrink-0">🌱</span>
+          <div className="min-w-0">
+            <p className="text-xs font-bold text-sprout-600 mb-0.5">에이전트가 정리했어요</p>
+            <p className="text-sm leading-relaxed text-foreground/90">{result.final_response}</p>
+          </div>
+        </motion.div>
+      )}
+
       {/* 알림 */}
       {result.notifications.length > 0 && (
         <div className="mt-5 space-y-2">
