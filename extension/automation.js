@@ -114,15 +114,23 @@
           : '✅ 발급 완료! 화면의 [문서출력]을 누르면 저장돼요.')
         return
       }
-      // (b) 신청 폼: 저장 예약 후 발급/신청 제출(전자서명이 뜨면 본인 확인)
+      // (b) 신청 폼: 로딩(스피너) 끝나고 '신청하기'가 뜰 때까지 대기 → 사용자 검토 시간 → 자동 신청
+      let ready = false
+      for (let i = 0; i < 24; i++) { // 최대 ~12초
+        if (/신청하기/.test(bt()) && !/잠시만\s*기다/.test(bt())) { ready = true; break }
+        await sleep(500)
+      }
+      if (!ready) { status('running', '발급 폼 불러오는 중…'); return } // 다음 재주입에서 재시도
+      // 기본값(전체발급 / 온라인발급-본인출력)은 이미 선택돼 있음. 잘못된 정보는 이 5초 동안 사용자가 직접 수정 가능.
+      status('waiting', '발급 정보를 확인하세요. 잘못된 항목이 있으면 지금 수정하세요 — 5초 후 자동으로 신청합니다.')
+      await sleep(5000)
       const ymd = new Date().toISOString().slice(0, 10).replace(/-/g, '')
       await send({ type: 'SAVE_ON_POPUP', payload: { filename: `모두봄_${(job.docName || '문서').replace(/\s/g, '')}_${ymd}.pdf` } })
-      const submitted = await pollClick(() =>
-        clickText(['민원신청하기', '신청하기', '발급하기', '발급', '제출', '신청']) ||
-        clickSel(['#btnMinwonApply', '#btnApply', '#btnIssue', "input[value*='신청']", "input[value*='발급']"]), 10)
+      const submitted = clickText(['민원신청하기', '신청하기']) ||
+        clickSel(['#btnMinwonApply', '#btnApply', "input[value*='신청']"])
       status(submitted ? 'running' : 'waiting', submitted
         ? '발급 신청을 제출하는 중이에요… (전자서명 창이 뜨면 본인 확인해 주세요)'
-        : "발급 폼이에요. 필수 항목 확인 후 아래 '신청/발급' 버튼을 눌러 주세요. (누르면 이후는 자동)")
+        : "화면 하단의 '신청하기' 버튼을 눌러 주세요. (누르면 이후는 자동)")
       return
     }
     // 로그인 상태를 잠깐 기다렸다 확인(로그아웃 링크가 늦게 렌더될 수 있음)
@@ -169,11 +177,18 @@
     const birth = String(u.birth_date || '').replace(/[^0-9]/g, '')
     const phone = String(u.phone || '').replace(/[^0-9]/g, '')
     let filled = false
-    filled = fill(['#oacx_name', 'input[name*="name"]'], name) || filled
-    filled = fill(['#oacx_birth', 'input[name*="birth"]'], birth) || filled
+    // 이름 — id/name/placeholder 모두 대응(간편인증 oacx + 모바일 신분증 위젯)
+    filled = fill(['#oacx_name', 'input[name*="name" i]', 'input[placeholder*="이름"]', 'input[placeholder*="홍길동"]'], name) || filled
+    filled = fill(['#oacx_birth', 'input[name*="birth" i]', 'input[placeholder*="생년월일"]'], birth) || filled
     if (phone) {
-      const tail = phone.startsWith('010') && phone.length >= 10 ? phone.slice(3) : phone
-      filled = fill(['#oacx_phone2', '#oku_phone2', 'input.phone', 'input[name*="phone"]'], tail) || filled
+      // 전체 번호 필드(모바일 신분증: placeholder 01012341234) 우선, 없으면 뒷자리(oacx 분할)
+      const full = fill(['input[placeholder*="01012341234"]', 'input[placeholder*="휴대폰"]', 'input[placeholder*="휴대전화"]',
+        'input[name*="hpNo" i]', 'input[name*="mbl" i]', 'input[name*="phone" i]'], phone)
+      if (!full) {
+        const tail = phone.startsWith('010') && phone.length >= 10 ? phone.slice(3) : phone
+        fill(['#oacx_phone2', '#oku_phone2', 'input.phone'], tail)
+      }
+      filled = filled || full
     }
     // 통신사(앱에서 입력) — select면 텍스트 매칭으로 선택
     const carrier = (u.carrier || '').trim()
@@ -185,9 +200,13 @@
         }
       }
     }
-    // 전체동의
-    const agree = document.querySelector('#totalAgree, input#totalAgree')
-    if (agree && !agree.checked) { agree.click() }
+    // 전체동의 — id/name 또는 '전체동의' 라벨의 체크박스
+    let agreeEl = document.querySelector('#totalAgree, input#totalAgree, input[id*="allAgree" i], input[name*="allAgree" i], input[id*="agreeAll" i]')
+    if (!agreeEl) {
+      const lab = [...document.querySelectorAll('label,span,div')].find((e) => /전체\s*동의/.test(e.textContent || ''))
+      if (lab) { const f = lab.getAttribute && lab.getAttribute('for'); agreeEl = (f && document.getElementById(f)) || lab.querySelector('input[type="checkbox"]') || lab }
+    }
+    if (agreeEl) { if (agreeEl.tagName === 'INPUT') { if (!agreeEl.checked) agreeEl.click() } else agreeEl.click() }
     status(filled ? 'waiting' : 'waiting',
       filled
         ? "✅ 이름·생년월일·휴대폰을 자동 입력했어요. '인증 요청'을 누르고 📱 카카오톡 알림에서 [인증 허용]만 하세요."
