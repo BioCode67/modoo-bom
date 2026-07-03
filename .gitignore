@@ -39,3 +39,4 @@ htmlcov/
 
 # 확장 빌드 산출물
 extension/dist/
+backend/agent_profile.json
