@@ -34,6 +34,8 @@ export function matchEmergency(keys: string[]): Policy[] {
     }
     // 긴급복지지원 계열은 위기 상황 핵심 → 가중
     if (p.name.includes('긴급')) score += 4
+    // 민간재단(심사·선발형)은 노출하되 법정 권리인 정부 긴급지원보다 아래로(정부 제도 최우선 안내)
+    if (/^PRV-/.test(p.id)) score -= 3
     return { p, score }
   }).filter((x) => x.score > 0)
 
