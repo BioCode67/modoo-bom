@@ -103,14 +103,18 @@ curl -fsSL https://raw.githubusercontent.com/BioCode67/modoo-bom/main/scripts/se
 - 설치: 지금은 `chrome://extensions` 개발자모드 로드. 웹스토어 제출 패키지 준비됨(`extension/build.ps1`,`STORE.md`).
 
 **열린 TODO (우선순위 순)**
-1. **[진행 중, 미완] 복지로 wlfareInfoId 죽은 ID 2건 정정**: `extension/background.js`의 `SERVICE_URLS`에서
-   **부모급여 `WLF00010441`·첫만남이용권 `WLF00009878`** 가 빈 페이지(97byte) 반환 →
-   `frontend/public/policies.json`에서 올바른 wlfareInfoId 찾아 교체(백엔드 `apply_rpa.py`도 동일).
-   실사용 영향은 폴백 한정(프론트가 정책 실제 URL 전달). 찾기:
-   `node -e "const d=require('./frontend/public/policies.json');d.filter(p=>p.name.includes('부모급여')&&/wlfareInfoId/.test(p.application||'')).forEach(p=>console.log(p.name,p.application))"`
-2. **[완료] 정부24 코드 감사**: 가족관계 `97400000004`·장애인 `14600000273` 정정(커밋 40aa81d, 실측 title 확인). 나머지 코드 OK.
+1. **[완료] 복지로 wlfareInfoId 정정 — 죽은 2건이 아니라 6건 전부 오류였음**: 라이브 복지로에서 각 ID의
+   페이지 `wlfareInfoNm`을 실측 대조한 결과 `SERVICE_URLS`(및 `apply_rpa.py` `SERVICE_APPLY_URLS`) 6개가
+   모두 잘못됨을 발견. 부모급여·첫만남은 죽은 ID(147byte), 나머지는 타 서비스로 재배정(아동수당 ID→국가보훈
+   명예수당, 청년내일저축 ID→참전유공자 명예수당, 생계급여 ID→에너지 취약계층 조명기기 등). `policies.json`의
+   올바른 ID로 6건 교체(기초연금 WLF00001164/아동수당 WLF00001171/부모급여 WLF00004657/청년내일저축 WLF00000060/
+   첫만남 WLF00004656/생계급여 WLF00001132). 검증법: `moveTWAT52011M.do?wlfareInfoId=<ID>` 응답의 `wlfareInfoNm` 확인.
+2. **[완료] 정부24 코드 감사(재검증)**: 9종 CappBizCD 전부 `AA020InfoCappView.do?CappBizCD=<코드>` title(EUC-KR)
+   실측으로 올바름 확인(가족관계 97400000004·장애인 14600000273 포함, 커밋 40aa81d 유효). 백엔드 3종도 일치.
+   6개 사이트 로그인/발급 URL 생존도 실측 확인(gov24·nhis·work24·nps·bokjiro·gov24발급 모두 응답).
 3. **end-to-end 미검증**: 본인인증 이후(폼작성→발급/제출)는 실계정 필요 → 미확인. 데모 준비 때 실계정 1건 끝까지 시연(`DEMO_GUIDE.md`).
-4. **쉬운 말 2차 정비**: 첫 사용자 경로(프로필 입력·분석)의 남은 딱딱한 용어 정리(1차는 현금성→현금 지원 등 반영됨).
+4. **[일부 완료] 쉬운 말 2차 정비**: 프로필 위저드 소득 섹션('기준 중위소득'→쉬운 설명+생활어 병기)·장애 정도
+   (폐지된 1/2/3급→현행 '심한/심하지 않은 장애', 저장값은 엔진 호환 유지) 정비 완료. 결과 화면·챗봇 쪽 용어는 추후.
 5. **웹스토어 실제 제출**(개발자 등록 $5) → 일반인 원클릭 설치.
 6. **홈택스/LH 등 추가 사이트**: 홈택스=무거운 SPA(실계정 보정 필요), LH·근로복지공단=공동인증서 중심(다른 방식). 보류 중.
 
