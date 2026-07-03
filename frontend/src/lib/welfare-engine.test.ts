@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   extractKeywords, getEligiblePolicies, searchPolicies,
-  estimateBenefits, runAnalysis, checkPolicy, sidoOf, guOf, demographicMismatch, disabilityLabel, type UserProfile,
+  estimateBenefits, runAnalysis, checkPolicy, incomeCeiling, sidoOf, guOf, demographicMismatch, disabilityLabel, type UserProfile,
 } from './welfare-engine'
 import type { Policy } from '@/data/policies'
 
@@ -123,6 +123,40 @@ describe('checkPolicy 소득 정밀 선정기준 (2026: 생계32·의료40·주�
   it('중위 60% 정책: 60% 적격, 61% 부적격(63%로 과대포함하던 것 정밀화)', () => {
     expect(checkPolicy(mk('중위소득 60% 이하'), at(60)).eligible).toBe(true)
     expect(checkPolicy(mk('중위소득 60% 이하'), at(61)).eligible).toBe(false)
+  })
+})
+
+describe('소득 상한 게이트 — 연령이 맞아도 소득 초과면 제외(현실성 핵심)', () => {
+  const mk = (eligibility: string, name = '테스트'): Policy => ({
+    id: 'T', name, category: '기타', target: eligibility, benefit: '',
+    eligibility, required_docs: [], application: '', department: '', renewal: '',
+  })
+  const youth = (pct: number): UserProfile => ({ ...base, age: 26, income_percentile: pct })
+
+  it('청년(연령 충족)이라도 "중위소득 80% 이하" 정책은 90%면 제외', () => {
+    const doc = '만 19~34세 청년, 기준 중위소득 80% 이하'
+    expect(checkPolicy(mk(doc, '저소득 청년 지원'), youth(80)).eligible).toBe(true)
+    expect(checkPolicy(mk(doc, '저소득 청년 지원'), youth(90)).eligible).toBe(false)
+  })
+  it('"중위소득 100% 이하"는 90%면 그대로 적격(과배제 안 함)', () => {
+    const doc = '만 19~34세, 기준 중위소득 100% 이하'
+    expect(checkPolicy(mk(doc, '청년 자산형성'), youth(90)).eligible).toBe(true)
+    expect(checkPolicy(mk(doc, '청년 자산형성'), youth(120)).eligible).toBe(false)
+  })
+  it('여러 % 표기면 가장 관대한(높은) 상한 적용', () => {
+    const doc = '만 19~34세, 개인소득 조건, 가구 중위소득 180% 이하 (일부 50%)'
+    expect(checkPolicy(mk(doc, '청년 주거'), youth(150)).eligible).toBe(true)
+    expect(checkPolicy(mk(doc, '청년 주거'), youth(180)).eligible).toBe(true)
+  })
+  it('소득 상한 문구가 없으면 게이트 없음(연령만으로 판정)', () => {
+    expect(incomeCeiling('만 19~34세 청년 누구나')).toBe(null)
+    expect(checkPolicy(mk('만 19~34세 청년 누구나', '보편 청년'), youth(150)).eligible).toBe(true)
+  })
+  it('incomeCeiling: 차상위=50, 기초생활=50, 하위 70%=70', () => {
+    expect(incomeCeiling('차상위계층 대상')).toBe(50)
+    expect(incomeCeiling('기초생활수급자')).toBe(50)
+    expect(incomeCeiling('소득 하위 70% 어르신')).toBe(70)
+    expect(incomeCeiling('기준 중위소득 80% 이하')).toBe(80)
   })
 })
 

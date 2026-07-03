@@ -363,10 +363,33 @@ export function demographicMismatch(name: string, doc: string, p: UserProfile): 
   return false
 }
 
+/**
+ * 소득 상한(기준중위소득 %) 추출 — 이 값을 명백히 넘으면 대상이 아님(null=소득 무관/불명).
+ * 정책 문구에 "중위소득 N%·소득 하위 N%·차상위" 같은 상한이 있는데도 연령 규칙이 먼저 매칭돼
+ * 소득 초과자에게 '강력추천'으로 새어나가는 것을 막는 게이트(현실성 향상의 핵심).
+ * ⚠️ 과배제 방지: 여러 %가 있으면 가장 관대한(높은) 값을 상한으로 삼고, 숫자 없는 막연한
+ *   '저소득'만으로는 게이트하지 않는다(명시 %/차상위/기초생활만).
+ */
+export function incomeCeiling(doc: string): number | null {
+  let ceil: number | null = null
+  const re = /(?:중위소득|중위|하위)\s*([0-9]{2,3})\s*%/g
+  let m: RegExpExecArray | null
+  while ((m = re.exec(doc)) !== null) {
+    const v = parseInt(m[1], 10)
+    if (!Number.isNaN(v) && (ceil === null || v > ceil)) ceil = v
+  }
+  if (ceil === null && /차상위/.test(doc)) ceil = 50
+  if (ceil === null && /(기초생활|생계급여|기초생활수급|기초수급)/.test(doc)) ceil = 50
+  return ceil
+}
+
 // 공개 API: 정책 1건 자격 판별. doc = eligibility + ' ' + target + ' ' + name (mock_eligibility/estimate와 동일).
 export function checkPolicy(policy: Policy, p: UserProfile): CheckResult {
   const doc = `${policy.eligibility} ${policy.target} ${policy.name}`
   if (demographicMismatch(policy.name, doc, p)) return NO
+  // 소득 상한이 명시돼 있고 사용자가 명백히 초과하면 대상 아님(연령만 맞아도 제외)
+  const ceil = incomeCeiling(doc)
+  if (ceil !== null && p.income_percentile > ceil) return NO
   return checkPolicyDoc(doc, policy.name, p)
 }
 
@@ -453,6 +476,9 @@ export function getEligiblePolicies(p: UserProfile): EligiblePolicy[] {
     }
     // 정밀 룰이 못 잡은 요약본(공공데이터) 정책은 상황 신호로 보조 매칭
     if (!isSummaryPolicy(policy)) continue
+    // 요약문에 명시 소득 상한이 있고 사용자가 초과하면 '관련'에서도 제외(현실성)
+    const ic = incomeCeiling(`${policy.eligibility} ${policy.target} ${policy.name}`)
+    if (ic !== null && p.income_percentile > ic) continue
     const inf = inferFromText(policy, p)
     if (!inf) continue
     // 지자체는 사용자 시·도와 다르면 제외(지역 입력 시에만; 중앙·시드는 전국이라 항상 포함)
