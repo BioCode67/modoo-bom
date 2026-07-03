@@ -10,6 +10,7 @@ import { BenefitBreakdown, CategoryDistribution } from '@/components/BenefitChar
 import { FutureWelfare } from '@/components/FutureWelfare'
 import { LifeTimeline } from '@/components/LifeTimeline'
 import { ContinuityCard } from '@/components/ContinuityCard'
+import { AiDiscovery } from '@/components/AiDiscovery'
 import { WelfareScore } from '@/components/WelfareScore'
 import { ShareButton } from '@/components/ShareButton'
 import { Glossary } from '@/components/Glossary'
@@ -163,6 +164,9 @@ export function ResultsView({ result, profile, onReset }: { result: AnalysisResu
               )}
             </div>
           )}
+
+          {/* 🧠 AI 의미 발견 — 자격 있는 복지와 의미가 가까운 숨은 복지를 온디바이스로 추가 발굴 */}
+          <AiDiscovery eligible={primary.length ? primary : eligible} profile={profile} onOpen={setSelected} />
         </>
       )}
 

@@ -158,6 +158,66 @@ export async function relatedPolicies(policyId: string, topK = 6): Promise<Seman
   return hits
 }
 
+/**
+ * 프로필 의미 발견 — 사용자가 이미 '자격 있는' 정책들의 임베딩 평균(centroid)에 의미가 가까운
+ * 정책을 전체 5천여 건에서 찾아준다. 키워드 규칙이 못 잡은 '숨은 복지'를 AI로 surfacing.
+ * ⚠️ AI 모델 다운로드 불필요(사전계산 임베딩만) → 빠르고 항상 동작. 서버 전송 없음.
+ *
+ * @param seedIds 사용자가 자격 있는 정책 id들(centroid 기준)
+ * @param opts.topK 반환 개수, opts.excludeNames 이미 보여준 정책명(공백제거), opts.keep 추가 필터(지역·소득 등)
+ */
+export async function semanticDiscover(
+  seedIds: string[],
+  opts: { topK?: number; excludeNames?: Set<string>; keep?: (p: Policy) => boolean } = {},
+): Promise<SemanticHit[]> {
+  const { topK = 8, excludeNames = new Set(), keep } = opts
+  await ensureEmbeddings()
+  if (!_vecs) return []
+  const dim = _vecs[0]?.length || 0
+  const idxOf = new Map(_ids.map((id, i) => [id, i]))
+  // centroid = 시드 벡터 평균 → 정규화
+  const c = new Float32Array(dim)
+  let used = 0
+  for (const id of seedIds) {
+    const i = idxOf.get(id)
+    if (i == null) continue
+    const v = _vecs[i]
+    for (let j = 0; j < dim; j++) c[j] += v[j]
+    used++
+  }
+  if (used === 0) return []
+  let norm = 0
+  for (let j = 0; j < dim; j++) norm += c[j] * c[j]
+  norm = Math.sqrt(norm) || 1
+  for (let j = 0; j < dim; j++) c[j] /= norm
+  const pmap = getPolicyMap()
+  const seedSet = new Set(seedIds)
+  const seen = new Set(excludeNames)
+  const scored: { id: string; score: number }[] = []
+  for (let i = 0; i < _ids.length; i++) {
+    const id = _ids[i]
+    if (seedSet.has(id)) continue
+    const v = _vecs[i]
+    let s = 0
+    for (let j = 0; j < dim; j++) s += c[j] * v[j]
+    scored.push({ id, score: s })
+  }
+  scored.sort((a, b) => b.score - a.score)
+  const hits: SemanticHit[] = []
+  for (const { id, score } of scored) {
+    if (hits.length >= topK) break
+    if (score < 0.85) break // 의미 유사도 하한(잡음 컷)
+    const policy = pmap[id]
+    if (!policy) continue
+    const nm = policy.name.replace(/\s/g, '')
+    if (seen.has(nm)) continue
+    if (keep && !keep(policy)) continue
+    seen.add(nm)
+    hits.push({ policy, score })
+  }
+  return hits
+}
+
 /** 미리 로드(모델 워밍업). UI에서 토글 켤 때 호출. */
 export async function warmupSemantic(onProgress?: SemanticProgress): Promise<void> {
   await ensureLoaded(onProgress)
