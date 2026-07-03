@@ -278,15 +278,29 @@
           : '✅ 발급 완료! 화면의 [문서출력]을 누르면 저장돼요.')
         return
       }
+      // 같은 출처(same-origin) 자식 iframe들의 텍스트/문서도 함께 본다 — 폼이 iframe 안에 렌더되는 경우 대응
+      const sameOriginFrames = () => {
+        const out = []
+        for (const f of document.querySelectorAll('iframe')) {
+          try { const d = f.contentDocument; if (d && d.body) out.push(d) } catch { /* cross-origin */ }
+        }
+        return out
+      }
+      const allText = () => bt() + sameOriginFrames().map((d) => d.body.innerText || '').join(' ')
       // (b) 신청 폼: 로딩(스피너) 끝나고 '신청하기'가 뜰 때까지 대기(최대 60초 — SPA 렌더가 늦어도
       //     이 인스턴스가 끝까지 기다림. 12초에 포기하면 guard 때문에 다시 못 돎) → 검토 시간 → 자동 신청
       let ready = false
       for (let i = 0; i < 120; i++) {
-        if (/신청하기/.test(bt()) && !/잠시만\s*기다/.test(bt())) { ready = true; break }
+        if (/신청하기/.test(allText()) && !/잠시만\s*기다/.test(bt())) { ready = true; break }
         if (i % 10 === 0) status('running', '발급 폼 불러오는 중…')
         await sleep(500)
       }
-      if (!ready) { status('waiting', "폼이 늦게 떠요 — '신청하기'가 보이면 직접 눌러 주세요. (누르면 이후는 자동)"); return }
+      if (!ready) {
+        const iframes = document.querySelectorAll('iframe')
+        trace('form-not-ready', { iframes: iframes.length, sameOrigin: sameOriginFrames().length })
+        status('waiting', "폼이 늦게 떠요 — '신청하기'가 보이면 직접 눌러 주세요. (누르면 이후는 자동)")
+        return
+      }
       // 기본값(전체발급 / 온라인발급-본인출력)은 이미 선택돼 있음. 잘못된 정보는 이 5초 동안 사용자가 직접 수정 가능.
       status('waiting', '발급 정보를 확인하세요. 잘못된 항목이 있으면 지금 수정하세요 — 5초 후 자동으로 신청합니다.')
       await sleep(5000)
@@ -296,10 +310,24 @@
       let submitted = false
       const SUBMIT_TEXTS = ['민원신청하기', '신청하기']
       const SUBMIT_SELS = ['#btnMinwonApply', '#btnApply', "input[value*='신청']", "a[onclick*='apply' i]", "button[onclick*='apply' i]"]
-      const movedOn = () => !/신청하기/.test(bt()) || /전자서명|간편\s*서명|서명\s*요청|처리\s*중|접수(되|됐|완료)/.test(bt()) || location.href !== url
+      const movedOn = () => !/신청하기/.test(allText()) || /전자서명|간편\s*서명|서명\s*요청|처리\s*중|접수(되|됐|완료)/.test(allText()) || location.href !== url
+      // same-origin iframe 안의 '신청하기'를 찾아 클릭(iframe이면 top realClick이 못 찾음)
+      const clickInFrames = () => {
+        for (const d of sameOriginFrames()) {
+          for (const el of d.querySelectorAll("a,button,input[type=submit],input[type=button],[role=button],[onclick]")) {
+            const t = (el.textContent || el.value || '').replace(/\s/g, '')
+            if (SUBMIT_TEXTS.some((x) => t.includes(x.replace(/\s/g, '')))) {
+              const tgt = el.closest('a,button,input,[role=button],[onclick]') || el
+              try { tgt.click(); trace('submit-iframe', { t: t.slice(0, 12) }); return true } catch { /* noop */ }
+            }
+          }
+        }
+        return false
+      }
       for (let i = 0; i < 8 && !submitted; i++) {
         status('running', `'신청하기' 자동 클릭 중… (${i + 1}번째 시도)`)
-        const hit = await realClick(SUBMIT_TEXTS, SUBMIT_SELS, i < 7) // 마지막 시도만 .click() 폴백 허용
+        let hit = await realClick(SUBMIT_TEXTS, SUBMIT_SELS, i < 7) // 최상위 프레임 진짜 클릭(마지막만 .click 폴백)
+        if (!hit) hit = clickInFrames() // 폼이 iframe 안이면 그 안에서 클릭
         if (hit) { await sleep(3000); submitted = movedOn() } else await sleep(2000)
         trace('submit-attempt', { i: i + 1, hit, moved: submitted })
       }
