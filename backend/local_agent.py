@@ -186,11 +186,21 @@ def run(doc_name: str):
             pass
         page.goto(issue_url(capp), wait_until="domcontentloaded", timeout=45000)
         page.wait_for_timeout(2500)
-        # 발급 폼으로: AA040 직접 링크 우선(회원/비회원 모달·신뢰클릭 이슈 우회)
+        # 발급 폼으로: '발급하기'(= a[href*=AA040OfferMainFrm]) 링크를 신뢰 클릭.
+        # ⚠️ href가 상대경로(/mw/AA040...)라 goto가 아니라 클릭으로 이동해야 함(실측 확인).
         try:
             link = page.locator("a[href*='AA040OfferMainFrm']").first
             if link.count():
-                page.goto(link.get_attribute("href"), wait_until="domcontentloaded")
+                try:
+                    link.click(timeout=6000)
+                except Exception:
+                    # 클릭이 안 되면 절대경로로 이동(origin 기준 해석)
+                    href = link.get_attribute("href") or ""
+                    if href.startswith("/"):
+                        href = "https://www.gov.kr" + href
+                    if href.startswith("http"):
+                        page.goto(href, wait_until="domcontentloaded")
+                page.wait_for_load_state("domcontentloaded")
                 page.wait_for_timeout(2500)
         except Exception:
             pass
