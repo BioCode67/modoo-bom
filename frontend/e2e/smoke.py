@@ -13,6 +13,7 @@
   2) 복지 찾기 → 데모 페르소나(독거 어르신) → 분석 결과 + 민간재단 💝 섹션
   3) 챗 에이전트 열기 → 개인화 인사(프로필 이름)
   4) 정책 탐색 → 민간재단 필터 → 현대차 정몽구 스칼러십 노출
+  4.5) 급여 계산기(80만→생계급여 대상) / 4.7) 긴급진단(정부 우선) / 2.5) 용어사전+ESC
   5) 모바일 뷰포트(390px) 홈·복지찾기 진입
   + 전 구간 페이지 에러(pageerror) 0건
 """
@@ -127,6 +128,13 @@ def main() -> int:
             page.wait_for_selector("text=민간재단 지원", timeout=10000)
             print("[e2e] ✅ 2. 분석 결과 + 민간재단 💝 섹션")
 
+            # 2.5) 용어사전 + ESC 접근성 — 어려운 말 즉시 해소 + 키보드로 닫기
+            page.click("text=복지 용어 사전")
+            page.wait_for_selector("text=복지 용어 쉬운 사전", timeout=8000)
+            page.keyboard.press("Escape")
+            page.wait_for_selector("text=복지 용어 쉬운 사전", state="hidden", timeout=5000)
+            print("[e2e] ✅ 2.5 용어사전 열기 + ESC 닫기(키보드 접근성)")
+
             # 3) 챗 에이전트: 개인화 인사(분석한 프로필 이름)
             page.click('[aria-label="복지 도우미 챗봇 열기"]')
             page.wait_for_selector("text=김복순", timeout=10000)
@@ -138,6 +146,21 @@ def main() -> int:
             page.click("text=민간재단")
             page.wait_for_selector("text=현대차 정몽구 스칼러십", timeout=15000)
             print("[e2e] ✅ 4. 탐색 민간재단 필터 + 큐레이션 노출")
+
+            # 4.5) 급여 계산기 — 1인 가구 월 80만원 → 생계급여 신청 대상(2026 실측 기준 상한 82만)
+            page.click("text=내가 받을 수 있는 급여 계산하기")
+            page.fill('[aria-label="월 소득"]', "800000")
+            page.wait_for_selector("text=신청 대상이에요", timeout=8000)
+            print("[e2e] ✅ 4.5 급여 계산기(1인 80만 → 생계급여 대상)")
+
+            # 4.7) 긴급복지 진단 — 위기 선택 시 정부 제도가 최우선으로 안내
+            page.click("text=홈")
+            page.click("text=긴급 도움")
+            page.wait_for_selector('[aria-label="긴급복지 빠른 진단"]', timeout=8000)
+            page.click("text=아프거나 다쳤어요")
+            page.wait_for_selector("text=긴급복지지원", timeout=8000)  # 법정 권리(정부) 노출
+            page.click('[aria-label="긴급복지 빠른 진단"] >> [aria-label="닫기"]')
+            print("[e2e] ✅ 4.7 긴급진단(정부 제도 최우선 노출)")
 
             # 5) 모바일 뷰포트(iPhone급) — 핸드폰에서 홈·주 흐름이 깨지지 않는지
             mpage = browser.new_page(viewport={"width": 390, "height": 844}, is_mobile=True, has_touch=True)
