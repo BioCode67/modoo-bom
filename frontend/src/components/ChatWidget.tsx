@@ -30,7 +30,7 @@ export function ChatWidget() {
 
   // 열 때 현재 상태(프로필·담아둔 복지)를 먼저 브리핑 — 능동적인 에이전트 인상. 최초 1회.
   useEffect(() => {
-    const g = greetingReply(profile, tracked.length)
+    const g = greetingReply(profile, tracked)
     setMsgs([{ role: 'bot', text: g.text, cta: g.cta }])
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { agentReply, greetingReply, matchSaveIntent } from './chatAgent'
 import type { UserProfile, AnalysisResult, EligiblePolicy } from './welfare-engine'
 import type { Policy } from '@/data/policies'
+import type { TrackedItem } from '@/store/useAppStore'
 
 const profile: UserProfile = {
   name: '김복순', age: 72, gender: 'female', region: '서울', household_type: '1인가구',
@@ -16,15 +17,24 @@ const eligible: EligiblePolicy = {
 }
 const result = { eligible_policies: [eligible] } as unknown as AnalysisResult
 
+const mkT = (policyId: string, status: TrackedItem['status'] = 'idle'): TrackedItem =>
+  ({ policyId, name: policyId, category: '', status, savedAt: 1_700_000_000_000, checkedDocs: [] })
+
 describe('greetingReply — 능동적 상태 브리핑', () => {
-  it('프로필 없으면 분석 유도 CTA', () => {
-    const g = greetingReply(null, 0)
+  it('프로필 없고 담아둔 것 없으면 분석 유도 CTA', () => {
+    const g = greetingReply(null, [])
     expect(g.cta?.view).toBe('analyze')
   })
-  it('프로필 있으면 이름 개인화 + CTA', () => {
-    const g = greetingReply(profile, 2)
+  it('프로필 있고 급한 것 없으면 개인화 인사(이름 포함)', () => {
+    const g = greetingReply(profile, [mkT('X1'), mkT('X2')]) // idle → 급하지 않음
     expect(g.text).toContain('김복순')
     expect(g.cta).toBeTruthy()
+  })
+  it('급한 항목(신청준비 완료 등)이 있으면 그것부터 먼저 브리핑', () => {
+    // status tracking + 서류요건 없는(미지) 정책 → "신청 준비 끝" high 알림
+    const g = greetingReply(profile, [mkT('X1', 'tracking')])
+    expect(g.text).toMatch(/급히 챙길|🔔/)
+    expect(g.cta?.view).toBe('my')
   })
 })
 

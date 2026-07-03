@@ -1,8 +1,10 @@
 import type { Policy } from '@/data/policies'
 import type { UserProfile, AnalysisResult } from '@/lib/welfare-engine'
+import type { TrackedItem } from '@/store/useAppStore'
 import { checkPolicy, getEligiblePolicies } from '@/lib/welfare-engine'
-import { getCatalog } from '@/data/catalog'
+import { getCatalog, getPolicyMap } from '@/data/catalog'
 import { searchPolicies } from '@/lib/search'
+import { buildActionFeed } from '@/lib/monitoring'
 import { parseMonthly, formatWon } from '@/lib/format'
 import { applyLink } from '@/lib/officialLinks'
 
@@ -27,9 +29,20 @@ function line(p: Policy, note?: string): string {
   return `• ${p.name}${amt}${note ? ` — ${note}` : ` — ${applyLink(p.application).label}`}`
 }
 
-/** 챗을 열 때 현재 상태를 먼저 브리핑(능동성) */
-export function greetingReply(profile: UserProfile | null, trackedCount: number): AgentReply {
-  if (!profile && trackedCount === 0) {
+/** 챗을 열 때 현재 상태를 먼저 브리핑(능동성) — 급한 마감·서류가 있으면 그것부터 짚어준다 */
+export function greetingReply(profile: UserProfile | null, tracked: TrackedItem[]): AgentReply {
+  const count = tracked.length
+  // 능동적 개입: 담아둔 복지 중 지금 급한(마감·신청준비완료·갱신임박) 항목을 먼저 보고
+  const urgent = buildActionFeed(tracked, getPolicyMap()).filter((f) => f.alert.level === 'high')
+  if (urgent.length) {
+    const name = profile?.name || '회원'
+    const top = urgent.slice(0, 2).map((f) => `• ${f.policy?.name ?? '복지'} — ${f.alert.text}`).join('\n')
+    return {
+      text: `${name}님, 지금 급히 챙길 게 ${urgent.length}건 있어요 🔔\n${top}\n\n담아두신 복지를 계속 지켜보고 있어요. 바로 확인해 보실래요?`,
+      cta: { view: 'my', label: '지금 챙기기' },
+    }
+  }
+  if (!profile && count === 0) {
     return {
       text: '안녕하세요! 복지 도우미예요 🌱\n제가 상황에 맞는 복지를 찾아드릴게요. "내가 뭐 받을 수 있어?"처럼 편하게 물어보시거나, 정밀 분석을 해보셔도 좋아요.',
       cta: { view: 'analyze', label: '내 복지 분석하기' },
@@ -39,7 +52,7 @@ export function greetingReply(profile: UserProfile | null, trackedCount: number)
   const who = profile ? `(${HH(profile)}) ` : ''
   const bits: string[] = []
   if (profile) bits.push('프로필을 알고 있어서 바로 맞춤 답을 드릴 수 있어요')
-  if (trackedCount > 0) bits.push(`담아두신 복지 ${trackedCount}건도 지켜보고 있어요`)
+  if (count > 0) bits.push(`담아두신 복지 ${count}건도 지켜보고 있어요`)
   return {
     text: `${name}님 ${who}반가워요! 🌱\n${bits.join('. ')}. 무엇이 궁금하세요? "내가 받을 수 있는 거 알려줘"라고 하시면 정리해 드릴게요.`,
     cta: profile ? { view: 'my', label: '나의 복지 보기' } : { view: 'analyze', label: '내 복지 분석하기' },
@@ -122,7 +135,7 @@ export function matchSaveIntent(raw: string, context: Policy[]): Policy[] | null
 export function agentReply(raw: string, ctx: { profile: UserProfile | null; result: AnalysisResult | null }): AgentReply {
   const q = raw.trim()
   if (!q) return { text: '' }
-  if (GREET_RE.test(q)) return greetingReply(ctx.profile, 0)
+  if (GREET_RE.test(q)) return greetingReply(ctx.profile, [])
   if (ELIG_RE.test(q)) return eligibilityReply(ctx.profile, ctx.result)
   return searchReply(q, ctx.profile)
 }
