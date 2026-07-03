@@ -6,7 +6,7 @@ import { useAppStore } from '@/store/useAppStore'
 import { docLink, isRpaSupported } from '@/lib/officialLinks'
 import { API_BASE } from '@/lib/backend'
 import { useBackend } from '@/lib/useBackend'
-import { detectExtension, issueViaExtension, onExtensionStatus, sameDocName } from '@/lib/extension'
+import { detectExtension, issueViaExtension, issueManyViaExtension, onExtensionStatus, sameDocName } from '@/lib/extension'
 import { RpaInfoForm } from '@/components/RpaInfoForm'
 
 type RpaState = { status: string; step: string; at?: number } | null
@@ -94,6 +94,22 @@ export function DocumentCenter() {
     }
   }
 
+  // 🚀 연쇄 자동발급 — 지원 서류 전부를 한 흐름으로(정부24는 한 번 로그인으로 이어짐)
+  const rpaDocs = docs.filter((d) => isRpaSupported(d))
+  const startAll = async () => {
+    if (!rpaInfo.name?.trim() || !rpaInfo.birth_date?.trim() || !rpaInfo.phone?.trim()) {
+      setRpa((s) => ({ ...s, [rpaDocs[0]]: { status: 'error', step: '아래 "자동입력 추가정보"에 실명·생년월일·휴대폰을 먼저 입력해 주세요.', at: Date.now() } }))
+      return
+    }
+    const userInfo = {
+      user_name: rpaInfo.name || profile?.name || '사용자',
+      birth_date: rpaInfo.birth_date, phone: rpaInfo.phone, carrier: rpaInfo.carrier,
+    }
+    setRpa((s) => ({ ...s, ...Object.fromEntries(rpaDocs.map((d) => [d, { status: 'running', step: '대기열에 추가됨…', at: Date.now() }])) }))
+    const r = await issueManyViaExtension(rpaDocs, userInfo)
+    if (!r.ok) setRpa((s) => ({ ...s, [rpaDocs[0]]: { status: 'error', step: r.error || '연쇄 발급을 시작하지 못했어요.', at: Date.now() } }))
+  }
+
   return (
     <motion.section initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="mt-8">
       <div className="flex items-center justify-between flex-wrap gap-2">
@@ -130,6 +146,13 @@ export function DocumentCenter() {
         </div>
       )}
       {backend && <RpaInfoForm />}
+
+      {/* 🚀 연쇄 자동발급 — 확장이 있고 지원 서류가 2개 이상일 때 */}
+      {ext && rpaDocs.length > 1 && (
+        <button onClick={startAll} className="btn-primary w-full mt-3 !py-2.5 text-sm">
+          🚀 필요한 서류 {rpaDocs.length}종 전부 자동발급 (한 번 인증으로 이어서)
+        </button>
+      )}
 
       <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
         {docs.map((doc) => {

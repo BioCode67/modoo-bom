@@ -12,6 +12,7 @@
 //   npm i playwright-core 후 PW_PATH 환경변수로 지정.
 import { createServer } from 'node:http'
 import { fileURLToPath } from 'node:url'
+import { rmSync } from 'node:fs'
 import path from 'node:path'
 import { createRequire } from 'node:module'
 
@@ -51,7 +52,9 @@ const server = createServer((req, res) => {
 })
 await new Promise((r) => server.listen(PORT, r))
 
+// ⚠️ 영속 프로필은 옛 확장(서비스워커)을 캐시함 → 매 실행 새 프로필로 최신 코드 보장
 const userDataDir = path.join(process.env.TEMP || '/tmp', 'modoo-selftest-profile')
+try { rmSync(userDataDir, { recursive: true, force: true }) } catch { /* noop */ }
 // ⚠️ 브랜드 크롬(채널 chrome)은 137+에서 --load-extension 지원 제거 → 번들 chromium 사용
 const context = await chromium.launchPersistentContext(userDataDir, {
   headless: false,
@@ -139,6 +142,17 @@ try {
     return cands.length ? cands[0].el.id : null
   })
   check('T5 realClick이 보이는 신청하기 우선(숨은 함정 회피)', applyPick === 'visibleApply', `picked=${applyPick}`)
+
+  // ── T6: ISSUE_MANY 연쇄 발급 — 수락 + 정부24 서류 우선 정렬 ──
+  await page.evaluate(() => window.req('CANCEL')) // 앞 테스트 잡 정리
+  await page.waitForTimeout(400)
+  const many = await page.evaluate(() => window.req('ISSUE_MANY', {
+    docNames: ['건강보험 자격득실확인서', '주민등록등본', '가족관계증명서'],
+    userInfo: { user_name: '테스트' },
+  }))
+  check('T6 ISSUE_MANY 수락(3종)', !!(many && many.ok && many.count === 3), JSON.stringify(many))
+  check('T6 정부24 서류 우선 정렬(nhis 뒤로)', !!(many && many.docs && many.docs[0] !== '건강보험 자격득실확인서'),
+    many && many.docs ? many.docs.join('→') : '')
 } finally {
   await context.close().catch(() => {})
   server.close()

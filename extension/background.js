@@ -80,6 +80,33 @@ function pushStatus(status, step) {
   if (job.webTabId != null) {
     chrome.tabs.sendMessage(job.webTabId, { type: 'STATUS', payload: { jobId: job.id, status, step, docName: job.docName } }).catch(() => {})
   }
+  // 연쇄 발급 큐: 이 서류가 끝나면(로그인 세션 유지 상태) 다음 서류로 같은 탭 이동.
+  // done이 여러 번 올 수 있어(접수→PDF저장) advancing 플래그로 1회만 예약. PDF 팝업 처리 시간 4초 대기.
+  if (status === 'done' && job.kind === 'doc' && job.queue && job.queue.length && !job.advancing) {
+    job.advancing = true
+    saveJob()
+    setTimeout(() => { advanceQueue().catch(() => {}) }, 4000)
+  }
+}
+
+// 큐의 다음 서류로 진행 — 정부24는 로그인 유지라 안내페이지(AA020)로 바로,
+// 타 사이트(건보 등)는 해당 로그인 페이지로(재인증 필요하지만 이동·입력은 자동).
+async function advanceQueue() {
+  await ensureJob()
+  if (!job || !job.queue || !job.queue.length) return
+  const next = job.queue.shift()
+  const info = DOCS[next]
+  if (!info) { job.advancing = false; saveJob(); return advanceQueue() }
+  job.advancing = false
+  job.docName = next
+  job.site = info.site
+  job.phase = 'issue'
+  saveJob()
+  const target = info.site === 'gov24'
+    ? (info.issue || issueUrl(info.capp))
+    : LOGIN_URLS[info.site]
+  pushStatus('running', `이어서 '${next}' 발급을 진행해요… (남은 서류 ${job.queue.length}개)`)
+  try { await chrome.tabs.update(job.tabId, { url: target, active: true }) } catch { clearJob() }
 }
 
 // 서류명 표기 변형(예: '소득금액증명원'/'주민등록 등본') 흡수 — 공백 제거 후 부분일치
@@ -217,6 +244,17 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       const { docName, userInfo } = msg.payload || {}
       const webTabId = sender.tab ? sender.tab.id : null
       return sendResponse(await startJob(docName, userInfo, webTabId))
+    }
+    if (msg.type === 'ISSUE_MANY') {
+      // 연쇄 발급: 여러 서류를 한 번의 흐름으로. 정부24 서류를 앞으로 정렬(한 번 로그인으로 연쇄).
+      const { docNames, userInfo } = msg.payload || {}
+      const resolved = [...new Set((docNames || []).map(resolveDoc).filter(Boolean))]
+      if (!resolved.length) return sendResponse({ ok: false, error: '자동발급을 지원하는 서류가 없어요' })
+      resolved.sort((a, b) => (DOCS[a].site === 'gov24' ? 0 : 1) - (DOCS[b].site === 'gov24' ? 0 : 1))
+      const [first, ...rest] = resolved
+      const res = await startJob(first, userInfo, sender.tab ? sender.tab.id : null)
+      if (res.ok && rest.length) { job.queue = rest; job.total = resolved.length; saveJob() }
+      return sendResponse({ ...res, count: resolved.length, docs: resolved })
     }
     if (msg.type === 'APPLY') {
       const { serviceName, userInfo, applyUrl } = msg.payload || {}

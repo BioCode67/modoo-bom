@@ -70,6 +70,14 @@ export async function issueViaExtension(docName: string, userInfo: Record<string
   return { ok: !!resp.ok, error: resp.error }
 }
 
+/** 확장으로 여러 서류 연쇄 자동발급 — 한 번 로그인(정부24 세션 유지)으로 순차 발급.
+ *  반환 docs: 실제 큐에 들어간(지원되는) 서류 목록. */
+export async function issueManyViaExtension(docNames: string[], userInfo: Record<string, unknown>): Promise<ExtStartResult & { docs?: string[] }> {
+  const resp = await request('ISSUE_MANY', { docNames, userInfo }, 10000)
+  if (!resp) return { ok: false, error: '확장 응답이 늦어요 — 새 탭이 열렸다면 그 탭에서 계속 진행돼요.' }
+  return { ok: !!resp.ok, error: resp.error, docs: (resp as { docs?: string[] }).docs }
+}
+
 /** 확장이 자동신청 지원하는 복지 서비스 목록(미설치면 빈 배열). */
 export async function extensionServices(): Promise<string[]> {
   const resp = await request('PING', null, 1200)
