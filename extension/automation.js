@@ -18,15 +18,22 @@
   const isTop = window.top === window
   const norm = (t) => (t || '').replace(/\s/g, '')
 
+  const visible = (el) => !!(el && el.getClientRects && el.getClientRects().length)
   const clickText = (texts, exclude = []) => {
-    // 텍스트 라벨(제목 span/strong 포함)을 찾되, 실제 눌리는 상위 요소(카드/링크/버튼)를 클릭
+    // 텍스트 라벨(제목 span/strong 포함)을 찾되, '보이는' 요소의 실제 클릭가능 상위(카드/링크/버튼)를 클릭.
+    // 캐러셀 등 숨은 복제 요소 헛클릭 방지 위해 visible 체크 + 링크는 href로 직접 이동.
     const els = Array.from(document.querySelectorAll('a,button,li,span,strong,em,p,div[role="button"],input[type="button"],input[type="submit"]'))
     for (const el of els) {
       const t = norm(el.textContent) + norm(el.value || '')
-      if (texts.some((x) => t.includes(norm(x))) && !exclude.some((x) => t.includes(norm(x)))) {
-        const target = el.closest('a,button,[role="button"],li,[onclick]') || el
-        target.click(); return true
+      if (!texts.some((x) => t.includes(norm(x)))) continue
+      if (exclude.some((x) => t.includes(norm(x)))) continue
+      const target = el.closest('a,button,[role="button"],li,[onclick]') || el
+      if (!visible(target)) continue
+      const a = target.closest('a[href]') || (target.tagName === 'A' ? target : null)
+      if (a && a.href && !/^javascript:/i.test(a.href) && !/about:blank/.test(a.href)) {
+        location.href = a.href; return true
       }
+      target.click(); return true
     }
     return false
   }
