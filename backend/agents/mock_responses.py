@@ -101,6 +101,26 @@ def _income_ceiling(doc: str):
     return ceil
 
 
+def _income_ceiling(doc: str):
+    """소득 상한(기준중위소득 %) 추출 — 프론트 welfare-engine.ts incomeCeiling과 동일 로직(패리티).
+    '중위소득 N%'는 그대로, '하위 N%'(백분위)는 ×1.4 근사 환산(기초연금 하위70%≈중위96%, 2026 실측 앵커).
+    여러 값이면 가장 관대한(높은) 상한. 숫자 없는 '저소득'만으로는 게이트하지 않음."""
+    ceil = None
+    for m in re.finditer(r"중위(?:소득)?\s*([0-9]{2,3})\s*%", doc):
+        v = int(m.group(1))
+        if ceil is None or v > ceil:
+            ceil = v
+    for m in re.finditer(r"하위\s*([0-9]{2,3})\s*%", doc):
+        v = round(int(m.group(1)) * 1.4 / 5) * 5
+        if ceil is None or v > ceil:
+            ceil = v
+    if ceil is None and "차상위" in doc:
+        ceil = 50
+    if ceil is None and any(k in doc for k in ["기초생활", "생계급여", "기초수급"]):
+        ceil = 50
+    return ceil
+
+
 def _check_policy(doc: str, name: str, pid: str, profile) -> tuple[bool, str, str, float]:
     """(eligible, reason, priority, confidence) 반환"""
 
@@ -109,6 +129,11 @@ def _check_policy(doc: str, name: str, pid: str, profile) -> tuple[bool, str, st
         _ceil = _income_ceiling(doc)
         if _ceil is not None and profile.income_percentile > _ceil:
             return False, "", "low", 0.0
+
+    # 소득 상한 게이트 — 명시 상한이 있고 명백히 초과하면 연령이 맞아도 대상 아님(프론트와 동일)
+    ceil = _income_ceiling(doc)
+    if ceil is not None and profile.income_percentile > ceil:
+        return False, "", "low", 0.0
 
     # ── 민간재단(PRV-) 가드: 심사·선발형이라 정밀 룰(일반 소득룰 포함)로 '자격 충족'을 단정하지 않는다.
     # 프로필 신호가 맞으면 저신뢰 '관련 지원'으로만 제시 — 프론트 엔진(welfare-engine.ts)과 동일 원칙.

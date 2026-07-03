@@ -188,3 +188,13 @@ def test_mock_eligibility_income_precision():
     # 생계급여: 32% 적격, 33% 부적격
     assert _is_eligible("자격요건: 생계급여 수급자", 32) is True
     assert _is_eligible("자격요건: 생계급여 수급자", 33) is False
+
+
+def test_income_ceiling_gate_parity():
+    """소득 상한 게이트 — 프론트 엔진과 동일 동작(하위 N%는 ×1.4 근사, 과배제 방지)"""
+    from agents.mock_responses import _income_ceiling
+
+    assert _income_ceiling("기준 중위소득 80% 이하") == 80
+    assert _income_ceiling("차상위계층") == 50
+    assert _income_ceiling("소득 하위 70% 어르신") == 100  # 70×1.4=98→5단위 반올림 100
+    assert _income_ceiling("만 19~34세 청년 누구나") is None
