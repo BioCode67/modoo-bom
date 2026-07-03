@@ -27,9 +27,15 @@
 
 ## 권한 소명 (심사 필수)
 - `scripting`, `tabs`: 발급/신청 진행을 위해 정부24·복지로 탭을 열고 자동화 스크립트를 주입합니다.
-- `storage`: 진행 상태 표시용(개인정보 저장 아님).
-- host_permissions(`plus.gov.kr`, `www.gov.kr`, `www.bokjiro.go.kr`, `*.yeskey.or.kr`, `www.nhis.or.kr`, `www.work24.go.kr`):
-  해당 정부 사이트에서만 발급/신청 자동화를 수행하기 위함. 그 외 사이트에서는 동작하지 않습니다.
+- `storage`: 진행 상태 표시·문제 진단 기록용(개인정보 저장 아님).
+- `debugger`: 두 가지 용도로만 사용합니다. ①발급 완료 문서를 PDF로 저장(Page.printToPDF)
+  ②정부 사이트의 일부 버튼이 보안상 실제 사용자 클릭(isTrusted)만 허용하므로, 사용자가 시작한
+  발급 작업의 해당 탭에 한해 신뢰 클릭(Input.dispatchMouseEvent)을 전달. 사용자가 시작한
+  작업 탭 외에는 절대 attach하지 않으며, 데이터 수집·감청 용도로 사용하지 않습니다.
+- `downloads`: 발급된 PDF를 사용자 다운로드 폴더에 저장.
+- host_permissions(`plus.gov.kr`, `www.gov.kr`, `www.bokjiro.go.kr`, `*.yeskey.or.kr`, `www.nhis.or.kr`,
+  `www.work24.go.kr`, `nps.or.kr`, `www.kosaf.go.kr`):
+  해당 정부·공공 사이트에서만 발급/신청 자동화를 수행하기 위함. 그 외 사이트에서는 동작하지 않습니다.
 - 원격 코드 사용 없음. 모든 로직은 확장 패키지 내부에 포함.
 
 ## 개인정보처리방침 (필수 URL)
