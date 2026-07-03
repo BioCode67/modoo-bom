@@ -309,50 +309,50 @@
   // ── 정부24 발급/신청 폼 처리 ──
   if (host === 'www.gov.kr' && /AA040|AA020/i.test(url) && isTop) {
     await sleep(1500)
-    // 로그인으로 튕겼으면 로그인 페이지로
     if (/login|nlogin/i.test(url)) { status('running', '재로그인이 필요해요. 간편인증을 다시 진행해 주세요.'); return }
 
-    // 회원 신청 모달
-    clickText(['회원 신청하기', '회원신청'])
-    await sleep(800)
-    // 온라인발급 탭
-    clickText(['온라인발급', '온라인 발급', '인터넷발급', '전자문서'])
-    await sleep(800)
-    // 신청/발급하기
-    const applied = clickText(['발급하기', '신청하기', '발급신청', '온라인신청', '인터넷발급', '온라인발급'])
-    await sleep(1500)
-    clickText(['회원 신청하기', '회원신청'])
-    await sleep(1000)
+    // 각 단계는 '한 동작 → 페이지 전환 → 재주입이 이어받기' 방식(전환마다 return).
+    // ⚠️ 안내페이지의 인쇄 아이콘을 '출력'으로 오인하지 않도록, 출력 처리는 발급 폼/결과에서만.
 
-    // 문서 유형별 선택
+    // 1) 회원/비회원 모달 → 회원 신청하기
+    if (clickText(['회원 신청하기', '회원신청'])) {
+      status('running', '회원 신청으로 진행 중…'); return
+    }
+    // 2) 안내페이지(AA020) → '발급하기' 폴링 클릭 후 신청 화면으로(전환되면 재주입이 이어받음)
+    if (/AA020InfoCappView/i.test(url)) {
+      const clicked = await pollClick(() =>
+        clickText(['발급하기', '온라인발급', '온라인 발급', '인터넷발급', '발급신청', '신청하기']), 8)
+      status(clicked ? 'running' : 'waiting', clicked
+        ? '발급하기 클릭 — 신청 화면으로 이동 중…'
+        : "화면에서 '발급하기'를 눌러 주세요. (누르면 이후는 자동)")
+      return
+    }
+
+    // 3) 발급 폼(AA040): 문서 유형/목적 선택 후 제출
     if (job.docName === '주민등록초본') {
       const lab = Array.from(document.querySelectorAll('label,span,td')).find((e) => e.textContent.trim() === '초본')
       if (lab) { const f = lab.getAttribute('for'); (f && document.getElementById(f) || lab).click() }
     }
-    if (job.docName === '가족관계증명서') {
-      const lab = Array.from(document.querySelectorAll('label,span,td')).find((e) => e.textContent.includes('일반'))
-      if (lab) lab.click()
-    }
-    // 발급 목적 기본값
     const sel = document.querySelector("select[name*='purpose'], select[name*='issuPurps'], #issuPurps, select")
     if (sel && sel.options && sel.options.length) sel.selectedIndex = Math.min(1, sel.options.length - 1)
+    await sleep(600)
 
-    status('running', applied ? '발급 양식을 처리 중이에요…' : "화면에서 '신청하기/온라인발급' 버튼을 눌러 주세요.")
-    await sleep(1500)
+    // 4) 발급/신청 제출
+    const submitted = clickText(['민원신청하기', '신청하기', '발급', '제출', '확인']) ||
+      clickSel(["input[type='submit']", "button[type='submit']", '#btnIssue', '#btnApply'])
+    if (submitted) { status('running', '발급 신청을 제출하는 중이에요…'); return }
 
-    // 제출
-    clickText(['발급', '확인']) || clickSel(["input[type='submit']", "button[type='submit']"])
-    await sleep(2000)
-
-    // 출력 버튼 대기(최대 90초)
-    for (let i = 0; i < 90; i++) {
-      if (clickText(['출력', '인쇄', '저장', '다운로드'])) {
-        status('done', '✅ 발급 화면까지 진행했어요. 브라우저 인쇄창에서 저장(PDF)하시면 됩니다. 개인정보는 서버로 전송되지 않았어요.')
-        return
-      }
-      await sleep(1000)
+    // 5) 결과/출력 페이지 → 문서출력 클릭 + PDF 저장
+    if (/출력|인쇄|문서출력/.test((document.body && document.body.innerText) || '')) {
+      const ymd = new Date().toISOString().slice(0, 10).replace(/-/g, '')
+      await send({ type: 'SAVE_ON_POPUP', payload: { filename: `모두봄_${(job.docName || '문서').replace(/\s/g, '')}_${ymd}.pdf` } })
+      const out = await pollClick(() => clickText(['문서출력', '출력', '인쇄', '다운로드']), 8)
+      status('done', out
+        ? '✅ 발급 완료! 문서를 PDF로 저장하는 중이에요… (다운로드 폴더 확인)'
+        : '✅ 발급 화면까지 왔어요. 화면의 출력 버튼을 누르면 저장돼요.')
+      return
     }
-    status('done', '발급 화면까지 진행했어요. 남은 발급/출력 단계를 화면에서 직접 마무리해 주세요.')
+    status('running', '발급 신청 처리 중… (화면을 잠시 지켜봐 주세요)')
     return
   }
 })()
