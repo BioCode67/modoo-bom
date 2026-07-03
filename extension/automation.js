@@ -110,6 +110,50 @@
     return false
   }
 
+  // 본인인증 위젯(간편인증 oacx / 모바일 신분증) 자동입력 — iframe이든 같은 문서 모달이든 동작.
+  // 현재 문서에서 이름·생년월일·휴대폰·통신사·전체동의를 채운다. 하나라도 채우면 true.
+  const autofillAuth = () => {
+    const u = job.userInfo || {}
+    const name = (u.user_name || u.name || '').trim()
+    const birth = String(u.birth_date || '').replace(/[^0-9]/g, '')
+    const phone = String(u.phone || '').replace(/[^0-9]/g, '')
+    let filled = false
+    // 이름 — id/name/placeholder 우선, 안 잡히면 라벨 텍스트로(공격적)
+    filled = (fill(['#oacx_name', 'input[name*="name" i]', 'input[placeholder*="이름"]', 'input[placeholder*="홍길동"]'], name)
+      || fillByLabel(['이름', '성명', '한글이름'], name)) || filled
+    filled = (fill(['#oacx_birth', 'input[name*="birth" i]', 'input[placeholder*="생년월일"]'], birth)
+      || fillByLabel(['생년월일', '생일'], birth)) || filled
+    if (phone) {
+      // 전체 번호 필드(모바일 신분증: placeholder 01012341234) 우선, 없으면 뒷자리(oacx 분할)
+      let full = fill(['input[placeholder*="01012341234"]', 'input[placeholder*="휴대폰"]', 'input[placeholder*="휴대전화"]',
+        'input[name*="hpNo" i]', 'input[name*="mbl" i]', 'input[name*="phone" i]'], phone)
+      if (!full) full = fillByLabel(['휴대폰', '휴대전화', '핸드폰', '전화번호'], phone)
+      if (!full) {
+        const tail = phone.startsWith('010') && phone.length >= 10 ? phone.slice(3) : phone
+        full = fill(['#oacx_phone2', '#oku_phone2', 'input.phone'], tail)
+      }
+      filled = filled || full
+    }
+    // 통신사(앱에서 입력) — select면 텍스트 매칭으로 선택
+    const carrier = (u.carrier || '').trim()
+    if (carrier) {
+      const cs = document.querySelector("select[name*='telecom' i], select[name*='carrier' i], select[name*='mbl' i], #oacx_telecom")
+      if (cs && cs.options) {
+        for (const o of cs.options) {
+          if ((o.text || '').includes(carrier)) { cs.value = o.value; cs.dispatchEvent(new Event('change', { bubbles: true })); filled = true; break }
+        }
+      }
+    }
+    // 전체동의 — id/name 또는 '전체동의' 라벨의 체크박스
+    let agreeEl = document.querySelector('#totalAgree, input#totalAgree, input[id*="allAgree" i], input[name*="allAgree" i], input[id*="agreeAll" i]')
+    if (!agreeEl) {
+      const lab = [...document.querySelectorAll('label,span,div')].find((e) => /전체\s*동의/.test(e.textContent || ''))
+      if (lab) { const f = lab.getAttribute && lab.getAttribute('for'); agreeEl = (f && document.getElementById(f)) || lab.querySelector('input[type="checkbox"]') || lab }
+    }
+    if (agreeEl) { if (agreeEl.tagName === 'INPUT') { if (!agreeEl.checked) agreeEl.click() } else agreeEl.click() }
+    return filled
+  }
+
   // 버튼이 늦게 렌더되거나(보안 인터스티셜 후) 하는 경우를 위해 폴링 클릭
   const pollClick = async (fn, secs = 12) => {
     for (let i = 0; i < secs * 2; i++) { if (fn()) return true; await sleep(500) }
@@ -121,7 +165,9 @@
 
   const isAuthFrame = () =>
     !!document.querySelector('#oacx_name, #oacx_birth, [id^="oacx_"], [class*="oacx"]') ||
-    /simpleCert|oacx|nice|mobileok|kakao|fincert|yeskey/i.test(url)
+    // 모바일 신분증 위젯(이름 홍길동/번호 01012341234 placeholder)도 인증 위젯으로 취급
+    !!document.querySelector('input[placeholder*="홍길동"], input[placeholder*="01012341234"]') ||
+    /simpleCert|oacx|nice|mobileok|kakao|fincert|yeskey|mobile-?id|\bmip\b/i.test(url)
 
   // eForm(.cl-button 등) 컴포넌트에서 텍스트로 버튼 클릭 (복지로 Clipsoft eForm 대응)
   const clickEform = (texts) => {
@@ -216,24 +262,43 @@
       await sleep(300); await send({ type: 'GOTO', payload: { url: job.issueUrl } })
       return
     }
-    // 로그인 화면: 간편인증 버튼을 최대 12초 폴링(보안페이지 후 늦게 렌더 대비)
+    // 로그인 화면: '간편인증'을 텍스트로 정확히 클릭(⚠️ button.login-type 같은 위치 셀렉터는
+    // 첫 번째 방식인 '모바일 신분증'을 잘못 여는 사고가 있어 제거). 최대 12초 폴링.
     status('running', '정부24 로그인 화면 준비 중…')
-    const clicked = await pollClick(() =>
-      clickSel(["button.login-type", "[data-tab='easy']", "[data-type='easy']"]) ||
-      clickText(['간편인증', '간편 인증', '간편로그인']), 12)
+    const pickEasy = () =>
+      clickText(['간편인증', '간편 인증', '간편로그인'], ['모바일', '신분증', '금융인증', 'QR', '비회원', '아이디']) ||
+      clickSel(["[data-tab='easy']", "[data-type='easy']"])
+    const clicked = await pollClick(pickEasy, 12)
     status('running', clicked
-      ? '간편인증을 선택했어요. 카카오톡을 고르고 본인인증을 진행해 주세요. 📱'
+      ? '간편인증을 선택했어요. 카카오톡으로 본인인증을 진행해 주세요. 📱'
       : "화면에서 '간편인증'을 눌러 주세요. (보안 확인이 끝나면 자동으로 다시 시도해요)")
-    if (clicked) {
-      await sleep(2500); await send({ type: 'REINJECT' })
-      // 안전망: 페이지 전환 없이(AJAX) 로그인되는 경우 대비 — 로그인 완료를 폴링해 발급 진행
-      // (전환이 일어나면 이 인스턴스는 사라지고 onUpdated 재주입이 이어받음)
-      for (let i = 0; i < 300; i++) {
-        await sleep(1000)
-        if (loggedIn()) {
-          status('running', '로그인 완료 — 발급 안내 페이지로 이동합니다.')
-          await send({ type: 'GOTO', payload: { url: job.issueUrl } })
-          return
+    await sleep(2000); await send({ type: 'REINJECT' })
+    // 안전망 폴링: ①실수로 '모바일 신분증' 위젯이 열렸으면 닫고 간편인증 재선택
+    //   ②위젯이 iframe이 아니라 같은 문서 모달이면 여기(top)서 카카오 선택+자동입력
+    //   ③로그인 완료되면 발급 페이지로 (전환되면 onUpdated 재주입이 이어받음)
+    let topFilled = false
+    for (let i = 0; i < 300; i++) {
+      await sleep(1000)
+      if (loggedIn()) {
+        status('running', '로그인 완료 — 발급 안내 페이지로 이동합니다.')
+        await send({ type: 'GOTO', payload: { url: job.issueUrl } })
+        return
+      }
+      const bt = (document.body && document.body.innerText) || ''
+      // 모바일 신분증 위젯이 열려있고 간편인증이 아니면 → 닫고 간편인증으로 전환
+      if (!topFilled && /모바일\s*신분증/.test(bt) && /인증\s*요청|PUSH|QR/.test(bt) && !/간편인증\s*사업자/.test(bt) &&
+          !document.querySelector('[id^="oacx_"], [class*="oacx"]')) {
+        if (clickText(['닫기'])) { await sleep(800); pickEasy(); await sleep(1200); await send({ type: 'REINJECT' }); continue }
+      }
+      // 같은 문서 모달형 위젯 대응: 카카오톡 타일 선택 + 자동입력 시도(성공할 때까지)
+      if (!topFilled) {
+        const hasWidget = document.querySelector('[id^="oacx_"], [class*="oacx"]') ||
+          document.querySelector('input[placeholder*="홍길동"], input[placeholder*="01012341234"]')
+        if (hasWidget) {
+          clickText(['카카오톡', 'TALK'], ['카카오뱅크', 'BANK'])
+          await sleep(500)
+          topFilled = autofillAuth()
+          if (topFilled) status('waiting', "✅ 인증 정보를 자동 입력했어요. '인증 요청'을 누르고 📱 카카오톡에서 [인증 허용]만 하세요.")
         }
       }
     }
@@ -245,45 +310,8 @@
     await sleep(800)
     clickText(['카카오톡', 'TALK', '카카오'], ['카카오뱅크', 'BANK'])
     await sleep(600)
-    const u = job.userInfo || {}
-    const name = (u.user_name || u.name || '').trim()
-    const birth = String(u.birth_date || '').replace(/[^0-9]/g, '')
-    const phone = String(u.phone || '').replace(/[^0-9]/g, '')
-    let filled = false
-    // 이름 — id/name/placeholder 우선, 안 잡히면 라벨 텍스트로(공격적)
-    filled = (fill(['#oacx_name', 'input[name*="name" i]', 'input[placeholder*="이름"]', 'input[placeholder*="홍길동"]'], name)
-      || fillByLabel(['이름', '성명', '한글이름'], name)) || filled
-    filled = (fill(['#oacx_birth', 'input[name*="birth" i]', 'input[placeholder*="생년월일"]'], birth)
-      || fillByLabel(['생년월일', '생일'], birth)) || filled
-    if (phone) {
-      // 전체 번호 필드(모바일 신분증: placeholder 01012341234) 우선, 없으면 뒷자리(oacx 분할)
-      let full = fill(['input[placeholder*="01012341234"]', 'input[placeholder*="휴대폰"]', 'input[placeholder*="휴대전화"]',
-        'input[name*="hpNo" i]', 'input[name*="mbl" i]', 'input[name*="phone" i]'], phone)
-      if (!full) full = fillByLabel(['휴대폰', '휴대전화', '핸드폰', '전화번호'], phone)
-      if (!full) {
-        const tail = phone.startsWith('010') && phone.length >= 10 ? phone.slice(3) : phone
-        fill(['#oacx_phone2', '#oku_phone2', 'input.phone'], tail)
-      }
-      filled = filled || full
-    }
-    // 통신사(앱에서 입력) — select면 텍스트 매칭으로 선택
-    const carrier = (u.carrier || '').trim()
-    if (carrier) {
-      const cs = document.querySelector("select[name*='telecom' i], select[name*='carrier' i], select[name*='mbl' i], #oacx_telecom")
-      if (cs && cs.options) {
-        for (const o of cs.options) {
-          if ((o.text || '').includes(carrier)) { cs.value = o.value; cs.dispatchEvent(new Event('change', { bubbles: true })); filled = true; break }
-        }
-      }
-    }
-    // 전체동의 — id/name 또는 '전체동의' 라벨의 체크박스
-    let agreeEl = document.querySelector('#totalAgree, input#totalAgree, input[id*="allAgree" i], input[name*="allAgree" i], input[id*="agreeAll" i]')
-    if (!agreeEl) {
-      const lab = [...document.querySelectorAll('label,span,div')].find((e) => /전체\s*동의/.test(e.textContent || ''))
-      if (lab) { const f = lab.getAttribute && lab.getAttribute('for'); agreeEl = (f && document.getElementById(f)) || lab.querySelector('input[type="checkbox"]') || lab }
-    }
-    if (agreeEl) { if (agreeEl.tagName === 'INPUT') { if (!agreeEl.checked) agreeEl.click() } else agreeEl.click() }
-    status(filled ? 'waiting' : 'waiting',
+    const filled = autofillAuth()
+    status('waiting',
       filled
         ? "✅ 이름·생년월일·휴대폰을 자동 입력했어요. '인증 요청'을 누르고 📱 카카오톡 알림에서 [인증 허용]만 하세요."
         : "카카오톡 선택 후 본인인증 정보를 입력하고 '인증 요청'을 눌러 주세요. 📱")
