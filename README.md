@@ -5,6 +5,8 @@
 
 ### 🌐 라이브 데모 — **https://biocode67.github.io/modoo-bom/**
 
+![tests](https://img.shields.io/badge/frontend_tests-269_passed-brightgreen) ![pytest](https://img.shields.io/badge/backend_pytest-15_passed-brightgreen) ![e2e](https://img.shields.io/badge/E2E_실브라우저-9여정·에러0-brightgreen) ![data](https://img.shields.io/badge/실데이터-5,206건_검증-blue) ![lighthouse](https://img.shields.io/badge/Lighthouse-A11y96·BP100·SEO100-blue)
+
 회원가입·백엔드 없이 바로 동작합니다. 프론트엔드는 **전국 5,175건 복지**(보건복지부 검증 시드 124
 + 한국사회보장정보원 공공데이터 5,061 + **민간재단 큐레이션 11** — 현대차 정몽구 스칼러십·심장재단 수술비 등
 전 항목 공식 사이트 실측 검증)와 자격 판정 엔진, 그리고 **브라우저에서 직접 도는 AI**를 실행하므로 즉시 로딩되고 항상 켜져 있어요.
