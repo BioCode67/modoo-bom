@@ -56,6 +56,22 @@ cd backend && venv\Scripts\python.exe selftest_agent.py    # 로그인~인증 �
 진짜 크롬을 띄워 로그인→Mbuster통과→간편인증→simpleCert iframe→자동입력까지 확인한다
 ('인증 요청'은 누르지 않음 — 실인증은 사람만). 크롬/playwright 없으면 SKIP.
 
+## 🧠 지능형 에이전트 (LLM-driven RPA) — `smart_agent.py`
+
+하드코딩 셀렉터의 한계(처음 보는 사이트·DOM 변경에 취약)를 넘는 방식. browser-use·Skyvern류
+'웹 에이전트'의 **결정 계층(LLM)**을, 우리만의 **실행 계층(진짜 크롬+CDP, Mbuster 통과)** 위에 얹었다.
+
+- **관찰**: 현재 페이지(+iframe)의 상호작용 요소를 접근성 트리처럼 번호 목록으로 추출(`observe`).
+- **판단**: 목표+요소목록+히스토리를 LLM(Gemini/Claude)에 주고 다음 행동 1개를 JSON으로 받음.
+  LLM 키 없으면 규칙 폴백(`decide_heuristic`: 라벨로 간편인증→발급→문서출력 진행 버튼 선택).
+- **실행**: Playwright로 클릭/입력/이동 → 반복. 본인인증 창 감지 시 사람에게 넘김(설계상 유지).
+
+**왜 우월한가**: browser-use/Skyvern은 자기 브라우저라 정부24 Mbuster에 막힌다. 우리는 진짜 크롬이라
+통과하면서 LLM으로 '처음 보는 사이트'도 화면을 읽고 발급 흐름을 찾아간다. 실측: 로그인 화면 29개
+요소 중 '간편인증'을 스스로 골라 클릭→인증창 감지→사람 인증 핸드오프까지 동작 확인.
+
+실행: `run-smart-agent.bat "주민등록등본 발급"` (무료 Gemini 키를 backend/.env에 넣으면 훨씬 똑똑).
+
 ## 접근법의 일반화 (실측 확인)
 
 진짜 크롬+CDP는 정부24뿐 아니라 다른 정부·공공 사이트에도 접근 가능함을 확인:
