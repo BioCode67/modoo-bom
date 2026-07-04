@@ -1,8 +1,9 @@
 import { WELFARE_POLICIES, type Policy } from '@/data/policies'
 import { PRIVATE_POLICIES } from '@/data/privatePolicies'
+import { HOUSING_POLICIES } from '@/data/housingPolicies'
 
-// 시드 = 정부 큐레이션(POL-) + 민간재단 큐레이션(PRV-, 전 항목 실측 검증)
-const SEED_POLICIES: Policy[] = [...WELFARE_POLICIES, ...PRIVATE_POLICIES]
+// 시드 = 정부 큐레이션(POL-) + 민간재단 큐레이션(PRV-) + 청년주택 공고(HOU-, 전 항목 공식 게시판 실검증)
+const SEED_POLICIES: Policy[] = [...WELFARE_POLICIES, ...PRIVATE_POLICIES, ...HOUSING_POLICIES]
 
 /**
  * 통합 복지 카탈로그.
