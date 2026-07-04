@@ -47,12 +47,14 @@ _TAG_JS = r"""
     const type = (el.getAttribute('type') || '').toLowerCase();
     let label = (el.innerText || el.value || el.placeholder || el.getAttribute('aria-label') || el.getAttribute('alt') || el.name || '').replace(/\s+/g, ' ').trim().slice(0, 60);
     if (!label && el.querySelector('img')) label = (el.querySelector('img').alt || '').slice(0, 40);
+    const r = el.getBoundingClientRect();
+    const cx = Math.round(r.left + r.width / 2), cy = Math.round(r.top + r.height / 2);
     if (tag === 'input' || tag === 'textarea' || tag === 'select') {
       const cur = (el.value || '').slice(0, 20);
-      out.push({ idx: i, kind: tag === 'select' ? 'select' : (type || 'text') + '-input', label: label || '(입력칸)', value: cur });
+      out.push({ idx: i, kind: tag === 'select' ? 'select' : (type || 'text') + '-input', label: label || '(입력칸)', value: cur, x: cx, y: cy });
     } else {
       if (!label) continue;
-      out.push({ idx: i, kind: 'click', label });
+      out.push({ idx: i, kind: 'click', label, x: cx, y: cy });
     }
     el.setAttribute('data-modoo-idx', String(i));
     i++;
@@ -99,8 +101,11 @@ _SYSTEM = """너는 한국 정부·공공 웹사이트에서 '민원 서류 발�
 - 목표를 이룬 것으로 보이면(발급 완료/문서출력 화면) action="done".
 - 팝업/광고/안내는 무시하거나 닫고 본류로 진행.
 
+- 목록(번호)에 있는 요소는 반드시 idx로 지목(가장 정확). 목록에 없는데 화면(스크린샷)에만 보이는
+  버튼/영역(캔버스·이미지 위젯 등)은 action="click_xy"로 그 지점의 화면 좌표(x,y)를 준다.
+
 출력 형식(JSON):
-{"action":"click|fill|goto|wait|human_auth|done","idx":<요소번호 또는 null>,"value":"<fill/goto일 때 값>","reason":"<왜 이 행동인지 한 문장>"}"""
+{"action":"click|fill|goto|wait|human_auth|done|click_xy","idx":<요소번호 또는 null>,"x":<click_xy일 때 가로px>,"y":<click_xy일 때 세로px>,"value":"<fill/goto일 때 값>","reason":"<한 문장>"}"""
 
 
 def decide_heuristic(goal: str, url: str, elements, history) -> dict:
@@ -192,6 +197,13 @@ def execute(action: dict, page: Page, elements, prof: dict) -> str:
     if a == "wait":
         page.wait_for_timeout(1500)
         return "wait"
+    if a == "click_xy":  # DOM에 없는 화면상 지점을 '진짜 클릭'(Playwright는 신뢰 클릭)
+        try:
+            page.mouse.click(float(action.get("x", 0)), float(action.get("y", 0)))
+            page.wait_for_timeout(1200)
+            return "click_xy"
+        except Exception as e:
+            return f"실패({str(e)[:30]})"
     if a == "human_auth":
         # 인증 정보 자동입력 시도(있으면 편의) 후, 사람에게 폰 인증을 넘긴다
         for fr in page.frames:
