@@ -198,3 +198,13 @@ def test_income_ceiling_gate_parity():
     assert _income_ceiling("차상위계층") == 50
     assert _income_ceiling("소득 하위 70% 어르신") == 100  # 70×1.4=98→5단위 반올림 100
     assert _income_ceiling("만 19~34세 청년 누구나") is None
+
+
+def test_portfolio_cash_only_parity():
+    """포트폴리오 합산은 현금성만(프론트 isCashBenefit 패리티) — 부모급여는 포함, 바우처·대출은 제외"""
+    from agents.nodes.portfolio_manager import _is_cash_benefit
+
+    assert _is_cash_benefit("0세 월 100만원 (어린이집 이용 시 보육료 바우처로 지급, 차액 현금 지급)") is True
+    assert _is_cash_benefit("월 최대 35만원 문화누리 이용권") is False
+    assert _is_cash_benefit("전세자금 대출 월 20만원 상당") is False
+    assert _is_cash_benefit("월 최대 349,700원 지급") is True

@@ -3,6 +3,21 @@ import re
 from ..state import AgentState, NodeEvent
 
 
+def _is_cash_benefit(benefit_text: str, context: str = "") -> bool:
+    """현금성(매월 현금처럼 받는 지원) 여부 — 프론트 format.ts isCashBenefit과 동일 원칙(패리티).
+    바우처·이용권·대출·현물·서비스한도액·감면·장려금은 제외해 합계 과장을 막는다.
+    단 '현금 지급'이 명시되면(예: 부모급여의 조건부 바우처 설명) 현금성으로 본다."""
+    t = f"{benefit_text} {context}"
+    explicit_cash = re.search(r"현금\s*지급|현금으로|차액\s*현금", t) is not None
+    if not explicit_cash and re.search(r"바우처|이용권|대출|상당|본인부담|전액\s*지원|현물", t):
+        return False
+    if re.search(r"대출|본인부담|전액\s*지원", t):
+        return False
+    if re.search(r"장기요양|재가급여|시설급여|요양급여|활동지원|돌봄|간병|감면|장려금|치료관리|치료비", t):
+        return False
+    return True
+
+
 def _estimate_monthly_benefit(policy_name: str, benefit_text: str) -> int:
     """benefit 텍스트에서 월 금액 추출 (원 단위). 없으면 0."""
     # "월 최대 N원" / "월 N만원" 패턴
@@ -45,11 +60,13 @@ async def portfolio_manager_node(state: AgentState) -> dict:
     for p in eligible:
         pid = p.get("id", "")
         cat = catalog_map.get(pid, {})
+        benefit_text = policy_benefit_map.get(pid, "") or cat.get("benefit", "")
         # 카탈로그에 파생된 실제 금액이 있으면 우선, 없으면 시드 benefit 텍스트에서 추출
-        amt = cat.get("amount_krw") or _estimate_monthly_benefit(
-            p.get("name", ""), policy_benefit_map.get(pid, "") or cat.get("benefit", ""))
-        total_monthly += amt or 0
-        if cat.get("is_cash") or amt:
+        amt = cat.get("amount_krw") or _estimate_monthly_benefit(p.get("name", ""), benefit_text)
+        # 정직한 합산: 현금성만(프론트와 동일 원칙) — 바우처·대출·납입형이 섞이면 비현실 합계가 된다
+        is_cash = bool(cat.get("is_cash")) or _is_cash_benefit(benefit_text, p.get("name", ""))
+        if is_cash and amt:
+            total_monthly += amt
             cash_count += 1
 
     # 카테고리 분류 (sample_data의 category 필드 사용)
