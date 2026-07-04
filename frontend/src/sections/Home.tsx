@@ -4,6 +4,7 @@ import { Features } from './Features'
 import { Faq } from './Faq'
 import { Footer } from './Footer'
 import { EmergencyHelp } from '@/components/EmergencyHelp'
+import { RpaShowcase } from '@/components/RpaShowcase'
 
 export function Home() {
   return (
@@ -12,6 +13,7 @@ export function Home() {
       <EmergencyHelp />
       <HowItWorks />
       <Features />
+      <RpaShowcase />
       <Faq />
       <Footer />
     </>
