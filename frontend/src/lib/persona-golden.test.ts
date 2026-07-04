@@ -73,6 +73,17 @@ describe('페르소나 골든 — 결과 품질 고정', () => {
     expect(r.eligible_policies.some((p) => p.id.startsWith('PRV-'))).toBe(true)
   })
 
+  it('💰 고소득 가구(40세·중위150%): 소득상한 있는 자산심사형(생계·기초연금·차상위)은 강력추천에서 배제', () => {
+    // 대회 취지의 '잡다한 것·신청 불가한 것 제외' — 명백히 소득초과인데 연령만 맞아 추천되면 신뢰가 깨진다.
+    const r = runAnalysis({ ...base, age: 40, income_percentile: 150, has_children: true, children_ages: [3] })
+    const pol = r.eligible_policies as EligiblePolicy[]
+    const high = pol.filter((p) => p.priority === 'high')
+    // 자산심사형(소득상한 명시) 정책은 high로 오노출되지 않아야 한다.
+    expect(names(high)).not.toMatch(/생계급여|의료급여|주거급여|차상위|기초생활|긴급복지/)
+    // 소득 무관 보편급여(아동수당 등)는 정상 노출 — 과배제도 아님.
+    expect(ids(pol).has('POL-004')).toBe(true) // 아동수당(소득무관)
+  })
+
   it('공통 정직성: 민간재단(PRV)은 어느 페르소나에서도 high/precise로 과장되지 않음', () => {
     const personas: UserProfile[] = [
       { ...base, age: 72, income_percentile: 25 },
