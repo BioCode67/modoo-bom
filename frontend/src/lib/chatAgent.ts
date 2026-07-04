@@ -161,6 +161,13 @@ export function matchSaveIntent(raw: string, context: Policy[]): Policy[] | null
   return context // 밋밋한 "담아줘" + 여러 개 → 보여준 것 전부
 }
 
+/** 로컬(행동·개인화) 의도인가 — 이 의도들은 클라우드 LLM이 있어도 로컬 에이전트가 처리한다
+ *  (담기·서류·자격은 스토어/프로필과 결합된 '행동'이라 LLM보다 정확·즉시). */
+export function isLocalIntent(raw: string): boolean {
+  const q = raw.trim()
+  return GREET_RE.test(q) || DOCS_RE.test(q) || ELIG_RE.test(q)
+}
+
 /** 메인 진입점 — 자유문장을 의도로 나눠 개인화·행동형으로 응답 */
 export function agentReply(raw: string, ctx: { profile: UserProfile | null; result: AnalysisResult | null; tracked?: TrackedItem[] }): AgentReply {
   const q = raw.trim()

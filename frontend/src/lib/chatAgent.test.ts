@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { agentReply, greetingReply, matchSaveIntent, docsReply } from './chatAgent'
+import { agentReply, greetingReply, matchSaveIntent, docsReply, isLocalIntent } from './chatAgent'
 import type { UserProfile, AnalysisResult, EligiblePolicy } from './welfare-engine'
 import type { Policy } from '@/data/policies'
 import type { TrackedItem } from '@/store/useAppStore'
@@ -110,5 +110,18 @@ describe('docsReply — 서류 의도(행동형)', () => {
     const r = agentReply('서류 뭐 필요해?', { profile: null, result: null, tracked: [mkT('POL-001')] })
     expect(r.text).toContain('서류')
     expect(r.cta?.view).toBe('my')
+  })
+})
+
+
+describe('isLocalIntent — 하이브리드 라우팅(행동=로컬, 지식=LLM)', () => {
+  it('행동·개인화 의도는 로컬', () => {
+    expect(isLocalIntent('안녕하세요')).toBe(true)
+    expect(isLocalIntent('내가 받을 수 있는 거 알려줘')).toBe(true)
+    expect(isLocalIntent('서류 뭐 필요해?')).toBe(true)
+  })
+  it('일반 지식 질문은 LLM 대상(로컬 아님)', () => {
+    expect(isLocalIntent('기초연금이 뭐예요?')).toBe(false)
+    expect(isLocalIntent('부모급여랑 아동수당 차이가 궁금해요')).toBe(false)
   })
 })

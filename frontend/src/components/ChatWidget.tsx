@@ -4,12 +4,15 @@ import { MessageCircleHeart, X, Send, Mic, Compass, Sparkles, ArrowRight, Plus, 
 import type { Policy } from '@/data/policies'
 import { useSpeech } from '@/lib/useSpeech'
 import { GUIDE_STEPS, recommend, type GuideAnswers } from '@/lib/guidedChat'
-import { agentReply, greetingReply, matchSaveIntent, type AgentReply } from '@/lib/chatAgent'
+import { agentReply, greetingReply, matchSaveIntent, isLocalIntent, type AgentReply } from '@/lib/chatAgent'
+import { API_BASE } from '@/lib/backend'
+import { useBackend } from '@/lib/useBackend'
+import { getCatalog } from '@/data/catalog'
 import { useAppStore } from '@/store/useAppStore'
 import { SproutLogo } from '@/ui/SproutLogo'
 import { cn } from '@/lib/utils'
 
-interface Msg { role: 'user' | 'bot'; text: string; policies?: Policy[]; cta?: AgentReply['cta'] }
+interface Msg { role: 'user' | 'bot'; text: string; policies?: Policy[]; cta?: AgentReply['cta']; ai?: boolean; pending?: boolean }
 
 const SUGGESTIONS = ['내가 받을 수 있는 거', '기초연금', '출산·육아', '청년', '실업급여']
 
@@ -26,7 +29,33 @@ export function ChatWidget() {
   const result = useAppStore((s) => s.result)
   const tracked = useAppStore((s) => s.tracked)
   const toggleSaved = useAppStore((s) => s.toggleSaved)
+  const { ready, caps } = useBackend()
+  const aiChat = ready === true && !!caps?.ai // 클라우드/로컬 백엔드의 진짜 LLM(Claude) 사용 가능
   const endRef = useRef<HTMLDivElement>(null)
+
+  /** 지식형 질문을 백엔드 LLM(/ws/chat)에 물어본다 — 실패·지연(12s)이면 null(로컬 폴백) */
+  const askCloud = (q: string): Promise<{ answer: string; names: string[] } | null> =>
+    new Promise((resolve) => {
+      let done = false
+      let sock: WebSocket | null = null
+      const fin = (v: { answer: string; names: string[] } | null) => {
+        if (done) return
+        done = true
+        try { sock?.close() } catch { /* noop */ }
+        resolve(v)
+      }
+      try { sock = new WebSocket(`${API_BASE.replace(/^http/, 'ws')}/ws/chat`) } catch { return fin(null) }
+      const to = setTimeout(() => fin(null), 12000)
+      sock.onopen = () => sock?.send(JSON.stringify({ type: 'question', question: q }))
+      sock.onerror = () => { clearTimeout(to); fin(null) }
+      sock.onmessage = (e) => {
+        try {
+          const d = JSON.parse(e.data as string)
+          if (d.type === 'answer') { clearTimeout(to); fin({ answer: String(d.answer || ''), names: ((d.related_policies as { name?: string }[]) || []).map((x) => String(x.name || '')) }) }
+          else if (d.type === 'error') { clearTimeout(to); fin(null) }
+        } catch { clearTimeout(to); fin(null) }
+      }
+    })
 
   // 챗을 '여는 순간'의 최신 상태(프로필·담아둔 복지)로 브리핑 — 능동적인 에이전트 인상.
   // 앱 로드 시점이 아니라 열 때 계산해야 분석을 나중에 마쳐도 stale 인사가 남지 않는다.
@@ -61,6 +90,26 @@ export function ChatWidget() {
         ? `${added.join(', ')} 담았어요 ✅ 마감·서류는 제가 챙길게요.`
         : `${toSave.map((p) => p.name).join(', ')}는 이미 담겨 있어요 🙂`
       setTimeout(() => botSay(msg, { cta: { view: 'my', label: '나의 복지 보기' } }), 300)
+      return
+    }
+    // 하이브리드: 행동·개인화 의도는 로컬 에이전트(정확·즉시), 지식 질문은 진짜 LLM(백엔드 시) — 실패하면 규칙 폴백
+    if (aiChat && !isLocalIntent(q)) {
+      setMsgs((m) => [...m, { role: 'bot', text: '🧠 AI가 답변을 만들고 있어요…', pending: true }])
+      askCloud(q).then((res) => {
+        setMsgs((m) => m.filter((x) => !x.pending))
+        if (res && res.answer) {
+          // 관련 정책명을 카탈로그와 매칭해 '담기' 칩으로(행동 연결)
+          const cat = getCatalog()
+          const pols = res.names
+            .map((n) => cat.find((p) => p.name.replace(/\s/g, '') === n.replace(/\s/g, '')))
+            .filter((p): p is Policy => !!p)
+            .slice(0, 3)
+          botSay(res.answer, { policies: pols.length ? pols : undefined, ai: true })
+        } else {
+          const r = agentReply(q, { profile, result, tracked })
+          botSay(r.text, { policies: r.policies, cta: r.cta })
+        }
+      })
       return
     }
     const r = agentReply(q, { profile, result, tracked })
@@ -132,7 +181,7 @@ export function ChatWidget() {
               <SproutLogo withFace className="h-8 w-8 bg-white/20 rounded-full p-0.5" />
               <div>
                 <p className="font-bold leading-tight">복지 도우미</p>
-                <p className="text-[11px] text-white/80">{profile ? `${profile.name || '회원'}님 맞춤 · 담기까지 도와드려요` : '무엇이든 물어보세요'}</p>
+                <p className="text-[11px] text-white/80">{aiChat ? '실시간 AI(Claude) 연결됨 · 행동은 기기 안에서' : profile ? `${profile.name || '회원'}님 맞춤 · 담기까지 도와드려요` : '무엇이든 물어보세요'}</p>
               </div>
             </div>
 
@@ -142,6 +191,9 @@ export function ChatWidget() {
                   <div className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm whitespace-pre-line leading-relaxed ${m.role === 'user' ? 'bg-sprout-500 text-white rounded-br-sm self-end' : 'bg-white border border-sprout-100 rounded-bl-sm'}`}>
                     {m.text}
                   </div>
+                  {m.role === 'bot' && m.ai && (
+                    <span className="text-[10px] text-sky2-600 font-semibold -mt-0.5">🧠 실시간 AI(Claude) 답변</span>
+                  )}
                   {m.role === 'bot' && (!!m.policies?.length || m.cta) && (
                     <div className="flex flex-wrap gap-1.5 max-w-[95%]">
                       {m.policies?.map((p) => {
