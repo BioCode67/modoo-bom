@@ -52,8 +52,12 @@ export function isCashBenefit(benefit: string, context = ''): boolean {
   if (parseMonthly(b) <= 0) return false
   // 서비스 한도액은 benefit 문구엔 금액만 있고 종류는 정책명에 있는 경우가 많아 이름·분류(context)도 함께 검사
   const t = `${b} ${context}`
+  // '현금 지급/현금으로'가 명시되면 바우처 언급이 조건부 설명이어도 현금성으로 본다
+  // (예: 부모급여 "0세 월 100만원 … 어린이집 이용 시 바우처, 차액 현금 지급" — 기본은 현금)
+  const explicitCash = /현금\s*지급|현금으로|차액\s*현금/.test(t)
   // 바우처·대출·현물(전액지원/본인부담)
-  if (/바우처|이용권|대출|상당|본인부담|전액\s*지원|현물/.test(t)) return false
+  if (!explicitCash && /바우처|이용권|대출|상당|본인부담|전액\s*지원|현물/.test(t)) return false
+  if (/대출|본인부담|전액\s*지원/.test(t)) return false
   // 서비스 한도액(장기요양·재가/시설급여·활동지원·돌봄·간병)·감면·고용주 지원(장려금)은 개인 현금소득이 아님
   if (/장기요양|재가급여|시설급여|요양급여|활동지원|돌봄|간병|감면|장려금|치료관리|치료비/.test(t)) return false
   return true
