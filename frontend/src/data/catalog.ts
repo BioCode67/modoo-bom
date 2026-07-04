@@ -77,15 +77,42 @@ function normalize(raw: Record<string, unknown>): Policy {
  * public/policies.json 을 로드해 시드와 병합(중복 id는 외부 우선).
  * 실패(404 등)하면 조용히 시드만 사용.
  */
+/** 브라우저에선 워커에서 fetch+parse(메인스레드 TBT 제거), 테스트/워커 미지원 환경은 인라인 폴백 */
+function fetchExternalData(url: string): Promise<unknown | null> {
+  if (typeof Worker !== 'undefined' && typeof window !== 'undefined') {
+    return new Promise((resolve) => {
+      try {
+        const w = new Worker(new URL('./catalog.worker.ts', import.meta.url), { type: 'module' })
+        const to = setTimeout(() => { try { w.terminate() } catch { /* noop */ } resolve(null) }, 30000)
+        w.onmessage = (e: MessageEvent<{ ok: boolean; data?: unknown }>) => {
+          clearTimeout(to)
+          try { w.terminate() } catch { /* noop */ }
+          resolve(e.data.ok ? (e.data.data ?? null) : null)
+        }
+        w.onerror = () => { clearTimeout(to); try { w.terminate() } catch { /* noop */ } resolve(null) }
+        w.postMessage({ url })
+      } catch { resolve(null) }
+    }).then(async (d) => d ?? inlineFetch(url)) // 워커 실패 시 인라인 폴백
+  }
+  return inlineFetch(url)
+}
+async function inlineFetch(url: string): Promise<unknown | null> {
+  try {
+    const res = await fetch(url, { cache: 'no-cache' })
+    if (!res.ok) return null
+    return await res.json()
+  } catch { return null }
+}
+
 export async function loadExternalCatalog(): Promise<number> {
   if (loaded) return CATALOG.length
   loaded = true
   try {
     const base = import.meta.env.BASE_URL || '/'
-    const res = await fetch(`${base}policies.json`, { cache: 'no-cache' })
-    if (!res.ok) return CATALOG.length
-    const data = await res.json()
-    const list: unknown[] = Array.isArray(data) ? data : Array.isArray(data?.policies) ? data.policies : []
+    const data = await fetchExternalData(`${base}policies.json`)
+    if (data == null) return CATALOG.length
+    const wrapped = data as { policies?: unknown[] }
+    const list: unknown[] = Array.isArray(data) ? data : Array.isArray(wrapped?.policies) ? wrapped.policies! : []
     const merged = new Map<string, Policy>(Object.entries(MAP))
     const before = merged.size
     // 시드(큐레이션·상세)가 외부(요약)보다 우선 — 같은 이름은 시드 유지
