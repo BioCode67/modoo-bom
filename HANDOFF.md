@@ -156,6 +156,13 @@ curl -fsSL https://raw.githubusercontent.com/BioCode67/modoo-bom/main/scripts/se
   → background.js DOCS에 `'재학증명서': { site: 'gov24', capp: '13410000017' }` 형태로 추가하면
   프론트 isRpaSupported 목록(officialLinks.ts RPA_SUPPORTED_DOCS)에도 같은 이름 추가 필요(터미널에 요청).
 
+**⚡ 성능 스트레치(7-04, 터미널·2f와 무충돌 분업)**
+- 폰트 렌더차단 제거(비차단 link) · SW 캐싱(policies/임베딩 SWR=재방문 즉시, 폰트 30일) ·
+  정적배포 same-origin 헬스프로브 스킵(매 방문 404 제거) · **3.3MB JSON 파싱 Web Worker 이전**(TBT).
+- E2E가 2f의 dev 프록시발 프리뷰 500 노이즈 감지 → 프로브 스킵+E2E 필터로 해소(9여정 그린).
+- 2026 금액 스팟체크: 부모급여 100/50·아동수당 9세 미만·60일 소급 — 시드와 전부 일치(수정 불필요).
+- README 품질 배지 추가. 2f는 같은 시간 분석 오버레이 실작업화(3s 고정→최소 1.3s) — 중복 회피.
+
 **🎯 심사 대응(7-04 오전, 터미널)**
 - 2026 주제 확인: **"라이프스타일 혁신을 위한 AI Agent 기반 SW"**(본선 8/11) · 심사기준(창의30·기술30·완성20·상품10·전달10)
 - 냉정 자기평가·전략: `docs/기획서자료/심사-전략-평가.md`(경쟁 비교표·공격질문 5·백로그)
