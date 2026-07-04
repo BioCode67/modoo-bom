@@ -18,7 +18,7 @@ export function docLink(doc: string): OfficialLink {
     return { label: '정부24에서 발급 (장애인증명서)', url: 'https://www.gov.kr/mw/AA020InfoCappView.do?CappBizCD=14600000273', rpa: true }
   if (d.includes('건강보험') && (d.includes('자격') || d.includes('득실')))
     return { label: '건강보험공단에서 발급', url: 'https://www.nhis.or.kr', rpa: true }
-  if (d.includes('고용보험') || d.includes('피보험자격') || d.includes('이직확인'))
+  if (d.includes('고용보험') || d.includes('피보험자격') || d.includes('이직확인') || d.includes('취업경험') || d.includes('구직등록'))
     return { label: '고용24에서 발급', url: 'https://www.work24.go.kr', rpa: true }
   if (d.includes('소득금액증명') || (d.includes('소득') && d.includes('증명')))
     return { label: '정부24/홈택스에서 발급', url: 'https://www.gov.kr/mw/AA020InfoCappView.do?CappBizCD=12100000021', rpa: true }
@@ -38,7 +38,7 @@ export function docLink(doc: string): OfficialLink {
   if (/통장|계좌/.test(d))
     return { label: '거래 은행 앱·영업점에서 발급', url: `https://www.gov.kr/search?srhQuery=${encodeURIComponent(doc)}` }
   // 회사 발급: 재직·경력·급여 관련은 재직(했던) 회사에서
-  if (/재직|근로계약서|임금대장|근로자\s*명부|경력증명|원천징수/.test(d))
+  if (/재직|근로계약서|임금대장|근로자\s*명부|경력증명|원천징수|통상임금|휴가\s*확인|육아휴직\s*확인/.test(d))
     return { label: '재직 회사에서 발급', url: `https://www.gov.kr/search?srhQuery=${encodeURIComponent(doc)}` }
   // 건강보험(자격득실 외): 보험료 납부확인서·건강보험증 등 — 건보공단 민원
   if (d.includes('건강보험') || d.includes('보험료납부'))

@@ -62,6 +62,11 @@ describe('docLink', () => {
     expect(r.label).toContain('본인 지참')
     expect(r.rpa).toBeFalsy()
   })
+  it('회사 발급 확장: 통상임금·휴가확인 / 고용 이력: 취업경험→고용24', () => {
+    expect(docLink('통상임금 확인 서류').label).toContain('회사')
+    expect(docLink('출산 전후 휴가 확인서').label).toContain('회사')
+    expect(docLink('취업경험 확인서류').url).toContain('work24')
+  })
   it('병원·은행·회사 발급 서류는 발급 주체를 정직하게 안내', () => {
     expect(docLink('진단서').label).toContain('병원')
     expect(docLink('임신확인서').label).toContain('병원')
