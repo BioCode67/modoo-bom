@@ -73,6 +73,19 @@ describe('페르소나 골든 — 결과 품질 고정', () => {
     expect(r.eligible_policies.some((p) => p.id.startsWith('PRV-'))).toBe(true)
   })
 
+  it('👵♿ 복합(70세·장애2급·중위30%): 노인+장애 두 영역이 모두 high로 함께 뜬다(누락 없이)', () => {
+    // 현실의 다수는 한 축이 아니다(노인이면서 장애·저소득). 두 영역 필수급여가 동시에 잡혀야 한다.
+    const r = runAnalysis({ ...base, age: 70, income_percentile: 30, disability: true, disability_grade: '2급', region: '부산' })
+    const pol = r.eligible_policies as EligiblePolicy[]
+    expect(ids(pol).has('POL-001')).toBe(true) // 기초연금(노인)
+    expect(ids(pol).has('POL-003')).toBe(true) // 장애인연금(장애)
+    expect(pol.find((p) => p.id === 'POL-001')?.priority).toBe('high')
+    expect(pol.find((p) => p.id === 'POL-003')?.priority).toBe('high')
+    // 두 영역 혜택이 실제로 함께(노인 돌봄/틀니 + 장애 활동지원 등) 노출.
+    expect(names(pol)).toMatch(/활동지원/)
+    expect(names(pol)).toMatch(/노인|어르신|틀니/)
+  })
+
   it('💰 고소득 가구(40세·중위150%): 소득상한 있는 자산심사형(생계·기초연금·차상위)은 강력추천에서 배제', () => {
     // 대회 취지의 '잡다한 것·신청 불가한 것 제외' — 명백히 소득초과인데 연령만 맞아 추천되면 신뢰가 깨진다.
     const r = runAnalysis({ ...base, age: 40, income_percentile: 150, has_children: true, children_ages: [3] })
