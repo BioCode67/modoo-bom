@@ -4,6 +4,8 @@ import { Check, Loader2 } from 'lucide-react'
 import { SproutLogo } from '@/ui/SproutLogo'
 import type { EligiblePolicy, UserProfile } from '@/lib/welfare-engine'
 import { incomeCeiling, sidoOf } from '@/lib/welfare-engine'
+import { API_BASE } from '@/lib/backend'
+import { BackendAgentStream } from '@/components/BackendAgentStream'
 import { cn } from '@/lib/utils'
 
 /**
@@ -24,8 +26,12 @@ export function AnalyzingOverlay({
   const [active, setActive] = useState(0)
   const [count, setCount] = useState<number | null>(null) // AI가 발견한 관련 복지 실측 건수
   const done = useRef(false)
+  // 백엔드(LangGraph)가 배포돼 있으면 실제 10노드 에이전트를 실시간 스트리밍(대회 주제의 핵심 순간).
+  // 결과는 신뢰도 높은 클라이언트 엔진 것을 쓰되, 이 화면이 '진짜 에이전트'를 보여준다.
+  const useBackendStream = !!API_BASE
 
   useEffect(() => {
+    if (useBackendStream) return // 백엔드 스트림 모드에선 클라이언트 단계 연출을 돌리지 않음
     const start = Date.now()
     const steps = 4
     const finish = () => {
@@ -63,7 +69,10 @@ export function AnalyzingOverlay({
     // 안전망: 신경망이 너무 오래 걸리면(첫 임베딩 다운로드 등) 결과부터 보여준다
     const safety = setTimeout(finish, 12000)
     return () => clearTimeout(safety)
-  }, [profile, eligible, onDone])
+  }, [profile, eligible, onDone, useBackendStream])
+
+  // 백엔드 배포 시: 실제 LangGraph 10노드 에이전트 실시간 스트리밍
+  if (useBackendStream) return <BackendAgentStream profile={profile} onDone={onDone} />
 
   const STEPS = [
     '프로필에서 상황 신호를 읽었어요',
