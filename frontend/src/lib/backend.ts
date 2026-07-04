@@ -67,8 +67,9 @@ export async function checkBackend(onWake?: (attempt: number, max: number) => vo
     // 명시된 클라우드 백엔드 — 콜드스타트 대비 웨이크업 재시도
     const c = await wake(API_BASE, onWake)
     if (c) { caps = c; cached = true; return true }
-  } else {
-    // 동일 출처(대개 백엔드 없음) — 빠르게 1회만
+  } else if ((import.meta.env.BASE_URL || '/') === '/') {
+    // 동일 출처 프로브는 코호스팅(도커/uvicorn, base='/')일 때만 의미가 있다.
+    // 정적 프로젝트 페이지(gh-pages, base='/modoo-bom/')에선 매 방문 404 노이즈만 만들므로 스킵.
     const c = await fetchHealth('', 1500)
     if (c) { caps = c; cached = true; return true }
   }

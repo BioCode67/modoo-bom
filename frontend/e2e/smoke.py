@@ -84,7 +84,15 @@ def main() -> int:
             browser = p.chromium.launch()
             page = browser.new_page()
             page.on("pageerror", lambda e: errors.append(str(e)))
-            page.on("console", lambda m: errors.append(f"console.{m.type}: {m.text}") if m.type == "error" else None)
+            # /api/health 는 백엔드 감지 프로브 — 프리뷰(프록시)에선 500이 정상 노이즈라 실패 게이트에서 제외
+            def on_console(m):
+                if m.type != "error":
+                    return
+                loc = (m.location or {}).get("url", "") if hasattr(m, "location") else ""
+                if "/api/health" in loc or "/api/health" in m.text:
+                    return  # 백엔드 감지 프로브 노이즈(프리뷰 프록시 500) — 무해
+                errors.append(f"console.{m.type}: {m.text} @{loc[:80]}")
+            page.on("console", on_console)
             bad: list[str] = []
             page.on("response", lambda r: bad.append(f"{r.status} {r.url}") if r.status >= 400 else None)
             page.on("requestfailed", lambda r: bad.append(f"FAIL {r.url} {r.failure}"))
