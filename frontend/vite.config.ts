@@ -11,6 +11,7 @@ export default defineConfig(({ command }) => ({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      injectRegister: 'script-defer', // registerSW를 defer로 — 렌더차단 제거
       // og.png는 소셜 크롤러가 절대 URL로 직접 가져가므로 오프라인 precache에서 제외(설치 용량 절감).
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       // 해시 자산만 precache(안전), 새 배포 시 자동 갱신. policies.json은 항상 네트워크 우선.
