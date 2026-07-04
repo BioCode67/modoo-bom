@@ -232,6 +232,16 @@ def execute(action: dict, page: Page, elements, prof: dict) -> str:
 
 
 def run_smart(goal: str):
+    # 하이브리드: '아는 서류'는 실측 검증된 결정적 경로(local_agent)로 확실하게,
+    # '처음 보는 서류/사이트'는 아래 LLM 관찰-판단-실행 루프로 스스로 찾아간다.
+    # (데모 안정성 + 일반화 능력을 동시에. 검증 경로가 있으면 굳이 화면을 헤매지 않는다.)
+    known = la.resolve_doc(goal)
+    if known:
+        log(f"'{known}'은 실측 검증된 서류 → 검증된 빠른 경로로 발급합니다(더 안정적).")
+        la.run([known])
+        return
+    log(f"'{goal}'은 처음 보는 목표 → 화면을 읽어 스스로 발급 흐름을 찾습니다(지능형 모드).")
+
     llm = get_chat_llm(temperature=0.0, max_tokens=400) if active_provider() else None
     mode = "LLM 지능형" if llm else "규칙 폴백(LLM 키 없음 — GEMINI_API_KEY 넣으면 훨씬 똑똑해져요)"
     log(f"판단 방식: {mode}")
