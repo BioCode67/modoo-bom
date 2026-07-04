@@ -14,8 +14,18 @@ const STATS = [
 const HERO_EXAMPLES = ['72세 혼자 사는데 소득이 적어요', '서울 사는 한부모, 5살 아이 키워요', '퇴사하고 일자리 찾는 청년이에요']
 
 export function Hero() {
-  const { setView, setPendingProfile } = useAppStore()
+  const { setView, setPendingProfile, setAiIntent, setAiQuery } = useAppStore()
   const [text, setText] = useState('')
+
+  // 🌍 다국어 시연 — 외국어 한 문장 → 온디바이스 AI 의미검색(번역 없이 한국 복지 매칭).
+  // 대회 헤드라인이자 참가자 투표용 30초 임팩트. 호버 시 모델을 미리 데워 체감 지연을 줄인다.
+  const MULTI = [
+    { flag: '🇻🇳', q: 'Tôi mất việc và không có tiền sinh hoạt' },
+    { flag: '🇬🇧', q: 'I am a single mother raising a child alone' },
+    { flag: '🇨🇳', q: '我是残疾人，需要医疗费用支持' },
+  ]
+  const askAI = (q: string) => { setAiQuery(q); setAiIntent(true); setView('explore') }
+  const warm = () => { import('@/lib/semanticSearch').then((m) => m.warmupSemantic()).catch(() => {}) }
 
   // 자연어 한 문장 → 분석 대기 프로필만 넘기고 이동 → 분석 화면에서 실제 AI 오버레이를 태운다
   // (홈에서 결과를 즉시 캐시하면 '데이터 조회'처럼 보여, 온디바이스 AI가 도는 과정을 놓친다)
@@ -85,6 +95,21 @@ export function Hero() {
               className="text-xs rounded-full border border-sky2-100 bg-sky2-50/70 px-2.5 py-1 font-semibold text-sky2-700 hover:border-sky2-300 transition-colors inline-flex items-center gap-1">
               <Compass className="h-3 w-3" /> 정책 둘러보기
             </button>
+          </div>
+
+          {/* 🌍 다국어 AI — 외국어로 물어도 한국 복지를 '의미'로 찾아줘요(브라우저 안에서, 번역 없이) */}
+          <div className="mt-4 rounded-2xl border border-violet-200 bg-violet-50/50 px-3 py-2.5">
+            <p className="text-[11px] font-bold text-violet-700 flex items-center gap-1">
+              🌍 외국어로도 찾아드려요 <span className="font-normal text-violet-500/80">— 온디바이스 AI가 의미로 매칭</span>
+            </p>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {MULTI.map((m) => (
+                <button key={m.q} onClick={() => askAI(m.q)} onMouseEnter={warm} onFocus={warm}
+                  className="text-xs rounded-full border border-violet-200 bg-white px-2.5 py-1 text-violet-800 hover:border-violet-400 transition-colors max-w-full truncate">
+                  {m.flag} {m.q}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="mt-6 flex items-center gap-2 justify-center lg:justify-start text-xs text-muted-foreground">
