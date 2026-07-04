@@ -98,6 +98,8 @@ _SYSTEM = """너는 한국 정부·공공 웹사이트에서 '민원 서류 발�
 - 로그인 방식은 '간편인증'을 우선(공동/금융인증서보다 쉬움).
 - 이름·생년월일·휴대폰을 넣는 '본인인증 창'이 보이면 action="human_auth" (사람이 폰 인증). 값을 대신 넣지 마라.
 - '발급/신청/확인/다음/제출/문서출력' 같은 진행 버튼을 찾아 목표로 나아가라.
+- 목표 서류의 발급 버튼이 화면에 안 보이면(처음 보는 서류일 때) 사이트의 '검색' 입력칸에
+  action="search"로 서류명을 넣어 찾아라(fill 후 자동 Enter). 검색 결과에서 해당 서류를 클릭해 발급으로 이어간다.
 - 목표를 이룬 것으로 보이면(발급 완료/문서출력 화면) action="done".
 - 팝업/광고/안내는 무시하거나 닫고 본류로 진행.
 
@@ -105,7 +107,7 @@ _SYSTEM = """너는 한국 정부·공공 웹사이트에서 '민원 서류 발�
   버튼/영역(캔버스·이미지 위젯 등)은 action="click_xy"로 그 지점의 화면 좌표(x,y)를 준다.
 
 출력 형식(JSON):
-{"action":"click|fill|goto|wait|human_auth|done|click_xy","idx":<요소번호 또는 null>,"x":<click_xy일 때 가로px>,"y":<click_xy일 때 세로px>,"value":"<fill/goto일 때 값>","reason":"<한 문장>"}"""
+{"action":"click|fill|search|goto|wait|human_auth|done|click_xy","idx":<요소번호 또는 null>,"x":<click_xy일 때 가로px>,"y":<click_xy일 때 세로px>,"value":"<fill/search/goto일 때 값>","reason":"<한 문장>"}"""
 
 
 def decide_heuristic(goal: str, url: str, elements, history) -> dict:
@@ -134,6 +136,23 @@ def decide_heuristic(goal: str, url: str, elements, history) -> dict:
                 return {"action": "click", "idx": e["idx"], "reason": f"'{kw}' 진행 버튼"}
     if done_recent == 0 and any("완료" in labels[i] or "출력" in labels[i] for i in labels):
         return {"action": "done", "reason": "완료/출력 화면으로 보임"}
+    # 진행 버튼을 못 찾음 → '처음 보는 서류'일 수 있으니 사이트 검색으로 목표 서류를 찾아본다.
+    # (아직 검색을 안 했을 때만 1회. 검색어는 목표에서 '발급/신청' 같은 동작어를 뺀 서류명.)
+    already_searched = any("검색" in h or "search" in h.lower() for h in history)
+    if not already_searched:
+        query = goal
+        for w in ("발급", "신청", "받기", "떼기", "출력", "조회"):
+            query = query.replace(w, "")
+        query = query.strip()
+        if query:
+            for e in elements:
+                lab = (e.get("label") or "")
+                kind = e.get("kind") or ""
+                is_search = ("검색" in lab or "search" in kind.lower()
+                             or (("text-input" in kind or "search-input" in kind) and "검색" in lab))
+                if is_search and ("input" in kind or "text" in kind):
+                    return {"action": "search", "idx": e["idx"], "value": query,
+                            "reason": f"처음 보는 서류 → 사이트 검색으로 '{query}' 찾기"}
     return {"action": "wait", "reason": "진행 버튼을 못 찾음(대기)"}
 
 
@@ -221,6 +240,11 @@ def execute(action: dict, page: Page, elements, prof: dict) -> str:
         return "noop"
     loc = el["frame"].locator(f'[data-modoo-idx="{idx}"]').first
     try:
+        if a == "search":  # 검색어 입력 후 Enter로 실제 검색 실행(처음 보는 서류 찾기)
+            loc.fill(val, timeout=5000)
+            loc.press("Enter")
+            page.wait_for_timeout(1500)
+            return "search"
         if a == "fill":
             loc.fill(val, timeout=5000)
         else:  # click(기본)

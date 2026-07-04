@@ -47,7 +47,24 @@ def test_heuristic_skips_non_member():
 
 
 def test_heuristic_waits_when_no_progress_button():
-    # 진행 버튼이 없으면 무리한 클릭 대신 대기(오작동 방지).
+    # 진행 버튼도 검색칸도 없으면 무리한 클릭 대신 대기(오작동 방지).
     els = [_el(1, "로그아웃"), _el(2, "홈으로")]
     action = decide_heuristic("주민등록등본", "https://www.gov.kr", els, [])
+    assert action["action"] == "wait"
+
+
+def test_heuristic_searches_unknown_doc():
+    # 진행 버튼이 없고 검색칸이 있으면 → 처음 보는 서류를 사이트 검색으로 찾는다('발급' 동작어 제거).
+    els = [_el(1, "로그아웃"), _el(2, "검색어 입력", kind="search-input")]
+    action = decide_heuristic("병역증명서 발급", "https://www.gov.kr", els, [])
+    assert action["action"] == "search"
+    assert action["idx"] == 2
+    assert action["value"] == "병역증명서"  # 동작어 '발급' 제거된 서류명
+
+
+def test_heuristic_does_not_search_twice():
+    # 이미 검색했다면 같은 검색을 반복하지 않는다(무한루프 방지).
+    els = [_el(1, "검색어 입력", kind="search-input")]
+    hist = ["search 검색어 입력 → search"]
+    action = decide_heuristic("병역증명서", "https://www.gov.kr", els, hist)
     assert action["action"] == "wait"
