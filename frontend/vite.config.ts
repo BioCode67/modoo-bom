@@ -23,9 +23,22 @@ export default defineConfig(({ command }) => ({
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
         runtimeCaching: [
           {
+            // 재방문 즉시(캐시 먼저) + 백그라운드 갱신 — 3.3MB를 매번 기다리지 않는다
             urlPattern: /policies\.json$/,
-            handler: 'NetworkFirst',
-            options: { cacheName: 'policies', expiration: { maxEntries: 2, maxAgeSeconds: 86400 } },
+            handler: 'StaleWhileRevalidate',
+            options: { cacheName: 'policies', expiration: { maxEntries: 2, maxAgeSeconds: 7 * 86400 } },
+          },
+          {
+            // AI 의미검색 벡터(5MB) — 재방문·오프라인 즉시
+            urlPattern: /policy-embeddings\.json$/,
+            handler: 'StaleWhileRevalidate',
+            options: { cacheName: 'embeddings', expiration: { maxEntries: 2, maxAgeSeconds: 7 * 86400 } },
+          },
+          {
+            // Pretendard 폰트(CDN) — 장기 캐시로 재방문 렌더 가속
+            urlPattern: /^https:\/\/cdn\.jsdelivr\.net\/.*pretendard.*\.(css|woff2?)$/,
+            handler: 'CacheFirst',
+            options: { cacheName: 'fonts', expiration: { maxEntries: 8, maxAgeSeconds: 30 * 86400 } },
           },
         ],
       },
