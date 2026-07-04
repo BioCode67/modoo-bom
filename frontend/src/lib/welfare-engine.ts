@@ -359,6 +359,10 @@ export function demographicMismatch(name: string, doc: string, p: UserProfile): 
   if (/한부모|모자가정|부자가정|미혼모|미혼부|조손/.test(name) && !p.household_type.includes('한부모')) return true
   // 다문화·결혼이민 전용인데 아님
   if (/다문화|결혼이민|이주여성|이주민/.test(name) && !p.household_type.includes('다문화')) return true
+  // 여성 생물학·여성 전용 급여인데 명백히 남성 — 남성에게 '생리용품·여성청소년·경력단절여성' 등 방지.
+  // 보수적: gender==='male'일 때만(‘other’/미지정은 배제하지 않아 트랜스·논바이너리 포용).
+  if (p.gender === 'male' &&
+      /생리|모유수유|여성\s?청소년|경력단절\s?여성|여성가장|여성\s?새로일하기|여성경제활동|여성장애인|이주여성/.test(name)) return true
   // 사업주·고용주 대상(고용장려금 등)은 개인 수혜가 아님
   if (/사업주|고용주/.test(doc) || /고용장려금|고용지원금|고용촉진장려금|채용장려금/.test(name)) return true
   return false

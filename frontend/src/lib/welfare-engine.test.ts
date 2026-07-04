@@ -88,6 +88,14 @@ describe('demographicMismatch (인구통계 하드 게이트)', () => {
   it('대상어 없는 보편 정책은 미스매치 아님', () => {
     expect(demographicMismatch('국민기초생활보장 생계급여', '중위소득 32% 이하', senior)).toBe(false)
   })
+  it('여성 전용 급여(생리용품·여성청소년)는 남성에게만 미스매치(other/female은 포용)', () => {
+    const nm = '여성 청소년 생리용품 바우처'
+    expect(demographicMismatch(nm, nm, { ...base, gender: 'male', age: 15 })).toBe(true)
+    expect(demographicMismatch(nm, nm, { ...base, gender: 'female', age: 15 })).toBe(false)
+    expect(demographicMismatch(nm, nm, { ...base, gender: 'other', age: 15 })).toBe(false)
+    // 남성이라도 일반 정책은 과배제하지 않음
+    expect(demographicMismatch('청년 월세 지원', '청년', { ...base, gender: 'male', age: 26 })).toBe(false)
+  })
 })
 
 describe('checkPolicy 소득 정밀 선정기준 (2026: 생계32·의료40·주거48·교육/차상위50)', () => {
