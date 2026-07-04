@@ -11,6 +11,7 @@ import { FutureWelfare } from '@/components/FutureWelfare'
 import { LifeTimeline } from '@/components/LifeTimeline'
 import { ContinuityCard } from '@/components/ContinuityCard'
 import { AiDiscovery } from '@/components/AiDiscovery'
+import { NearMissCard } from '@/components/NearMissCard'
 import { WelfareScore } from '@/components/WelfareScore'
 import { ShareButton } from '@/components/ShareButton'
 import { Glossary } from '@/components/Glossary'
@@ -178,6 +179,9 @@ export function ResultsView({ result, profile, onReset }: { result: AnalysisResu
               )}
             </div>
           )}
+
+          {/* 🎯 아깝게 놓친 복지 — 딱 한 조건만 벗어난 정책을 근거와 함께(에이전트의 판단 근거 노출) */}
+          <NearMissCard profile={profile} onOpen={setSelected} />
 
           {/* 🧠 AI 의미 발견 — 자격 있는 복지와 의미가 가까운 숨은 복지를 온디바이스로 추가 발굴 */}
           <AiDiscovery eligible={primary.length ? primary : eligible} profile={profile} onOpen={setSelected} />
