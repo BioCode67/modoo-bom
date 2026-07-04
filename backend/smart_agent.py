@@ -132,17 +132,35 @@ def decide_heuristic(goal: str, url: str, elements, history) -> dict:
     return {"action": "wait", "reason": "진행 버튼을 못 찾음(대기)"}
 
 
-def decide(llm, goal: str, url: str, elements, history) -> dict:
+def decide(llm, goal: str, url: str, elements, history, screenshot: bytes | None = None) -> dict:
     hist = "\n".join(history[-6:]) if history else "(없음)"
-    human = (
+    human_text = (
         f"목표: {goal}\n"
         f"현재 URL: {url}\n\n"
         f"지금까지 한 행동:\n{hist}\n\n"
         f"상호작용 가능한 요소:\n{elements_text(elements)}\n\n"
+        f"(첨부된 화면 스크린샷도 참고해 판단하세요. DOM에 안 잡히는 캔버스·이미지 위젯은 화면을 보고 대응.)\n"
         f"다음 행동 1개를 JSON으로:"
+    ) if screenshot else (
+        f"목표: {goal}\n현재 URL: {url}\n\n지금까지 한 행동:\n{hist}\n\n"
+        f"상호작용 가능한 요소:\n{elements_text(elements)}\n\n다음 행동 1개를 JSON으로:"
     )
     from langchain_core.messages import SystemMessage, HumanMessage
-    resp = llm.invoke([SystemMessage(content=_SYSTEM), HumanMessage(content=human)])
+    if screenshot:
+        import base64
+        b64 = base64.b64encode(screenshot).decode()
+        content = [
+            {"type": "text", "text": human_text},
+            {"type": "image_url", "image_url": f"data:image/jpeg;base64,{b64}"},
+        ]
+        msg = HumanMessage(content=content)
+    else:
+        msg = HumanMessage(content=human_text)
+    try:
+        resp = llm.invoke([SystemMessage(content=_SYSTEM), msg])
+    except Exception:
+        # 멀티모달(이미지) 미지원 모델이면 텍스트만으로 재시도
+        resp = llm.invoke([SystemMessage(content=_SYSTEM), HumanMessage(content=human_text)])
     text = str(resp.content)
     # JSON 추출(코드펜스/잡텍스트 방어)
     s, e = text.find("{"), text.rfind("}")
@@ -225,7 +243,15 @@ def run_smart(goal: str):
         for step in range(1, MAX_STEPS + 1):
             page.wait_for_timeout(600)
             elements = observe(page)
-            action = decide(llm, goal, page.url[:80], elements, history) if llm else decide_heuristic(goal, page.url[:80], elements, history)
+            if llm:
+                shot = None
+                try:
+                    shot = page.screenshot(type="jpeg", quality=45)  # 에이전트의 '눈' — 캔버스/이미지 위젯 대응
+                except Exception:
+                    shot = None
+                action = decide(llm, goal, page.url[:80], elements, history, shot)
+            else:
+                action = decide_heuristic(goal, page.url[:80], elements, history)
             a, reason = action.get("action"), action.get("reason", "")
             tgt = find_el(elements, action.get("idx"))
             log(f"[{step}] {a} {('→ ' + tgt['label']) if tgt else ''} · {reason[:50]}")
