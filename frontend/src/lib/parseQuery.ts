@@ -38,7 +38,8 @@ export function parseProfileFromText(text: string): UserProfile {
   if (/혼자|독거|1인|일인|홀로|혼자\s*살/.test(t)) p.household_type = '1인가구'
   if (/신혼/.test(t)) p.household_type = '신혼부부'
   if (/다자녀|아이.*(셋|3|세 명)|자녀.*(셋|3명)/.test(t)) p.household_type = '다자녀가구'
-  if (/다문화|결혼이민|외국인.*(배우자|결혼)/.test(t)) p.household_type = '다문화가족'
+  // 다문화: '다문화/결혼이민' 외에 출신국·이주 표현도 인식(외국인·다문화 사각지대 데모 대응)
+  if (/다문화|결혼이민|이주여성|외국인.*(배우자|결혼)|(베트남|필리핀|중국|캄보디아|태국|몽골|우즈베|네팔|일본|인도네시아|미얀마).*(왔|출신|에서\s*옴)|외국.*(에서\s*왔|출신)/.test(t)) p.household_type = '다문화가족'
   if (/한부모|미혼모|미혼부|혼자.*키[우워]|홀로.*키[우워]|이혼.*(아이|애|자녀)|(남편|아내|배우자).*(죽|잃|사별)|사별/.test(t)) p.household_type = '한부모가족'
   if (/조손|손주.*키우|할머니.*키우/.test(t)) p.household_type = '조손가구'
 
@@ -82,6 +83,15 @@ export function parseProfileFromText(text: string): UserProfile {
     if (!p.life_events.includes('실직')) p.life_events.push('실직')
   } else if (/구직|취준|취업.*준비|일\s*구하|일자리.*찾|구직활동/.test(t)) {
     p.employment_status = 'unemployed'
+  } else if (/대학생|대학원생|학생|휴학|재학|등록금/.test(t)) {
+    p.employment_status = 'student'
+  } else if (/직장인|회사원|재직|근무\s*(중|해)|다니고\s*있|직장.*다/.test(t)) {
+    p.employment_status = 'employed'
+  }
+  // 주거 위기(집 상실·재개발·화재 등)는 저소득 신호로 반영 → 주거급여·긴급복지·저소득 매칭 유도
+  // (실직/질병이 아니면 별도 이벤트는 넣지 않음 — 엉뚱한 실업급여 추천 방지)
+  if (/집.*(잃|없어졌|철거)|화재.*(집|주택)|재개발.*(쫓|나가)|쫓겨나|노숙|갈\s*곳\s*없/.test(t)) {
+    if (p.income_percentile === BASE.income_percentile) p.income_percentile = 40
   }
 
   // ── 지역(시·도) ──
