@@ -156,6 +156,15 @@ curl -fsSL https://raw.githubusercontent.com/BioCode67/modoo-bom/main/scripts/se
   → background.js DOCS에 `'재학증명서': { site: 'gov24', capp: '13410000017' }` 형태로 추가하면
   프론트 isRpaSupported 목록(officialLinks.ts RPA_SUPPORTED_DOCS)에도 같은 이름 추가 필요(터미널에 요청).
 
+**🎯 심사 대응(7-04 오전, 터미널)**
+- 2026 주제 확인: **"라이프스타일 혁신을 위한 AI Agent 기반 SW"**(본선 8/11) · 심사기준(창의30·기술30·완성20·상품10·전달10)
+- 냉정 자기평가·전략: `docs/기획서자료/심사-전략-평가.md`(경쟁 비교표·공격질문 5·백로그)
+- **챗 하이브리드 승격**: 지식 질문=진짜 LLM(/ws/chat Claude), 행동=로컬, 폴백=규칙(정직 라벨 🧠) — 배포됨
+- 발표 대본: `docs/기획서자료/발표-대본.md`(김복순 3분 서사·30초 투표 동선·리스크 큐시트)
+- **정확성 2건**: 부모급여 100만이 현금성 합산 누락(출산 19만→119만) 프론트·백엔드 모두 수정 /
+  전략 문서 임의 수치를 실측으로 교정(어르신 63.97만). 실측 임팩트: 어르신 64만·출산 119만·장애 35만(월 최대)
+- 서류 커버리지 라우팅 확장: 통상임금·휴가확인(회사)·취업경험(고용24)
+
 **📄 서류 발급 전수 검증(7-04 오전, 터미널)**
 - 풀 카탈로그 5,206개 정책의 필요서류 **134종 전수 감사**: 전부 올바른 발급처로 라우팅
   (자동발급 매칭 87회=전체 언급의 24% · 정부24 직링크 · 병원/은행/회사/본인 정직 안내 · 폴백은 상황성 서류만).
@@ -184,7 +193,7 @@ curl -fsSL https://raw.githubusercontent.com/BioCode67/modoo-bom/main/scripts/se
 - **E2E 스모크(실브라우저)**: `backend/venv/Scripts/python.exe frontend/e2e/smoke.py` — 홈·분석(민간재단 섹션)·
   챗 에이전트·탐색 필터 4여정 + 페이지에러 0을 headless chromium으로 검증(전용 e2e-dist 빌드라 dist 경합 없음).
   데모 직전 1회 실행 권장.
-- 품질 게이트: 프론트 `tsc/lint/test(256)/build`, 백엔드 `pytest(14)` — 변경마다 통과 유지.
+- 품질 게이트: 프론트 `tsc/lint/test(269)/build`, 백엔드 `pytest(15)` — 변경마다 통과 유지.
 
 ## ✅ 체크리스트
 
