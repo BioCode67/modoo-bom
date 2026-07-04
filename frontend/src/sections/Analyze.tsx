@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Sparkles } from 'lucide-react'
 import { ProfileWizard } from '@/components/ProfileWizard'
@@ -11,7 +11,7 @@ import { useAppStore } from '@/store/useAppStore'
 type Phase = 'form' | 'analyzing' | 'result'
 
 export function Analyze() {
-  const { profile: savedProfile, result: savedResult, setAnalysis, clearAnalysis } = useAppStore()
+  const { profile: savedProfile, result: savedResult, setAnalysis, clearAnalysis, pendingProfile, setPendingProfile } = useAppStore()
   // 캐시된 결과가 있으면 바로 결과 화면 (오랜만에 들어와도 즉시 표시)
   const [phase, setPhase] = useState<Phase>(savedResult ? 'result' : 'form')
   const [pending, setPending] = useState<{ profile: UserProfile; result: AnalysisResult } | null>(null)
@@ -21,6 +21,16 @@ export function Analyze() {
     setPending({ profile, result })
     setPhase('analyzing')
   }
+
+  // 홈에서 한 문장 입력으로 넘어온 경우: 분석 오버레이(실제 AI)를 태운다
+  useEffect(() => {
+    if (pendingProfile) {
+      const profile = pendingProfile
+      setPendingProfile(null)
+      handleSubmit(profile)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingProfile])
 
   const handleAnalyzed = () => {
     if (pending) {
@@ -35,7 +45,8 @@ export function Analyze() {
     setPhase('form')
   }
 
-  if (phase === 'analyzing') return <AnalyzingOverlay onDone={handleAnalyzed} />
+  if (phase === 'analyzing' && pending)
+    return <AnalyzingOverlay profile={pending.profile} eligible={pending.result.eligible_policies} onDone={handleAnalyzed} />
 
   if (phase === 'result' && savedResult && savedProfile) {
     return <ResultsView result={savedResult} profile={savedProfile} onReset={reset} />

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Sparkles, Loader2 } from 'lucide-react'
 import type { Policy } from '@/data/policies'
 import type { EligiblePolicy, UserProfile } from '@/lib/welfare-engine'
@@ -52,6 +52,16 @@ export function AiDiscovery({
       setState('error')
     }
   }
+
+  // 분석 오버레이에서 임베딩을 미리 데워두므로 결과 진입 시 자동 실행(즉시) — AI 발견이 기본 흐름에 노출.
+  // (오버레이 없이 캐시로 바로 들어온 경우엔 임베딩 3MB만 받아 계산 — 128MB 모델 다운로드 없음)
+  const auto = useRef(false)
+  useEffect(() => {
+    if (auto.current || !eligible.length) return
+    auto.current = true
+    run()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
     <div className="mt-8">

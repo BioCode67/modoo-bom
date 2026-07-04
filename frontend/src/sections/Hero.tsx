@@ -4,7 +4,6 @@ import { Sparkles, ArrowRight, ShieldCheck, Compass, Search } from 'lucide-react
 import { MascotCanvas } from '@/three/MascotCanvas'
 import { useAppStore } from '@/store/useAppStore'
 import { parseProfileFromText } from '@/lib/parseQuery'
-import { runAnalysis } from '@/lib/welfare-engine'
 
 const STATS = [
   { value: '5,000+', label: '정부·지자체·민간 복지' }, // 공공데이터 + 민간재단 큐레이션(PRV)까지
@@ -15,15 +14,15 @@ const STATS = [
 const HERO_EXAMPLES = ['72세 혼자 사는데 소득이 적어요', '서울 사는 한부모, 5살 아이 키워요', '퇴사하고 일자리 찾는 청년이에요']
 
 export function Hero() {
-  const { setView, setAnalysis } = useAppStore()
+  const { setView, setPendingProfile } = useAppStore()
   const [text, setText] = useState('')
 
-  // 자연어 한 문장 → 즉시 분석 후 결과로 이동(위저드 없이 바로 가치 체험)
+  // 자연어 한 문장 → 분석 대기 프로필만 넘기고 이동 → 분석 화면에서 실제 AI 오버레이를 태운다
+  // (홈에서 결과를 즉시 캐시하면 '데이터 조회'처럼 보여, 온디바이스 AI가 도는 과정을 놓친다)
   const quickAnalyze = (raw: string) => {
     const t = raw.trim()
     if (!t) { setView('analyze'); return }
-    const profile = parseProfileFromText(t)
-    setAnalysis(profile, runAnalysis(profile))
+    setPendingProfile(parseProfileFromText(t))
     setView('analyze')
   }
 

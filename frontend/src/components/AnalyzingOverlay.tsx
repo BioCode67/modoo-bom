@@ -1,53 +1,91 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Check, Loader2 } from 'lucide-react'
 import { SproutLogo } from '@/ui/SproutLogo'
+import type { EligiblePolicy, UserProfile } from '@/lib/welfare-engine'
+import { incomeCeiling, sidoOf } from '@/lib/welfare-engine'
 import { cn } from '@/lib/utils'
 
-const STEPS = [
-  '프로필을 살펴보고 있어요',
-  '딱 맞는 정책을 검색하고 있어요',
-  '자격 조건을 하나씩 확인 중이에요',
-  '결과를 다시 한 번 검증하고 있어요',
-  '신청 방법을 정리하고 있어요',
-  '필요한 서류를 챙기고 있어요',
-  '예상 혜택 금액을 계산하고 있어요',
-  '맞춤 안내를 완성하고 있어요',
-]
-
-/** 클라이언트 분석은 즉시 끝나지만, 살아있는 느낌을 위해 단계별로 보여준 뒤 onDone 호출 */
-export function AnalyzingOverlay({ onDone }: { onDone: () => void }) {
+/**
+ * 분석 오버레이 — '진짜로 하는 일'만 보여준다(가짜 단계 타이머 아님, 정직성 원칙).
+ * 규칙 기반 자격 대조는 이미 끝났고, 여기서 **온디바이스 신경망 임베딩**으로 5천여 정책과의
+ * 의미 유사도를 실제로 계산한다(semanticDiscover). 단계 전환은 실제 async 진행에 맞추고,
+ * 표시되는 건수도 실측값. 임베딩을 미리 데워 결과화면의 'AI 관련 복지'가 즉시 뜨게 한다.
+ */
+export function AnalyzingOverlay({
+  profile,
+  eligible,
+  onDone,
+}: {
+  profile: UserProfile
+  eligible: EligiblePolicy[]
+  onDone: () => void
+}) {
   const [active, setActive] = useState(0)
+  const [count, setCount] = useState<number | null>(null) // AI가 발견한 관련 복지 실측 건수
+  const done = useRef(false)
 
   useEffect(() => {
-    let i = 0
-    const timer = setInterval(() => {
-      i += 1
-      if (i >= STEPS.length) {
-        clearInterval(timer)
-        setTimeout(onDone, 450)
-      } else {
-        setActive(i)
+    const start = Date.now()
+    const steps = 4
+    const finish = () => {
+      if (done.current) return
+      done.current = true
+      setActive(steps)
+      const wait = Math.max(0, 1300 - (Date.now() - start)) // 최소 노출(깜빡임 방지)
+      setTimeout(onDone, wait)
+    }
+    setActive(1)
+    ;(async () => {
+      try {
+        const { semanticDiscover } = await import('@/lib/semanticSearch')
+        setActive(2) // 신경망 임베딩 로드·의미 유사도 계산(실제 async 작업)
+        const userSido = sidoOf(profile.region)
+        const excludeNames = new Set(eligible.map((e) => e.name.replace(/\s/g, '')))
+        const seedIds = eligible.slice(0, 16).map((e) => e.id)
+        const hits = await semanticDiscover(seedIds, {
+          topK: 9,
+          excludeNames,
+          keep: (p) => {
+            if (p.id.startsWith('LOC-') && userSido) { const ps = sidoOf(p.target); if (ps && ps !== userSido) return false }
+            const c = incomeCeiling(`${p.eligibility} ${p.target} ${p.name}`)
+            if (c !== null && profile.income_percentile > c) return false
+            return true
+          },
+        })
+        setActive(3)
+        setCount(hits.length)
+        finish()
+      } catch {
+        finish() // 오프라인·로드 실패 시에도 규칙 기반 결과로 진행(정직 폴백)
       }
-    }, 320)
-    return () => clearInterval(timer)
-  }, [onDone])
+    })()
+    // 안전망: 신경망이 너무 오래 걸리면(첫 임베딩 다운로드 등) 결과부터 보여준다
+    const safety = setTimeout(finish, 12000)
+    return () => clearTimeout(safety)
+  }, [profile, eligible, onDone])
+
+  const STEPS = [
+    '프로필에서 상황 신호를 읽었어요',
+    `내게 맞는 복지를 자격 기준으로 대조했어요 (${eligible.length}건 해당)`,
+    '온디바이스 신경망으로 5천여 복지와 의미를 비교하는 중…',
+    count === null ? '관련 복지를 정리하는 중…' : `AI가 놓치기 쉬운 관련 복지 ${count}건을 더 찾았어요`,
+  ]
 
   return (
     <div className="page-container py-12 sm:py-20 flex flex-col items-center text-center" aria-busy="true">
-      {/* 스크린리더: 분석 시작/진행 안내(시각적 단계 목록은 장식) */}
-      <p className="sr-only" role="status" aria-live="polite">복지를 분석하고 있어요. {STEPS[active]}</p>
+      <p className="sr-only" role="status" aria-live="polite">복지를 분석하고 있어요. {STEPS[Math.min(active, STEPS.length - 1)]}</p>
       <motion.div animate={{ y: [0, -12, 0] }} transition={{ repeat: Infinity, duration: 1.6 }} className="relative">
         <div className="absolute inset-0 -z-10 m-auto h-40 w-40 rounded-full bg-sprout-200/50 blur-2xl" />
         <SproutLogo withFace className="h-32 w-32 drop-shadow-xl" />
       </motion.div>
       <h2 className="mt-6 text-2xl font-extrabold">AI가 복지를 찾고 있어요 <span className="gradient-text">🔎</span></h2>
-      <p className="text-muted-foreground mt-1">잠시만 기다려 주세요…</p>
+      <p className="text-muted-foreground mt-1">기기 안에서 직접 계산해요 · 서버 전송 없음</p>
 
       <div className="mt-8 w-full max-w-md space-y-2 text-left">
         {STEPS.map((s, i) => (
           <motion.div
-            key={s}
+            key={i}
             initial={{ opacity: 0.4 }}
             animate={{ opacity: i <= active ? 1 : 0.4 }}
             className={cn('flex items-center gap-3 rounded-2xl px-4 py-2.5 text-sm font-semibold transition-colors',

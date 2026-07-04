@@ -50,6 +50,9 @@ interface AppState {
   result: AnalysisResult | null
   setAnalysis: (profile: UserProfile, result: AnalysisResult) => void
   clearAnalysis: () => void
+  // 홈에서 한 문장 입력 시, 결과를 바로 캐시하지 않고 '분석 대기' 프로필만 넘겨 분석 오버레이(실제 AI)를 태운다
+  pendingProfile: UserProfile | null
+  setPendingProfile: (p: UserProfile | null) => void
 
   // 관심 목록 + 신청 트래킹 (나의 복지)
   tracked: TrackedItem[]
@@ -90,6 +93,8 @@ export const useAppStore = create<AppState>()(
       result: null,
       setAnalysis: (profile, result) => set({ profile, result }),
       clearAnalysis: () => set({ profile: null, result: null }),
+      pendingProfile: null,
+      setPendingProfile: (pendingProfile) => set({ pendingProfile }),
 
       tracked: [],
       isSaved: (policyId) => get().tracked.some((t) => t.policyId === policyId),
