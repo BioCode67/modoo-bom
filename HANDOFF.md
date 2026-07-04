@@ -156,6 +156,14 @@ curl -fsSL https://raw.githubusercontent.com/BioCode67/modoo-bom/main/scripts/se
   → background.js DOCS에 `'재학증명서': { site: 'gov24', capp: '13410000017' }` 형태로 추가하면
   프론트 isRpaSupported 목록(officialLinks.ts RPA_SUPPORTED_DOCS)에도 같은 이름 추가 필요(터미널에 요청).
 
+**📄 서류 발급 전수 검증(7-04 오전, 터미널)**
+- 풀 카탈로그 5,206개 정책의 필요서류 **134종 전수 감사**: 전부 올바른 발급처로 라우팅
+  (자동발급 매칭 87회=전체 언급의 24% · 정부24 직링크 · 병원/은행/회사/본인 정직 안내 · 폴백은 상황성 서류만).
+- **발급처 16곳 전부 생존 실측**(CappBizCD 9종은 페이지 제목까지 일치 확인).
+- ⏳ 남은 실구동 검증: 자동발급 13종의 실사이트 구동은 `extension/validate_live.py`(헤디드 브라우저)가 담당 —
+  데스크탑 세션 또는 사용자 실행 필요: `cd backend && for /f %d in (...13종...) python ../extension/validate_live.py "%d"`
+  (터미널 세션에선 창이 떠 실행 보류).
+
 **검증/품질 도구**
 - 실사이트 셀렉터 점검: `cd backend && python ../extension/validate_live.py "<서류명>"` (본인인증 직전까지, 개인정보 미사용)
 - 코드/URL 데이터 감사: `AA020InfoCappView.do?CappBizCD=<코드>` title 확인, 복지로 `moveTWAT52011M.do?wlfareInfoId=<ID>` len 확인
