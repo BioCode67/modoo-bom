@@ -108,6 +108,13 @@ def _check_policy(doc: str, name: str, pid: str, profile) -> tuple[bool, str, st
     if ceil is not None and profile.income_percentile > ceil:
         return False, "", "low", 0.0
 
+    # 성별 게이트 — 남성에게 여성전용 급여(생리용품·여성청소년·경력단절여성 등) 오추천 방지.
+    # 보수적: gender=='male'일 때만(‘other’/미지정은 배제하지 않아 포용). 프론트 welfare-engine.ts와 동일 원칙.
+    if getattr(profile, "gender", "other") == "male" and any(
+        k in name for k in ["생리", "모유수유", "여성청소년", "여성 청소년", "경력단절여성", "경력단절 여성", "여성가장", "여성새로일하기", "여성경제활동", "여성장애인", "이주여성"]
+    ):
+        return False, "", "low", 0.0
+
     # ── 민간재단(PRV-) 가드: 심사·선발형이라 정밀 룰(일반 소득룰 포함)로 '자격 충족'을 단정하지 않는다.
     # 프로필 신호가 맞으면 저신뢰 '관련 지원'으로만 제시 — 프론트 엔진(welfare-engine.ts)과 동일 원칙.
     if pid.startswith("PRV-"):
