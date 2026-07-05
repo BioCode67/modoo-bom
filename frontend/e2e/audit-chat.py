@@ -89,6 +89,27 @@ def main():
             except Exception:
                 fails.append("분석 결과 미도달")
             pg.screenshot(path=str(OUT/"32-chat-result.png"))
+
+            # 시나리오 2: 조건부 질문 분기 — '최근 아기를 낳았어요' → 자녀 나이 단계가 등장해야 함
+            try:
+                pg.click("text=다시 분석", timeout=5000); pg.wait_for_timeout(800)
+                pg.click("text=건너뛰기", timeout=5000); pg.wait_for_timeout(400)
+                pg.click("text=35~49세"); pg.wait_for_timeout(500)
+                pg.click("text=딱 가운데쯤이에요"); pg.wait_for_timeout(500)
+                pg.click("text=신혼부부"); pg.wait_for_timeout(500)
+                pg.click("text=최근 아기를 낳았어요"); pg.wait_for_timeout(300)
+                pg.click("text=1개 골랐어요, 다음 →"); pg.wait_for_timeout(600)
+                pg.wait_for_selector("text=자녀가 몇 살인가요", timeout=5000)
+                pg.click("text=0~1세 (영아)"); pg.wait_for_timeout(300)
+                pg.click("text=1개 골랐어요, 다음 →"); pg.wait_for_timeout(500)
+                pg.click("text=괜찮아요, 넘어갈게요 →", timeout=5000)
+                pg.wait_for_selector("text=맞춤 추천 복지", timeout=30000)
+                pg.wait_for_selector("text=아동수당", timeout=8000)  # 출산 경로 결과 검증
+                print("✅ 조건부 분기(출산→자녀나이) → 아동수당 도달")
+            except Exception as e:
+                fails.append(f"조건부 분기 시나리오 실패: {str(e)[:70]}")
+                print("❌ 조건부 분기 실패")
+
             if errs:
                 fails.append(f"pageerror {len(errs)}건: {errs[0][:80]}")
             b.close()

@@ -100,7 +100,8 @@ export function Navbar() {
               onClick={() => setView(v)}
               aria-current={view === v ? 'page' : undefined}
               className={cn(
-                'relative flex flex-col items-center gap-0.5 py-2.5 text-[11px] font-semibold transition-colors',
+                // text-xs(임의값 금지) — 어르신 큰글씨 모드의 확대 규칙(.text-xs 오버라이드)에 주 내비게이션도 포함되게
+                'relative flex flex-col items-center gap-0.5 py-2.5 text-xs font-semibold transition-colors',
                 view === v ? 'text-sprout-600' : 'text-muted-foreground',
               )}
             >
