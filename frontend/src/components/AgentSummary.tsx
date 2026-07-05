@@ -3,7 +3,7 @@ import { motion } from 'framer-motion'
 import { Bot, FileText, Send, CheckCircle2, ExternalLink } from 'lucide-react'
 import { getPolicyMap } from '@/data/catalog'
 import { useAppStore } from '@/store/useAppStore'
-import { isRpaSupported } from '@/lib/officialLinks'
+import { isRpaSupported, isApplyAutomatable } from '@/lib/officialLinks'
 import { useBackend } from '@/lib/useBackend'
 import { detectExtension } from '@/lib/extension'
 
@@ -16,20 +16,29 @@ export function AgentSummary() {
   const { ready, caps } = useBackend()
   const [ext, setExt] = useState(false)
   useEffect(() => { detectExtension().then(setExt) }, [])
-  const active = ext || (ready === true && !!caps?.rpa)
+  const localAgent = ready === true && !!caps?.rpa
+  const active = ext || localAgent
 
+  // 채널별 정직 집계(감사 실측 반영): 복지로/장학재단 자동신청은 확장 전용, 로컬 백엔드는 내장 6서비스·6서류만.
   const { applyable, docCount } = useMemo(() => {
     const map = getPolicyMap()
     let applyable = 0
     const docs = new Set<string>()
+    const extLike = ext || !active // 미설치(설치 유도 카드)에선 '설치하면 가능한' 확장 기준으로 안내
     tracked.forEach((t) => {
       const p = map[t.policyId]
       if (!p) return
-      if (/bokjiro\.go\.kr|kosaf\.go\.kr/.test(p.application || '')) applyable += 1
-      ;(p.required_docs || []).forEach((d) => { if (isRpaSupported(d)) docs.add(d) })
+      if (extLike) {
+        if (/bokjiro\.go\.kr|kosaf\.go\.kr/.test(p.application || '')) applyable += 1
+      } else if (isApplyAutomatable(p.name)) {
+        applyable += 1 // 로컬 에이전트: 내장 자동신청 6종만
+      }
+      ;(p.required_docs || []).forEach((d) => {
+        if (extLike ? isRpaSupported(d) : isRpaSupported(d, 'local')) docs.add(d)
+      })
     })
     return { applyable, docCount: docs.size }
-  }, [tracked])
+  }, [tracked, ext, active])
 
   if (applyable === 0 && docCount === 0) return null
 

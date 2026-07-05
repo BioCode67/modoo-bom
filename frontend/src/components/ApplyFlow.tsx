@@ -14,11 +14,14 @@ const BADGE: Record<By, { label: string; chip: string; dot: string }> = {
   you: { label: '본인', chip: 'bg-amber-50 text-amber-700', dot: 'bg-amber-100 text-amber-700 ring-2 ring-amber-200' },
 }
 
-export function ApplyFlow({ automatable, hasBackend }: { automatable: boolean; hasBackend: boolean }) {
+export function ApplyFlow({ automatable, hasBackend, hasPrefill = false }: { automatable: boolean; hasBackend: boolean; hasPrefill?: boolean }) {
   const docAuto = hasBackend && automatable
   const steps: { icon: React.ReactNode; label: string; desc: string; by: By }[] = [
     { icon: <Sparkles className="h-4 w-4" />, label: '맞춤 추천 완료', desc: '내 조건에 맞는 복지를 자동 선별했어요', by: 'auto' },
-    { icon: <FileText className="h-4 w-4" />, label: '신청서 정보 자동 작성', desc: '이름·생년월일·연락처를 미리 채워뒀어요', by: 'auto' },
+    // 정직 표시(감사 반영): 정보를 아직 입력하지 않았으면 '채워뒀어요 ✓'가 아니라 '입력하면 준비해드려요' 안내로.
+    hasPrefill
+      ? { icon: <FileText className="h-4 w-4" />, label: '신청서 정보 준비 완료', desc: '입력한 정보를 신청서에 붙여넣을 수 있게 준비했어요', by: 'auto' as By }
+      : { icon: <FileText className="h-4 w-4" />, label: '신청서 정보 준비', desc: '아래에 이름·생년월일·연락처를 입력하면 붙여넣기용으로 준비해드려요', by: 'guide' as By },
     {
       icon: docAuto ? <Bot className="h-4 w-4" /> : <FileText className="h-4 w-4" />,
       label: '서류 준비',

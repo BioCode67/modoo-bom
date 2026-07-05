@@ -108,16 +108,28 @@ export function applyLink(application: string): OfficialLink {
   return { label: '복지로에서 신청', url: 'https://www.bokjiro.go.kr' }
 }
 
-/** RPA 자동발급 지원 서류 (백엔드 manager.py와 일치) */
+/** RPA 자동발급 지원 서류 — 크롬 확장 기준 13종 (extension/background.js DOCS와 일치) */
 export const RPA_SUPPORTED_DOCS = [
   '주민등록등본', '주민등록초본', '가족관계증명서', '장애인증명서', '소득금액증명',
   '지방세 납세증명서', '지방세 세목별 과세증명서', '기초생활수급자 증명서', '한부모가족 증명서',
   '국민연금 가입자 증명서', '국민연금 가입내역확인서',
   '건강보험 자격득실확인서', '고용보험 피보험자격 이력내역서',
 ]
-export function isRpaSupported(doc: string): boolean {
+/** 로컬 백엔드(Playwright, backend/rpa/manager.py _SUPPORTED_DOCS)가 지원하는 서류 — 6종뿐.
+ *  확장 없이 로컬 에이전트만 연결된 환경에서 13종을 전부 '자동'으로 표시하면
+ *  7종은 클릭 시 오류가 난다(감사 실측) → 채널별로 정직하게 분리 표시. */
+export const LOCAL_RPA_DOCS = [
+  '주민등록등본', '주민등록초본', '가족관계증명서', '장애인증명서',
+  '건강보험 자격득실확인서', '고용보험 피보험자격 이력내역서',
+]
+function docIn(list: string[], doc: string): boolean {
   const d = doc.replace(/\s/g, '')
-  return RPA_SUPPORTED_DOCS.some((s) => d.includes(s.replace(/\s/g, '')) || s.replace(/\s/g, '').includes(d))
+  return list.some((s) => d.includes(s.replace(/\s/g, '')) || s.replace(/\s/g, '').includes(d))
+}
+/** channel: 'ext'=크롬 확장(13종) · 'local'=로컬 백엔드(6종) · 미지정=둘 중 아무거나(최대 집합) */
+export function isRpaSupported(doc: string, channel?: 'ext' | 'local'): boolean {
+  if (channel === 'local') return docIn(LOCAL_RPA_DOCS, doc)
+  return docIn(RPA_SUPPORTED_DOCS, doc)
 }
 
 /** 에이전트(RPA) 신청 자동화 지원 서비스 (백엔드 manager.py SUPPORTED_SERVICE_NAMES와 일치) */

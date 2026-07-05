@@ -17,6 +17,7 @@ import { ApplyFlow } from '@/components/ApplyFlow'
 import { ApplyKit } from '@/components/ApplyKit'
 import { oneTapApply } from '@/lib/quickApply'
 import { useAppStore } from '@/store/useAppStore'
+import { buildPrefill } from '@/lib/prefill'
 import { cn } from '@/lib/utils'
 
 function toEligible(p: Policy | EligiblePolicy): EligiblePolicy {
@@ -263,7 +264,7 @@ function DrawerBody({
         {/* 신청 키트 — 자동화 흐름 + 공식 신청 페이지 직결 + 내 정보 미리채움(복사) */}
         <Section title="📝 신청 키트">
           <div className="mb-2.5">
-            <ApplyFlow automatable={isApplyAutomatable(policy.name)} hasBackend={hasBackend} />
+            <ApplyFlow automatable={isApplyAutomatable(policy.name)} hasBackend={hasBackend} hasPrefill={buildPrefill(profile, rpaInfo).length > 0} />
           </div>
           <a
             href={applyLink(policy.application).url}

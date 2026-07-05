@@ -69,14 +69,19 @@ export function DocumentCenter() {
       return
     }
     setRpa((s) => ({ ...s, [doc]: { status: 'running', step: '시작 중…', at: Date.now() } }))
-    // 로컬 에이전트가 없고 확장만 있으면 브라우저 내 확장으로 발급(진행상태는 구독으로 수신)
-    if (!localAgent && ext) {
+    // 채널 라우팅: 로컬 백엔드는 6종만 지원 — 로컬이 못 하는 서류는 확장으로(있으면), 둘 다 안 되면 정직한 안내
+    const localOk = isRpaSupported(doc, 'local')
+    if ((!localAgent || !localOk) && ext) {
       const r = await issueViaExtension(doc, {
         // 본인인증엔 실명(rpaInfo.name)이 필요 — 프로필 이름(데모 페르소나일 수 있음)은 폴백
         user_name: rpaInfo.name || profile?.name || '사용자',
         birth_date: rpaInfo.birth_date, phone: rpaInfo.phone, carrier: rpaInfo.carrier,
       })
       if (!r.ok) setRpa((s) => ({ ...s, [doc]: { status: 'error', step: r.error || '확장이 이 서류를 지원하지 않아요.', at: Date.now() } }))
+      return
+    }
+    if (localAgent && !localOk) {
+      setRpa((s) => ({ ...s, [doc]: { status: 'error', step: '이 서류는 크롬 확장에서만 자동발급돼요 — 확장을 설치하거나 공식 사이트에서 발급하세요.', at: Date.now() } }))
       return
     }
     try {
@@ -101,7 +106,7 @@ export function DocumentCenter() {
   }
 
   // 🚀 연쇄 자동발급 — 지원 서류 전부를 한 흐름으로(정부24는 한 번 로그인으로 이어짐)
-  const rpaDocs = docs.filter((d) => isRpaSupported(d))
+  const rpaDocs = docs.filter((d) => isRpaSupported(d)) // 연쇄 발급은 확장 전용(ext && … 조건으로만 노출)
   const startAll = async () => {
     if (!rpaInfo.name?.trim() || !rpaInfo.birth_date?.trim() || !rpaInfo.phone?.trim()) {
       setRpa((s) => ({ ...s, [rpaDocs[0]]: { status: 'error', step: '아래 "자동입력 추가정보"에 실명·생년월일·휴대폰을 먼저 입력해 주세요.', at: Date.now() } }))
@@ -187,7 +192,8 @@ export function DocumentCenter() {
       <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
         {docs.map((doc) => {
           const link = docLink(doc)
-          const supported = isRpaSupported(doc)
+          // 확장 있으면 13종, 로컬 백엔드만이면 6종만 '자동' 표시(과대 표시 시 클릭 오류 — 감사 실측)
+          const supported = ext ? isRpaSupported(doc) : isRpaSupported(doc, 'local')
           const st = rpa[doc]
           // 30초 넘게 진행상태가 안 오면(새 탭에서 사용자 조작 대기 등) 웹에서도 정직하게 안내
           const stale = !!(st && !['done', 'completed', 'error'].includes(st.status) && st.at && Date.now() - st.at > 30000 && tick >= 0)
