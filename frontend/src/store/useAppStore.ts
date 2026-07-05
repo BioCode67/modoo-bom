@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { UserProfile, AnalysisResult, EligiblePolicy } from '@/lib/welfare-engine'
+import type { UiLang } from '@/lib/i18nLite'
 
 export type View = 'home' | 'analyze' | 'explore' | 'my'
 
@@ -30,6 +31,9 @@ interface AppState {
   setAiIntent: (v: boolean) => void
   aiQuery: string
   setAiQuery: (q: string) => void
+  // UI 표시 언어 — 외국어 입력을 감지하면 상세·신청키트 UI 골격을 그 언어로(외국인 딥퍼널). 'ko'=기본.
+  uiLang: UiLang
+  setUiLang: (l: UiLang) => void
   pendingRegion: string // '우리 동네 복지' 진입 시 Explore에 미리 지정할 시·도
   setPendingRegion: (r: string) => void
 
@@ -80,6 +84,8 @@ export const useAppStore = create<AppState>()(
       setAiIntent: (v) => set({ aiIntent: v }),
       aiQuery: '',
       setAiQuery: (q) => set({ aiQuery: q }),
+      uiLang: 'ko',
+      setUiLang: (l) => set({ uiLang: l }),
       pendingRegion: '',
       setPendingRegion: (pendingRegion) => set({ pendingRegion }),
 
@@ -145,7 +151,7 @@ export const useAppStore = create<AppState>()(
       //   신청서 미리채움용 강식별 PII라 세션(메모리) 동안만 유지 → 공용 기기 잔존·유출 위험 제거.
       //   profile/result는 '나의 복지' 재방문 경험에 필요해 유지(이름·연락처 없음, 초기화 버튼으로 삭제 가능).
       // 최소저장: 이름(호칭)은 디스크에 남기지 않는다(세션 중엔 메모리로 유지 — 새로고침 후 '회원님'으로 표시)
-      partialize: (s) => ({ tracked: s.tracked, elderly: s.elderly, highContrast: s.highContrast, onboarded: s.onboarded, profile: s.profile ? { ...s.profile, name: '' } : null, result: s.result }),
+      partialize: (s) => ({ tracked: s.tracked, elderly: s.elderly, highContrast: s.highContrast, onboarded: s.onboarded, uiLang: s.uiLang, profile: s.profile ? { ...s.profile, name: '' } : null, result: s.result }),
       merge: (persisted, current) => {
         const p = (persisted || {}) as Partial<AppState>
         return { ...current, ...p, rpaInfo: current.rpaInfo } // rpaInfo는 항상 메모리 기본값에서 시작

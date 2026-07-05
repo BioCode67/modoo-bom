@@ -16,6 +16,7 @@ import { AgentSubmitButton } from '@/components/AgentSubmitButton'
 import { ApplyFlow } from '@/components/ApplyFlow'
 import { TermText } from '@/components/TermText'
 import { VisitKit } from '@/components/VisitKit'
+import { t as tr, RTL } from '@/lib/i18nLite'
 import { ApplyKit } from '@/components/ApplyKit'
 import { oneTapApply } from '@/lib/quickApply'
 import { useAppStore } from '@/store/useAppStore'
@@ -133,7 +134,7 @@ function DrawerBody({
   const tts = useTTS()
   const { ready, caps } = useBackend()
   const hasBackend = ready === true && !!caps?.rpa
-  const { profile, rpaInfo } = useAppStore()
+  const { profile, rpaInfo, uiLang } = useAppStore()
   const [visitKit, setVisitKit] = useState(false)
   const [applied, setApplied] = useState<false | 'copied' | 'opened'>(false)
   const related = onOpen
@@ -199,6 +200,12 @@ function DrawerBody({
       </div>
 
       <div className="p-5 space-y-5">
+        {/* 외국어 사용자 안내 — UI 골격은 자국어, 정책 본문은 한국어 + 통역 연결(정직성) */}
+        {uiLang !== 'ko' && (
+          <p dir={RTL.includes(uiLang) ? 'rtl' : 'ltr'} className="rounded-2xl bg-sky2-50 border border-sky2-100 px-3.5 py-2.5 text-xs leading-relaxed text-sky2-800">
+            🌐 {tr(uiLang, 'banner')}
+          </p>
+        )}
         {(() => {
           const d = deadlineHint(policy)
           if (!d) return null
@@ -224,7 +231,7 @@ function DrawerBody({
           const summaryOnly = policy.target === policy.benefit && policy.benefit === policy.eligibility
           if (summaryOnly) {
             return (
-              <Section title="📋 서비스 안내">
+              <Section title={`📋 ${tr(uiLang,'serviceInfo')}`}>
                 <TermText text={policy.benefit} className="text-sm text-foreground/80 leading-relaxed block" />
                 <a href={applyLink(policy.application).url} target="_blank" rel="noopener noreferrer"
                   className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-sprout-600 hover:underline">
@@ -235,14 +242,14 @@ function DrawerBody({
           }
           return (
             <>
-              <Section title="💰 혜택 내용">
+              <Section title={`💰 ${tr(uiLang,'benefit')}`}>
                 {monthly > 0 && <p className="text-2xl font-extrabold text-sprout-600 mb-1">월 {formatWon(monthly)}까지</p>}
                 <TermText text={policy.benefit} className="text-sm text-foreground/80 leading-relaxed block" />
               </Section>
-              <Section title="🎯 지원 대상">
+              <Section title={`🎯 ${tr(uiLang,'target')}`}>
                 <TermText text={policy.target} className="text-sm text-foreground/80 leading-relaxed block" />
               </Section>
-              <Section title="📋 자격 요건">
+              <Section title={`📋 ${tr(uiLang,'eligibility')}`}>
                 <TermText text={policy.eligibility} className="text-sm text-foreground/80 leading-relaxed block" />
               </Section>
             </>
@@ -251,7 +258,7 @@ function DrawerBody({
 
         {/* 신청 단계 */}
         {guide && (
-          <Section title="🚀 신청 방법">
+          <Section title={`🚀 ${tr(uiLang,'howToApply')}`}>
             <ol className="space-y-2">
               {guide.steps.map((s, i) => (
                 <li key={i} className="flex gap-2.5 text-sm">
@@ -265,7 +272,7 @@ function DrawerBody({
         )}
 
         {/* 신청 키트 — 자동화 흐름 + 공식 신청 페이지 직결 + 내 정보 미리채움(복사) */}
-        <Section title="📝 신청 키트">
+        <Section title={`📝 ${tr(uiLang,'applyKit')}`}>
           <div className="mb-2.5">
             <ApplyFlow automatable={isApplyAutomatable(policy.name)} hasBackend={hasBackend} hasPrefill={buildPrefill(profile, rpaInfo).length > 0} />
           </div>
@@ -287,7 +294,7 @@ function DrawerBody({
 
         {/* 필요 서류 */}
         {policy.required_docs?.length > 0 && (
-          <Section title="📑 필요 서류">
+          <Section title={`📑 ${tr(uiLang,'requiredDocs')}`}>
             <ul className="space-y-1.5">
               {policy.required_docs.map((d: string) => {
                 const dl = docLink(d)
@@ -322,7 +329,7 @@ function DrawerBody({
 
         {/* 주민센터 방문용 인쇄 — 어르신·디지털 소외층의 실제 신청 경로(창구 방문) 지원 */}
         <button onClick={() => setVisitKit(true)} className="btn-secondary w-full !py-2.5 text-sm">
-          📄 주민센터 방문용으로 큰 글씨 인쇄
+          📄 {tr(uiLang, 'visitPrint')}
         </button>
 
         <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
@@ -409,10 +416,10 @@ function DrawerBody({
           onClick={() => ctx.toggleSaved({ id: policy.id, name: policy.name, category: policy.category })}
           className={cn('btn-secondary !px-4', saved && '!bg-peach-50 !border-peach-200 !text-peach-600')}
         >
-          <Heart className={cn('h-4 w-4', saved && 'fill-current')} /> {saved ? '저장됨' : '관심'}
+          <Heart className={cn('h-4 w-4', saved && 'fill-current')} /> {saved ? tr(uiLang, 'saved') : tr(uiLang, 'save')}
         </button>
         <button onClick={startApply} className="btn-primary flex-1">
-          <Rocket className="h-4 w-4" /> {applied ? '공식 사이트로 이동했어요 →' : '내 정보 복사 + 공식 신청 이동'}
+          <Rocket className="h-4 w-4" /> {applied ? '공식 사이트로 이동했어요 →' : (uiLang === 'ko' ? '내 정보 복사 + 공식 신청 이동' : tr(uiLang, 'goApply'))}
         </button>
         <a
           href={applyLink(policy.application).url}

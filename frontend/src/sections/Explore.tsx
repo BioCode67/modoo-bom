@@ -5,6 +5,7 @@ import { useSpeech } from '@/lib/useSpeech'
 import { useTTS } from '@/lib/useTTS'
 import { semanticSearch, warmupSemantic, type SemanticHit } from '@/lib/semanticSearch'
 import { detectLang } from '@/lib/detectLang'
+import { isUiLang } from '@/lib/i18nLite'
 import { useAppStore } from '@/store/useAppStore'
 import { IncomeCalculator } from '@/components/IncomeCalculator'
 import { parseMonthly } from '@/lib/format'
@@ -207,6 +208,15 @@ export function Explore() {
   }, [q, bucket, catalog, sort, onlyCash, region, gungu, aiMode, aiHits])
 
   const detected = aiMode && q.trim() ? detectLang(q) : null
+  // 외국어 질의를 감지하면 UI 표시 언어를 그 언어로 — 상세·신청키트가 자국어로 뜬다(외국인 딥퍼널).
+  // 한국어로 다시 물으면 'ko'로 복귀. 지원 언어(en·vi·zh·ja·th·ru·ar)만 반영.
+  const setUiLang = useAppStore((s) => s.setUiLang)
+  useEffect(() => {
+    if (!q.trim()) return
+    const code = detected?.code || 'ko'
+    setUiLang(isUiLang(code) ? code : 'ko')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [detected?.code, q])
 
   return (
     <div className="page-container py-8 sm:py-10">

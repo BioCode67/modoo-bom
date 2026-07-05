@@ -1,4 +1,6 @@
 import { Check, FileText, ShieldCheck, Send, Sparkles, Bot } from 'lucide-react'
+import { t as tr } from '@/lib/i18nLite'
+import { useAppStore } from '@/store/useAppStore'
 import { cn } from '@/lib/utils'
 
 /**
@@ -8,36 +10,38 @@ import { cn } from '@/lib/utils'
  */
 
 type By = 'auto' | 'guide' | 'you'
-const BADGE: Record<By, { label: string; chip: string; dot: string }> = {
-  auto: { label: '자동', chip: 'bg-sprout-50 text-sprout-600', dot: 'bg-sprout-500 text-white' },
-  guide: { label: '안내', chip: 'bg-sky2-50 text-sky2-700', dot: 'bg-sky2-500 text-white' },
-  you: { label: '본인', chip: 'bg-amber-50 text-amber-700', dot: 'bg-amber-100 text-amber-700 ring-2 ring-amber-200' },
+const BADGE_STYLE: Record<By, { chip: string; dot: string }> = {
+  auto: { chip: 'bg-sprout-50 text-sprout-600', dot: 'bg-sprout-500 text-white' },
+  guide: { chip: 'bg-sky2-50 text-sky2-700', dot: 'bg-sky2-500 text-white' },
+  you: { chip: 'bg-amber-50 text-amber-700', dot: 'bg-amber-100 text-amber-700 ring-2 ring-amber-200' },
 }
 
 export function ApplyFlow({ automatable, hasBackend, hasPrefill = false }: { automatable: boolean; hasBackend: boolean; hasPrefill?: boolean }) {
+  const uiLang = useAppStore((s) => s.uiLang)
+  const badgeLabel: Record<By, string> = { auto: tr(uiLang, 'byAuto'), guide: tr(uiLang, 'byGuide'), you: tr(uiLang, 'byYou') }
   const docAuto = hasBackend && automatable
+  // 라벨은 자국어(스캔 가능), 상세 설명은 한국어 유지(정책 본문과 함께 통역 배너로 안내)
   const steps: { icon: React.ReactNode; label: string; desc: string; by: By }[] = [
-    { icon: <Sparkles className="h-4 w-4" />, label: '맞춤 추천 완료', desc: '내 조건에 맞는 복지를 자동 선별했어요', by: 'auto' },
-    // 정직 표시(감사 반영): 정보를 아직 입력하지 않았으면 '채워뒀어요 ✓'가 아니라 '입력하면 준비해드려요' 안내로.
+    { icon: <Sparkles className="h-4 w-4" />, label: tr(uiLang, 'stepRecommend'), desc: '내 조건에 맞는 복지를 자동 선별했어요', by: 'auto' },
     hasPrefill
-      ? { icon: <FileText className="h-4 w-4" />, label: '신청서 정보 준비 완료', desc: '입력한 정보를 신청서에 붙여넣을 수 있게 준비했어요', by: 'auto' as By }
-      : { icon: <FileText className="h-4 w-4" />, label: '신청서 정보 준비', desc: '아래에 이름·생년월일·연락처를 입력하면 붙여넣기용으로 준비해드려요', by: 'guide' as By },
+      ? { icon: <FileText className="h-4 w-4" />, label: tr(uiLang, 'stepInfo'), desc: '입력한 정보를 신청서에 붙여넣을 수 있게 준비했어요', by: 'auto' as By }
+      : { icon: <FileText className="h-4 w-4" />, label: tr(uiLang, 'stepInfo'), desc: '아래에 이름·생년월일·연락처를 입력하면 붙여넣기용으로 준비해드려요', by: 'guide' as By },
     {
       icon: docAuto ? <Bot className="h-4 w-4" /> : <FileText className="h-4 w-4" />,
-      label: '서류 준비',
+      label: tr(uiLang, 'stepDocs'),
       desc: docAuto ? '에이전트가 등본 등을 자동 발급해요' : '필요 서류 발급처로 바로 이동해요(아래 링크)',
       by: docAuto ? 'auto' : 'guide',
     },
-    { icon: <ShieldCheck className="h-4 w-4" />, label: '간편인증 (본인)', desc: '카카오 등 본인인증 — 법적으로 본인이 직접', by: 'you' },
-    { icon: <Send className="h-4 w-4" />, label: '최종 제출 (본인)', desc: '내용을 확인하고 직접 제출하면 끝!', by: 'you' },
+    { icon: <ShieldCheck className="h-4 w-4" />, label: tr(uiLang, 'stepAuth'), desc: '카카오 등 본인인증 — 법적으로 본인이 직접', by: 'you' },
+    { icon: <Send className="h-4 w-4" />, label: tr(uiLang, 'stepSubmit'), desc: '내용을 확인하고 직접 제출하면 끝!', by: 'you' },
   ]
 
   return (
     <div className="rounded-2xl border border-sprout-100 bg-white p-3.5">
-      <p className="text-xs font-bold text-muted-foreground mb-2.5">신청은 이렇게 진행돼요</p>
+      <p className="text-xs font-bold text-muted-foreground mb-2.5">{tr(uiLang, 'flowTitle')}</p>
       <ol className="relative space-y-0">
         {steps.map((s, i) => {
-          const b = BADGE[s.by]
+          const b = BADGE_STYLE[s.by]
           return (
             <li key={i} className="relative flex gap-3 pb-3 last:pb-0">
               {/* 연결선 */}
@@ -48,7 +52,7 @@ export function ApplyFlow({ automatable, hasBackend, hasPrefill = false }: { aut
               <div className="min-w-0 flex-1 pt-0.5">
                 <p className="text-sm font-bold flex items-center gap-1.5">
                   {s.label}
-                  <span className={cn('text-[10px] font-semibold rounded-full px-1.5 py-px', b.chip)}>{b.label}</span>
+                  <span className={cn('text-[10px] font-semibold rounded-full px-1.5 py-px', b.chip)}>{badgeLabel[s.by]}</span>
                 </p>
                 <p className="text-xs text-muted-foreground mt-0.5">{s.desc}</p>
               </div>
