@@ -133,12 +133,13 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'modoobom-store',
-      partialize: (s) => ({ tracked: s.tracked, elderly: s.elderly, highContrast: s.highContrast, onboarded: s.onboarded, profile: s.profile, result: s.result, rpaInfo: s.rpaInfo }),
-      // ⚠️ persist 기본 병합은 top-level 얕은 병합 → 예전에 저장된 rpaInfo(name 없음)가 새 기본값을
-      //    통째로 덮어써 rpaInfo.name이 undefined가 됨. rpaInfo만 깊게 병합해 신규 필드 기본값 보존.
+      // ⚠️ 개인정보 최소저장(보안): rpaInfo(이름·생년월일·휴대폰)는 **디스크에 저장하지 않는다**.
+      //   신청서 미리채움용 강식별 PII라 세션(메모리) 동안만 유지 → 공용 기기 잔존·유출 위험 제거.
+      //   profile/result는 '나의 복지' 재방문 경험에 필요해 유지(이름·연락처 없음, 초기화 버튼으로 삭제 가능).
+      partialize: (s) => ({ tracked: s.tracked, elderly: s.elderly, highContrast: s.highContrast, onboarded: s.onboarded, profile: s.profile, result: s.result }),
       merge: (persisted, current) => {
         const p = (persisted || {}) as Partial<AppState>
-        return { ...current, ...p, rpaInfo: { ...current.rpaInfo, ...(p.rpaInfo || {}) } }
+        return { ...current, ...p, rpaInfo: current.rpaInfo } // rpaInfo는 항상 메모리 기본값에서 시작
       },
     },
   ),
