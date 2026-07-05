@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { Sparkles, MessageCircleHeart, ListChecks } from 'lucide-react'
 import { ProfileWizard } from '@/components/ProfileWizard'
 import { MascotChat } from '@/components/MascotChat'
+import { HelperView } from '@/components/HelperView'
 import { QuickAsk } from '@/components/QuickAsk'
 import { AnalyzingOverlay } from '@/components/AnalyzingOverlay'
 import { ResultsView } from '@/components/ResultsView'
@@ -12,7 +13,7 @@ import { useAppStore } from '@/store/useAppStore'
 type Phase = 'form' | 'analyzing' | 'result'
 
 export function Analyze() {
-  const { profile: savedProfile, result: savedResult, setAnalysis, clearAnalysis, pendingProfile, setPendingProfile } = useAppStore()
+  const { profile: savedProfile, result: savedResult, setAnalysis, clearAnalysis, pendingProfile, setPendingProfile, helper } = useAppStore()
   // 캐시된 결과가 있으면 바로 결과 화면 (오랜만에 들어와도 즉시 표시)
   const [phase, setPhase] = useState<Phase>(savedResult ? 'result' : 'form')
   const [mode, setMode] = useState<'chat' | 'quick' | 'form'>('chat')
@@ -46,6 +47,9 @@ export function Analyze() {
     setPending(null)
     setPhase('form')
   }
+
+  // 가족 도움 링크로 진입 시 — 도우미 뷰(남의 프로필 온디바이스 재계산)를 최우선으로 표시
+  if (helper) return <HelperView />
 
   if (phase === 'analyzing' && pending)
     return <AnalyzingOverlay profile={pending.profile} eligible={pending.result.eligible_policies} onDone={handleAnalyzed} />

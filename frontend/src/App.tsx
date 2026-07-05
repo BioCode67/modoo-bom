@@ -13,6 +13,7 @@ import { PrintSummary } from '@/components/PrintSummary'
 import { Onboarding } from '@/components/Onboarding'
 import { loadExternalCatalog } from '@/data/catalog'
 import { useAppStore } from '@/store/useAppStore'
+import { decodeHelperPayload } from '@/lib/helperLink'
 import { AuthProvider } from '@/lib/authContext'
 import { cn } from '@/lib/utils'
 
@@ -39,6 +40,17 @@ export default function App() {
 
   // PWA 앱 바로가기(홈 아이콘 길게누르기) 딥링크 — ?go=analyze|explore|my 로 해당 화면 진입
   useEffect(() => {
+    // 가족 도움 링크(#helper=) 수신 — 프로필만으로 온디바이스 재계산(서버 전송 없음). 해시는 즉시 제거(재유출 방지).
+    const hash = window.location.hash || ''
+    if (hash.includes('helper=')) {
+      const payload = decodeHelperPayload(hash)
+      window.history.replaceState(null, '', window.location.pathname + window.location.search)
+      if (payload) {
+        useAppStore.getState().setHelper({ profile: payload.profile, tracked: payload.tracked })
+        useAppStore.getState().setView('analyze')
+        return
+      }
+    }
     const go = new URLSearchParams(window.location.search).get('go')
     if (go === 'analyze' || go === 'explore' || go === 'my' || go === 'home') {
       useAppStore.getState().setView(go)

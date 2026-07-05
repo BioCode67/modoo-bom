@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import { RotateCcw, Heart, TrendingUp, Bell, PartyPopper, Printer, Volume2, Square } from 'lucide-react'
+import { RotateCcw, Heart, TrendingUp, Bell, PartyPopper, Printer, Volume2, Square, Users } from 'lucide-react'
 import { useTTS } from '@/lib/useTTS'
 import type { AnalysisResult, UserProfile, EligiblePolicy } from '@/lib/welfare-engine'
 import type { Policy } from '@/data/policies'
@@ -18,11 +18,13 @@ import { ShareButton } from '@/components/ShareButton'
 import { Glossary } from '@/components/Glossary'
 import { formatWon, sumCashMonthly } from '@/lib/format'
 import { useAppStore } from '@/store/useAppStore'
+import { encodeHelperLink } from '@/lib/helperLink'
 
 export function ResultsView({ result, profile, onReset }: { result: AnalysisResult; profile: UserProfile; onReset: () => void }) {
   const [selected, setSelected] = useState<Policy | EligiblePolicy | null>(null)
   const [showRelated, setShowRelated] = useState(false)
   const setView = useAppStore((s) => s.setView)
+  const tracked = useAppStore((s) => s.tracked)
   const eligible = result.eligible_policies
   // 정밀 추천(큐레이션 시드) / 민간재단(심사·선발형) / 관련 복지(공공데이터 텍스트 신호) 3분리
   const primary = eligible.filter((p) => /^POL-/.test(p.id))
@@ -47,6 +49,20 @@ export function ResultsView({ result, profile, onReset }: { result: AnalysisResu
       (monthly > 0 ? `핵심 현금지원은 최대 월 ${formatWon(monthly)} 정도입니다. ` : '') +
       (names ? `주요 혜택은 ${names} 등입니다. 자세한 내용은 각 항목을 눌러 확인하세요.` : ''),
     )
+  }
+
+  // 가족에게 부탁하기 — 프로필(이름 제외)+담은 정책을 링크로 공유. 받은 가족 폰에서 같은 결과가 복원된다.
+  // 서버 미전송(해시). 단, 메신저 대화방엔 링크가 남으므로 동의 후 전송.
+  const shareToFamily = async () => {
+    const ok = typeof window !== 'undefined' && window.confirm(
+      '가족·도우미에게 이 결과를 보낼 링크를 만들어요.\n\n• 이름은 넣지 않아요(나이·소득·상황만).\n• 링크 내용은 서버로 전송되지 않아요.\n• 다만 카톡 등 대화방에는 링크가 남아요.\n\n계속할까요?',
+    )
+    if (!ok) return
+    const link = encodeHelperLink(profile, tracked.map((t) => ({ policyId: t.policyId, name: t.name })))
+    try {
+      if (navigator.share) await navigator.share({ title: '모두봄 — 이 복지 좀 도와줘', text: '내가 받을 수 있는 복지야. 신청 좀 도와줄래?', url: link })
+      else { await navigator.clipboard.writeText(link); alert('링크를 복사했어요. 가족에게 붙여넣어 보내주세요.') }
+    } catch { /* 사용자 취소 등 무시 */ }
   }
 
   return (
@@ -104,6 +120,9 @@ export function ResultsView({ result, profile, onReset }: { result: AnalysisResu
               </button>
             )}
             <ShareButton count={primary.length} monthlyText={monthly > 0 ? formatWon(monthly) : ''} />
+            <button onClick={shareToFamily} className="btn-secondary !py-2.5" aria-label="가족에게 부탁하기">
+              <Users className="h-4 w-4" /> 가족에게 부탁하기
+            </button>
           </div>
         </div>
       </motion.div>

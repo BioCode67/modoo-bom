@@ -34,6 +34,9 @@ interface AppState {
   // UI 표시 언어 — 외국어 입력을 감지하면 상세·신청키트 UI 골격을 그 언어로(외국인 딥퍼널). 'ko'=기본.
   uiLang: UiLang
   setUiLang: (l: UiLang) => void
+  // 가족 도움 링크(#helper=) 수신 시 — 남의 프로필을 '대신 보는' 임시 세션(비저장, 내 데이터 불침범)
+  helper: { profile: UserProfile; tracked: { policyId: string; name: string }[] } | null
+  setHelper: (h: { profile: UserProfile; tracked: { policyId: string; name: string }[] } | null) => void
   pendingRegion: string // '우리 동네 복지' 진입 시 Explore에 미리 지정할 시·도
   setPendingRegion: (r: string) => void
 
@@ -86,6 +89,8 @@ export const useAppStore = create<AppState>()(
       setAiQuery: (q) => set({ aiQuery: q }),
       uiLang: 'ko',
       setUiLang: (l) => set({ uiLang: l }),
+      helper: null,
+      setHelper: (helper) => set({ helper }),
       pendingRegion: '',
       setPendingRegion: (pendingRegion) => set({ pendingRegion }),
 
