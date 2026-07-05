@@ -93,6 +93,16 @@ describe('matchSaveIntent — 대화 맥락 기억(직전 복지를 가리켜 �
   it('밋밋한 "담아줘" + 여러 개 → 보여준 것 전부', () => {
     expect(matchSaveIntent('담아줘', ctx)).toHaveLength(3)
   })
+  it('감사 회귀: 조회 문장("보여줘/알려줘/뭐야")은 저장으로 오인하지 않음', () => {
+    expect(matchSaveIntent('관심목록 보여줘', ctx)).toBeNull()
+    expect(matchSaveIntent('찜 목록 알려줘', ctx)).toBeNull()
+    expect(matchSaveIntent('저장된 거 뭐야', ctx)).toBeNull()
+  })
+  it('감사 회귀: 폴백 컨텍스트(explicitOnly)는 명시적 지시만 저장 — 밋밋한 "담아줘"로 전체 무단저장 방지', () => {
+    expect(matchSaveIntent('담아줘', ctx, true)).toBeNull() // 밋밋 → 저장 안 함
+    expect(matchSaveIntent('다 담아줘', ctx, true)).toHaveLength(3) // 전체 지시어 → 저장
+    expect(matchSaveIntent('아동수당 담아줘', ctx, true)?.[0].id).toBe('B') // 이름 명시 → 저장
+  })
 })
 
 

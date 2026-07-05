@@ -158,7 +158,8 @@ export function ProfileWizard({ onSubmit }: { onSubmit: (p: UserProfile) => void
               </Field>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Toggle label="🤰 임신 중" on={p.is_pregnant} onClick={() => set({ is_pregnant: !p.is_pregnant })} />
-                <Toggle label="👶 자녀 있음" on={p.has_children} onClick={() => set({ has_children: !p.has_children, children_ages: !p.has_children ? [0] : [] })} />
+                {/* 나이 미상 자리표시 0세 금지 — 0으로 채우면 신생아 전용 급여가 오추천됨(실제 나이 입력 시 정밀 매칭) */}
+                <Toggle label="👶 자녀 있음" on={p.has_children} onClick={() => set({ has_children: !p.has_children, children_ages: [] })} />
               </div>
               {p.has_children && (
                 <Field label="자녀 나이 (쉼표로 구분)">

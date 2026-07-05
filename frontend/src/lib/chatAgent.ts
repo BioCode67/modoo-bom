@@ -143,22 +143,29 @@ ${lines}
 }
 
 const SAVE_RE = /담(아|어|을|기|아줘|아둬|아주|아 줘)|저장|추가|찜|관심\s*목록|넣어/
+// 조회 의도 — "관심목록 보여줘/찜 목록 알려줘/저장된 거 뭐야"는 저장이 아니라 '보기' 요청.
+// SAVE_RE 단독 판정 시 조회 문장이 전체 저장으로 오인되던 결함(감사 실측) 차단.
+const VIEW_RE = /보여|알려|확인|볼래|뭐(야|가|지|있)|목록\s*(좀)?$|현황|얼마나/
 const ORD: Record<string, number> = { 첫: 0, 1: 0, 하나: 0, 두: 1, 2: 1, 둘: 1, 세: 2, 3: 2, 셋: 2, 네: 3, 4: 3, 넷: 3 }
 
 /**
  * 대화 맥락 기억 — 직전에 보여준 복지들(context)을 "그거/첫번째/다 담아줘"처럼 가리키는 저장 의도를 해석.
  * 반환: 담을 정책 목록(없으면 null=저장 의도 아님). 실제 저장(toggleSaved)은 호출부(스토어)에서 수행.
+ * @param explicitOnly 챗에 직접 보여준 목록이 아닌 폴백 컨텍스트(분석 결과 전체)일 때 true —
+ *   전체 지시어("다/전부")·서수·정책명처럼 **명시적** 지시가 있을 때만 저장(밋밋한 "담아줘"로 37건 무단 저장 방지).
  */
-export function matchSaveIntent(raw: string, context: Policy[]): Policy[] | null {
+export function matchSaveIntent(raw: string, context: Policy[], explicitOnly = false): Policy[] | null {
   if (!context.length || !SAVE_RE.test(raw)) return null
+  if (VIEW_RE.test(raw)) return null // 조회("보여줘·알려줘·뭐야")는 저장 아님
   const t = raw.replace(/\s/g, '')
   if (/(다|전부|모두|전체|모든|다들)담|담.*(다|전부|모두)|이것들|그것들|다넣/.test(t)) return context
   const ord = t.match(/(첫|두|세|네|하나|둘|셋|넷|[1-4])(번째|째|번)?/)
   if (ord && ORD[ord[1]] !== undefined && context[ORD[ord[1]]]) return [context[ORD[ord[1]]]]
   const byName = context.filter((p) => t.includes(p.name.replace(/\s/g, '')))
   if (byName.length) return byName
+  if (explicitOnly) return null // 폴백 컨텍스트에선 명시적 지시 없으면 저장하지 않음
   if (/(그거|이거|저거|그것|이것|그걸|이걸)/.test(t) || context.length === 1) return [context[0]]
-  return context // 밋밋한 "담아줘" + 여러 개 → 보여준 것 전부
+  return context // 밋밋한 "담아줘" + 여러 개(직접 보여준 목록) → 보여준 것 전부
 }
 
 /** 로컬(행동·개인화) 의도인가 — 이 의도들은 클라우드 LLM이 있어도 로컬 에이전트가 처리한다

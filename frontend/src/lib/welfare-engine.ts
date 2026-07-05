@@ -322,10 +322,11 @@ function checkPolicyDoc(doc: string, name: string, p: UserProfile): CheckResult 
     return NO
   }
 
-  // ── 한부모 계열 ──
-  if (doc.includes('한부모가족') || doc.includes('한부모')) {
-    if (p.household_type === '한부모가족' || p.household_type === '한부모')
-      return { eligible: true, reason: '한부모가족 확인', priority: 'high', confidence: 0.93 }
+  // ── 한부모·조손 계열 ──
+  // 한부모가족지원법상 조손가구(조부모+손자녀)도 아동양육비 등 동일 급여 대상 — 조손 오배제 방지.
+  if (doc.includes('한부모가족') || doc.includes('한부모') || doc.includes('조손')) {
+    if (/한부모|조손/.test(p.household_type))
+      return { eligible: true, reason: '한부모·조손가족 확인', priority: 'high', confidence: 0.93 }
     return NO
   }
 
@@ -384,8 +385,8 @@ export function demographicMismatch(name: string, doc: string, p: UserProfile): 
   if (/임산부|산모|임신|난임|출산/.test(name) && !(p.is_pregnant || ages.some((a) => a <= 1))) return true
   // 장애인 전용인데 비장애
   if (/장애인|장애아/.test(name) && !p.disability) return true
-  // 한부모·모자/부자가정·미혼모/부 전용인데 아님
-  if (/한부모|모자가정|부자가정|미혼모|미혼부|조손/.test(name) && !p.household_type.includes('한부모')) return true
+  // 한부모·모자/부자가정·미혼모/부·조손 전용인데 아님 — 조손가구는 한부모가족지원법상 동일 급여 대상이라 포함
+  if (/한부모|모자가정|부자가정|미혼모|미혼부|조손/.test(name) && !/한부모|조손/.test(p.household_type)) return true
   // 농어촌·농업 전용 지원은 대도시(특별시·광역시) 거주자에겐 제외 — 서울 임신부에게 '농어촌 출산지원금'
   // 이 강력추천되던 오류 차단. 도(道) 지역·미지정은 농촌 포함 가능성이 있어 게이트하지 않음(과배제 방지).
   if (/농어촌|농업인|어업인|농촌|귀농|귀어|농가|어가/.test(name) &&
@@ -462,7 +463,7 @@ const TEXT_SIGNALS: { id: string; match: (p: UserProfile) => boolean; kw: RegExp
   { id: 'birth', match: (p) => p.is_pregnant || p.children_ages.some((a) => a <= 1), kw: /임신|임산부|출산|산모|영아|난임/, reason: '임신·출산 가구' },
   { id: 'disability', match: (p) => p.disability, kw: /장애/, reason: '등록 장애인' },
   { id: 'lowincome', match: (p) => p.income_percentile <= 50, kw: /저소득|기초생활|차상위|수급|긴급복지/, reason: '저소득 가구' },
-  { id: 'single', match: (p) => p.household_type.includes('한부모'), kw: /한부모|모자|부자가정|조손/, reason: '한부모·조손 가구' },
+  { id: 'single', match: (p) => /한부모|조손/.test(p.household_type), kw: /한부모|모자|부자가정|조손/, reason: '한부모·조손 가구' },
   { id: 'jobless', match: (p) => p.employment_status === 'unemployed', kw: /실업|실직|구직|일자리|재취업|고용/, reason: '구직 중' },
   { id: 'multi', match: (p) => p.household_type.includes('다문화'), kw: /다문화|결혼이민|외국인주민|북한이탈/, reason: '다문화 가구' },
 ]
@@ -552,6 +553,9 @@ export function getEligiblePolicies(p: UserProfile): EligiblePolicy[] {
   for (const policy of getCatalog()) {
     // 신규 신청이 막힌 정책(모집 종료)은 정밀·추론 양쪽 모두에서 제외 — '신청할 수 있는 것만'
     if (isClosedForNew(policy)) continue
+    // 정책서민금융(FIN-)은 저소득·저신용 전용(연소득 3,500만 안팎 상한) — 절대소득 상한이라 중위% 게이트에
+    // 안 잡히므로 별도 게이트. 가구원수를 모르니 넉넉히 중위 150% 초과일 때만 제외(과배제 방지).
+    if (policy.id.startsWith('FIN-') && p.income_percentile > 150) continue
     // 인구통계 하드 미스매치(예: 72세에 청년·유아 정책)는 정밀·추론 양쪽 모두에서 제외
     if (demographicMismatch(policy.name, `${policy.eligibility} ${policy.target} ${policy.name}`, p)) continue
     // 민간재단(PRV-)은 심사·선발형 — 일반 소득룰 등 정밀 매칭으로 '자격 충족'을 단정하지 않고

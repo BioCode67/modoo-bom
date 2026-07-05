@@ -268,8 +268,9 @@ def _check_policy(doc: str, name: str, pid: str, profile) -> tuple[bool, str, st
         return False, "", "low", 0.0
 
     # ── 한부모 계열 ────────────────────────────────────────────────────────
-    if "한부모가족" in doc or "한부모" in doc:
-        if profile.household_type in ("한부모가족", "한부모"):
+    if "한부모가족" in doc or "한부모" in doc or "조손" in doc:
+        # 한부모가족지원법상 조손가구도 동일 급여 대상(프론트 welfare-engine과 패리티)
+        if profile.household_type in ("한부모가족", "한부모", "조손가구", "조손"):
             return True, "한부모가족 확인", "high", 0.93
         return False, "", "low", 0.0
 

@@ -35,7 +35,7 @@ function questionText(step: StepId, name: string): string {
 // 진행 중 대화 임시저장(같은 브라우저 세션) — 실수로 새로고침해도 이어서.
 // 기존 복지앱 최대 불만("입력하다 상태를 잃고 처음부터") 대응. 탭을 닫으면 사라진다(민감정보 아님·과보관 방지).
 const DRAFT_KEY = 'modoo-chat-draft-v1'
-type Draft = { profile: UserProfile; step: StepId; msgs: Msg[] }
+type Draft = { profile: UserProfile; step: StepId; msgs: Msg[]; history?: { step: StepId; profile: UserProfile; len: number }[] }
 function loadDraft(): Draft | null {
   try {
     const raw = sessionStorage.getItem(DRAFT_KEY)
@@ -54,7 +54,7 @@ export function MascotChat({ onSubmit }: { onSubmit: (p: UserProfile) => void })
   const [nameDraft, setNameDraft] = useState('')
   const [multi, setMulti] = useState<string[]>([])   // situations 선택
   const [ages, setAges] = useState<number[]>([])      // 자녀 나이대 선택
-  const [history, setHistory] = useState<{ step: StepId; profile: UserProfile; len: number }[]>([])
+  const [history, setHistory] = useState<{ step: StepId; profile: UserProfile; len: number }[]>(draft?.history ?? [])
   const [done, setDone] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   // 어르신(65+) 선택 시 큰글씨 모드를 즉시 제안 — 기존 복지앱의 최대 불만('작은 글씨, 어르신 미고려') 대응.
@@ -79,9 +79,9 @@ export function MascotChat({ onSubmit }: { onSubmit: (p: UserProfile) => void })
   useEffect(() => {
     try {
       if (done) sessionStorage.removeItem(DRAFT_KEY)
-      else sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ profile, step, msgs } satisfies Draft))
+      else sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ profile, step, msgs, history } satisfies Draft))
     } catch { /* 저장 불가 환경(시크릿 등)은 조용히 무시 */ }
-  }, [profile, step, msgs, done])
+  }, [profile, step, msgs, history, done])
 
   const advance = (patched: UserProfile, userLabel: string) => {
     setHistory((h) => [...h, { step, profile, len: msgs.length }])
@@ -109,6 +109,7 @@ export function MascotChat({ onSubmit }: { onSubmit: (p: UserProfile) => void })
       setProfile(last.profile)
       setStep(last.step)
       setMulti([]); setAges([])
+      setOfferElderly(false) // 나이 단계로 되돌아가 다시 65+를 고르면 advance에서 재제안됨
       setMsgs((m) => m.slice(0, last.len))
       return h.slice(0, -1)
     })
@@ -117,7 +118,7 @@ export function MascotChat({ onSubmit }: { onSubmit: (p: UserProfile) => void })
   const restart = () => {
     try { sessionStorage.removeItem(DRAFT_KEY) } catch { /* noop */ }
     setProfile(EMPTY_PROFILE); setStep('name'); setNameDraft(''); setMulti([]); setAges([])
-    setHistory([]); setDone(false)
+    setHistory([]); setDone(false); setOfferElderly(false)
     setMsgs([{ role: 'bot', text: questionText('name', '') }])
   }
 
@@ -294,7 +295,9 @@ export function MascotChat({ onSubmit }: { onSubmit: (p: UserProfile) => void })
                   </ChoiceGrid>
                   <button
                     onClick={() => {
-                      const picked = ages.length ? [...ages].sort((a, b) => a - b) : [0]
+                      // 건너뛰면 나이 미상으로 유지(자리표시 0세 금지 — 신생아 오추천 방지).
+                      // 단 '최근 아기를 낳았어요'를 골랐다면 이미 [0]이 사실이므로 그대로 보존.
+                      const picked = ages.length ? [...ages].sort((a, b) => a - b) : profile.children_ages
                       const label = ages.length
                         ? CHILD_AGE_OPTIONS.filter((c) => ages.includes(c.age)).map((c) => c.label).join(', ')
                         : '나중에 알려줄게요'
@@ -302,7 +305,7 @@ export function MascotChat({ onSubmit }: { onSubmit: (p: UserProfile) => void })
                     }}
                     className="btn-primary w-full mt-3"
                   >
-                    {ages.length ? `${ages.length}개 골랐어요, 다음 →` : '건너뛰기'}
+                    {ages.length ? `${ages.length}개 골랐어요, 다음 →` : '건너뛰기 (나이를 알면 더 정확해요)'}
                   </button>
                 </div>
               )}

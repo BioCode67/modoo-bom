@@ -307,6 +307,26 @@ describe('estimateBenefits / runAnalysis', () => {
   it('출산 프로필 → 출산 관련 알림 생성', () => {
     expect(runAnalysis(newborn).notifications.length).toBeGreaterThan(0)
   })
+  it('감사 회귀: 자녀 나이 미상([])이면 신생아 전용(부모급여·첫만남)이 강력추천되지 않음', () => {
+    // 자리표시 0세가 신생아로 둔갑해 10살 자녀 부모에게 부모급여가 추천되던 실버그(감사 실측) 방지
+    const unknown = getEligiblePolicies({ ...base, age: 42, has_children: true, children_ages: [] })
+    expect(unknown.some((p) => p.id === 'POL-005')).toBe(false) // 부모급여(0~1세 전용)
+    expect(unknown.map((p) => p.name).join(' ')).not.toMatch(/첫만남/)
+    // 진짜 0세(출산 상황)는 정상 추천 유지
+    const newbornP = getEligiblePolicies({ ...base, age: 32, has_children: true, children_ages: [0], life_events: ['출산'] })
+    expect(newbornP.some((p) => p.id === 'POL-005')).toBe(true)
+  })
+  it('감사 회귀: 조손가구도 한부모가족 급여(아동양육비 등) 대상에 포함', () => {
+    const grand = getEligiblePolicies({ ...base, age: 68, household_type: '조손가구', income_percentile: 40, has_children: true, children_ages: [10] })
+    expect(grand.map((p) => p.name).join(' ')).toMatch(/한부모|양육비/)
+    // 일반가구엔 여전히 미노출
+    const plain = getEligiblePolicies({ ...base, age: 40, income_percentile: 40 })
+    expect(plain.map((p) => p.name).join(' ')).not.toMatch(/한부모가족 아동양육비/)
+  })
+  it('감사 회귀: 상위권 소득(중위 180%)에겐 서민금융(FIN) 미노출', () => {
+    const rich = getEligiblePolicies({ ...base, age: 27, income_percentile: 180, employment_status: 'employed' })
+    expect(rich.some((p) => p.id.startsWith('FIN-'))).toBe(false)
+  })
   it('신규 모집 종료 정책은 추천에서 제외 — "신청할 수 있는 것만" 원칙(청년도약계좌 → 후속 청년미래적금)', () => {
     // 26세 청년: 연령은 도약계좌(POL-040)에 맞지만 신규가입 종료라 신청 불가 → 제외, 후속(POL-121)은 노출
     const r = getEligiblePolicies({ ...base, age: 26, income_percentile: 60 })

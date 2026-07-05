@@ -48,7 +48,8 @@ export const HOUSEHOLD_OPTIONS: { label: string; emoji: string }[] = [
 // 상황(복수 선택) — 각 항목이 프로필 여러 필드에 매핑. life_events는 누적(append).
 export const SITUATIONS: { id: string; label: string; emoji: string; patch: Partial<UserProfile>; events?: string[] }[] = [
   { id: 'pregnant', label: '임신 중이에요', emoji: '🤰', patch: { is_pregnant: true } },
-  { id: 'newborn', label: '최근 아기를 낳았어요', emoji: '🍼', patch: { has_children: true }, events: ['출산'] },
+  // newborn은 '실제로 0세'가 사실이므로 [0]을 기록 — 이 경우에만 신생아 전용 급여(부모급여 등) 정밀 매칭 허용.
+  { id: 'newborn', label: '최근 아기를 낳았어요', emoji: '🍼', patch: { has_children: true, children_ages: [0] }, events: ['출산'] },
   { id: 'children', label: '어린 자녀가 있어요', emoji: '👶', patch: { has_children: true } },
   { id: 'disability', label: '등록 장애가 있어요', emoji: '♿', patch: { disability: true, disability_grade: '1급' } },
   { id: 'jobless', label: '일자리를 찾고 있어요', emoji: '💼', patch: { employment_status: 'unemployed' }, events: ['실직'] },
@@ -85,8 +86,9 @@ export function applySituations(base: UserProfile, ids: string[]): UserProfile {
     for (const e of s.events ?? []) events.add(e)
   }
   next.life_events = [...events]
-  // 자녀 있음이면 최소 1개 나이 자리 확보(뒤 단계에서 실제 나이 채움)
-  if (next.has_children && next.children_ages.length === 0) next.children_ages = [0]
+  // ⚠️ 나이 미상 자리표시값 [0] 금지 — 0세로 채우면 엔진이 '실제 신생아'로 판정해
+  // 10살 자녀 부모에게 부모급여·첫만남이용권이 강력추천되는 오류가 났다(감사에서 실측).
+  // 나이를 모르면 빈 배열로 두고, 자녀 정책은 저신뢰 '관련 복지'로만 노출된다(정직 원칙).
   return next
 }
 

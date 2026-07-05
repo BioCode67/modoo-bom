@@ -84,7 +84,8 @@ export function ChatWidget() {
     const inChat = [...msgs].reverse().find((m) => m.role === 'bot' && m.policies?.length)?.policies ?? []
     const fallback = result?.eligible_policies?.filter((p) => /^POL-/.test(p.id)) ?? []
     const context = inChat.length ? inChat : (fallback as Policy[])
-    const toSave = matchSaveIntent(q, context)
+    // 폴백(분석 결과 전체)일 땐 명시적 지시("다 담아줘"·정책명)만 저장 — 밋밋한 "담아줘"로 수십 건 무단 저장 방지
+    const toSave = matchSaveIntent(q, context, inChat.length === 0)
     if (toSave) {
       const added: string[] = []
       toSave.forEach((p) => {
