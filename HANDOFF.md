@@ -156,6 +156,9 @@ curl -fsSL https://raw.githubusercontent.com/BioCode67/modoo-bom/main/scripts/se
   → background.js DOCS에 `'재학증명서': { site: 'gov24', capp: '13410000017' }` 형태로 추가하면
   프론트 isRpaSupported 목록(officialLinks.ts RPA_SUPPORTED_DOCS)에도 같은 이름 추가 필요(터미널에 요청).
 
+**🚨 대회 일정 실측(7-05, DACON 공식)** — **기획서 7/7(월) 10:00 마감(임박!)** · 산출물 7/15 10:00 ·
+투표 ~7/17 · 예선발표 7/27 · 본선 8/11. 기획서 초안 완성: `docs/제출/기획서-초안.md`(양식에 이식만 하면 됨).
+
 **⚡ 성능 스트레치(7-04, 터미널·2f와 무충돌 분업)** — 추가: **폰트 풀본 2,010KB가 첫화면 대역폭 잡아먹던 것 발견**
 → dynamic-subset 전환(사용 글자 범위만 점진 로드) + registerSW defer. 금액 스팟체크(부모급여·아동수당) 공식 일치.
 로컬 Lighthouse는 샌드박스 EPERM+동시 빌드로 신뢰 불가 판정 — 점수 확정은 pagespeed.web.dev 1클릭 권장.
