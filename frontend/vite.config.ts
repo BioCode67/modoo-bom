@@ -17,6 +17,8 @@ export default defineConfig(({ command }) => ({
       // 해시 자산만 precache(안전), 새 배포 시 자동 갱신. policies.json은 항상 네트워크 우선.
       workbox: {
         cleanupOutdatedCaches: true,
+        // 선제 알림 클릭 핸들러를 SW에 병합(public/sw-notify.js → 배포 시 /modoo-bom/sw-notify.js)
+        importScripts: ['sw-notify.js'],
         navigateFallbackDenylist: [/policies\.json$/],
         // 온디바이스 AI(transformers.js)의 ONNX WASM 등 대용량 파일은 precache 제외
         // (런타임에 CDN에서 로드) — SW 프리캐시 비대화·빌드 실패 방지.
