@@ -2,7 +2,7 @@ import { motion } from 'framer-motion'
 import { CalendarDays, Download, FileText, RefreshCw, Search } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
 import { getPolicyMap } from '@/data/catalog'
-import { buildEvents, downloadICS, formatEventDate, type WelfareEvent } from '@/lib/calendar'
+import { buildEvents, downloadICS, futureEvents, formatEventDate, type WelfareEvent } from '@/lib/calendar'
 
 const KIND_ICON = { prepare: FileText, check: Search, renew: RefreshCw }
 const KIND_CLS = {
@@ -21,7 +21,7 @@ export function WelfareCalendar() {
     <motion.section initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="mt-8">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h2 className="text-lg font-extrabold flex items-center gap-2"><CalendarDays className="h-5 w-5 text-sprout-500" /> 복지 일정</h2>
-        <button onClick={() => downloadICS(events)} className="btn-secondary !py-2 !px-3 text-xs">
+        <button onClick={() => downloadICS(futureEvents(events))} className="btn-secondary !py-2 !px-3 text-xs">
           <Download className="h-4 w-4" /> 캘린더 저장(.ics)
         </button>
       </div>

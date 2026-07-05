@@ -28,10 +28,11 @@ export function buildEvents(tracked: TrackedItem[], map: Record<string, Policy>)
       // 기한 신호가 급한(일 단위) 정책은 준비를 더 앞당기고, 정책의 실제 기한 텍스트를 노트에 함께 노출.
       const hint = deadlineHint(p)
       const prepDays = hint?.urgent ? 1 : 3
-      // 담아둔 지 오래돼 savedAt+준비일이 이미 지났으면 내일로 당겨, 과거 날짜의 죽은 알림이 안 생기게 한다.
-      const prepDate = Math.max(t.savedAt + prepDays * DAY, Date.now() + DAY)
+      // ⚠️ 여기서 Date.now()로 클램프하면 안 된다 — buildEvents는 '복지 일정' 화면(WelfareCalendar)이
+      //    매 렌더 호출하는 공용 함수라, 지난 준비일을 '내일'로 밀면 영원히 D-1로 고정되는 가짜 카운트다운이 된다.
+      //    실제 앵커(savedAt+준비일)를 그대로 두고, 과거 날짜 제외는 .ics 내보내기 시점(futureEvents)에서 처리한다.
       events.push({
-        id: `${t.policyId}-prepare`, date: prepDate, kind: 'prepare',
+        id: `${t.policyId}-prepare`, date: t.savedAt + prepDays * DAY, kind: 'prepare',
         title: `${p.name} 신청 준비`,
         note: `${hint ? `기한: ${hint.label} · ` : ''}필요 서류: ${(p.required_docs || []).join(', ') || '주민센터 확인'}`,
       })
@@ -51,6 +52,12 @@ export function buildEvents(tracked: TrackedItem[], map: Record<string, Policy>)
     }
   }
   return events.sort((a, b) => a.date - b.date)
+}
+
+/** .ics 내보내기용 — 지난 날짜 이벤트는 캘린더에 무의미하므로 제외(오늘 이후만). 라이브 UI는 이걸 쓰지 않는다. */
+export function futureEvents(events: WelfareEvent[]): WelfareEvent[] {
+  const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0)
+  return events.filter((e) => e.date >= todayStart.getTime())
 }
 
 function icsDate(ms: number): string {

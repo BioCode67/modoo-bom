@@ -34,4 +34,13 @@ describe('annotateTerms — 본문 인라인 용어 하이라이트', () => {
     const segs = annotateTerms('생계급여를 받는 가구')
     expect(segs.some((s) => s.term?.term === '생계급여')).toBe(true)
   })
+  it('2차 회귀 방지: "기초생활수급 장애인"의 기초생활수급자 용어는 살아있어야(경계가드 과차단 방지)', () => {
+    const segs = annotateTerms('기초생활수급 장애인 대상')
+    expect(segs.some((s) => s.term?.term === '기초생활수급자')).toBe(true)
+  })
+  it('2차 회귀 방지: 긴 별칭이 거부돼도 내부 짧은 별칭은 살아남음 — "소득기준 중위소득"의 중위소득', () => {
+    const segs = annotateTerms('소득기준 중위소득 130% 이하')
+    // '기준 중위소득'은 앞글자 '득'(합성어)로 거부되지만, 그 안의 '중위소득'은 매칭돼야 한다
+    expect(segs.some((s) => s.term?.term === '기준 중위소득')).toBe(true)
+  })
 })

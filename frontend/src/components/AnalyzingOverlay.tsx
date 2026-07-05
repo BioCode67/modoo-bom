@@ -25,7 +25,10 @@ export function AnalyzingOverlay({
 }) {
   const [active, setActive] = useState(0)
   const [count, setCount] = useState<number | null>(null) // AI가 발견한 관련 복지 실측 건수
-  const [skipped, setSkipped] = useState(false) // 데이터 절약·오프라인 등으로 신경망 비교를 건너뛴 경로(정직 표기용)
+  // 신경망 비교를 건너뛴 사유 — null(안 건너뜀) | 'datasaver'(진성 데이터 절약) | 'error'(오프라인·로드 실패).
+  // 사유를 구분해야 '데이터 절약 모드'라는 거짓 표기를 오프라인 사용자에게 보이지 않는다(정직성).
+  const [skipReason, setSkipReason] = useState<null | 'datasaver' | 'error'>(null)
+  const skipped = skipReason !== null
   const done = useRef(false)
   // 백엔드(LangGraph)가 배포돼 있으면 실제 10노드 에이전트를 실시간 스트리밍(대회 주제의 핵심 순간).
   // 결과는 신뢰도 높은 클라이언트 엔진 것을 쓰되, 이 화면이 '진짜 에이전트'를 보여준다.
@@ -47,7 +50,7 @@ export function AnalyzingOverlay({
       try {
         // 데이터 절약·저사양·2G 환경에선 3.9MB 임베딩을 받지 않고 규칙기반 결과로 바로 진행(정직 폴백).
         const { prefersDataSaving } = await import('@/lib/netHint')
-        if (prefersDataSaving()) { setSkipped(true); finish(); return }
+        if (prefersDataSaving()) { setSkipReason('datasaver'); finish(); return }
         const { semanticDiscover } = await import('@/lib/semanticSearch')
         setActive(2) // 신경망 임베딩 로드·의미 유사도 계산(실제 async 작업)
         const userSido = sidoOf(profile.region)
@@ -67,7 +70,7 @@ export function AnalyzingOverlay({
         setCount(hits.length)
         finish()
       } catch {
-        setSkipped(true)
+        setSkipReason('error')
         finish() // 오프라인·로드 실패 시에도 규칙 기반 결과로 진행(정직 폴백)
       }
     })()
@@ -99,7 +102,9 @@ export function AnalyzingOverlay({
   const STEPS = [
     `프로필에서 상황 신호를 읽었어요${signalText}`,
     `내게 맞는 복지를 자격 기준으로 대조했어요 (${eligible.length}건 해당)`,
-    skipped ? '데이터 절약 모드 — 신경망 비교는 건너뛰고 규칙 기반 결과로 진행했어요' : '온디바이스 신경망으로 5천여 복지와 의미를 비교하는 중…',
+    skipReason === 'datasaver' ? '데이터 절약 모드 — 신경망 비교는 건너뛰고 규칙 기반 결과로 진행했어요'
+      : skipReason === 'error' ? '오프라인·로드 실패로 신경망 비교를 건너뛰었어요(규칙 기반 결과로 진행)'
+      : '온디바이스 신경망으로 5천여 복지와 의미를 비교하는 중…',
     skipped ? '규칙 기반 자격 판정 결과로 안내해요' : count === null ? '관련 복지를 정리하는 중…' : `AI가 놓치기 쉬운 관련 복지 ${count}건을 더 찾았어요`,
   ]
 

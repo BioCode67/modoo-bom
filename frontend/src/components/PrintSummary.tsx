@@ -15,12 +15,16 @@ import { STATUS_META } from '@/components/TrackedCard'
 export function PrintSummary() {
   const { profile, result, tracked } = useAppStore()
   const helper = useAppStore((s) => s.helper)
+  const view = useAppStore((s) => s.view)
   const map = getPolicyMap()
 
   // 도우미 모드: 받은 프로필로 온디바이스 재계산(내 저장 데이터 미사용 — 상태 격리·개인정보 보호)
   const helperResult = useMemo(() => (helper ? runAnalysis(helper.profile) : null), [helper])
 
-  const isHelper = !!helper
+  // ⚠️ helper 상태만으로 전환하면, 도우미 세션이 남은 채 '나의 복지' 탭으로 이동해 인쇄할 때
+  //    화면의 내 목록 대신 가족 문서가 인쇄된다(화면-인쇄 불일치). HelperView가 실제로 보이는
+  //    analyze 뷰일 때만 가족 문서를 인쇄한다(그 외 탭에선 내 데이터).
+  const isHelper = !!helper && view === 'analyze'
   const displayName = isHelper ? '' : profile?.name // 도우미 모드에선 이름 미표기(가족 이름도 링크에 없음)
   const fromResult = isHelper ? (helperResult?.eligible_policies ?? []) : (result?.eligible_policies ?? [])
   const helperTracked = isHelper ? (helper?.tracked ?? []).map((t) => map[t.policyId]).filter(Boolean) : []

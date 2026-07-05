@@ -21,7 +21,7 @@ import { ApplyKit } from '@/components/ApplyKit'
 import { oneTapApply } from '@/lib/quickApply'
 import { useAppStore } from '@/store/useAppStore'
 import { buildPrefill } from '@/lib/prefill'
-import { buildEvents, downloadICS } from '@/lib/calendar'
+import { buildEvents, downloadICS, futureEvents } from '@/lib/calendar'
 import { cn } from '@/lib/utils'
 
 function toEligible(p: Policy | EligiblePolicy): EligiblePolicy {
@@ -343,8 +343,10 @@ function DrawerBody({
             onClick={() => {
               const existing = trackedList.find((t) => t.policyId === policy.id)
               const item = existing ?? { policyId: policy.id, name: policy.name, category: policy.category, status: 'tracking' as const, savedAt: Date.now(), checkedDocs: [] }
-              const ev = buildEvents([item], { [policy.id]: policy as Policy })
+              // 과거 날짜 이벤트(이미 지난 준비일·점검일)는 캘린더에 무의미하므로 제외. 남는 게 없으면 정직히 안내.
+              const ev = futureEvents(buildEvents([item], { [policy.id]: policy as Policy }))
               if (ev.length) downloadICS(ev)
+              else alert('이 복지는 지금 캘린더에 넣을 예정 일정이 없어요. (준비 기한이 지났거나, 정해진 갱신 주기가 없는 경우예요.)')
             }}
             className="btn-secondary !py-2.5 text-sm"
           >

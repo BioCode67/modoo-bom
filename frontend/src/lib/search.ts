@@ -77,12 +77,17 @@ export function expandQuery(q: string): string[] {
 }
 
 function fieldScore(p: Policy | EligiblePolicy, t: string, isUserTerm = false): number {
-  // 1글자 용어는 substring 오탐이 심해 제외(예: 동의어 '집'이 '어린이집'에 걸려 주거 검색을 오염).
-  // 단, 사용자가 직접 친 원문 단어는 예외 — '암'처럼 1글자를 검색하면 '암환자의료비지원'이 매칭돼야 한다
-  // (오탐 방지 취지는 자동 확장한 동의어에만 해당하지, 사용자의 명시적 질의어를 버리면 안 됨).
   if (!t) return 0
-  if (t.length < 2 && !isUserTerm) return 0
   const name = p.name.toLowerCase()
+  // 1글자 용어는 substring 오탐이 심하다(동의어 '집'이 '어린이집'에 걸려 주거 검색을 오염).
+  // 자동확장 동의어의 1글자는 완전히 제외하고, 사용자가 '직접 친' 1글자만 예외로 허용하되
+  // 그것도 이름의 '시작' 또는 '비한글 경계' 매칭만 인정한다 — '암'→'암환자의료비지원' O,
+  // '집'→'어린이집'(중간) X, '암'→'영암군'(중간) X. 본문/분류 substring은 노이즈라 보지 않는다.
+  if (t.length < 2) {
+    if (!isUserTerm) return 0
+    const esc = t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    return name.startsWith(t) || new RegExp(`[^가-힣]${esc}`).test(name) ? 3 : 0
+  }
   let s = 0
   if (name === t) s += 8
   else if (name.includes(t)) s += 3
@@ -127,7 +132,10 @@ export function relevance(p: Policy | EligiblePolicy, concepts: string[][], rawQ
   if (raw && score > 0) {
     const name = p.name.toLowerCase()
     if (name === raw) score += 100
-    else if (name.includes(raw)) score += 30
+    // 2글자 이상 원문은 이름 어디든 포함되면 가산. 1글자 원문은 경계 오탐이 심해 '이름 시작'일 때만
+    // 가산한다('암'→'암환자…' 가산 O / '집'→'어린이집' 가산 X, '영암군' 가산 X).
+    else if (raw.length >= 2 && name.includes(raw)) score += 30
+    else if (raw.length === 1 && name.startsWith(raw)) score += 30
   }
   return score
 }

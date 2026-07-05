@@ -196,6 +196,7 @@ const ALIAS_MAP: { alias: string; term: string }[] = [
   { alias: '차상위계층', term: '차상위계층' },
   { alias: '차상위', term: '차상위계층' },
   { alias: '기초생활수급자', term: '기초생활수급자' },
+  { alias: '기초생활수급', term: '기초생활수급자' }, // '기초생활수급 장애인' 등 — '수급'까지가 매핑 용어의 일부라 경계가드에 걸리지 않게 별칭화
   { alias: '기초생활', term: '기초생활수급자' },
   { alias: '생계급여', term: '생계급여' },
   { alias: '의료급여', term: '의료급여' },
@@ -237,22 +238,30 @@ export function annotateTerms(text: string): InlineSegment[] {
   const segs: InlineSegment[] = []
   const usedTerms = new Set<string>()
   let last = 0
-  for (const m of text.matchAll(ALIAS_RE)) {
-    const idx = m.index ?? 0
+  // exec 루프로 스캔 — 경계가드에 걸려 '버린' 긴 매치가 그 구간 안의 '더 짧은 유효 별칭'을 삼키지 않도록
+  //   거부 시 lastIndex를 idx+1로 되감아 재시도한다('소득기준 중위소득'의 '중위소득'이 살아남게).
+  ALIAS_RE.lastIndex = 0
+  let m: RegExpExecArray | null
+  while ((m = ALIAS_RE.exec(text)) !== null) {
+    const idx = m.index
     const alias = m[0]
+    if (alias.length === 0) { ALIAS_RE.lastIndex++; continue } // 제로길이 방어(무한루프 방지)
     const mapped = ALIAS_MAP.find((a) => a.alias === alias)
     const term = mapped ? TERM_BY_NAME[mapped.term] : undefined
-    if (!term || usedTerms.has(term.term)) continue // 매핑 없거나 이미 표시한 용어면 스킵(일반 텍스트로 둠)
     // 합성어 내부/접두 오매칭 방지: 앞 글자가 한글이면 단어 중간('국민기초생활보장'의 '기초생활'),
     //   뒤 글자가 한글인데 조사가 아니면 더 긴 합성어의 접두('기초생활'+'보장')이므로 하이라이트하지 않는다.
     const before = idx > 0 ? text[idx - 1] : ''
     const afterStr = text.slice(idx + alias.length)
-    if (HANGUL.test(before)) continue
-    if (afterStr && HANGUL.test(afterStr[0]) && !JOSA.test(afterStr)) continue
+    const boundaryOk = !HANGUL.test(before) && !(afterStr && HANGUL.test(afterStr[0]) && !JOSA.test(afterStr))
+    if (!term || usedTerms.has(term.term) || !boundaryOk) {
+      ALIAS_RE.lastIndex = idx + 1 // 이 매치는 버리되, 구간 안의 짧은 별칭이 재시도되도록 한 칸만 전진
+      continue
+    }
     if (idx > last) segs.push({ text: text.slice(last, idx) })
     segs.push({ text: alias, term })
     usedTerms.add(term.term)
     last = idx + alias.length
+    ALIAS_RE.lastIndex = last
   }
   if (last < text.length) segs.push({ text: text.slice(last) })
   return segs.length ? segs : [{ text }]

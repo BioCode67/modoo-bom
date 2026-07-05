@@ -18,7 +18,7 @@ import { ShareButton } from '@/components/ShareButton'
 import { Glossary } from '@/components/Glossary'
 import { formatWon, sumCashMonthly } from '@/lib/format'
 import { useAppStore } from '@/store/useAppStore'
-import { encodeHelperLink } from '@/lib/helperLink'
+import { encodeHelperLink, decodeHelperPayload } from '@/lib/helperLink'
 
 export function ResultsView({ result, profile, onReset, helperMode = false }: { result: AnalysisResult; profile: UserProfile; onReset: () => void; helperMode?: boolean }) {
   const [selected, setSelected] = useState<Policy | EligiblePolicy | null>(null)
@@ -54,12 +54,19 @@ export function ResultsView({ result, profile, onReset, helperMode = false }: { 
   // 가족에게 부탁하기 — 프로필(이름 제외)+담은 정책을 링크로 공유. 받은 가족 폰에서 같은 결과가 복원된다.
   // 서버 미전송(해시). 단, 메신저 대화방엔 링크가 남으므로 동의 후 전송.
   const shareToFamily = async () => {
-    const savedNote = tracked.length > 0 ? `• 내가 담아둔 복지 ${tracked.length}건 목록도 함께 담겨요.\n` : ''
+    // 링크를 먼저 만든 뒤 '실제로 담긴' 건수를 역디코드로 확인해 고지한다 — 인코더가 용량 상한(6000자)으로
+    // 장문 정책명 일부를 떨굴 수 있어, confirm이 전체 건수를 약속하면 과장이 되기 때문(정직성 철칙).
+    const link = encodeHelperLink(profile, tracked.map((t) => ({ policyId: t.policyId, name: t.name })))
+    const included = decodeHelperPayload(link)?.tracked.length ?? 0
+    const savedNote = tracked.length > 0
+      ? (included < tracked.length
+          ? `• 담아둔 복지 ${tracked.length}건 중 ${included}건이 링크에 담겨요(용량 제한).\n`
+          : `• 담아둔 복지 ${included}건 목록도 함께 담겨요.\n`)
+      : ''
     const ok = typeof window !== 'undefined' && window.confirm(
       '가족·도우미에게 이 결과를 보낼 링크를 만들어요.\n\n• 이름은 넣지 않아요(나이·소득·상황만).\n' + savedNote + '• 링크 내용은 서버로 전송되지 않아요.\n• 다만 카톡 등 대화방에는 링크가 남아요.\n\n계속할까요?',
     )
     if (!ok) return
-    const link = encodeHelperLink(profile, tracked.map((t) => ({ policyId: t.policyId, name: t.name })))
     try {
       if (navigator.share) await navigator.share({ title: '모두봄 — 이 복지 좀 도와줘', text: '내가 받을 수 있는 복지야. 신청 좀 도와줄래?', url: link })
       else { await navigator.clipboard.writeText(link); alert('링크를 복사했어요. 가족에게 붙여넣어 보내주세요.') }
@@ -112,8 +119,11 @@ export function ResultsView({ result, profile, onReset, helperMode = false }: { 
           )}
 
           <div className="mt-5 flex flex-wrap gap-2">
-            <button onClick={onReset} className="btn-secondary !py-2.5"><RotateCcw className="h-4 w-4" /> 다시 분석</button>
-            <button onClick={() => setView('my')} className="btn-primary !py-2.5"><Heart className="h-4 w-4" /> 나의 복지에서 관리</button>
+            <button onClick={onReset} className="btn-secondary !py-2.5"><RotateCcw className="h-4 w-4" /> {helperMode ? '도우미 종료' : '다시 분석'}</button>
+            {/* 도우미 모드에선 '나의 복지'(내 데이터)로의 이동을 감춰 세션을 격리 — 남의 결과를 내 목록과 섞지 않는다 */}
+            {!helperMode && (
+              <button onClick={() => setView('my')} className="btn-primary !py-2.5"><Heart className="h-4 w-4" /> 나의 복지에서 관리</button>
+            )}
             <button onClick={() => window.print()} className="btn-secondary !py-2.5"><Printer className="h-4 w-4" /> 인쇄·저장</button>
             {tts.supported && (
               <button onClick={speakSummary} className="btn-secondary !py-2.5" aria-label={tts.speaking ? '읽기 중지' : '결과 읽어주기'}>

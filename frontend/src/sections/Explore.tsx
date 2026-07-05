@@ -221,7 +221,14 @@ export function Explore() {
   // 외국어 UI가 영구 고착되던 문제와 외국인이 일반검색만 써도 'ko'로 리셋되던 역방향 문제를 함께 해소.
   // AI 모드 여부와 무관하게 실제 입력 언어로 판단(일반 검색을 쓰는 외국인도 자국어 유지).
   const setUiLang = useAppStore((s) => s.setUiLang)
+  const prevQRef = useRef(q)
   useEffect(() => {
+    const prev = prevQRef.current
+    prevQRef.current = q
+    // 마운트 직후(빈 질의로 시작)나 계속 빈 상태면 uiLang을 건드리지 않는다 —
+    // 탭 이동으로 Explore가 재마운트될 때마다 외국인 사용자의 자국어 UI가 'ko'로 초기화되던 회귀 방지.
+    // 사용자가 실제로 입력(비-공백)했거나, 비-공백→공백으로 '지운' 순간에만 언어를 재판정한다.
+    if (!q.trim() && !prev.trim()) return
     const code = detectUiLang(q)
     setUiLang(isUiLang(code) ? code : 'ko')
   }, [q, setUiLang])

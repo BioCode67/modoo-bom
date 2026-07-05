@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildEvents, toICS } from './calendar'
+import { buildEvents, toICS, futureEvents } from './calendar'
 import type { Policy } from '@/data/policies'
 import type { TrackedItem } from '@/store/useAppStore'
 
@@ -52,10 +52,22 @@ describe('buildEvents — 준비 일정 savedAt 앵커 (D-3 고정 버그 회귀
     const dates = buildEvents([a, b], map).filter((e) => e.kind === 'prepare').map((e) => e.date)
     expect(new Set(dates).size).toBe(2)
   })
-  it('오래전 담아 준비일이 이미 지난 항목은 과거가 아니라 내일 이후로 클램프(죽은 알림 방지)', () => {
+  it('buildEvents는 라이브 UI용이라 실제 앵커 유지(과거일 클램프 안 함 — 영원히 D-1 버그 방지)', () => {
     const old = mk({ status: 'tracking', savedAt: Date.now() - 100 * DAY })
     const prep = buildEvents([old], map).find((e) => e.kind === 'prepare')!
-    expect(prep.date).toBeGreaterThan(Date.now())
+    expect(prep.date).toBeLessThan(Date.now()) // 지난 날짜 그대로(화면에선 '지남'으로 표시)
+  })
+})
+
+describe('futureEvents — .ics 내보내기용 과거 이벤트 제외', () => {
+  it('지난 이벤트는 빼고 오늘 이후만 남긴다', () => {
+    const past = buildEvents([mk({ status: 'tracking', savedAt: Date.now() - 100 * DAY })], map)
+    expect(past.length).toBeGreaterThan(0) // buildEvents엔 있지만
+    expect(futureEvents(past).length).toBe(0) // 내보내기에선 제외
+  })
+  it('미래 이벤트는 유지', () => {
+    const future = buildEvents([mk({ status: 'tracking', savedAt: Date.now() + 30 * DAY })], map)
+    expect(futureEvents(future).length).toBe(future.length)
   })
 })
 

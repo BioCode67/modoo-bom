@@ -55,12 +55,15 @@ export function HelperView() {
                 // 담기(추가 전용) — toggleSaved는 있으면 삭제하는 토글이라, 이미 담긴 항목은 건드리지 않는다(데이터 손실 방지).
                 // 링크로 온 policyId는 카탈로그로 검증하고 이름·분류도 카탈로그 값을 써 변조 문자열 주입을 차단.
                 const map = getPolicyMap()
+                let missing = 0
                 helper.tracked.forEach((t) => {
                   if (isSaved(t.policyId)) return
                   const p = map[t.policyId]
-                  if (!p) return
+                  if (!p) { missing += 1; return } // 외부 카탈로그(지자체) 지연 로딩 전이면 아직 없음
                   toggleSaved({ id: t.policyId, name: p.name, category: p.category })
                 })
+                // 카탈로그가 아직 다 로드되지 않아 일부를 담지 못한 경우 조용히 넘기지 않고 안내(정직성).
+                if (missing > 0) alert(`${missing}건은 복지 목록을 불러오는 중이라 아직 담지 못했어요. 잠시 후 다시 눌러 주세요.`)
               }}
               className="btn-secondary !py-2 text-xs mt-2.5"
             >

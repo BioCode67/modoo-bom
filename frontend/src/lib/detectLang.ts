@@ -65,11 +65,16 @@ export function detectUiLang(text: string): string {
   if (!s) return 'ko'
   const d = detectLang(s)
   if (!d || d.code === 'ko') return 'ko'
-  if (d.code === 'en' || d.code === 'vi') {
+  if (d.code === 'vi') {
+    // 베트남어 성조 문자(à·ế·ợ…)는 한국어 사용자가 실수로 칠 수 없는 강신호 → 라틴 4자면 단일어도 채택.
     const latin = (s.match(/[A-Za-zÀ-ỹ]/g) || []).length
-    const words = s.split(/\s+/).filter(Boolean).length
     if (latin < 4) return 'ko'
-    if (words < 2 && s.length < 6) return 'ko'
+  } else if (d.code === 'en') {
+    // 평범한 라틴은 IME 오프 한/영 오타('dkssud','wldnjs' 등 6자 이상 단일어)와 구분 불가.
+    // 그래서 영어 UI 전환은 '2단어 이상'일 때만 허용한다(단일 영단어는 검색은 되지만 UI는 ko 유지).
+    const latin = (s.match(/[A-Za-z]/g) || []).length
+    const words = s.split(/\s+/).filter(Boolean).length
+    if (latin < 4 || words < 2) return 'ko'
   }
   return d.code
 }

@@ -25,6 +25,15 @@ describe('benefitType — 지원형태 규칙 태깅', () => {
     // 실제 대출보증 상품은 loan 유지
     expect(benefitTypeOf(P('청년창업 특례보증부 대출', '특례보증 융자'))).toBe('loan')
   })
+  it('2차 회귀 방지: 임대주택·반환보증(보증보험)은 cash 아님(현금배지 오인 방지)', () => {
+    // 사용자가 보증료를 '내는' 보증보험, 집을 '제공'하는 임대주택에 💵현금 배지가 붙으면 안 됨
+    expect(benefitTypeOf(P('HUG 전세보증금 반환보증', '보증금을 대신 지급'))).not.toBe('cash')
+    expect(benefitTypeOf(P('청년 전세임대주택', '보증금 월 임대료 만원'))).not.toBe('cash')
+    expect(benefitTypeOf(P('기숙사형 매입임대', '월 임대료 지원'))).not.toBe('cash')
+  })
+  it('2차 회귀 방지: 카드 발급수수료 지원은 voucher 아님(요금성 지원)', () => {
+    expect(benefitTypeOf(P('장애인통합복지카드 발급수수료 지원', '발급수수료 지원'))).not.toBe('voucher')
+  })
   it('요금 감면 → discount', () => {
     expect(benefitTypeOf(P('다자녀 전기요금 감면', '전기요금 감면'))).toBe('discount')
   })

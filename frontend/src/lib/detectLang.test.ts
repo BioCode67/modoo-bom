@@ -52,9 +52,13 @@ describe('detectUiLang — UI 언어 결정(보수적·항상 ko 복귀)', () =>
     expect(detectUiLang('EITC')).toBe('ko')
     expect(detectUiLang('a')).toBe('ko')
     expect(detectUiLang('dks')).toBe('ko') // 짧은 한/영 오타(라틴 3자)는 ko 유지
+    expect(detectUiLang('dkssud')).toBe('ko') // 6자 이상 단일어 오타도 ko(영어 UI는 2단어 이상만)
+    expect(detectUiLang('wldnjs')).toBe('ko')
+    expect(detectUiLang('welfare')).toBe('ko') // 단일 영단어는 검색은 되지만 UI는 ko 유지(오발동 방지)
   })
-  it('명확한 영어 문장은 en', () => {
+  it('명확한 영어 문장은 en(2단어 이상)', () => {
     expect(detectUiLang('I lost my job and need help')).toBe('en')
+    expect(detectUiLang('housing support')).toBe('en')
   })
   it('베트남어 문장은 vi', () => {
     expect(detectUiLang('Tôi cần hỗ trợ tiền thuê nhà')).toBe('vi')
