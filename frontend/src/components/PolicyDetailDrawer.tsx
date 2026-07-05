@@ -15,6 +15,7 @@ import { useBackend } from '@/lib/useBackend'
 import { AgentSubmitButton } from '@/components/AgentSubmitButton'
 import { ApplyFlow } from '@/components/ApplyFlow'
 import { ApplyKit } from '@/components/ApplyKit'
+import { buildPrefill, prefillText } from '@/lib/prefill'
 import { useAppStore } from '@/store/useAppStore'
 import { cn } from '@/lib/utils'
 
@@ -129,6 +130,8 @@ function DrawerBody({
   const tts = useTTS()
   const { ready, caps } = useBackend()
   const hasBackend = ready === true && !!caps?.rpa
+  const { profile, rpaInfo } = useAppStore()
+  const [applied, setApplied] = useState(false)
   const related = onOpen
     ? getCatalog().filter((p) => p.category === policy.category && p.id !== policy.id)
         .sort((a, b) => parseMonthly(b.benefit) - parseMonthly(a.benefit)).slice(0, 3)
@@ -154,11 +157,20 @@ function DrawerBody({
     `${policy.name}. 혜택 내용. ${policy.benefit}. 지원 대상. ${policy.target}. 자격 요건. ${policy.eligibility}. 신청 방법. ${policy.application}.`,
   )
 
-  const startApply = () => {
+  // 원터치 신청 이동 — 설치 없이(어느 브라우저·폰에서든) 가장 매끄러운 안전한 신청 경로:
+  //  ① 내 정보(이름·생년월일·연락처)를 클립보드에 자동 복사 → ② 공식 신청 페이지를 새 탭으로 열기
+  //  → ③ 사용자는 정부 공식 사이트에서 간편인증(카카오 등)만 하고 붙여넣어 제출. (인증·제출은 안전상 본인 몫)
+  const startApply = async () => {
     if (!saved) ctx.toggleSaved({ id: policy.id, name: policy.name, category: policy.category })
     ctx.setStatus(policy.id, 'tracking')
-    onClose()
-    ctx.setView('my')
+    try {
+      const fields = buildPrefill(profile, rpaInfo)
+      if (fields.length) await navigator.clipboard.writeText(prefillText(fields))
+    } catch { /* 클립보드 미지원 환경은 무시 */ }
+    const dest = applyLink(policy.application).url
+    window.open(dest, '_blank', 'noopener,noreferrer')
+    setApplied(true)
+    setTimeout(() => setApplied(false), 4000)
   }
 
   return (
@@ -381,6 +393,12 @@ function DrawerBody({
         )}
       </div>
 
+      {/* 원터치 신청 후 안내 — 설치 없이 안전하게 */}
+      {applied && (
+        <div className="sticky bottom-[76px] mx-4 mb-2 rounded-2xl bg-sprout-50 border border-sprout-200 px-4 py-2.5 text-xs text-sprout-800" role="status" aria-live="polite">
+          ✅ 내 정보를 <b>복사</b>했어요. 열린 공식 사이트에서 <b>간편인증(카카오 등)</b> 후 붙여넣어 제출하면 끝이에요. 🔒 인증은 정부 사이트에서만 — 안전해요.
+        </div>
+      )}
       {/* 하단 고정 액션 */}
       <div className="sticky bottom-0 bg-background/95 backdrop-blur border-t border-sprout-100 p-4 flex gap-2">
         <button
@@ -390,7 +408,7 @@ function DrawerBody({
           <Heart className={cn('h-4 w-4', saved && 'fill-current')} /> {saved ? '저장됨' : '관심'}
         </button>
         <button onClick={startApply} className="btn-primary flex-1">
-          <Rocket className="h-4 w-4" /> 신청 준비하기
+          <Rocket className="h-4 w-4" /> {applied ? '공식 사이트로 이동했어요 →' : '내 정보 복사 + 공식 신청 이동'}
         </button>
         <a
           href={applyLink(policy.application).url}
