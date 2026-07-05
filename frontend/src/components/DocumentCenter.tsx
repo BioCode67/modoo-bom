@@ -198,7 +198,8 @@ export function DocumentCenter() {
                 <p className="font-bold text-sm truncate">{doc}</p>
                 {st ? (
                   <>
-                  <p className="text-xs flex items-center gap-1 mt-0.5">
+                  {/* 자동발급 진행/완료/오류를 스크린리더가 즉시 읽도록 라이브 영역으로 */}
+                  <p className="text-xs flex items-center gap-1 mt-0.5" role="status" aria-live="polite">
                     {st.status === 'error' ? <AlertCircle className="h-3.5 w-3.5 text-rose-500" />
                       : st.status === 'done' || st.status === 'completed' ? <CheckCircle2 className="h-3.5 w-3.5 text-success-500" />
                       : <Loader2 className="h-3.5 w-3.5 animate-spin text-sky2-500" />}

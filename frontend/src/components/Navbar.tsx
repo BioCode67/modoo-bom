@@ -53,6 +53,8 @@ export function Navbar() {
             <button
               onClick={toggleElderly}
               title={elderly ? '일반 글씨' : '큰 글씨(어르신용)'}
+              aria-pressed={elderly}
+              aria-label="큰 글씨(어르신용) 모드"
               className={cn(
                 'inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold border-2 transition-colors',
                 elderly ? 'bg-sun-200 border-sun-300 text-yellow-800' : 'bg-white border-sprout-100 text-muted-foreground hover:border-sprout-200',

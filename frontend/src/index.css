@@ -226,4 +226,10 @@
 .elderly-mode .text-xs { font-size: 0.9rem !important; }
 .elderly-mode .text-sm { font-size: 1.05rem !important; }
 .elderly-mode .text-base { font-size: 1.2rem !important; }
+/* 큰글씨 모드에서 배지·안내문 등 아주 작은 임의 크기(9~13px)도 함께 키운다 — 어르신이 놓치던 '작은 글씨' */
+.elderly-mode .text-\[9px\],
+.elderly-mode .text-\[10px\],
+.elderly-mode .text-\[11px\] { font-size: 0.85rem !important; }
+.elderly-mode .text-\[12px\],
+.elderly-mode .text-\[13px\] { font-size: 0.95rem !important; }
 .elderly-mode button, .elderly-mode input, .elderly-mode select { min-height: 50px; }

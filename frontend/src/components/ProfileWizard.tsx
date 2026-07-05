@@ -91,11 +91,11 @@ export function ProfileWizard({ onSubmit }: { onSubmit: (p: UserProfile) => void
           {step === 0 && (
             <>
               <Field label="이름 (선택)">
-                <input value={p.name} onChange={(e) => set({ name: e.target.value })} placeholder="홍길동" className="input-cute" />
+                <input aria-label="이름" value={p.name} onChange={(e) => set({ name: e.target.value })} placeholder="홍길동" className="input-cute" />
               </Field>
               <Field label={`나이 — 만 ${p.age}세`}>
-                <input type="range" min={0} max={100} value={p.age} onChange={(e) => set({ age: +e.target.value })} className="w-full accent-sprout-500" />
-                <input type="number" min={0} max={120} value={p.age} onChange={(e) => set({ age: +e.target.value })} className="input-cute mt-2 w-28" />
+                <input type="range" aria-label={`나이 슬라이더, 현재 만 ${p.age}세`} min={0} max={100} value={p.age} onChange={(e) => set({ age: +e.target.value })} className="w-full accent-sprout-500" />
+                <input type="number" aria-label="나이 직접 입력" min={0} max={120} value={p.age} onChange={(e) => set({ age: +e.target.value })} className="input-cute mt-2 w-28" />
               </Field>
               <Field label="성별">
                 <div className="grid grid-cols-3 gap-2">
@@ -163,6 +163,7 @@ export function ProfileWizard({ onSubmit }: { onSubmit: (p: UserProfile) => void
               {p.has_children && (
                 <Field label="자녀 나이 (쉼표로 구분)">
                   <input
+                    aria-label="자녀 나이 (쉼표로 구분)"
                     defaultValue={p.children_ages.join(', ')}
                     onChange={(e) => set({ children_ages: e.target.value.split(',').map((x) => parseInt(x.trim(), 10)).filter((n) => !isNaN(n)) })}
                     placeholder="예: 0, 5"
@@ -222,10 +223,11 @@ function Choice({ active, onClick, children, small }: { active: boolean; onClick
   return (
     <button
       onClick={onClick}
+      aria-pressed={active}
       className={cn(
         'rounded-xl border-2 font-semibold transition-all active:scale-95',
         small ? 'px-3.5 py-2 text-sm' : 'px-4 py-3 text-sm flex-1',
-        active ? 'bg-sprout-500 border-sprout-500 text-white shadow-soft' : 'bg-white border-sprout-100 text-foreground hover:border-sprout-200',
+        active ? 'bg-sprout-700 border-sprout-700 text-white shadow-soft' : 'bg-white border-sprout-100 text-foreground hover:border-sprout-200',
       )}
     >
       {children}
