@@ -2,7 +2,7 @@ import { motion } from 'framer-motion'
 import { Heart, ChevronRight } from 'lucide-react'
 import type { Policy } from '@/data/policies'
 import type { EligiblePolicy } from '@/lib/welfare-engine'
-import { categoryMeta, parseMonthly, formatWon, PRIORITY_META } from '@/lib/format'
+import { categoryMeta, parseMonthly, formatWon, isCashBenefit, PRIORITY_META } from '@/lib/format'
 import { deadlineHint } from '@/lib/deadline'
 import { useAppStore } from '@/store/useAppStore'
 import { cn } from '@/lib/utils'
@@ -23,7 +23,8 @@ export function PolicyCard({
   const { isSaved, toggleSaved } = useAppStore()
   const saved = isSaved(policy.id)
   const meta = categoryMeta(policy.category)
-  const monthly = parseMonthly(policy.benefit)
+  // 현금성 혜택일 때만 '월 N까지' 배지 — 감면·할인·바우처(예: 다자녀 전기요금 감면)를 현금처럼 오표기하지 않게.
+  const monthly = isCashBenefit(policy.benefit) ? parseMonthly(policy.benefit) : 0
   const eligible = isEligible(policy)
   // 지자체(LOC) 정책은 target 앞 "[시도 시군구]"에서 지역 배지 추출(시군구 우선)
   const rm = policy.id.startsWith('LOC-') ? policy.target.match(/^\[([^\]]+)\]/) : null

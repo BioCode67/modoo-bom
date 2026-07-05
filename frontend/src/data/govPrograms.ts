@@ -41,7 +41,7 @@ export const GOV_PROGRAMS: Policy[] = [
     category: '주거·금융',
     target: '만 19~34세 무주택 청년(병역기간 최대 6년 인정)',
     benefit: '납입원금 최대 연 4.5% 우대금리 + 이자 비과세, 청약 당첨 시 주택드림 대출 연계(최저 연 2.2%) (2026 기준)',
-    eligibility: '만 19~34세 무주택, 연소득 5,000만원 이하. 월 2만~100만원 납입(세대주 아니어도 가입)',
+    eligibility: '만 19~34세 무주택, 연소득 5,000만원 이하(기준 중위소득 약 200% 수준). 월 2만~100만원 납입(세대주 아니어도 가입)',
     required_docs: ['신분증', '소득확인증명서', '무주택 확약서'],
     application: '취급은행(우리·국민·기업·농협·신한·하나 등) 방문·앱: https://www.myhome.go.kr/hws/portal/cont/selectYouthPolicyYouthPassbookView.do',
     department: '국토교통부',
