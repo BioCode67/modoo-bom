@@ -54,4 +54,21 @@ describe('buildAiAnswer', () => {
     const s = buildAiAnswer([{ name: '돌봄서비스', benefit: '방문 돌봄 제공' }], '돌봄 필요')
     expect(s).not.toContain('현금성 지원')
   })
+
+  it('감사 회귀: 비현금(재가급여 서비스 한도·바우처)은 "현금성 최대"에 넣지 않음', () => {
+    // 노인 장기요양 재가급여 월 한도는 서비스 이용상한(현금 아님) → 현금성 금액으로 과장 금지
+    const s = buildAiAnswer([
+      { name: '노인 장기요양 재가급여', benefit: '1등급 월 2,069,900원 한도' },
+      { name: '노인돌봄 바우처', benefit: '월 27만원 바우처' },
+    ], '돌봄이 필요한 노인')
+    expect(s).not.toContain('현금성 지원') // 현금성 항목이 없으므로 금액 문구 자체가 없어야
+    expect(s).not.toContain('207만원')
+  })
+  it('감사 회귀: 현금·비현금 섞이면 현금성만 최대로 계산', () => {
+    const s = buildAiAnswer([
+      { name: '노인 장기요양 재가급여', benefit: '월 2,069,900원 한도' }, // 비현금
+      { name: '기초연금', benefit: '월 최대 34만원' }, // 현금
+    ], '어르신 지원')
+    expect(s).toContain('현금성 지원은 월 최대 34만원') // 재가급여(207만)가 아니라 기초연금(34만)
+  })
 })

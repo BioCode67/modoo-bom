@@ -1,5 +1,5 @@
 import { getEligiblePolicies, type UserProfile, type EligiblePolicy } from '@/lib/welfare-engine'
-import { parseMonthly } from '@/lib/format'
+import { sumCashMonthly } from '@/lib/format'
 
 /**
  * 선제적 생애 타임라인 에이전트.
@@ -68,8 +68,9 @@ export function predictTimeline(profile: UserProfile, horizonYears = 6): Timelin
     lost.forEach((p) => seenLoss.add(p.id))
     if (gained.length === 0 && lost.length === 0) continue
 
-    const gain = gained.reduce((s, p) => s + parseMonthly(p.benefit), 0)
-    const loss = lost.reduce((s, p) => s + parseMonthly(p.benefit), 0)
+    // 순 월 변화액도 현금성만 — 서비스 한도·바우처·감면을 현금 증감처럼 계산하지 않는다(정직성).
+    const gain = sumCashMonthly(gained)
+    const loss = sumCashMonthly(lost)
     events.push({
       year: y,
       whenLabel: y === 1 ? '내년쯤' : `약 ${y}년 후`,

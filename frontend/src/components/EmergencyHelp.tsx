@@ -73,6 +73,20 @@ export function EmergencyHelp() {
                   <p className="mt-2 text-[11px] text-rose-600/80">긴급복지지원은 ‘선지원 후심사’ — 주민센터·129에 먼저 알리면 빠르게 도움받을 수 있어요.</p>
                 </div>
 
+                {/* 안전 위기(폭력·학대) 선택 시 — 복지 상담이 아니라 전용 긴급 핫라인을 최우선 표시(생명·안전 우선) */}
+                {sel.includes('violence') && (
+                  <div className="mt-3 rounded-2xl bg-red-600 text-white p-4">
+                    <p className="text-sm font-extrabold">🆘 안전이 급하면 지금 바로 — 24시간 무료</p>
+                    <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <a href="tel:112" className="flex items-center gap-2 rounded-xl bg-white/15 hover:bg-white/25 px-3 py-2.5 text-sm font-bold transition-colors"><Phone className="h-4 w-4" /> 112 경찰(범죄·아동학대 신고)</a>
+                      <a href="tel:1366" className="flex items-center gap-2 rounded-xl bg-white/15 hover:bg-white/25 px-3 py-2.5 text-sm font-bold transition-colors"><Phone className="h-4 w-4" /> 1366 여성긴급전화(가정폭력·성폭력)</a>
+                      <a href="tel:1577-1391" className="flex items-center gap-2 rounded-xl bg-white/15 hover:bg-white/25 px-3 py-2.5 text-sm font-bold transition-colors"><Phone className="h-4 w-4" /> 1577-1391 아동보호전문기관</a>
+                      <a href="tel:1393" className="flex items-center gap-2 rounded-xl bg-white/15 hover:bg-white/25 px-3 py-2.5 text-sm font-bold transition-colors"><Phone className="h-4 w-4" /> 1393 자살예방 상담</a>
+                    </div>
+                    <p className="mt-2 text-[11px] text-white/85">위험한 상황이면 복지 신청보다 위 번호로 먼저 연락하세요. 통화가 어려우면 112에 문자도 가능해요.</p>
+                  </div>
+                )}
+
                 {/* 매칭 결과 */}
                 {matched.length > 0 && (
                   <div className="mt-4">

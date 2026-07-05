@@ -1,5 +1,5 @@
 import { getEligiblePolicies, type UserProfile, type EligiblePolicy } from '@/lib/welfare-engine'
-import { parseMonthly } from '@/lib/format'
+import { sumCashMonthly } from '@/lib/format'
 
 export interface FutureScenario {
   key: string
@@ -25,7 +25,8 @@ export function simulateFuture(profile: UserProfile): FutureScenario[] {
     out.push({
       key, emoji, label, desc,
       newPolicies: gained.slice(0, 6),
-      monthlyGain: gained.reduce((s, p) => s + parseMonthly(p.benefit), 0),
+      // 현금성만 합산 — 재가급여(서비스 한도)·바우처·감면을 현금 증가처럼 부풀리지 않는다(정직성).
+      monthlyGain: sumCashMonthly(gained),
     })
   }
 

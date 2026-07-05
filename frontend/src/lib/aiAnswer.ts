@@ -1,5 +1,5 @@
 import { detectLang } from './detectLang'
-import { parseMonthly, formatWon } from './format'
+import { parseMonthly, formatWon, isCashBenefit } from './format'
 
 export interface AiAnswerItem {
   name: string
@@ -22,7 +22,9 @@ export function buildAiAnswer(items: AiAnswerItem[], query: string): string {
     seen.add(nm)
     top.push(it.name)
   }
-  const cashMax = Math.max(0, ...items.slice(0, 12).map((it) => parseMonthly(it.benefit)))
+  // '현금성 최대'는 반드시 현금성 항목만 — 재가급여(서비스 한도)·바우처·감면·고용주 지원을
+  // parseMonthly만으로 합치면 개인 현금소득처럼 과장된다(정직성 게이트 isCashBenefit 재사용).
+  const cashMax = Math.max(0, ...items.slice(0, 12).map((it) => (isCashBenefit(it.benefit, it.name) ? parseMonthly(it.benefit) : 0)))
   const d = detectLang(query)
   const code = d?.code || 'ko'
   const list = top.join(', ')

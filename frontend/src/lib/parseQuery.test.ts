@@ -68,6 +68,17 @@ describe('실사용 문장 회귀(2026-07 품질 스윕)', () => {
     expect(p.household_type).toBe('한부모가족')
     expect(p.children_ages.length).toBe(2)
   })
+  it('감사 회귀: 저소득 부정형("많지 않다·많이 부족")을 고소득으로 오분류하지 않음', () => {
+    expect(parseProfileFromText('소득이 많지 않아요').income_percentile).toBe(40)
+    expect(parseProfileFromText('소득이 많이 부족해요').income_percentile).toBe(40)
+    // 진짜 고소득 표현은 그대로 고소득
+    expect(parseProfileFromText('소득이 많아요 여유 있어요').income_percentile).toBe(130)
+  })
+  it('감사 회귀: 자녀 없는 사별(혼자 사는 어르신)은 한부모 아님', () => {
+    const p = parseProfileFromText('65세 남성인데 아내와 사별하고 혼자 살아요')
+    expect(p.household_type).not.toBe('한부모가족')
+    expect(p.household_type).toBe('1인가구') // 혼자 → 1인가구
+  })
   it('자녀 나이 나열은 부모 나이로 오인하지 않음', () => {
     const p = parseProfileFromText('아이가 셋이에요 7살 5살 2살')
     expect(p.age).toBe(30) // 기본값 유지(7살을 부모로 오인 X)

@@ -38,4 +38,17 @@ describe('recommend', () => {
     expect(GUIDE_STEPS.length).toBe(3)
     expect(GUIDE_STEPS.map((s) => s.id)).toEqual(['age', 'situations', 'income'])
   })
+  it('감사 회귀: 장애 선택만으로 중증(1급) 단정 안 함 — 장애인연금 과장 방지', () => {
+    const p = buildProfile({ age: 50, situations: ['disability'], income: 30 })
+    expect(p.disability).toBe(true)
+    expect(p.disability_grade).toBe('') // 미상 — 중증 전용 급여 과장 안 함
+    // 중증 전용 장애인연금(POL-003)이 자격 목록에 안 뜸(경증 사용자 과장 방지)
+    const r = recommend({ age: 50, situations: ['disability'], income: 30 })
+    expect(r.policies.some((x) => x.id === 'POL-003')).toBe(false)
+    expect(r.text).toContain('중증') // 대신 정직한 안내
+  })
+  it('감사 회귀: 자녀 나이 가정을 사용자에게 고지', () => {
+    const r = recommend({ age: 40, situations: ['children'], income: 30 })
+    expect(r.text).toContain('만 5세로 가정')
+  })
 })

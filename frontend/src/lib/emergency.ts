@@ -15,7 +15,8 @@ export const CRISES: Crisis[] = [
   { key: 'business', emoji: '📉', label: '사업이 어려워요', keywords: ['긴급', '생계', '소상공인', '자영업'] },
   { key: 'disaster', emoji: '🔥', label: '화재·재난을 겪었어요', keywords: ['긴급', '재난', '재해', '주거'] },
   { key: 'housing', emoji: '🏠', label: '월세·주거가 위태로워요', keywords: ['주거', '긴급', '월세', '임대', '주택'] },
-  { key: 'violence', emoji: '🆘', label: '폭력·학대 위기예요', keywords: ['긴급', '보호', '여성', '청소년', '위기'] },
+  // '여성'·'청소년'은 너무 넓어 생리용품 바우처 등 비긴급 항목을 끌어와서 제외 — 위기 대응 특화어만 둔다.
+  { key: 'violence', emoji: '🆘', label: '폭력·학대 위기예요', keywords: ['긴급', '보호', '위기', '피해', '학대', '가정폭력'] },
   { key: 'birth', emoji: '🤰', label: '출산이 임박했어요', keywords: ['출산', '산모', '긴급', '임신'] },
 ]
 

@@ -33,4 +33,9 @@ describe('matchEmergency', () => {
       expect(c.keywords.length).toBeGreaterThan(0)
     }
   })
+  it('감사 회귀: 폭력·학대 위기에 비긴급 생리용품 바우처가 섞이지 않음', () => {
+    const r = matchEmergency(['violence'])
+    // '여성'·'청소년' 광의 키워드 제거로 생리용품 바우처(비긴급)가 긴급 지원으로 오노출되지 않아야
+    expect(r.some((p) => /생리|위생용품/.test(p.name))).toBe(false)
+  })
 })
