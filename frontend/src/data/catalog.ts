@@ -2,9 +2,10 @@ import { WELFARE_POLICIES, type Policy } from '@/data/policies'
 import { PRIVATE_POLICIES } from '@/data/privatePolicies'
 import { HOUSING_POLICIES } from '@/data/housingPolicies'
 import { GOV_PROGRAMS } from '@/data/govPrograms'
+import { FINANCIAL_POLICIES } from '@/data/financialPolicies'
 
-// 시드 = 정부 큐레이션(POL-) + 민간재단(PRV-) + 청년주택 공고(HOU-) + 정부 지원사업(SUP-, 2026 실측 검증)
-const SEED_POLICIES: Policy[] = [...WELFARE_POLICIES, ...PRIVATE_POLICIES, ...HOUSING_POLICIES, ...GOV_PROGRAMS]
+// 시드 = 정부 큐레이션(POL-) + 민간재단(PRV-) + 청년주택 공고(HOU-) + 정부 지원사업(SUP-) + 정책서민금융(FIN-, 서민금융진흥원 실측)
+const SEED_POLICIES: Policy[] = [...WELFARE_POLICIES, ...PRIVATE_POLICIES, ...HOUSING_POLICIES, ...GOV_PROGRAMS, ...FINANCIAL_POLICIES]
 
 /**
  * 통합 복지 카탈로그.

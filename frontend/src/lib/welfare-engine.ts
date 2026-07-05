@@ -466,7 +466,8 @@ function inferFromText(policy: Policy, p: UserProfile): CheckResult | null {
  *     접두사를 벗겨 비교해야 LOC가 요약본으로 인식돼 '관련 복지'(지역 필터)로 가고, 정밀 분기의
  *     지역 무필터 오탐(예: 서울 사용자에게 하동군 정책이 강력추천)을 막는다. */
 function isSummaryPolicy(policy: Policy): boolean {
-  if (/^PRV-/.test(policy.id)) return true
+  // 민간재단(PRV)·정책서민금융(FIN)은 심사·상환형이라 자격 단정 불가 → 저신뢰 '관련 복지'로만 노출.
+  if (/^(PRV|FIN)-/.test(policy.id)) return true
   if (!/^(GOV|LOC)-/.test(policy.id)) return false
   const target = policy.target.replace(/^\[[^\]]+\]\s*/, '')
   return target === policy.eligibility
@@ -537,7 +538,9 @@ export function getEligiblePolicies(p: UserProfile): EligiblePolicy[] {
     // ⚠️ 지자체(LOC-)도 정밀 분기에서 제외 — LOC target/eligibility의 요약문에 '만 65세'·'중증장애인'
     //    같은 문구가 있으면 checkPolicy가 지역을 무시하고 고신뢰 정밀 매칭해, 타 지역 정책이
     //    강력추천으로 새어나갔다(예: 서울 사용자에게 하동군 정책). LOC는 항상 아래 inferred(지역 필터)로.
-    if (!policy.id.startsWith('PRV-') && !policy.id.startsWith('LOC-')) {
+    // ⚠️ 정책서민금융(FIN-)도 정밀 분기에서 제외 — '만 19~34세' 등 문구가 정밀 매칭돼 심사·상환형
+    //    대출이 '강력추천'으로 단정되면 안 된다(햇살론유스 등). FIN은 항상 저신뢰 '관련 복지'로만.
+    if (!policy.id.startsWith('PRV-') && !policy.id.startsWith('LOC-') && !policy.id.startsWith('FIN-')) {
       const c = checkPolicy(policy, p)
       if (c.eligible) {
         precise.push({ ...policy, reason: c.reason, priority: c.priority, confidence: c.confidence })
@@ -562,9 +565,11 @@ export function getEligiblePolicies(p: UserProfile): EligiblePolicy[] {
   // 민간재단(PRV)은 공공 5,000건과 같은 캡을 두고 경쟁시키지 않는다(전용 💝 섹션의 소스이고
   // 최대 ~20건뿐인데, 데이터가 커지면 신뢰도 컷에 밀려 통째로 사라지는 회귀가 실제 발생).
   inferred.sort((a, b) => b.confidence - a.confidence)
+  // 큐레이션 소량 소스(PRV 민간재단·FIN 정책서민금융)는 공공 5,000건과 같은 캡에 밀려 사라지지 않게 전용 레인.
   const prvInferred = inferred.filter((p) => p.id.startsWith('PRV-'))
-  const pubInferred = inferred.filter((p) => !p.id.startsWith('PRV-'))
-  const result = [...precise, ...prvInferred, ...pubInferred.slice(0, MAX_INFERRED)]
+  const finInferred = inferred.filter((p) => p.id.startsWith('FIN-'))
+  const pubInferred = inferred.filter((p) => !/^(PRV|FIN)-/.test(p.id))
+  const result = [...precise, ...prvInferred, ...finInferred, ...pubInferred.slice(0, MAX_INFERRED)]
   // 정렬: 우선순위(high>med>low) → 상황 관련도(핵심 상황 우선) → 신뢰도
   result.sort((a, b) => {
     const pr = PRIORITY_RANK[b.priority] - PRIORITY_RANK[a.priority]
