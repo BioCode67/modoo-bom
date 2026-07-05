@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowLeft, Eye, RotateCcw, Sparkles } from 'lucide-react'
+import { ArrowLeft, Eye, RotateCcw, Sparkles, Volume2, VolumeX } from 'lucide-react'
 import { SproutLogo } from '@/ui/SproutLogo'
 import { useAppStore } from '@/store/useAppStore'
+import { useTTS } from '@/lib/useTTS'
 import type { UserProfile } from '@/lib/welfare-engine'
 import {
   EMPTY_PROFILE, AGE_BRACKETS, INCOME_OPTIONS, HOUSEHOLD_OPTIONS, SITUATIONS,
@@ -59,6 +60,15 @@ export function MascotChat({ onSubmit }: { onSubmit: (p: UserProfile) => void })
   // 어르신(65+) 선택 시 큰글씨 모드를 즉시 제안 — 기존 복지앱의 최대 불만('작은 글씨, 어르신 미고려') 대응.
   const { elderly, toggleElderly } = useAppStore()
   const [offerElderly, setOfferElderly] = useState(false)
+  // 질문 읽어주기(옵트인) — 시력 저하 어르신 배려. 켜면 새싹이의 새 질문을 음성으로 읽는다.
+  const tts = useTTS()
+  const [readAloud, setReadAloud] = useState(false)
+  useEffect(() => {
+    if (!readAloud) return
+    const lastBot = [...msgs].reverse().find((m) => m.role === 'bot')
+    if (lastBot) tts.speak(lastBot.text)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [msgs, readAloud])
 
   // 새 메시지가 쌓이면 항상 아래로 스크롤(대화 흐름)
   useEffect(() => {
@@ -125,6 +135,17 @@ export function MascotChat({ onSubmit }: { onSubmit: (p: UserProfile) => void })
           <p className="text-xs text-white/85">말 걸듯 답만 골라주세요 · {done ? '완료!' : `${pct}%`}</p>
         </div>
         <div className="flex gap-1">
+          {tts.supported && (
+            <button
+              onClick={() => { if (readAloud) tts.stop(); setReadAloud((v) => !v) }}
+              aria-label={readAloud ? '질문 읽어주기 끄기' : '질문 읽어주기 켜기'}
+              aria-pressed={readAloud}
+              className={`rounded-full p-2 transition-colors ${readAloud ? 'bg-white/25' : 'hover:bg-white/15'}`}
+              title="질문을 소리로 읽어드려요"
+            >
+              {readAloud ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+            </button>
+          )}
           {history.length > 0 && !done && (
             <button onClick={back} aria-label="이전 질문" className="rounded-full p-2 hover:bg-white/15 transition-colors">
               <ArrowLeft className="h-4 w-4" />
