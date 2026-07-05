@@ -74,8 +74,10 @@ def observe(page: Page):
             res = fr.evaluate(_TAG_JS, start)
         except Exception:
             continue
+        furl = getattr(fr, "url", "") or ""
         for it in res.get("items", []):
             it["frame"] = fr
+            it["frame_url"] = furl  # 본인인증 위젯(iframe) URL 감지용
             elements.append(it)
         start = res.get("next", start)
     return elements
@@ -97,9 +99,13 @@ _SYSTEM = """너는 한국 정부·공공 웹사이트에서 '민원 서류 발�
 - 반드시 아래 JSON 하나만 출력. 설명 금지.
 - 로그인 방식은 '간편인증'을 우선(공동/금융인증서보다 쉬움).
 - 이름·생년월일·휴대폰을 넣는 '본인인증 창'이 보이면 action="human_auth" (사람이 폰 인증). 값을 대신 넣지 마라.
-- '발급/신청/확인/다음/제출/문서출력' 같은 진행 버튼을 찾아 목표로 나아가라.
+- '발급하기/문서출력/다음/동의/조회' 같은 진행 버튼을 찾아 목표로 나아가라.
+- ⚠️ '취소·탈퇴·삭제·철회·해지·로그아웃' 등 파괴적/이탈 버튼은 절대 누르지 마라.
+- ⚠️ '제출/신청하기/최종신청/결제/납부' 같은 **최종 제출** 버튼은 네가 누르지 말고 action="human_submit"으로
+  사람에게 넘겨라(비가역·법적 행위는 사람이 확인). 발급 폼 작성까지만 하고 최종 제출은 사람 몫.
 - 목표 서류의 발급 버튼이 화면에 안 보이면(처음 보는 서류일 때) 사이트의 '검색' 입력칸에
   action="search"로 서류명을 넣어 찾아라(fill 후 자동 Enter). 검색 결과에서 해당 서류를 클릭해 발급으로 이어간다.
+- 같은 버튼을 반복해 누르지 마라(효과가 없으면 다른 요소나 wait/done을 택하라).
 - 목표를 이룬 것으로 보이면(발급 완료/문서출력 화면) action="done".
 - 팝업/광고/안내는 무시하거나 닫고 본류로 진행.
 
@@ -107,38 +113,73 @@ _SYSTEM = """너는 한국 정부·공공 웹사이트에서 '민원 서류 발�
   버튼/영역(캔버스·이미지 위젯 등)은 action="click_xy"로 그 지점의 화면 좌표(x,y)를 준다.
 
 출력 형식(JSON):
-{"action":"click|fill|search|goto|wait|human_auth|done|click_xy","idx":<요소번호 또는 null>,"x":<click_xy일 때 가로px>,"y":<click_xy일 때 세로px>,"value":"<fill/search/goto일 때 값>","reason":"<한 문장>"}"""
+{"action":"click|fill|search|goto|wait|human_auth|human_submit|done|click_xy","idx":<요소번호 또는 null>,"x":<click_xy일 때 가로px>,"y":<click_xy일 때 세로px>,"value":"<fill/search/goto일 때 값>","reason":"<한 문장>"}"""
+
+
+# 파괴적·이탈 라벨 — 절대 자동 클릭 금지(취소·탈퇴·삭제·로그아웃 등)
+_BLOCK = ("취소", "탈퇴", "삭제", "철회", "해지", "로그아웃", "로그 아웃", "닫기", "뒤로", "이전으로", "초기화")
+# 최종 제출류 — 비가역·법적 행위라 사람이 직접 확인 후 눌러야(human-in-the-loop)
+_SUBMIT = ("제출", "최종신청", "최종 신청", "신청완료", "신청 완료", "결제", "납부", "지급신청", "지급 신청")
+# 자동 진행 OK인 안전 버튼(문서 발급·네비게이션). '확인'은 삭제확인 등 오탐 위험이라 제외.
+_SAFE = ("문서출력", "간편인증", "발급하기", "발급받기", "발급", "조회하기", "조회", "다음", "동의")
+
+
+def _clicked_count(history, lab: str) -> int:
+    """history 전체에서 이 라벨을 클릭한 횟수(핑퐁·반복 클릭 감지용)."""
+    key = (lab or "").strip()[:12]
+    return sum(1 for h in history if key and key in h) if key else 0
+
+
+def _bad_label(lab: str) -> bool:
+    return any(b in lab for b in _BLOCK) or "비회원" in lab or "안내" in lab
 
 
 def decide_heuristic(goal: str, url: str, elements, history) -> dict:
     """LLM 키가 없을 때의 규칙 기반 판단 — 라벨로 '진행 버튼'을 우선순위로 고른다(하드코딩 셀렉터 아님).
-    LLM만큼 똑똑하진 않지만 흔한 발급 흐름(간편인증→인증→발급/신청→문서출력)은 스스로 따라간다."""
+    안전장치: 파괴적 버튼(취소·탈퇴·삭제) 자동클릭 금지, 최종 제출은 사람에게(human_submit),
+    같은 버튼을 2회 이상 누르면 건너뜀(핑퐁 방지). 흔한 발급 흐름은 스스로 따라간다."""
     labels = {e["idx"]: (e.get("label") or "") for e in elements}
-    kinds = {e["idx"]: e.get("kind") for e in elements}
-    # 본인인증 창(이름/생년월일 입력칸이 보이면) → 사람에게
-    if any("oacx" in (e.get("label") or "").lower() for e in elements) or \
-       any(k and "input" in k for k in kinds.values()) and any("인증" in url for _ in [0]) is False and \
-       any(("이름" in labels[i] or "생년월일" in labels[i] or "홍길동" in labels[i]) for i in labels):
-        # 인증 위젯 특유의 입력칸 조합이면 human_auth
-        if any(("홍길동" in labels[i] or "생년월일" in labels[i]) for i in labels):
-            return {"action": "human_auth", "reason": "본인인증 입력창 감지"}
-    done_recent = sum(1 for h in history[-3:] if "→ click" in h)
-    PRIORITY = ["문서출력", "간편인증", "발급하기", "민원신청하기", "신청하기", "회원 신청하기", "발급", "신청", "다음", "확인", "동의"]
-    for kw in PRIORITY:
-        for e in elements:
-            if e.get("kind") != "click":
-                continue
-            lab = e.get("label") or ""
-            if kw in lab and "비회원" not in lab and "안내" not in lab:
-                # 직전에 똑같은 걸 눌렀으면 건너뜀(무한루프 방지)
-                if history and f"{lab}".strip()[:12] in history[-1]:
+
+    # ① 본인인증 화면 감지 → 사람에게. (a) 인증 위젯 iframe URL, (b) 이름/생년월일 입력칸 조합
+    auth_frame = any(
+        any(t in (e.get("frame_url") or "") for t in ("simpleCert", "oacx", "fincert", "yeskey"))
+        for e in elements
+    )
+    if auth_frame or any("oacx" in (labels[i] or "").lower() for i in labels) \
+       or any(("홍길동" in labels[i] or "생년월일" in labels[i]) for i in labels):
+        return {"action": "human_auth", "reason": "본인인증 화면 감지 — 사람이 폰 인증"}
+
+    def _pick(keywords):
+        for kw in keywords:
+            for e in elements:
+                if e.get("kind") != "click":
                     continue
-                return {"action": "click", "idx": e["idx"], "reason": f"'{kw}' 진행 버튼"}
-    if done_recent == 0 and any("완료" in labels[i] or "출력" in labels[i] for i in labels):
+                lab = e.get("label") or ""
+                if _bad_label(lab):
+                    continue
+                if kw in lab:
+                    if _clicked_count(history, lab) >= 2:  # 핑퐁·반복 클릭 방지
+                        continue
+                    return e, kw
+        return None, None
+
+    # ② 안전 진행 버튼(문서 발급·네비게이션) → 자동 클릭
+    e, kw = _pick(_SAFE)
+    if e:
+        return {"action": "click", "idx": e["idx"], "reason": f"'{kw}' 진행 버튼"}
+
+    # ③ 최종 제출류만 남음 → 사람이 확인 후 제출(비가역·법적 행위, 대리 제출 안 함)
+    e, kw = _pick(_SUBMIT + ("신청하기", "신청"))
+    if e:
+        return {"action": "human_submit", "idx": e["idx"],
+                "reason": f"'{kw}'는 최종 제출 — 사람이 내용 확인 후 직접"}
+
+    if any("완료" in labels[i] or "출력" in labels[i] for i in labels):
         return {"action": "done", "reason": "완료/출력 화면으로 보임"}
-    # 진행 버튼을 못 찾음 → '처음 보는 서류'일 수 있으니 사이트 검색으로 목표 서류를 찾아본다.
-    # (아직 검색을 안 했을 때만 1회. 검색어는 목표에서 '발급/신청' 같은 동작어를 뺀 서류명.)
-    already_searched = any("검색" in h or "search" in h.lower() for h in history)
+
+    # ④ 진행 버튼을 못 찾음 → '처음 보는 서류'일 수 있으니 사이트 검색으로 목표 서류를 찾아본다.
+    #    실제로 search 액션을 실행한 적이 있을 때만 '검색함'으로 본다(단순 '통합검색' 클릭 라벨에 오판 방지).
+    already_searched = any(h.startswith("search ") for h in history)
     if not already_searched:
         query = goal
         for w in ("발급", "신청", "받기", "떼기", "출력", "조회"):
@@ -234,6 +275,10 @@ def execute(action: dict, page: Page, elements, prof: dict) -> str:
                 pass
         log("📱 본인인증 화면입니다. '인증 요청'을 누르고 카카오톡에서 인증을 완료해 주세요. (대기)")
         return "human_auth"
+    if a == "human_submit":
+        # 최종 제출은 대리하지 않는다(비가역·법적 행위) — 화면을 사람에게 넘긴다.
+        log("✋ 최종 제출 단계입니다. 내용을 확인하시고 '신청/제출'은 직접 눌러 주세요(대리 제출 안 함).")
+        return "human_submit"
     el = find_el(elements, idx) if idx is not None else None
     if not el:
         page.wait_for_timeout(800)
@@ -300,11 +345,18 @@ def run_smart(goal: str):
                 action = decide_heuristic(goal, page.url[:80], elements, history)
             a, reason = action.get("action"), action.get("reason", "")
             tgt = find_el(elements, action.get("idx"))
+            # LLM 경로 안전망: 같은 버튼을 3번 이상 누르려 하면(집착·핑퐁) 멈춘다 — 휴리스틱엔 이미 가드 있음.
+            if a == "click" and tgt and _clicked_count(history, tgt.get("label", "")) >= 3:
+                log("같은 버튼을 반복해 눌러 멈춥니다(무한 반복 방지). 화면을 확인해 주세요.")
+                break
             log(f"[{step}] {a} {('→ ' + tgt['label']) if tgt else ''} · {reason[:50]}")
             result = execute(action, page, elements, prof)
             history.append(f"{a} {(tgt['label'] if tgt else action.get('value',''))} → {result}")
             if result == "done":
                 log("🎉 에이전트가 목표 완료를 판단했어요. 화면·다운로드 폴더를 확인하세요.")
+                break
+            if result == "human_submit":
+                log("여기까지 자동으로 진행했어요. 최종 '신청/제출'은 직접 확인 후 눌러 주세요(비가역·법적 행위).")
                 break
             if result == "human_auth":
                 if la.wait_logged_in(page, 180):

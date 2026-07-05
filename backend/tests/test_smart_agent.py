@@ -40,10 +40,50 @@ def test_heuristic_picks_issue_button():
 
 
 def test_heuristic_skips_non_member():
-    # '비회원 신청'은 건너뛰고 정식 진행 버튼을 고른다(잘못된 분기 방지).
+    # '비회원 신청'은 건너뛰고 정식 버튼을 고른다. '신청하기'는 최종 제출이라 사람에게 넘긴다(human_submit).
     els = [_el(1, "비회원 신청하기"), _el(2, "신청하기")]
     action = decide_heuristic("아동수당", "https://www.gov.kr/AA020", els, [])
     assert action["idx"] == 2
+    assert action["action"] == "human_submit"
+
+
+def test_heuristic_never_clicks_destructive():
+    # 파괴적/이탈 버튼(신청취소·회원탈퇴·삭제확인)은 키워드가 겹쳐도 절대 자동 클릭하지 않는다.
+    for bad in ["신청취소", "회원탈퇴 신청하기", "정말 삭제하시겠습니까? 확인", "로그아웃"]:
+        els = [_el(1, bad)]
+        action = decide_heuristic("주민등록등본", "https://www.gov.kr", els, [])
+        assert action["action"] != "click", f"{bad}를 클릭하면 안 됨"
+
+
+def test_heuristic_final_submit_goes_to_human():
+    # 최종 제출류(제출/신청하기)는 대리하지 않고 사람에게 넘긴다(비가역·법적 행위).
+    for submit in ["제출", "신청하기", "지급신청", "최종 신청"]:
+        els = [_el(1, submit)]
+        action = decide_heuristic("주민등록등본", "https://www.gov.kr", els, [])
+        assert action["action"] == "human_submit", f"{submit}는 human_submit이어야 함"
+
+
+def test_heuristic_safe_button_over_submit():
+    # 안전 진행 버튼(발급하기)이 있으면 최종 제출류보다 먼저 자동 클릭한다.
+    els = [_el(1, "신청하기"), _el(2, "발급하기")]
+    action = decide_heuristic("주민등록등본", "https://www.gov.kr", els, [])
+    assert action["action"] == "click" and action["idx"] == 2
+
+
+def test_heuristic_pingpong_guard():
+    # 같은 버튼을 2번 이상 누른 이력이면 건너뛴다(A-B-A-B 핑퐁으로 24스텝 낭비 방지).
+    els = [_el(1, "다음")]
+    hist = ["click 다음 → click", "click 확인 → click", "click 다음 → click"]
+    action = decide_heuristic("주민등록등본", "https://www.gov.kr", els, hist)
+    assert action["action"] != "click"  # '다음'은 이미 2회+ → 재클릭 안 함
+
+
+def test_heuristic_auth_by_iframe_url():
+    # 본인인증 위젯(simpleCert iframe)이 감지되면 라벨과 무관하게 사람에게 넘긴다.
+    els = [{"idx": 1, "kind": "text-input", "label": "이름", "value": "",
+            "x": 0, "y": 0, "frame_url": "https://plus.gov.kr/simpleCert.html"}]
+    action = decide_heuristic("주민등록등본", "https://plus.gov.kr/login", els, [])
+    assert action["action"] == "human_auth"
 
 
 def test_heuristic_waits_when_no_progress_button():
