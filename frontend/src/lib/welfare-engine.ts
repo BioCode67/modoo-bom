@@ -171,6 +171,12 @@ function checkPolicyDoc(doc: string, name: string, p: UserProfile): CheckResult 
   }
 
   // ── 청년 계열 ──
+  // 만 19~20세 전용(예: 청년 문화예술패스) — 넓은 청년 룰보다 먼저 정밀 판정(21~34세 오노출 방지)
+  if (anyIn(doc, ['만 19~20세', '19~20세', '만 19세·20세'])) {
+    if (p.age >= 19 && p.age <= 20)
+      return { eligible: true, reason: `만 ${p.age}세로 대상 연령(19~20세) 충족`, priority: 'medium', confidence: 0.85 }
+    return NO
+  }
   if (anyIn(doc, ['만 19~34세', '19~34세', '만 34세 이하', '19세~34세'])) {
     if (p.age >= 19 && p.age <= 34)
       return { eligible: true, reason: `만 ${p.age}세로 청년 연령 기준 충족`, priority: 'high', confidence: 0.92 }
@@ -231,6 +237,13 @@ function checkPolicyDoc(doc: string, name: string, p: UserProfile): CheckResult 
       return { eligible: true, reason: '만 18세 미만 자녀 보유', priority: 'medium', confidence: 0.88 }
     return NO
   }
+  // 다자녀(자녀 2명 이상) — 통합 감면 등. 미성년 자녀 2명 이상이거나 가구유형이 다자녀일 때.
+  if (doc.includes('다자녀')) {
+    const minors = (p.children_ages || []).filter((a) => a < 18).length
+    if (minors >= 2 || (p.household_type || '').includes('다자녀'))
+      return { eligible: true, reason: '다자녀(자녀 2명 이상) 가구', priority: 'medium', confidence: 0.86 }
+    return NO
+  }
 
   // ── 임산부·출산 계열 ──
   if (anyIn(doc, ['임산부', '임신', '임신확인'])) {
@@ -289,8 +302,10 @@ function checkPolicyDoc(doc: string, name: string, p: UserProfile): CheckResult 
       return { eligible: true, reason: `소득 중위소득 ${p.income_percentile}%로 기준 충족`, priority: 'medium', confidence: 0.82 }
     return NO
   }
-  if (anyIn(doc, ['중위소득 120%', '중위소득 150%', '중위소득 180%'])) {
-    if (p.income_percentile <= 180)
+  if (anyIn(doc, ['중위소득 120%', '중위소득 150%', '중위소득 180%', '중위소득 200%'])) {
+    // 상한을 명시된 최댓값으로 — '중위소득 200% 이하'까지 폭넓게 허용하는 정책(신생아 특례대출·재난적 의료비 등) 대응
+    const cap = doc.includes('중위소득 200%') ? 200 : 180
+    if (p.income_percentile <= cap)
       return { eligible: true, reason: `소득 기준 충족 (중위소득 ${p.income_percentile}%)`, priority: 'low', confidence: 0.75 }
     return NO
   }
@@ -353,6 +368,10 @@ export function demographicMismatch(name: string, doc: string, p: UserProfile): 
   // 출생 지원(첫만남이용권·출생아 지원)은 신생아 대상 — 임신 중이거나 만 0~1세 자녀가 있어야.
   // (자녀 없는 성인이 소득무관 분기로 '첫만남이용권 200만원'을 추천받던 오류 차단)
   if (/첫만남|출생아|출생 아동|출산지원금/.test(name) && !(p.is_pregnant || ages.some((a) => a <= 1))) return true
+  // 미숙아·선천성이상아 의료비는 해당 영아를 둔(또는 임신) 가구만 — 소득무관이라도 아무에게나 X.
+  if (/미숙아|선천성이상아/.test(name) && !(p.is_pregnant || ages.some((a) => a <= 2))) return true
+  // 다자녀 전용 혜택은 미성년 자녀 2명 이상(또는 다자녀 가구유형)만.
+  if (/다자녀/.test(name) && !((ages.filter((a) => a < 18).length >= 2) || (p.household_type || '').includes('다자녀'))) return true
   // 유치원 학비(유아학비·누리과정)는 만 3~5세 대상 — 아이 나이가 적혀 있는데 3~5세가 없으면 제외.
   if (/유아학비|유치원|누리과정/.test(name) && ages.length > 0 && !ages.some((a) => a >= 3 && a <= 5)) return true
   // 청소년·학령기 전용인데 본인이 청소년도 아니고 학령기 자녀도 없음
