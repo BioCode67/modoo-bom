@@ -10,6 +10,11 @@ import type { UserProfile } from '@/lib/welfare-engine'
  * @returns 클립보드 복사 성공 여부(안내 문구 분기용)
  */
 export async function oneTapApply(application: string, profile: UserProfile | null, rpaInfo?: RpaInfo): Promise<boolean> {
+  // ⚠️ 새 탭은 사용자 제스처 안에서 '먼저' 열어야 한다. clipboard await 뒤에 open하면 제스처 체인이
+  //    끊겨 모바일 Safari 등에서 팝업이 차단된다 → 반드시 window.open을 동기적으로 먼저 호출.
+  try {
+    window.open(applyLink(application).url, '_blank', 'noopener,noreferrer')
+  } catch { /* 팝업 차단 등 */ }
   let copied = false
   try {
     const fields = buildPrefill(profile, rpaInfo)
@@ -17,9 +22,6 @@ export async function oneTapApply(application: string, profile: UserProfile | nu
       await navigator.clipboard.writeText(prefillText(fields))
       copied = true
     }
-  } catch { /* 클립보드 미지원/비허용 환경은 무시 — 링크 열기는 계속 */ }
-  try {
-    window.open(applyLink(application).url, '_blank', 'noopener,noreferrer')
-  } catch { /* 팝업 차단 등 */ }
+  } catch { /* 클립보드 미지원/비허용 환경은 무시 */ }
   return copied
 }
