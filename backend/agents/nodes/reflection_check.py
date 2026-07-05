@@ -38,17 +38,21 @@ async def reflection_check_node(state: AgentState) -> dict:
     if llm is None:
         result = mock_reflection(eligible, profile)
     else:
-        from langchain_core.messages import SystemMessage, HumanMessage
+        try:
+            from langchain_core.messages import SystemMessage, HumanMessage
 
-        profile_text = (
-            f"나이: {profile.age}, 소득: 중위소득 {profile.income_percentile}%, "
-            f"장애: {profile.disability}, 고용: {profile.employment_status}"
-        )
-        response = await llm.ainvoke([
-            SystemMessage(content=_SYSTEM_PROMPT),
-            HumanMessage(content=f"프로필: {profile_text}\n\n판별 결과:\n{safe_json_dumps(eligible, indent=2)}"),
-        ])
-        result = extract_json(str(response.content))
+            profile_text = (
+                f"나이: {profile.age}, 소득: 중위소득 {profile.income_percentile}%, "
+                f"장애: {profile.disability}, 고용: {profile.employment_status}"
+            )
+            response = await llm.ainvoke([
+                SystemMessage(content=_SYSTEM_PROMPT),
+                HumanMessage(content=f"프로필: {profile_text}\n\n판별 결과:\n{safe_json_dumps(eligible, indent=2)}"),
+            ])
+            result = extract_json(str(response.content))
+        except Exception as e:
+            print(f"[reflection_check] LLM 실패 → 규칙 폴백: {e}")
+            result = mock_reflection(eligible, profile)
 
     passed = result.get("passed", True)
     issues = result.get("issues", [])

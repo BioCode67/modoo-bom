@@ -44,20 +44,26 @@ async def orchestrator_node(state: AgentState) -> dict:
             state.eligible_policies, state.retrieved_docs, state.notifications,
         )
     else:
-        from langchain_core.messages import SystemMessage, HumanMessage
+        try:
+            from langchain_core.messages import SystemMessage, HumanMessage
 
-        summary = {
-            "eligible_policies": [{"name": p.get("name"), "reason": p.get("reason")} for p in eligible],
-            "docs_retrieved": [d.get("doc_name") for d in docs_ok],
-            "notifications": state.notifications[:3],
-            "portfolio": state.portfolio_summary,
-        }
+            summary = {
+                "eligible_policies": [{"name": p.get("name"), "reason": p.get("reason")} for p in eligible],
+                "docs_retrieved": [d.get("doc_name") for d in docs_ok],
+                "notifications": state.notifications[:3],
+                "portfolio": state.portfolio_summary,
+            }
 
-        response = await llm.ainvoke([
-            SystemMessage(content=_SYSTEM_PROMPT),
-            HumanMessage(content=f"분석 결과:\n{safe_json_dumps(summary, indent=2)}"),
-        ])
-        final_response = str(response.content)
+            response = await llm.ainvoke([
+                SystemMessage(content=_SYSTEM_PROMPT),
+                HumanMessage(content=f"분석 결과:\n{safe_json_dumps(summary, indent=2)}"),
+            ])
+            final_response = str(response.content)
+        except Exception as e:
+            print(f"[orchestrator] LLM 실패 → 규칙 폴백: {e}")
+            final_response = mock_final_response(
+                state.eligible_policies, state.retrieved_docs, state.notifications,
+            )
 
     # 현금성 헤드라인을 최종 안내 맨 앞에 부각(집계가 있을 때만)
     if headline:

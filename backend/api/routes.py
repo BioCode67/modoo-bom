@@ -64,6 +64,19 @@ async def health():
         except Exception:
             chroma_ok = False
 
+    # 전체 카탈로그 기대 건수 — 색인된 문서 수가 이에 근접해야 '제대로 시딩됨'으로 본다(감사 반영:
+    # 과거 seeded=doc_count>=60은 sample 131건만 있어도 true라 5,061건 미색인을 못 잡았음).
+    catalog_total = 0
+    try:
+        from rag.catalog_loader import load_catalog
+        catalog_total = len(load_catalog())
+    except Exception:
+        pass
+    # 상한(RAG_MAX_DOCS)이 있으면 기대 색인수는 min(전체, 상한). 그 80% 이상이면 시딩 정상으로 본다.
+    _cap = int(os.getenv("RAG_MAX_DOCS", "0")) or None
+    _expected = min(catalog_total, _cap) if (catalog_total and _cap) else catalog_total
+    _seeded = doc_count >= max(60, int(_expected * 0.8)) if _expected else doc_count >= 60
+
     ai_ok = active_provider() is not None
     return {
         "status": "ok",
@@ -79,7 +92,8 @@ async def health():
         "rag": {
             "ok": chroma_ok,
             "document_count": doc_count,
-            "seeded": doc_count >= 60,
+            "catalog_total": catalog_total,
+            "seeded": _seeded,
         },
     }
 

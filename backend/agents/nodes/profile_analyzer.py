@@ -23,24 +23,28 @@ async def profile_analyzer_node(state: AgentState) -> dict:
     if llm is None:
         result = mock_profile_analysis(profile)
     else:
-        from langchain_core.messages import SystemMessage, HumanMessage
+        try:
+            from langchain_core.messages import SystemMessage, HumanMessage
 
-        profile_text = sanitize_text(
-            f"이름: {profile.name}, 나이: {profile.age}세, 성별: {profile.gender}\n"
-            f"거주지역: {profile.region}, 가구유형: {profile.household_type}\n"
-            f"소득수준: 기준중위소득 {profile.income_percentile}%\n"
-            f"장애여부: {'있음 (' + profile.disability_grade + ')' if profile.disability else '없음'}\n"
-            f"고용상태: {profile.employment_status}\n"
-            f"자녀: {'있음 (나이: ' + str(profile.children_ages) + ')' if profile.has_children else '없음'}\n"
-            f"임신여부: {profile.is_pregnant}\n"
-            f"최근 생애이벤트: {', '.join(profile.life_events) if profile.life_events else '없음'}"
-        )
+            profile_text = sanitize_text(
+                f"이름: {profile.name}, 나이: {profile.age}세, 성별: {profile.gender}\n"
+                f"거주지역: {profile.region}, 가구유형: {profile.household_type}\n"
+                f"소득수준: 기준중위소득 {profile.income_percentile}%\n"
+                f"장애여부: {'있음 (' + profile.disability_grade + ')' if profile.disability else '없음'}\n"
+                f"고용상태: {profile.employment_status}\n"
+                f"자녀: {'있음 (나이: ' + str(profile.children_ages) + ')' if profile.has_children else '없음'}\n"
+                f"임신여부: {profile.is_pregnant}\n"
+                f"최근 생애이벤트: {', '.join(profile.life_events) if profile.life_events else '없음'}"
+            )
 
-        response = await llm.ainvoke([
-            SystemMessage(content=_SYSTEM_PROMPT),
-            HumanMessage(content=f"사용자 프로필:\n{profile_text}"),
-        ])
-        result = extract_json(str(response.content))
+            response = await llm.ainvoke([
+                SystemMessage(content=_SYSTEM_PROMPT),
+                HumanMessage(content=f"사용자 프로필:\n{profile_text}"),
+            ])
+            result = extract_json(str(response.content))
+        except Exception as e:
+            print(f"[profile_analyzer] LLM 실패 → 규칙 폴백: {e}")
+            result = mock_profile_analysis(profile)
 
     keywords = result.get("keywords", [])
     new_events.append(NodeEvent(

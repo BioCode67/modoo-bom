@@ -46,26 +46,31 @@ async def eligibility_check_node(state: AgentState) -> dict:
     if llm is None:
         result = mock_eligibility(policies, profile)
     else:
-        from langchain_core.messages import SystemMessage, HumanMessage
+        try:
+            from langchain_core.messages import SystemMessage, HumanMessage
 
-        profile_text = sanitize_text(
-            f"나이: {profile.age}세, 성별: {profile.gender}, 지역: {profile.region}\n"
-            f"가구유형: {profile.household_type}, 소득수준: 중위소득 {profile.income_percentile}%\n"
-            f"장애: {'있음 (' + profile.disability_grade + ')' if profile.disability else '없음'}\n"
-            f"고용상태: {profile.employment_status}\n"
-            f"자녀: {profile.children_ages if profile.has_children else '없음'}, 임신: {profile.is_pregnant}\n"
-            f"생애이벤트: {', '.join(profile.life_events) if profile.life_events else '없음'}"
-        )
-        policies_text = safe_json_dumps(
-            [{"id": p["id"], "name": p["name"], "document": p["document"]} for p in policies],
-            indent=2,
-        )
+            profile_text = sanitize_text(
+                f"나이: {profile.age}세, 성별: {profile.gender}, 지역: {profile.region}\n"
+                f"가구유형: {profile.household_type}, 소득수준: 중위소득 {profile.income_percentile}%\n"
+                f"장애: {'있음 (' + profile.disability_grade + ')' if profile.disability else '없음'}\n"
+                f"고용상태: {profile.employment_status}\n"
+                f"자녀: {profile.children_ages if profile.has_children else '없음'}, 임신: {profile.is_pregnant}\n"
+                f"생애이벤트: {', '.join(profile.life_events) if profile.life_events else '없음'}"
+            )
+            policies_text = safe_json_dumps(
+                [{"id": p["id"], "name": p["name"], "document": p["document"]} for p in policies],
+                indent=2,
+            )
 
-        response = await llm.ainvoke([
-            SystemMessage(content=_SYSTEM_PROMPT),
-            HumanMessage(content=f"사용자 프로필:\n{profile_text}\n\n정책 목록:\n{policies_text}"),
-        ])
-        result = extract_json(str(response.content))
+            response = await llm.ainvoke([
+                SystemMessage(content=_SYSTEM_PROMPT),
+                HumanMessage(content=f"사용자 프로필:\n{profile_text}\n\n정책 목록:\n{policies_text}"),
+            ])
+            result = extract_json(str(response.content))
+        except Exception as e:
+            # LLM 실패(타임아웃·429·JSON파싱 등)해도 전체 분석이 죽지 않게 규칙기반으로 폴백(감사 반영).
+            print(f"[eligibility_check] LLM 실패 → 규칙 폴백: {e}")
+            result = mock_eligibility(policies, profile)
 
     # 우선순위(high>med>low) → 신뢰도 정렬 + 이름 중복 제거(프론트 엔진과 일관).
     # RAG 검색 순서로 두면 기초연금(high)이 문화누리카드(medium) 아래로 묻히는 문제 해결.

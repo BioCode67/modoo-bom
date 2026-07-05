@@ -61,6 +61,9 @@ def get_chat_llm(temperature: float = 0.0, max_tokens: int = 1024):
     호출부는 반환값이 None이면 규칙기반 폴백을 쓴다(항상 동작 보장).
     """
     provider = active_provider()
+    # 무료 티어 LLM은 지연·오류가 잦다 → 타임아웃·재시도로 노드가 무한 대기하지 않게(호출부는 실패 시 규칙 폴백).
+    timeout = int(os.getenv("LLM_TIMEOUT", "20"))
+    retries = int(os.getenv("LLM_MAX_RETRIES", "1"))
     try:
         if provider == "gemini":
             from langchain_google_genai import ChatGoogleGenerativeAI
@@ -69,6 +72,8 @@ def get_chat_llm(temperature: float = 0.0, max_tokens: int = 1024):
                 temperature=temperature,
                 max_output_tokens=max_tokens,
                 google_api_key=os.getenv("GEMINI_API_KEY"),
+                timeout=timeout,
+                max_retries=retries,
             )
         if provider == "groq":
             from langchain_groq import ChatGroq
@@ -76,6 +81,8 @@ def get_chat_llm(temperature: float = 0.0, max_tokens: int = 1024):
                 model=os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"),
                 temperature=temperature,
                 max_tokens=max_tokens,
+                timeout=timeout,
+                max_retries=retries,
             )
         if provider == "anthropic":
             from langchain_anthropic import ChatAnthropic
@@ -83,6 +90,8 @@ def get_chat_llm(temperature: float = 0.0, max_tokens: int = 1024):
                 model=os.getenv("CLAUDE_MODEL", "claude-sonnet-4-6"),
                 temperature=temperature,
                 max_tokens=max_tokens,
+                timeout=timeout,
+                max_retries=retries,
             )
     except ImportError as e:
         print(f"[llm] provider '{provider}' 패키지 미설치 → 규칙기반 폴백: {e}")

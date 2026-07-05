@@ -36,12 +36,22 @@ def search_policies(query: str, n_results: int = 5) -> list:
 
 
 def seed() -> tuple[int, str]:
-    """시딩(경량 모드에선 임베딩 시딩 스킵 — BM25는 런타임 인메모리 색인)."""
+    """시딩(경량 모드에선 임베딩 시딩 스킵 — BM25는 런타임 인메모리 색인).
+
+    임베딩(ChromaDB) 모드는 **전체 공공데이터 카탈로그(약 5,061건)** 를 색인한다(감사 반영).
+    과거엔 sample_data 131건만 임베딩해 RAG가 실데이터를 몰랐음 → seed_from_catalog로 교체.
+    메모리 제약 배포는 RAG_MAX_DOCS로 상한(예: 800). 실패 시 sample_data로 폴백해 최소 동작 보장."""
     if rag_light():
         from .catalog_loader import load_catalog
         return len(load_catalog()), "bm25"
-    from .embedder import seed_chromadb
-    return seed_chromadb(), "chromadb"
+    try:
+        from .seed_from_catalog import seed_from_catalog
+        limit = int(os.getenv("RAG_MAX_DOCS", "0")) or None
+        return seed_from_catalog(limit=limit), "chromadb(catalog)"
+    except Exception as e:
+        print(f"[rag.seed] 카탈로그 시딩 실패 → sample_data 폴백: {e}")
+        from .embedder import seed_chromadb
+        return seed_chromadb(), "chromadb(sample)"
 
 
 def warmup() -> None:
