@@ -129,8 +129,10 @@ def main() -> int:
             except Exception:
                 pass
 
-            # 2) 분석: 복지 찾기 → 데모 페르소나 → 결과
+            # 2) 분석: 복지 찾기 → '직접 입력'(폼) 탭 → 데모 페르소나 → 결과
+            #    (기본은 '새싹이와 대화' 모드라, 페르소나 빠른 선택은 직접 입력 탭에 있음)
             page.click("text=복지 찾기")
+            page.click("text=직접 입력")
             page.click("text=독거 어르신")
             page.wait_for_selector("text=맞춤 추천 복지", timeout=30000)  # 분석 연출 ~3초 포함
             page.wait_for_selector("text=민간재단 지원", timeout=10000)
@@ -182,6 +184,12 @@ def main() -> int:
             page.click('[aria-label="긴급복지 빠른 진단"] >> [aria-label="닫기"]')
             print("[e2e] ✅ 4.7 긴급진단(정부 제도 최우선 노출)")
 
+            # 4.8) 외국인·다문화 진입로 — 홈에 다국어 진입 섹션 + 언어 버튼(경쟁 미개척 차별화)
+            page.click("text=홈")
+            page.wait_for_selector("text=Ask in your language", timeout=8000)
+            page.wait_for_selector("text=Tiếng Việt", timeout=5000)
+            print("[e2e] ✅ 4.8 외국인·다문화 다국어 진입로")
+
             # 5) 모바일 뷰포트(iPhone급) — 핸드폰에서 홈·주 흐름이 깨지지 않는지
             mpage = browser.new_page(viewport={"width": 390, "height": 844}, is_mobile=True, has_touch=True)
             mpage.on("pageerror", lambda e: errors.append(f"[mobile] {e}"))
@@ -192,7 +200,7 @@ def main() -> int:
             except Exception:
                 pass
             mpage.click('[aria-label="하단 메뉴"] >> text=복지 찾기')  # 모바일은 하단 탭바(데스크탑 nav는 hidden)
-            mpage.wait_for_selector("text=독거 어르신", timeout=10000)
+            mpage.wait_for_selector("text=새싹이와 대화", timeout=10000)  # 분석 화면(대화 모드 기본) 진입 확인
             print("[e2e] ✅ 5. 모바일(390px) 홈·복지찾기 정상")
             mpage.close()
 
