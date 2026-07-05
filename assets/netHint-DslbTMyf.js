@@ -1,0 +1,1 @@
+function r(){if(typeof navigator>"u")return!1;const e=navigator,t=e.connection;return!!(t?.saveData||t?.effectiveType&&/(slow-2g|2g)/.test(t.effectiveType)||typeof e.deviceMemory=="number"&&e.deviceMemory<=1)}export{r as prefersDataSaving};
