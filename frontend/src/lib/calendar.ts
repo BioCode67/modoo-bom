@@ -28,8 +28,10 @@ export function buildEvents(tracked: TrackedItem[], map: Record<string, Policy>)
       // 기한 신호가 급한(일 단위) 정책은 준비를 더 앞당기고, 정책의 실제 기한 텍스트를 노트에 함께 노출.
       const hint = deadlineHint(p)
       const prepDays = hint?.urgent ? 1 : 3
+      // 담아둔 지 오래돼 savedAt+준비일이 이미 지났으면 내일로 당겨, 과거 날짜의 죽은 알림이 안 생기게 한다.
+      const prepDate = Math.max(t.savedAt + prepDays * DAY, Date.now() + DAY)
       events.push({
-        id: `${t.policyId}-prepare`, date: t.savedAt + prepDays * DAY, kind: 'prepare',
+        id: `${t.policyId}-prepare`, date: prepDate, kind: 'prepare',
         title: `${p.name} 신청 준비`,
         note: `${hint ? `기한: ${hint.label} · ` : ''}필요 서류: ${(p.required_docs || []).join(', ') || '주민센터 확인'}`,
       })

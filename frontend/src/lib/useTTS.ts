@@ -22,12 +22,20 @@ export function hasVoiceFor(lang?: string): boolean {
 export function useTTS() {
   const [supported] = useState(() => typeof window !== 'undefined' && 'speechSynthesis' in window)
   const [speaking, setSpeaking] = useState(false)
+  // 보이스 목록 로드 완료를 반영하는 버전 — voiceschanged 후 hasVoice 재판단을 유발(첫 낙관적 true 보정).
+  const [voicesVer, setVoicesVer] = useState(0)
 
   useEffect(() => {
+    if (!supported) return
     // 보이스 목록은 비동기 로드 — 미리 트리거해 첫 호출 시 빈 배열 문제 완화
-    if (supported) { try { window.speechSynthesis.getVoices() } catch { /* noop */ } }
+    try { window.speechSynthesis.getVoices() } catch { /* noop */ }
+    const onChange = () => setVoicesVer((v) => v + 1)
+    try { window.speechSynthesis.addEventListener('voiceschanged', onChange) } catch { /* noop */ }
     // 페이지 이탈/언마운트 시 읽기 중단
-    return () => { if (supported) window.speechSynthesis.cancel() }
+    return () => {
+      try { window.speechSynthesis.removeEventListener('voiceschanged', onChange) } catch { /* noop */ }
+      window.speechSynthesis.cancel()
+    }
   }, [supported])
 
   /** speak(text, lang?) — lang은 'en'·'vi' 같은 언어코드 또는 'en-US' BCP-47. 미지정=한국어. */
@@ -58,5 +66,10 @@ export function useTTS() {
     else speak(text, lang)
   }
 
-  return { supported, speaking, speak, stop, toggle }
+  // voicesVer가 바뀌면(보이스 로드 완료) 재평가되도록, 매 렌더에서 현재 목록으로 판단.
+  // (voicesVer를 참조해 consumer가 로드 후 다시 렌더되게 함)
+  void voicesVer
+  const hasVoice = (lang?: string) => hasVoiceFor(lang)
+
+  return { supported, speaking, speak, stop, toggle, hasVoice, voicesVer }
 }

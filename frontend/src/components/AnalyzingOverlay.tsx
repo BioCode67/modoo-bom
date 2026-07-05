@@ -25,6 +25,7 @@ export function AnalyzingOverlay({
 }) {
   const [active, setActive] = useState(0)
   const [count, setCount] = useState<number | null>(null) // AI가 발견한 관련 복지 실측 건수
+  const [skipped, setSkipped] = useState(false) // 데이터 절약·오프라인 등으로 신경망 비교를 건너뛴 경로(정직 표기용)
   const done = useRef(false)
   // 백엔드(LangGraph)가 배포돼 있으면 실제 10노드 에이전트를 실시간 스트리밍(대회 주제의 핵심 순간).
   // 결과는 신뢰도 높은 클라이언트 엔진 것을 쓰되, 이 화면이 '진짜 에이전트'를 보여준다.
@@ -46,7 +47,7 @@ export function AnalyzingOverlay({
       try {
         // 데이터 절약·저사양·2G 환경에선 3.9MB 임베딩을 받지 않고 규칙기반 결과로 바로 진행(정직 폴백).
         const { prefersDataSaving } = await import('@/lib/netHint')
-        if (prefersDataSaving()) { finish(); return }
+        if (prefersDataSaving()) { setSkipped(true); finish(); return }
         const { semanticDiscover } = await import('@/lib/semanticSearch')
         setActive(2) // 신경망 임베딩 로드·의미 유사도 계산(실제 async 작업)
         const userSido = sidoOf(profile.region)
@@ -66,6 +67,7 @@ export function AnalyzingOverlay({
         setCount(hits.length)
         finish()
       } catch {
+        setSkipped(true)
         finish() // 오프라인·로드 실패 시에도 규칙 기반 결과로 진행(정직 폴백)
       }
     })()
@@ -88,14 +90,17 @@ export function AnalyzingOverlay({
   if (profile.employment_status === 'unemployed') signals.push('구직 중')
   if (/한부모|조손/.test(profile.household_type)) signals.push('한부모·조손')
   if (profile.household_type.includes('다문화')) signals.push('다문화')
-  if (profile.household_type) signals.push(profile.household_type)
+  // household_type 원문은 이미 유도된 신호('한부모·조손' 등)와 의미가 겹치면 중복 노출되므로,
+  // 앞에서 특정 신호를 이미 넣은 경우엔 원문 추가를 생략(표시 중복 방지).
+  const hasSpecificHouseholdSignal = /한부모|조손|다문화/.test(profile.household_type) && signals.length > 0
+  if (profile.household_type && !hasSpecificHouseholdSignal) signals.push(profile.household_type)
   const signalText = signals.length ? ` — ${[...new Set(signals)].slice(0, 4).join('·')}` : ''
 
   const STEPS = [
     `프로필에서 상황 신호를 읽었어요${signalText}`,
     `내게 맞는 복지를 자격 기준으로 대조했어요 (${eligible.length}건 해당)`,
-    '온디바이스 신경망으로 5천여 복지와 의미를 비교하는 중…',
-    count === null ? '관련 복지를 정리하는 중…' : `AI가 놓치기 쉬운 관련 복지 ${count}건을 더 찾았어요`,
+    skipped ? '데이터 절약 모드 — 신경망 비교는 건너뛰고 규칙 기반 결과로 진행했어요' : '온디바이스 신경망으로 5천여 복지와 의미를 비교하는 중…',
+    skipped ? '규칙 기반 자격 판정 결과로 안내해요' : count === null ? '관련 복지를 정리하는 중…' : `AI가 놓치기 쉬운 관련 복지 ${count}건을 더 찾았어요`,
   ]
 
   return (
@@ -118,7 +123,10 @@ export function AnalyzingOverlay({
               i < active ? 'bg-sprout-50 text-sprout-700' : i === active ? 'bg-sprout-100 text-sprout-700' : 'bg-muted/40 text-muted-foreground')}
           >
             <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white">
-              {i < active ? <Check className="h-4 w-4 text-success-500" /> : i === active ? <Loader2 className="h-4 w-4 animate-spin text-sprout-500" /> : <span className="text-xs text-muted-foreground">{i + 1}</span>}
+              {skipped && i >= 2 ? <span className="text-xs font-bold text-muted-foreground" aria-label="건너뜀">–</span>
+                : i < active ? <Check className="h-4 w-4 text-success-500" />
+                : i === active ? <Loader2 className="h-4 w-4 animate-spin text-sprout-500" />
+                : <span className="text-xs text-muted-foreground">{i + 1}</span>}
             </span>
             {s}
           </motion.div>

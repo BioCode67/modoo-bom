@@ -31,14 +31,18 @@ function b64urlDecode(s: string): string {
 
 /** 프로필+담은 정책 → 공유 링크(현재 사이트 URL + #helper=…). 이름은 반드시 제거. */
 export function encodeHelperLink(profile: UserProfile, tracked: { policyId: string; name: string }[]): string {
-  const payload: HelperPayload = {
-    v: 1,
-    profile: { ...profile, name: '' }, // 이름 제거(개인정보 최소화)
-    tracked: tracked.slice(0, 40).map((t) => ({ policyId: t.policyId, name: t.name })),
-  }
-  const json = JSON.stringify(payload)
+  // 디코더와 동일한 필드 상한을 인코더에서도 적용(이름 60·id 40 절단)하고,
+  // base64 결과가 MAX_BYTES를 넘으면 후행 항목을 떨궈, 만든 링크가 항상 수신측 decode를 통과하도록 보장.
+  // (예전엔 개수만 40으로 제한 → 한글 장문 지자체 정책명 다수면 6000자 초과 → 받는 가족 화면에 조용히 홈만 떴다.)
+  let items = tracked.slice(0, 40).map((t) => ({ policyId: String(t.policyId).slice(0, 40), name: String(t.name || '').slice(0, 60) }))
   const base = typeof window !== 'undefined' ? window.location.origin + window.location.pathname : 'https://biocode67.github.io/modoo-bom/'
-  return `${base}#helper=${b64urlEncode(json)}`
+  const build = (list: typeof items) => b64urlEncode(JSON.stringify({ v: 1, profile: { ...profile, name: '' }, tracked: list } satisfies HelperPayload))
+  let enc = build(items)
+  while (enc.length > MAX_BYTES && items.length > 0) {
+    items = items.slice(0, -1) // 상한 초과 시 뒤에서부터 항목 제거(프로필은 항상 유지)
+    enc = build(items)
+  }
+  return `${base}#helper=${enc}`
 }
 
 /** 해시 문자열(#helper=… 또는 순수 payload)을 검증·파싱. 실패/과대/변조면 null. */

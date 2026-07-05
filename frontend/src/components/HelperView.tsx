@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { Users, X, Heart } from 'lucide-react'
 import { runAnalysis } from '@/lib/welfare-engine'
 import { useAppStore } from '@/store/useAppStore'
+import { getPolicyMap } from '@/data/catalog'
 import { ResultsView } from '@/components/ResultsView'
 
 /**
@@ -14,6 +15,7 @@ export function HelperView() {
   const setHelper = useAppStore((s) => s.setHelper)
   const setView = useAppStore((s) => s.setView)
   const toggleSaved = useAppStore((s) => s.toggleSaved)
+  const isSaved = useAppStore((s) => s.isSaved)
 
   const result = useMemo(() => (helper ? runAnalysis(helper.profile) : null), [helper])
   if (!helper || !result) return null
@@ -49,10 +51,17 @@ export function HelperView() {
               ))}
             </div>
             <button
-              onClick={() => helper.tracked.forEach((t) => {
-                const p = result.eligible_policies.find((e) => e.id === t.policyId)
-                toggleSaved({ id: t.policyId, name: t.name, category: p?.category || '' })
-              })}
+              onClick={() => {
+                // 담기(추가 전용) — toggleSaved는 있으면 삭제하는 토글이라, 이미 담긴 항목은 건드리지 않는다(데이터 손실 방지).
+                // 링크로 온 policyId는 카탈로그로 검증하고 이름·분류도 카탈로그 값을 써 변조 문자열 주입을 차단.
+                const map = getPolicyMap()
+                helper.tracked.forEach((t) => {
+                  if (isSaved(t.policyId)) return
+                  const p = map[t.policyId]
+                  if (!p) return
+                  toggleSaved({ id: t.policyId, name: p.name, category: p.category })
+                })
+              }}
               className="btn-secondary !py-2 text-xs mt-2.5"
             >
               내 ‘나의 복지’에도 담기
@@ -62,7 +71,7 @@ export function HelperView() {
       )}
 
       {/* 결과 — 기존 결과 뷰 재사용(다시 분석 버튼은 종료로 대체) */}
-      <ResultsView result={result} profile={helper.profile} onReset={exit} />
+      <ResultsView result={result} profile={helper.profile} onReset={exit} helperMode />
     </div>
   )
 }

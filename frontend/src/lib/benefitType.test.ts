@@ -15,6 +15,16 @@ describe('benefitType — 지원형태 규칙 태깅', () => {
     expect(benefitTypeOf(P('문화누리카드', '문화 이용권 지원'))).toBe('voucher')
     expect(benefitTypeOf(P('에너지바우처', '난방 바우처 지급'))).toBe('voucher')
   })
+  it('감사 회귀: 한글 뒤 "카드"도 voucher(죽은 \\b 패턴 교체) — 교통카드·드림카드', () => {
+    expect(benefitTypeOf(P('버스공영제 무료이용 교통카드 지원', ''))).toBe('voucher')
+    expect(benefitTypeOf(P('청소년드림카드 지원', ''))).toBe('voucher')
+  })
+  it('감사 회귀: "보증금·보증료" 무상지원은 loan 아님(그랜트를 빚으로 오분류 금지)', () => {
+    expect(benefitTypeOf(P('전세보증금반환보증 보증료 지원', '보증료 지원'))).not.toBe('loan')
+    expect(benefitTypeOf(P('저소득 중증장애인 전세주택 지원', '무상으로 전세보증금을 지원'))).not.toBe('loan')
+    // 실제 대출보증 상품은 loan 유지
+    expect(benefitTypeOf(P('청년창업 특례보증부 대출', '특례보증 융자'))).toBe('loan')
+  })
   it('요금 감면 → discount', () => {
     expect(benefitTypeOf(P('다자녀 전기요금 감면', '전기요금 감면'))).toBe('discount')
   })

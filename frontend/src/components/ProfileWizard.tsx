@@ -104,6 +104,8 @@ export function ProfileWizard({ onSubmit }: { onSubmit: (p: UserProfile) => void
                     const n = parseInt(v, 10)
                     if (!Number.isNaN(n)) set({ age: Math.max(0, Math.min(120, n)) })
                   }}
+                  // 비운 채로 포커스를 떠나면 표시(빈칸)와 실제 상태(이전 값)가 어긋난다 → 상태값으로 다시 채워 재동기화.
+                  onBlur={(e) => { if (e.currentTarget.value === '') e.currentTarget.value = String(p.age) }}
                   className="input-cute mt-2 w-28"
                 />
               </Field>
@@ -180,6 +182,7 @@ export function ProfileWizard({ onSubmit }: { onSubmit: (p: UserProfile) => void
                     placeholder="예: 0, 5"
                     className="input-cute"
                   />
+                  <p className="mt-1 text-[11px] text-muted-foreground">만 나이로 적어주세요. 자녀 대상 복지는 보통 만 18세 이하 기준이라, 그보다 많은 나이는 자동 제외돼요.</p>
                 </Field>
               )}
               <Toggle label="♿ 등록 장애인" on={p.disability} onClick={() => set({ disability: !p.disability, disability_grade: !p.disability ? '1급' : '' })} />

@@ -76,9 +76,12 @@ export function expandQuery(q: string): string[] {
   return [...new Set(queryConcepts(q).flat())]
 }
 
-function fieldScore(p: Policy | EligiblePolicy, t: string): number {
-  // 1글자 용어는 substring 오탐이 심해 제외(예: 동의어 '집'이 '어린이집'에 걸려 주거 검색을 오염)
-  if (!t || t.length < 2) return 0
+function fieldScore(p: Policy | EligiblePolicy, t: string, isUserTerm = false): number {
+  // 1글자 용어는 substring 오탐이 심해 제외(예: 동의어 '집'이 '어린이집'에 걸려 주거 검색을 오염).
+  // 단, 사용자가 직접 친 원문 단어는 예외 — '암'처럼 1글자를 검색하면 '암환자의료비지원'이 매칭돼야 한다
+  // (오탐 방지 취지는 자동 확장한 동의어에만 해당하지, 사용자의 명시적 질의어를 버리면 안 됨).
+  if (!t) return 0
+  if (t.length < 2 && !isUserTerm) return 0
   const name = p.name.toLowerCase()
   let s = 0
   if (name === t) s += 8
@@ -104,11 +107,13 @@ function fieldScore(p: Policy | EligiblePolicy, t: string): number {
  */
 export function relevance(p: Policy | EligiblePolicy, concepts: string[][], rawQuery = ''): number {
   if (!concepts.length) return 0
+  // 사용자가 직접 입력한 원문 단어(동의어 확장 이전) — 1글자여도 매칭을 허용할 대상.
+  const userWords = new Set(rawQuery.trim().toLowerCase().split(/\s+/).filter(Boolean))
   let total = 0
   let covered = 0
   for (const terms of concepts) {
     let best = 0
-    for (const t of terms) best = Math.max(best, fieldScore(p, t))
+    for (const t of terms) best = Math.max(best, fieldScore(p, t, userWords.has(t)))
     if (best > 0) {
       covered += 1
       total += best
@@ -117,11 +122,12 @@ export function relevance(p: Policy | EligiblePolicy, concepts: string[][], rawQ
   let score = covered > 1 ? total * covered : total
   // 원문 질의가 정책명에 그대로 들어가면 강하게 가산 — 짧은 동의어(예: '교육')가
   // 여러 필드에 걸쳐 exact 이름 매칭을 밀어내는 것을 방지(정확 이름 검색 우선).
+  // 1글자 질의('암')도 이름 포함 시 가산해, 동의어(재활·간병비)로만 걸린 오답보다 위로 올린다.
   const raw = rawQuery.trim().toLowerCase()
   if (raw && score > 0) {
     const name = p.name.toLowerCase()
     if (name === raw) score += 100
-    else if (raw.length >= 2 && name.includes(raw)) score += 30
+    else if (name.includes(raw)) score += 30
   }
   return score
 }

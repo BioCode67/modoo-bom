@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { detectLang } from './detectLang'
+import { detectLang, detectUiLang } from './detectLang'
 
 describe('detectLang', () => {
   it('빈 문자열은 null', () => {
@@ -36,5 +36,31 @@ describe('detectLang', () => {
     const d = detectLang('xin chào tôi cần giúp đỡ')
     expect(d?.label).toBe('Tiếng Việt')
     expect(d?.flag).toBe('🇻🇳')
+  })
+})
+
+describe('detectUiLang — UI 언어 결정(보수적·항상 ko 복귀)', () => {
+  it('빈 문자열은 ko로 복귀(외국어 고착 방지)', () => {
+    expect(detectUiLang('')).toBe('ko')
+    expect(detectUiLang('   ')).toBe('ko')
+  })
+  it('한국어는 ko', () => {
+    expect(detectUiLang('기초연금 알려줘')).toBe('ko')
+  })
+  it('감사 회귀: 영문 약어·오타 한 글자로는 en 전환 안 함(확신 게이트)', () => {
+    expect(detectUiLang('LH')).toBe('ko')
+    expect(detectUiLang('EITC')).toBe('ko')
+    expect(detectUiLang('a')).toBe('ko')
+    expect(detectUiLang('dks')).toBe('ko') // 짧은 한/영 오타(라틴 3자)는 ko 유지
+  })
+  it('명확한 영어 문장은 en', () => {
+    expect(detectUiLang('I lost my job and need help')).toBe('en')
+  })
+  it('베트남어 문장은 vi', () => {
+    expect(detectUiLang('Tôi cần hỗ trợ tiền thuê nhà')).toBe('vi')
+  })
+  it('비라틴 스크립트는 짧아도 신뢰(일·중)', () => {
+    expect(detectUiLang('お金')).toBe('ja')
+    expect(detectUiLang('帮助')).toBe('zh')
   })
 })

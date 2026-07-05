@@ -26,6 +26,13 @@ describe('comboSolver — 수급 조합 관계 안내', () => {
     const r = analyzeCombos(mk(['POL-004', 'POL-005']))
     expect(r.compatible.some((c) => c.rule.kind === 'compatible')).toBe(true)
   })
+  it('감사 회귀: 장애인연금+생계급여 동시 자격 → 감액 경고(reduction) — 기초연금과 동일 근거', () => {
+    const r = analyzeCombos(mk(['POL-003', 'POL-002']))
+    expect(r.reduction.some((c) => c.rule.a === 'POL-003' && c.rule.b === 'POL-002')).toBe(true)
+    // 부가급여 제외 뉘앙스가 명시돼야(과장 방지)
+    const rule = r.reduction.find((c) => c.rule.a === 'POL-003')!.rule
+    expect(rule.note).toContain('부가급여')
+  })
   it('둘 중 하나만 자격이면 관계 미표시(둘 다 있을 때만 의미)', () => {
     expect(hasCombos(analyzeCombos(mk(['POL-001'])))).toBe(false)
   })

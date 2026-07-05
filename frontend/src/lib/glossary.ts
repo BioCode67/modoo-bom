@@ -222,6 +222,10 @@ function esc(s: string): string { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'
 
 const ALIAS_RE = new RegExp(`(${ALIAS_MAP.map((a) => esc(a.alias)).join('|')})`, 'g')
 
+const HANGUL = /[가-힣]/
+// 매칭 뒤에 이어질 수 있는 조사(이건 합성어가 아니라 단어+조사이므로 매칭 유지). 긴 것부터.
+const JOSA = /^(으로서|으로써|이라도|이란|으로|로서|로써|에서|과의|이나|이랑|께서|부터|까지|처럼|보다|마다|조차|밖에|라도|이든|이야|이라|란|은|는|이|가|을|를|의|에|와|과|로|만|도|나|랑|께|들|인|자|씩)/
+
 export interface InlineSegment { text: string; term?: Term }
 
 /**
@@ -239,6 +243,12 @@ export function annotateTerms(text: string): InlineSegment[] {
     const mapped = ALIAS_MAP.find((a) => a.alias === alias)
     const term = mapped ? TERM_BY_NAME[mapped.term] : undefined
     if (!term || usedTerms.has(term.term)) continue // 매핑 없거나 이미 표시한 용어면 스킵(일반 텍스트로 둠)
+    // 합성어 내부/접두 오매칭 방지: 앞 글자가 한글이면 단어 중간('국민기초생활보장'의 '기초생활'),
+    //   뒤 글자가 한글인데 조사가 아니면 더 긴 합성어의 접두('기초생활'+'보장')이므로 하이라이트하지 않는다.
+    const before = idx > 0 ? text[idx - 1] : ''
+    const afterStr = text.slice(idx + alias.length)
+    if (HANGUL.test(before)) continue
+    if (afterStr && HANGUL.test(afterStr[0]) && !JOSA.test(afterStr)) continue
     if (idx > last) segs.push({ text: text.slice(last, idx) })
     segs.push({ text: alias, term })
     usedTerms.add(term.term)

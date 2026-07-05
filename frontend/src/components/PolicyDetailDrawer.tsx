@@ -136,6 +136,10 @@ function DrawerBody({
   const { ready, caps } = useBackend()
   const hasBackend = ready === true && !!caps?.rpa
   const { profile, rpaInfo, uiLang } = useAppStore()
+  const analysisResult = useAppStore((s) => s.result)
+  const trackedList = useAppStore((s) => s.tracked)
+  // 이 정책이 실제 '내 분석 결과'에서 나온 것인지 — 신청 흐름 1단계의 '자동 선별 완료' 표기 정직성 근거.
+  const matched = !!analysisResult?.eligible_policies.some((e) => e.id === policy.id)
   const [visitKit, setVisitKit] = useState(false)
   const [applied, setApplied] = useState<false | 'copied' | 'opened'>(false)
   const related = onOpen
@@ -275,7 +279,7 @@ function DrawerBody({
         {/* 신청 키트 — 자동화 흐름 + 공식 신청 페이지 직결 + 내 정보 미리채움(복사) */}
         <Section title={`📝 ${tr(uiLang,'applyKit')}`}>
           <div className="mb-2.5">
-            <ApplyFlow automatable={isApplyAutomatable(policy.name)} hasBackend={hasBackend} hasPrefill={buildPrefill(profile, rpaInfo).length > 0} />
+            <ApplyFlow automatable={isApplyAutomatable(policy.name)} hasBackend={hasBackend} hasPrefill={buildPrefill(profile, rpaInfo).length > 0} matched={matched} />
           </div>
           <a
             href={applyLink(policy.application).url}
@@ -333,12 +337,13 @@ function DrawerBody({
           <button onClick={() => setVisitKit(true)} className="btn-secondary !py-2.5 text-sm">
             📄 {tr(uiLang, 'visitPrint')}
           </button>
-          {/* 폰 캘린더에 준비 알림 — 저장 시점 앵커, 하루 전 알람(.ics VALARM). 마감을 날조하지 않음(정직) */}
+          {/* 폰 캘린더에 준비 알림 — 내보내기 전용(.ics). 마감을 날조하지 않고, 관심목록을 몰래 바꾸지도 않는다(정직).
+              이미 담아둔 정책은 실제 저장시점·상태로 일정을 만들어 '나의 복지' 모니터링과 어긋나지 않게 한다. */}
           <button
             onClick={() => {
-              if (!saved) ctx.toggleSaved({ id: policy.id, name: policy.name, category: policy.category })
-              const synthetic = { policyId: policy.id, name: policy.name, category: policy.category, status: 'tracking' as const, savedAt: Date.now(), checkedDocs: [] }
-              const ev = buildEvents([synthetic], { [policy.id]: policy as Policy })
+              const existing = trackedList.find((t) => t.policyId === policy.id)
+              const item = existing ?? { policyId: policy.id, name: policy.name, category: policy.category, status: 'tracking' as const, savedAt: Date.now(), checkedDocs: [] }
+              const ev = buildEvents([item], { [policy.id]: policy as Policy })
               if (ev.length) downloadICS(ev)
             }}
             className="btn-secondary !py-2.5 text-sm"

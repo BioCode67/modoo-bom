@@ -45,4 +45,15 @@ describe('helperLink — 가족 도움 링크 인코딩/복원', () => {
     expect(d!.profile.age).toBeLessThanOrEqual(120)
     expect(d!.profile.income_percentile).toBeGreaterThanOrEqual(0)
   })
+  it('감사 회귀: 장문 정책명 40건도 인코더가 상한 내로 맞춰 디코드가 항상 성공(무통보 실패 방지)', () => {
+    // 이름 60자짜리 지자체급 정책 40건 — 예전엔 6000자 초과로 수신측 decode가 null이 됐다.
+    const longName = '가'.repeat(60)
+    const many = Array.from({ length: 40 }, (_, i) => ({ policyId: `LOC-WLF${String(i).padStart(8, '0')}`, name: longName }))
+    const link = encodeHelperLink(prof, many)
+    const enc = link.split('#helper=')[1]
+    expect(enc.length).toBeLessThanOrEqual(6000) // 인코더가 상한 준수
+    const d = decodeHelperPayload(link)
+    expect(d).not.toBeNull() // 항상 복원 성공
+    expect(d!.profile.age).toBe(72)
+  })
 })

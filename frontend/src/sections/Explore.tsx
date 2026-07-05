@@ -4,7 +4,7 @@ import { Search, X, Mic, ArrowDownWideNarrow, Calculator, ChevronDown, Globe, Sp
 import { useSpeech } from '@/lib/useSpeech'
 import { useTTS } from '@/lib/useTTS'
 import { semanticSearch, warmupSemantic, type SemanticHit } from '@/lib/semanticSearch'
-import { detectLang } from '@/lib/detectLang'
+import { detectLang, detectUiLang } from '@/lib/detectLang'
 import { isUiLang } from '@/lib/i18nLite'
 import { benefitTypeOf, BENEFIT_TYPE_META, type BenefitType } from '@/lib/benefitType'
 import { useAppStore } from '@/store/useAppStore'
@@ -157,16 +157,21 @@ export function Explore() {
 
   // AI 답변의 언어 = 질의 언어(aiAnswer가 질의 언어로 생성) → TTS도 그 언어 보이스로 읽어야 발음이 안 깨진다
   const answerLang = useMemo(() => (aiMode && q.trim() ? (detectLang(q)?.code || 'ko') : 'ko'), [aiMode, q])
+  // 해당 언어 보이스가 이 기기에 없으면(한국어 Windows/Android에서 베트남어·태국어 흔함) 한국어 보이스로
+  // 외국어를 읽어 발음이 깨지거나 무음이 된다 → 재생 대신 텍스트로 안내(voiceschanged 후 재판단).
+  const noVoice = answerLang !== 'ko' && !tts.hasVoice(answerLang)
 
   // 음성으로 물었으면 AI가 음성으로 답한다(대화형) — 마이크 클릭이 사용자 제스처라 TTS 허용됨
   useEffect(() => {
-    if (voiceUsed && aiMode && aiAnswer && tts.supported) {
+    if (voiceUsed && aiMode && aiAnswer && tts.supported && !noVoice) {
       tts.speak(aiAnswer, answerLang)
       setVoiceUsed(false)
+    } else if (voiceUsed && noVoice) {
+      setVoiceUsed(false) // 보이스 없음 — 자동 낭독 생략(아래 안내 문구로 대체)
     }
     // tts는 매 렌더 새 객체라 deps에서 제외(speak만 호출)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [aiAnswer, voiceUsed, aiMode])
+  }, [aiAnswer, voiceUsed, aiMode, noVoice])
 
   const filtered = useMemo(() => {
     const b = BUCKETS.find((x) => x.key === bucket)
@@ -212,14 +217,14 @@ export function Explore() {
 
   const detected = aiMode && q.trim() ? detectLang(q) : null
   // 외국어 질의를 감지하면 UI 표시 언어를 그 언어로 — 상세·신청키트가 자국어로 뜬다(외국인 딥퍼널).
-  // 한국어로 다시 물으면 'ko'로 복귀. 지원 언어(en·vi·zh·ja·th·ru·ar)만 반영.
+  // detectUiLang은 보수적(라틴 확신 게이트)이고 빈 질의·한국어면 'ko'로 복귀시켜, 오타 한 번에
+  // 외국어 UI가 영구 고착되던 문제와 외국인이 일반검색만 써도 'ko'로 리셋되던 역방향 문제를 함께 해소.
+  // AI 모드 여부와 무관하게 실제 입력 언어로 판단(일반 검색을 쓰는 외국인도 자국어 유지).
   const setUiLang = useAppStore((s) => s.setUiLang)
   useEffect(() => {
-    if (!q.trim()) return
-    const code = detected?.code || 'ko'
+    const code = detectUiLang(q)
     setUiLang(isUiLang(code) ? code : 'ko')
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [detected?.code, q])
+  }, [q, setUiLang])
 
   return (
     <div className="page-container py-8 sm:py-10">
@@ -436,7 +441,7 @@ export function Explore() {
               <p className="text-xs font-bold text-sprout-700">AI 답변</p>
               <p className="mt-0.5 text-sm leading-relaxed text-foreground">{aiAnswer}</p>
             </div>
-            {tts.supported && (
+            {tts.supported && !noVoice && (
               <button
                 onClick={() => tts.toggle(aiAnswer, answerLang)}
                 aria-label={tts.speaking ? '읽기 중지' : '음성으로 듣기'}
@@ -444,6 +449,9 @@ export function Explore() {
               >
                 {tts.speaking ? <><Square className="h-3.5 w-3.5" /> 중지</> : <><Volume2 className="h-3.5 w-3.5" /> 듣기</>}
               </button>
+            )}
+            {tts.supported && noVoice && (
+              <span className="shrink-0 text-[11px] text-muted-foreground max-w-[7rem] leading-tight">이 기기에 해당 언어 음성이 없어 텍스트로만 안내해요</span>
             )}
           </div>
         </div>

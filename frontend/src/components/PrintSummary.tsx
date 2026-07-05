@@ -1,5 +1,7 @@
+import { useMemo } from 'react'
 import { useAppStore } from '@/store/useAppStore'
 import { getPolicyMap } from '@/data/catalog'
+import { runAnalysis } from '@/lib/welfare-engine'
 import { parseMonthly, formatWon } from '@/lib/format'
 import { applyLink } from '@/lib/officialLinks'
 import { STATUS_META } from '@/components/TrackedCard'
@@ -7,13 +9,22 @@ import { STATUS_META } from '@/components/TrackedCard'
 /**
  * 인쇄/PDF 전용 "내 복지 안내서" — 화면에는 숨김(print-only).
  * 분석 결과(없으면 관심목록)를 깔끔한 흑백 문서로 출력. 주민센터 지참용.
+ * ⚠️ 도우미 모드(#helper=)에선 '내' 데이터가 아니라 받은 가족 프로필의 재계산 결과를 인쇄한다
+ *    (App.tsx가 PrintSummary를 항상 렌더하므로, helper 상태를 여기서 인지하지 않으면 내 이름·수급목록이 새어나감).
  */
 export function PrintSummary() {
   const { profile, result, tracked } = useAppStore()
+  const helper = useAppStore((s) => s.helper)
   const map = getPolicyMap()
 
-  const fromResult = result?.eligible_policies ?? []
-  const fromTracked = tracked.map((t) => map[t.policyId]).filter(Boolean)
+  // 도우미 모드: 받은 프로필로 온디바이스 재계산(내 저장 데이터 미사용 — 상태 격리·개인정보 보호)
+  const helperResult = useMemo(() => (helper ? runAnalysis(helper.profile) : null), [helper])
+
+  const isHelper = !!helper
+  const displayName = isHelper ? '' : profile?.name // 도우미 모드에선 이름 미표기(가족 이름도 링크에 없음)
+  const fromResult = isHelper ? (helperResult?.eligible_policies ?? []) : (result?.eligible_policies ?? [])
+  const helperTracked = isHelper ? (helper?.tracked ?? []).map((t) => map[t.policyId]).filter(Boolean) : []
+  const fromTracked = isHelper ? helperTracked : tracked.map((t) => map[t.policyId]).filter(Boolean)
   const policies = fromResult.length > 0 ? fromResult : fromTracked
   const monthlyTotal = policies.reduce((s, p) => s + parseMonthly(p.benefit), 0)
 
@@ -22,9 +33,9 @@ export function PrintSummary() {
   return (
     <div className="print-only print-doc">
       <header className="print-head">
-        <h1>모두봄 · 내 복지 안내서 🌱</h1>
+        <h1>모두봄 · {isHelper ? '가족 복지 안내서' : '내 복지 안내서'} 🌱</h1>
         <p className="print-sub">
-          {profile?.name ? `${profile.name} 님` : '신청자'} 맞춤 복지 정리 ·
+          {displayName ? `${displayName} 님` : '신청자'} 맞춤 복지 정리 ·
           수혜 가능 {policies.length}건{monthlyTotal > 0 ? ` · 예상 월 합계 ${formatWon(monthlyTotal)}` : ''}
         </p>
       </header>
@@ -32,7 +43,8 @@ export function PrintSummary() {
       <ol className="print-list">
         {policies.map((p) => {
           const monthly = parseMonthly(p.benefit)
-          const tracking = tracked.find((t) => t.policyId === p.id)
+          // 도우미 모드에선 '내' 신청 상태 배지를 붙이지 않는다(남의 문서에 내 상태가 새면 안 됨)
+          const tracking = isHelper ? undefined : tracked.find((t) => t.policyId === p.id)
           return (
             <li key={p.id} className="print-item">
               <div className="print-item-head">

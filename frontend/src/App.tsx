@@ -50,6 +50,8 @@ export default function App() {
         useAppStore.getState().setView('analyze')
         return
       }
+      // 링크가 손상·과대·변조라 복원 실패 — 조용히 홈만 뜨면 받은 사람이 원인을 몰라 당황한다. 명시적 안내.
+      setTimeout(() => alert('받은 도움 링크가 손상되었거나 너무 길어요. 보낸 분께 링크를 다시 만들어 보내달라고 해주세요.'), 0)
     }
     const go = new URLSearchParams(window.location.search).get('go')
     if (go === 'analyze' || go === 'explore' || go === 'my' || go === 'home') {

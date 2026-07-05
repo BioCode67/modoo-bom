@@ -33,23 +33,29 @@ describe('buildEvents', () => {
 })
 
 describe('buildEvents — 준비 일정 savedAt 앵커 (D-3 고정 버그 회귀 방지)', () => {
-  it('준비 이벤트 = savedAt + 3일 (Date.now()가 아닌 고정 시점 기준 → 실제 카운트다운)', () => {
-    const saved = 1_700_000_000_000
+  // savedAt+준비일이 미래여야 앵커 그대로 유지된다(과거면 '내일'로 클램프돼 죽은 알림 방지 — 아래 별도 테스트).
+  it('준비 이벤트 = savedAt + 3일 (Date.now()가 아닌 저장 시점 기준 → 실제 카운트다운)', () => {
+    const saved = Date.now() + 30 * DAY
     const prep = buildEvents([mk({ status: 'tracking', savedAt: saved })], map).find((e) => e.kind === 'prepare')!
     expect(prep.date).toBe(saved + 3 * DAY)
   })
   it('긴급 기한(일 단위) 정책은 준비를 하루 앞당기고(savedAt+1일) 기한 텍스트를 노트에 노출', () => {
-    const saved = 1_700_000_000_000
+    const saved = Date.now() + 30 * DAY
     const urgent: Policy = { ...policy, benefit: '출생 후 60일 이내 신청' }
     const prep = buildEvents([mk({ status: 'tracking', savedAt: saved })], { 'POL-001': urgent }).find((e) => e.kind === 'prepare')!
     expect(prep.date).toBe(saved + 1 * DAY)
     expect(prep.note).toContain('기한:')
   })
   it('서로 다른 시점에 담은 항목은 준비 날짜가 서로 다름(더 이상 전부 D-3 아님)', () => {
-    const a = mk({ status: 'tracking', savedAt: 1_700_000_000_000 })
-    const b = mk({ status: 'tracking', savedAt: 1_700_000_000_000 + 5 * DAY })
+    const a = mk({ status: 'tracking', savedAt: Date.now() + 30 * DAY })
+    const b = mk({ status: 'tracking', savedAt: Date.now() + 35 * DAY })
     const dates = buildEvents([a, b], map).filter((e) => e.kind === 'prepare').map((e) => e.date)
     expect(new Set(dates).size).toBe(2)
+  })
+  it('오래전 담아 준비일이 이미 지난 항목은 과거가 아니라 내일 이후로 클램프(죽은 알림 방지)', () => {
+    const old = mk({ status: 'tracking', savedAt: Date.now() - 100 * DAY })
+    const prep = buildEvents([old], map).find((e) => e.kind === 'prepare')!
+    expect(prep.date).toBeGreaterThan(Date.now())
   })
 })
 

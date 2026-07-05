@@ -23,4 +23,15 @@ describe('annotateTerms — 본문 인라인 용어 하이라이트', () => {
     expect(segs).toHaveLength(1)
     expect(segs[0].term).toBeUndefined()
   })
+  it('감사 회귀: 합성어 내부/접두 오매칭 금지 — "국민기초생활보장법"의 "기초생활"을 잘라 붙이지 않음', () => {
+    const segs = annotateTerms('국민기초생활보장법에 따른 수급자')
+    // '기초생활'(→기초생활수급자) 별칭이 합성어 중간에서 하이라이트되면 안 됨
+    expect(segs.every((s) => s.text !== '기초생활' || !s.term)).toBe(true)
+    // 원문 텍스트는 손실 없이 보존
+    expect(segs.map((s) => s.text).join('')).toBe('국민기초생활보장법에 따른 수급자')
+  })
+  it('단어+조사는 정상 하이라이트 유지 — "생계급여를"의 생계급여', () => {
+    const segs = annotateTerms('생계급여를 받는 가구')
+    expect(segs.some((s) => s.term?.term === '생계급여')).toBe(true)
+  })
 })

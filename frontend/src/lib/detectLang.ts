@@ -50,3 +50,26 @@ export function detectLang(text: string): DetectedLang | null {
   if (latin > 0) return VIET.test(s) ? pick('vi') : pick('en')
   return null
 }
+
+/**
+ * UI 표시 언어 결정 — detectLang보다 **보수적**이고, 항상 확정값('ko' 포함)을 돌려준다.
+ * detectLang을 UI 전체 언어 전환(영속 상태)의 근거로 쓰면 한국어 사용자의 오타·영문 약어
+ * ('LH','EITC','dkssud' 등) 한 글자에 정책 상세·신청키트가 통째로 외국어로 뒤집힌다.
+ * 그래서:
+ *  - 라틴 계열(en·vi)은 오발동 위험이 커 **확신 게이트**(라틴 4자 이상 AND (2단어 이상 OR 6자 이상))를 통과할 때만 채택.
+ *  - 비라틴 스크립트(일·태·러·아·중)는 한국어 사용자가 실수로 칠 일이 거의 없어 그대로 신뢰.
+ *  - 빈 문자열·판별 불가·한국어면 'ko'로 **복귀**(외국어 고착 방지 — 검색어를 지우면 기본 언어로 되돌아옴).
+ */
+export function detectUiLang(text: string): string {
+  const s = (text || '').trim()
+  if (!s) return 'ko'
+  const d = detectLang(s)
+  if (!d || d.code === 'ko') return 'ko'
+  if (d.code === 'en' || d.code === 'vi') {
+    const latin = (s.match(/[A-Za-zÀ-ỹ]/g) || []).length
+    const words = s.split(/\s+/).filter(Boolean).length
+    if (latin < 4) return 'ko'
+    if (words < 2 && s.length < 6) return 'ko'
+  }
+  return d.code
+}

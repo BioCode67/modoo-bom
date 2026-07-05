@@ -16,13 +16,18 @@ const BADGE_STYLE: Record<By, { chip: string; dot: string }> = {
   you: { chip: 'bg-amber-50 text-amber-700', dot: 'bg-amber-100 text-amber-700 ring-2 ring-amber-200' },
 }
 
-export function ApplyFlow({ automatable, hasBackend, hasPrefill = false }: { automatable: boolean; hasBackend: boolean; hasPrefill?: boolean }) {
+export function ApplyFlow({ automatable, hasBackend, hasPrefill = false, matched = false }: { automatable: boolean; hasBackend: boolean; hasPrefill?: boolean; matched?: boolean }) {
   const uiLang = useAppStore((s) => s.uiLang)
   const badgeLabel: Record<By, string> = { auto: tr(uiLang, 'byAuto'), guide: tr(uiLang, 'byGuide'), you: tr(uiLang, 'byYou') }
   const docAuto = hasBackend && automatable
   // 라벨은 자국어(스캔 가능), 상세 설명은 한국어 유지(정책 본문과 함께 통역 배너로 안내)
+  // 1단계: 이 정책이 실제 '내 분석 결과'에서 온 경우에만 '자동 선별 완료'(체크)로 표기 — 과장 금지 철칙.
+  //   탐색 목록에서 직접 고른 정책은 어떤 조건 매칭도 없었으므로 '직접 고른 복지'로 정직히 안내한다.
+  const recommendStep = matched
+    ? { icon: <Sparkles className="h-4 w-4" />, label: tr(uiLang, 'stepRecommend'), desc: '내 조건에 맞는 복지를 자동 선별했어요', by: 'auto' as By }
+    : { icon: <Sparkles className="h-4 w-4" />, label: tr(uiLang, 'stepPick'), desc: '탐색에서 직접 고른 복지예요. 프로필 분석을 하면 내 조건에 맞는지 확인해드려요', by: 'guide' as By }
   const steps: { icon: React.ReactNode; label: string; desc: string; by: By }[] = [
-    { icon: <Sparkles className="h-4 w-4" />, label: tr(uiLang, 'stepRecommend'), desc: '내 조건에 맞는 복지를 자동 선별했어요', by: 'auto' },
+    recommendStep,
     hasPrefill
       ? { icon: <FileText className="h-4 w-4" />, label: tr(uiLang, 'stepInfo'), desc: '입력한 정보를 신청서에 붙여넣을 수 있게 준비했어요', by: 'auto' as By }
       : { icon: <FileText className="h-4 w-4" />, label: tr(uiLang, 'stepInfo'), desc: '아래에 이름·생년월일·연락처를 입력하면 붙여넣기용으로 준비해드려요', by: 'guide' as By },
