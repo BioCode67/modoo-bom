@@ -202,6 +202,14 @@ curl -fsSL https://raw.githubusercontent.com/BioCode67/modoo-bom/main/scripts/se
   (Pages 빌드 스톨 재발 → 재배포 트리거로 해결 — HANDOFF 배포 절 트러블슈팅 그대로 유효)
 - **사이클3(7-04 새벽)**: 챗 에이전트 '서류' 의도 추가 — "서류 뭐 필요해?" → 담은 복지 필요서류 빈도순 요약+
   서류 준비 도우미 연결(테스트 261, 배포됨). 확장 DOCS 13종 변화 없음(RPA 목록 동기화 불필요 확인).
+- **🛠️ 배포 사이트 품질 개선 사이클(7-05, 자동화 UX 집중)** — 실화면 시각감사(`e2e/visual-audit.py`·`audit-flow.py`)로 실버그 발굴·수정:
+  · **'분석 직후 다 담아줘'가 저장 안 되던 회귀 수정** — 챗 맥락 없으면 분석결과(POL- 정밀추천)로 폴백 저장(`ChatWidget.tsx`).
+    이전엔 검색으로 새서 서류센터·에이전트 자동화 패널이 아예 안 떴음 → 이제 정상. `npm run e2e:save` 게이트로 고정.
+  · **에이전트 요약문 숫자 불일치 수정** — 헤더 '맞춤 37/강력추천 16'인데 요약은 '수혜가능 189/우선순위 33'(분모 다름)이라
+    신뢰 저하 → 헤더와 동일 분류로 정렬 + 관련 146건 정직 공개(`welfare-engine.ts` buildFinalResponse, 회귀테스트 추가).
+  · **HowItWorks 낡은 '120개' → '5,000여 건'**(히어로와 일치) · **eslint가 e2e-dist 미니파이 번들 스캔하던 것 ignore**(lint 게이트 안정화).
+  · AgentSummary '1종 서류 자동발급'은 **정직한 수치로 확인**(건강보험증≠자격득실확인서 등 필요서류명이 발급가능서류와 실제로 다름 → 부풀리지 않음).
+  · 게이트 전부 그린: 유닛 283 · lint 0 · tsc 0 · 스모크 9여정 · **배포 완료(npm run deploy)**.
 - **🤖 서류 자동발급 실동작 검증(7-05, 확장 로드 E2E 신설)**: `frontend/e2e/ext-flow.py` — 실제 크롬에
   `extension/`을 `--load-extension`으로 올려 **웹↔확장↔정부24 전 파이프라인**을 실측. 실행: `npm run e2e:ext`(headless)
   / `npm run e2e:ext:headed`(실사용 근사). 결과:
