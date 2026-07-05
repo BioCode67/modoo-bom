@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Users, Plus, Trash2, ChevronRight } from 'lucide-react'
 import { getEligiblePolicies, type UserProfile, type EligiblePolicy } from '@/lib/welfare-engine'
 import type { Policy } from '@/data/policies'
-import { parseMonthly, formatWon, categoryMeta } from '@/lib/format'
+import { formatWon, categoryMeta, sumCashMonthly } from '@/lib/format'
 import { useAppStore } from '@/store/useAppStore'
 import { cn } from '@/lib/utils'
 
@@ -50,7 +50,8 @@ export function HouseholdAnalyzer({ onOpen }: { onOpen: (p: Policy | EligiblePol
   const analysis = useMemo(() => {
     const per = members.map((m) => {
       const elig = getEligiblePolicies(toProfile(m, income, household))
-      const monthly = elig.reduce((s, p) => s + parseMonthly(p.benefit), 0)
+      // 현금성만 합산 — 서비스 한도·바우처를 가구 현금소득처럼 부풀리지 않는다(정직성).
+      const monthly = sumCashMonthly(elig)
       return { member: m, elig, monthly }
     })
     const uniq = new Map<string, EligiblePolicy>()

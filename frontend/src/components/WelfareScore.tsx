@@ -2,7 +2,7 @@ import { motion } from 'framer-motion'
 import { Heart, Sparkles, ArrowRight } from 'lucide-react'
 import type { EligiblePolicy } from '@/lib/welfare-engine'
 import type { Policy } from '@/data/policies'
-import { parseMonthly, formatWon, categoryMeta, PRIORITY_META } from '@/lib/format'
+import { parseMonthly, formatWon, categoryMeta, PRIORITY_META, isCashBenefit, sumCashMonthly } from '@/lib/format'
 import { useAppStore } from '@/store/useAppStore'
 import { cn } from '@/lib/utils'
 
@@ -24,7 +24,8 @@ export function WelfareScore({ eligible, onOpen }: { eligible: EligiblePolicy[];
       return parseMonthly(b.benefit) - parseMonthly(a.benefit)
     })
   const top3 = unacted.slice(0, 3)
-  const potential = unacted.filter((p) => p.priority === 'high').reduce((s, p) => s + parseMonthly(p.benefit), 0)
+  // '놓치고 있는 잠재 혜택' 합계도 현금성만 — 서비스 한도·바우처를 현금처럼 더하지 않는다(정직성).
+  const potential = sumCashMonthly(unacted.filter((p) => p.priority === 'high'))
 
   // 게이지(원형)
   const R = 36, C = 2 * Math.PI * R
@@ -66,7 +67,8 @@ export function WelfareScore({ eligible, onOpen }: { eligible: EligiblePolicy[];
           <p className="text-sm font-bold mb-2">⚡ 지금 바로 챙기면 좋은 복지</p>
           <ul className="space-y-2">
             {top3.map((p) => {
-              const m = parseMonthly(p.benefit)
+              // 현금성일 때만 '월 N까지' 금액 표기(서비스 한도·바우처를 개인 현금처럼 적지 않음)
+              const m = isCashBenefit(p.benefit, `${p.name} ${p.category}`) ? parseMonthly(p.benefit) : 0
               return (
                 <li key={p.id} className="flex items-center gap-2.5 rounded-2xl border border-sprout-100 p-2.5">
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-muted text-lg">{categoryMeta(p.category).emoji}</span>
