@@ -58,10 +58,26 @@ export function ResultsView({ result, profile, onReset }: { result: AnalysisResu
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="card-cute p-6 sm:p-8 bg-gradient-to-br from-sprout-50 via-white to-sky2-50 relative overflow-hidden">
         <div className="absolute -top-10 -right-10 h-40 w-40 rounded-full bg-sprout-200/40 blur-2xl" />
         <div className="relative">
-          <span className="chip-sprout inline-flex"><PartyPopper className="h-3.5 w-3.5" /> 분석 완료</span>
+          <span className="chip-sprout inline-flex">
+            {primary.length === 0 ? '분석 결과' : <><PartyPopper className="h-3.5 w-3.5" /> 분석 완료</>}
+          </span>
           <h1 className="mt-3 text-2xl sm:text-3xl font-extrabold leading-tight">
-            {profile.name || '회원'}님이 받을 수 있는 복지는<br />
-            <span className="gradient-text">{primary.length}개</span>예요! 🎉
+            {primary.length > 0 ? (
+              <>
+                {profile.name || '회원'}님이 받을 수 있는 복지는<br />
+                <span className="gradient-text">{primary.length}개</span>예요! 🎉
+              </>
+            ) : (privateRel.length + related.length) > 0 ? (
+              <>
+                딱 맞는 핵심 정책은 못 찾았지만,<br />
+                <span className="gradient-text">살펴볼 관련 복지 {privateRel.length + related.length}개</span>를 찾았어요
+              </>
+            ) : (
+              <>
+                {profile.name || '회원'}님 조건에 <span className="gradient-text">딱 맞는 정책</span>을 아직 못 찾았어요<br />
+                <span className="text-lg sm:text-xl font-bold text-muted-foreground">조건을 조금 바꿔 다시 살펴볼까요?</span>
+              </>
+            )}
           </h1>
           <p className="mt-2 text-muted-foreground text-sm">{result.profile_summary}</p>
           <p className="mt-1 text-xs text-muted-foreground/80">‘중위소득’·‘소득인정액’ 같은 말이 어렵다면 <Glossary trigger="link" /></p>
