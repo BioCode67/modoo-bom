@@ -75,6 +75,15 @@ interface AppState {
   replaceTracked: (items: TrackedItem[]) => void
 }
 
+/**
+ * 결과 요약에서 실명 접두('${name}님(')를 '회원님('으로 치환 — 디스크 저장 전 PII 제거용.
+ * runAnalysis가 summary를 '${name}님(72세, …)'로 만들기 때문에, result를 통째로 persist하면
+ * profile.name을 비워도 이 문장 안에 실명이 남는다. 저장 직전 이 함수로 지운다.
+ */
+export function stripNameFromSummary(summary: string): string {
+  return (summary || '').replace(/^[^(]*님\(/, '회원님(')
+}
+
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
@@ -156,7 +165,13 @@ export const useAppStore = create<AppState>()(
       //   신청서 미리채움용 강식별 PII라 세션(메모리) 동안만 유지 → 공용 기기 잔존·유출 위험 제거.
       //   profile/result는 '나의 복지' 재방문 경험에 필요해 유지(이름·연락처 없음, 초기화 버튼으로 삭제 가능).
       // 최소저장: 이름(호칭)은 디스크에 남기지 않는다(세션 중엔 메모리로 유지 — 새로고침 후 '회원님'으로 표시)
-      partialize: (s) => ({ tracked: s.tracked, elderly: s.elderly, highContrast: s.highContrast, onboarded: s.onboarded, uiLang: s.uiLang, profile: s.profile ? { ...s.profile, name: '' } : null, result: s.result }),
+      //   ⚠️ profile.name만 비우면 부족하다 — result.profile_summary 문장 안에 '${name}님(...)'으로 실명이 박혀
+      //   result 통째로 저장하면 그대로 새어나간다. summary의 이름 접두를 '회원님'으로 치환해 실명을 제거한다.
+      partialize: (s) => ({
+        tracked: s.tracked, elderly: s.elderly, highContrast: s.highContrast, onboarded: s.onboarded, uiLang: s.uiLang,
+        profile: s.profile ? { ...s.profile, name: '' } : null,
+        result: s.result ? { ...s.result, profile_summary: stripNameFromSummary(s.result.profile_summary) } : null,
+      }),
       merge: (persisted, current) => {
         const p = (persisted || {}) as Partial<AppState>
         return { ...current, ...p, rpaInfo: current.rpaInfo } // rpaInfo는 항상 메모리 기본값에서 시작

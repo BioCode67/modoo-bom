@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { useAppStore } from '@/store/useAppStore'
 import { getPolicyMap } from '@/data/catalog'
 import { runAnalysis } from '@/lib/welfare-engine'
-import { parseMonthly, formatWon } from '@/lib/format'
+import { parseMonthly, formatWon, isCashBenefit, sumCashMonthly } from '@/lib/format'
 import { applyLink } from '@/lib/officialLinks'
 import { STATUS_META } from '@/components/TrackedCard'
 
@@ -30,7 +30,9 @@ export function PrintSummary() {
   const helperTracked = isHelper ? (helper?.tracked ?? []).map((t) => map[t.policyId]).filter(Boolean) : []
   const fromTracked = isHelper ? helperTracked : tracked.map((t) => map[t.policyId]).filter(Boolean)
   const policies = fromResult.length > 0 ? fromResult : fromTracked
-  const monthlyTotal = policies.reduce((s, p) => s + parseMonthly(p.benefit), 0)
+  // ⚠️ 화면 헤드라인과 동일하게 '현금성'만 합산한다(isCashBenefit). raw parseMonthly로 전부 더하면
+  //   서비스 이용 한도액·바우처·감면·고용주 지원까지 개인 현금소득처럼 부풀려져 인쇄물이 과장된다.
+  const monthlyTotal = sumCashMonthly(policies)
 
   if (policies.length === 0) return null
 
@@ -40,13 +42,14 @@ export function PrintSummary() {
         <h1>모두봄 · {isHelper ? '가족 복지 안내서' : '내 복지 안내서'} 🌱</h1>
         <p className="print-sub">
           {displayName ? `${displayName} 님` : '신청자'} 맞춤 복지 정리 ·
-          수혜 가능 {policies.length}건{monthlyTotal > 0 ? ` · 예상 월 합계 ${formatWon(monthlyTotal)}` : ''}
+          수혜 가능 {policies.length}건{monthlyTotal > 0 ? ` · 예상 현금성 월 합계 최대 ${formatWon(monthlyTotal)}(중복수급 미반영)` : ''}
         </p>
       </header>
 
       <ol className="print-list">
         {policies.map((p) => {
-          const monthly = parseMonthly(p.benefit)
+          // 현금성일 때만 '월 N원까지' 금액을 표기 — 서비스한도·바우처·감면을 개인 현금처럼 적지 않는다(정직성).
+          const monthly = isCashBenefit(p.benefit, `${p.name} ${p.category}`) ? parseMonthly(p.benefit) : 0
           // 도우미 모드에선 '내' 신청 상태 배지를 붙이지 않는다(남의 문서에 내 상태가 새면 안 됨)
           const tracking = isHelper ? undefined : tracked.find((t) => t.policyId === p.id)
           return (

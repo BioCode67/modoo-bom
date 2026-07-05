@@ -222,7 +222,13 @@ function checkPolicyDoc(doc: string, name: string, p: UserProfile): CheckResult 
       return { eligible: true, reason: '만 9세 미만 자녀 보유', priority: 'high', confidence: 0.97 }
     return NO
   }
-  if (anyIn(doc, ['만 0~5세', '만 0~2세', '영아', '만 24개월'])) {
+  // 영아 전용(만 0~1세, 24개월 미만) — 부모급여 등. '영아'를 만 2세까지 넓히면 오추천되므로 a<2로 좁게(만 0~5세 계열보다 먼저 판정).
+  if (anyIn(doc, ['만 0~1세', '만 0~23개월', '영아'])) {
+    if (p.has_children && (p.children_ages || []).some((a) => a < 2))
+      return { eligible: true, reason: '영아(만 0~1세) 자녀 보유', priority: 'high', confidence: 0.96 }
+    return NO
+  }
+  if (anyIn(doc, ['만 0~5세', '만 0~2세', '만 24개월'])) {
     if (p.has_children && (p.children_ages || []).some((a) => a < 3))
       return { eligible: true, reason: '영유아(만 0~5세) 자녀 보유', priority: 'high', confidence: 0.96 }
     return NO
@@ -430,7 +436,12 @@ export function incomeCeiling(doc: string): number | null {
   if (ceil === null && /차상위/.test(doc)) ceil = 50
   // '수급 가구/수급자/급여 수급'처럼 %가 안 적힌 자산심사형도 저소득 상한으로 본다(중위 50% 근사).
   // (예: 에너지바우처 '생계·의료급여 수급 가구' — 명시 %가 없어 고소득자에게 새던 것을 막음)
-  if (ceil === null && /(기초생활|생계급여|기초생활수급|기초수급|수급자|수급\s*가구|급여\s*수급)/.test(doc)) ceil = 50
+  // ⚠️ 단, '미수급자'(부정어 — 다른 급여를 안 받는 사람, 소득 무관)와 '수급자 우선'(하드요건 아닌 우대)은
+  //   소득상한이 아니다. 이 둘을 제거한 뒤 판정해야 50~70%ile 자격자가 부당 배제되지 않는다(노인일자리·장애인 낮활동 등).
+  if (ceil === null) {
+    const docLow = doc.replace(/미수급[가-힣]*/g, '').replace(/수급자?\s*우선/g, '')
+    if (/(기초생활|생계급여|기초생활수급|기초수급|수급자|수급\s*가구|급여\s*수급)/.test(docLow)) ceil = 50
+  }
   return ceil
 }
 

@@ -44,6 +44,12 @@ describe('getEligiblePolicies', () => {
   it('중증장애인 → 장애인연금(POL-003) 포함', () => {
     expect(getEligiblePolicies(disabled).some((p) => p.id === 'POL-003')).toBe(true)
   })
+  it('감사 회귀: 부모급여(POL-005)는 만 0~1세만 — 만 2세 자녀엔 오추천 안 됨', () => {
+    const age1: UserProfile = { ...base, age: 33, has_children: true, children_ages: [1] }
+    const age2: UserProfile = { ...base, age: 33, has_children: true, children_ages: [2] }
+    expect(getEligiblePolicies(age1).some((p) => p.id === 'POL-005')).toBe(true)
+    expect(getEligiblePolicies(age2).some((p) => p.id === 'POL-005')).toBe(false)
+  })
   it('우선순위 정렬: high가 low보다 앞', () => {
     const list = getEligiblePolicies(senior)
     const firstLow = list.findIndex((p) => p.priority === 'low')
@@ -187,6 +193,18 @@ describe('소득 상한 게이트 — 연령이 맞아도 소득 초과면 제�
     expect(incomeCeiling('수급자 대상')).toBe(50)
     // 명시 %가 있으면 그 값이 우선(수급 문구가 있어도 과배제 안 함)
     expect(incomeCeiling('하위 70% 어르신(수급자 포함)')).toBe(100)
+  })
+  it('감사 회귀: 부정어 "미수급자"·우대 "수급자 우선"은 소득상한 아님(자격자 오배제 방지)', () => {
+    // '미수급자'(다른 급여를 안 받는 사람, 소득 무관) 안의 '수급자'가 ceil=50으로 오독되던 버그
+    expect(incomeCeiling('장애인 활동지원 미수급자 대상')).toBe(null)
+    // '수급자 우선'은 우대일 뿐 하드 요건 아님
+    expect(incomeCeiling('만 65세 이상 (공익활동형은 기초연금 수급자 우선)')).toBe(null)
+    // 진짜 저소득 요건은 여전히 게이트
+    expect(incomeCeiling('생계급여 수급 가구')).toBe(50)
+  })
+  it('감사 회귀: 노인일자리(POL-010)는 소득 60%ile 66세도 포함(수급자 우선 오게이트 제거)', () => {
+    const p = runAnalysis({ ...base, age: 66, income_percentile: 60 }).eligible_policies
+    expect(p.some((x) => x.id === 'POL-010')).toBe(true)
   })
 })
 

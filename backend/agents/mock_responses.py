@@ -95,8 +95,13 @@ def _income_ceiling(doc: str):
             ceil = v
     if ceil is None and "차상위" in doc:
         ceil = 50
-    if ceil is None and any(k in doc for k in ["기초생활", "생계급여", "기초수급"]):
-        ceil = 50
+    # %가 안 적힌 자산심사형(수급 가구/수급자/급여 수급)도 저소득 상한(중위 50% 근사)으로 본다.
+    # 단, '미수급자'(부정어)·'수급자 우선'(우대)은 소득상한이 아니므로 제거 후 판정(프론트 incomeCeiling과 패리티).
+    if ceil is None:
+        doc_low = re.sub(r"미수급[가-힣]*", "", doc)
+        doc_low = re.sub(r"수급자?\s*우선", "", doc_low)
+        if any(k in doc_low for k in ["기초생활", "생계급여", "기초생활수급", "기초수급", "수급자", "수급 가구", "급여 수급"]):
+            ceil = 50
     return ceil
 
 
