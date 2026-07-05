@@ -76,8 +76,8 @@ save(fig, 'chart3-페르소나발견가치.png')
 fig, ax = plt.subplots(figsize=(9.2, 5.0))
 fig.patch.set_facecolor(BG); ax.set_facecolor(BG)
 items = ['프론트 단위테스트', '백엔드 pytest', 'E2E 실브라우저 여정', '신청·발급 URL 생존검사', '접근성(Lighthouse)']
-vals4 = [320, 34, 10, 70, 96]
-labels4 = ['320개 통과', '34개 통과', '10개 여정 · 에러 0', '70건 중 69건 생존(1건 즉시 정정)', '96점 / BP·SEO 100점']
+vals4 = [353, 34, 10, 70, 96]
+labels4 = ['353개 통과', '34개 통과', '10개 여정 · 에러 0', '70건 중 69건 생존(1건 즉시 정정)', '96점 / BP·SEO 100점']
 bars = ax.barh(items[::-1], vals4[::-1], color=[SKY, ROSE, PEACH, LIGHT, GREEN][::-1], edgecolor='white')
 for b, lab in zip(bars, labels4[::-1]):
     ax.text(b.get_width() + 4, b.get_y() + b.get_height()/2, lab, va='center', fontsize=11, fontweight='bold', color=DARK)
