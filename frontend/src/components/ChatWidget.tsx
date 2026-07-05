@@ -160,7 +160,8 @@ export function ChatWidget() {
     <>
       <button
         onClick={() => setOpen((o) => !o)}
-        aria-label="복지 도우미 챗봇 열기"
+        aria-label={open ? '복지 도우미 챗봇 닫기' : '복지 도우미 챗봇 열기'}
+        aria-expanded={open}
         className={cn(
           'fixed bottom-20 md:bottom-6 right-4 sm:right-6 z-40 h-14 w-14 items-center justify-center rounded-full bg-sprout-500 text-white shadow-cute hover:bg-sprout-600 hover:scale-105 active:scale-95 transition-all',
           // 모바일 홈 최상단에서 히어로 CTA와 겹치므로 모바일 홈에서만 숨김(데스크톱 홈·다른 뷰는 유지)
