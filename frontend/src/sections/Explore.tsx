@@ -425,7 +425,30 @@ export function Explore() {
           ) : aiMode && q.trim() && aiError ? (
             <><p className="text-4xl mb-2">🔌</p>AI 검색을 불러오지 못했어요. AI 토글을 끄고 <b>일반 검색</b>으로 찾아보세요.</>
           ) : (
-            <><p className="text-4xl mb-2">🔍</p>검색 결과가 없어요. 다른 키워드로 찾아보세요.</>
+            /* 막다른 길 금지 — 0건이어도 바로 눌러볼 다음 행동을 준다 */
+            <>
+              <p className="text-4xl mb-2">🔍</p>
+              <p>검색 결과가 없어요.</p>
+              <div className="mt-4 flex flex-wrap justify-center gap-2">
+                {!aiMode && q.trim() && (
+                  <button onClick={() => setAiMode(true)} className="btn-primary !py-2 text-sm">
+                    🧠 AI 의미 검색으로 다시 찾기
+                  </button>
+                )}
+                {(q.trim() || bucket !== 'all' || onlyCash || region) && (
+                  <button
+                    onClick={() => { setQ(''); setBucket('all'); setOnlyCash(false); setRegion(''); setGungu('') }}
+                    className="btn-secondary !py-2 text-sm"
+                  >
+                    필터 지우고 전체 보기
+                  </button>
+                )}
+                <a href="tel:129" className="btn-secondary !py-2 text-sm">📞 129 무료 상담</a>
+              </div>
+              <p className="mt-3 text-xs text-muted-foreground/70">
+                생활어로 적어보세요 — 예: “전세 지원”, “아이 학원비”, “병원비가 부담돼요”
+              </p>
+            </>
           )}
         </div>
       ) : (

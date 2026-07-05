@@ -59,7 +59,8 @@ export default function App() {
       <a href="#main" className="skip-link no-print">본문 바로가기</a>
       <div className="no-print"><Navbar /></div>
 
-      <main id="main" className="pb-20 md:pb-0 no-print">
+      {/* 모바일 하단 여백 = 탭바(5rem)+챗 FAB(3.5rem) — 페이지 맨 아래 우측 버튼·하트가 FAB에 영구히 가리지 않게 */}
+      <main id="main" className="pb-36 md:pb-0 no-print">
         {/* 뷰 전환: key 변경으로 새 뷰를 즉시 마운트(enter-only). exit 대기 deadlock 방지. */}
         <motion.div
           key={view}
