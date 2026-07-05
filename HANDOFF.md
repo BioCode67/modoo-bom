@@ -202,6 +202,14 @@ curl -fsSL https://raw.githubusercontent.com/BioCode67/modoo-bom/main/scripts/se
   (Pages 빌드 스톨 재발 → 재배포 트리거로 해결 — HANDOFF 배포 절 트러블슈팅 그대로 유효)
 - **사이클3(7-04 새벽)**: 챗 에이전트 '서류' 의도 추가 — "서류 뭐 필요해?" → 담은 복지 필요서류 빈도순 요약+
   서류 준비 도우미 연결(테스트 261, 배포됨). 확장 DOCS 13종 변화 없음(RPA 목록 동기화 불필요 확인).
+- **🤖 서류 자동발급 실동작 검증(7-05, 확장 로드 E2E 신설)**: `frontend/e2e/ext-flow.py` — 실제 크롬에
+  `extension/`을 `--load-extension`으로 올려 **웹↔확장↔정부24 전 파이프라인**을 실측. 실행: `npm run e2e:ext`(headless)
+  / `npm run e2e:ext:headed`(실사용 근사). 결과:
+  · **PING** ok — 지원 서류 **13종**·자동신청 **6종** 노출 확인(프론트 RPA_SUPPORTED_DOCS와 일치)
+  · **ISSUE(주민등록등본)** → 정부24 탭 생성 → status 피드백 4단계(로그인→간편인증 선택→카카오 안내→**이름·생년월일·휴대폰 자동입력 완료, '인증요청'만 사람**) 도달.
+  · **Mbuster 안티봇**: headless는 "서비스 접속이 차단"으로 막힘(예상) / **headed(자동화플래그 제거)는 통과** →
+    `plus.gov.kr/login` 진입 후 민간인증서 카드까지 자동 구동. **즉 실사용 헤디드 크롬에서 동작**(문서 주장 실증).
+  · 결론: 서류 발급 자동화는 **배포 환경에서 정상 동작**, 본인인증·최종제출만 사람(의도된 설계). 데모는 headed 필수.
 - **주택공고 딥링크 상호검증(7-05)**: 2f가 추가한 `housingPolicies.ts`(HOU 7종)의 신청처 4포털 전수 생존 확인 —
   LH청약플러스(apply.lh.or.kr) 200 · 마이홈(myhome.go.kr) 200 · 서울주거포털(housing.seoul.go.kr) 200 ·
   GH경기주택(gh.or.kr) 302(정상 리다이렉트). 죽은 링크 0, 정정 불필요.

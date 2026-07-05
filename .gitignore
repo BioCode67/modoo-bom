@@ -39,6 +39,11 @@ Thumbs.db
 .coverage
 htmlcov/
 
+# E2E 산출물(빌드·로그·스크린샷)
+frontend/e2e-dist/
+frontend/e2e/*.log
+frontend/e2e/*.png
+
 # 확장 빌드 산출물
 extension/dist/
 backend/agent_profile.json
