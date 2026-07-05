@@ -31,10 +31,25 @@ function questionText(step: StepId, name: string): string {
  * 대화형 온보딩 — 마스코트가 한 번에 하나씩 물어보고, 사용자는 '탭'으로 답한다.
  * 폼을 채우는 느낌이 아니라 에이전트와 대화하는 느낌(대회 주제: AI Agent). 접근성: 큰 탭 타깃·키보드·ARIA.
  */
+// 진행 중 대화 임시저장(같은 브라우저 세션) — 실수로 새로고침해도 이어서.
+// 기존 복지앱 최대 불만("입력하다 상태를 잃고 처음부터") 대응. 탭을 닫으면 사라진다(민감정보 아님·과보관 방지).
+const DRAFT_KEY = 'modoo-chat-draft-v1'
+type Draft = { profile: UserProfile; step: StepId; msgs: Msg[] }
+function loadDraft(): Draft | null {
+  try {
+    const raw = sessionStorage.getItem(DRAFT_KEY)
+    if (!raw) return null
+    const d = JSON.parse(raw) as Draft
+    if (!d || !d.profile || !d.step || !Array.isArray(d.msgs) || d.msgs.length < 2) return null
+    return d
+  } catch { return null }
+}
+
 export function MascotChat({ onSubmit }: { onSubmit: (p: UserProfile) => void }) {
-  const [profile, setProfile] = useState<UserProfile>(EMPTY_PROFILE)
-  const [step, setStep] = useState<StepId>('name')
-  const [msgs, setMsgs] = useState<Msg[]>([{ role: 'bot', text: questionText('name', '') }])
+  const draft = useRef<Draft | null>(loadDraft()).current
+  const [profile, setProfile] = useState<UserProfile>(draft?.profile ?? EMPTY_PROFILE)
+  const [step, setStep] = useState<StepId>(draft?.step ?? 'name')
+  const [msgs, setMsgs] = useState<Msg[]>(draft?.msgs ?? [{ role: 'bot', text: questionText('name', '') }])
   const [nameDraft, setNameDraft] = useState('')
   const [multi, setMulti] = useState<string[]>([])   // situations 선택
   const [ages, setAges] = useState<number[]>([])      // 자녀 나이대 선택
@@ -49,6 +64,14 @@ export function MascotChat({ onSubmit }: { onSubmit: (p: UserProfile) => void })
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
   }, [msgs])
+
+  // 진행 상태 임시저장 — 새로고침해도 이어서(완료되면 지움)
+  useEffect(() => {
+    try {
+      if (done) sessionStorage.removeItem(DRAFT_KEY)
+      else sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ profile, step, msgs } satisfies Draft))
+    } catch { /* 저장 불가 환경(시크릿 등)은 조용히 무시 */ }
+  }, [profile, step, msgs, done])
 
   const advance = (patched: UserProfile, userLabel: string) => {
     setHistory((h) => [...h, { step, profile, len: msgs.length }])
@@ -82,6 +105,7 @@ export function MascotChat({ onSubmit }: { onSubmit: (p: UserProfile) => void })
   }
 
   const restart = () => {
+    try { sessionStorage.removeItem(DRAFT_KEY) } catch { /* noop */ }
     setProfile(EMPTY_PROFILE); setStep('name'); setNameDraft(''); setMulti([]); setAges([])
     setHistory([]); setDone(false)
     setMsgs([{ role: 'bot', text: questionText('name', '') }])

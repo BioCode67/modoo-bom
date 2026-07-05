@@ -53,6 +53,18 @@ def main():
             # age: 65세 이상 어르신
             pg.click("text=65세 이상 어르신")
             pg.wait_for_timeout(600)
+            # 🔄 새로고침 복원 — '입력하다 상태 잃음' 불만 대응 검증: 리로드 후 대화가 이어져야 함
+            pg.reload(wait_until="networkidle"); pg.wait_for_timeout(1200)
+            try: pg.click('[aria-label="닫기"]', timeout=2000)
+            except Exception: pass
+            try: pg.click("text=복지 찾기", timeout=3000); pg.wait_for_timeout(600)
+            except Exception: pass
+            try:
+                pg.wait_for_selector("text=어르신을 위한 복지", timeout=5000)  # 이전 답변·리액션이 복원됨
+                print("✅ 새로고침 후 대화 복원(임시저장)")
+            except Exception:
+                fails.append("새로고침 후 대화가 복원되지 않음(임시저장 실패)")
+                print("❌ 대화 복원 실패")
             # income: 소득이 적은 편이에요
             pg.click("text=소득이 적은 편이에요")
             pg.wait_for_timeout(600)
