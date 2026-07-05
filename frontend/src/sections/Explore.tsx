@@ -177,13 +177,19 @@ export function Explore() {
       const base = catalog.filter(passNonSearch)
       const concepts = queryConcepts(q)
       // 검색어가 있으면 개념 확장 + 관련도순. 다단어·생활어·다개념 우대.
-      list = concepts.length
-        ? base
-            .map((p) => ({ p, s: relevance(p, concepts, q) }))
-            .filter((x) => x.s > 0)
-            .sort((a, b2) => b2.s - a.s)
-            .map((x) => x.p)
-        : base
+      if (concepts.length) {
+        list = base
+          .map((p) => ({ p, s: relevance(p, concepts, q) }))
+          .filter((x) => x.s > 0)
+          .sort((a, b2) => b2.s - a.s)
+          .map((x) => x.p)
+      } else if (aiMode && q.trim()) {
+        // AI 모드인데 질의가 있고, 키워드로도 못 잡으며(비한국어 등) AI 결과도 아직 없음(로딩/실패).
+        // → 전체 카탈로그 수천 건을 쏟지 않고 비운다. 아래 로딩/오류 안내가 상황을 설명.
+        list = []
+      } else {
+        list = base
+      }
     }
     if (sort === 'amount') return [...list].sort((a, b2) => parseMonthly(b2.benefit) - parseMonthly(a.benefit))
     if (sort === 'name') return [...list].sort((a, b2) => a.name.localeCompare(b2.name, 'ko'))
@@ -407,8 +413,13 @@ export function Explore() {
 
       {filtered.length === 0 ? (
         <div className="py-20 text-center text-muted-foreground">
-          <p className="text-4xl mb-2">🔍</p>
-          검색 결과가 없어요. 다른 키워드로 찾아보세요.
+          {aiMode && q.trim() && aiProgress ? (
+            <><p className="text-4xl mb-2">🧠</p>AI가 뜻을 이해하는 중이에요… 잠시만요.</>
+          ) : aiMode && q.trim() && aiError ? (
+            <><p className="text-4xl mb-2">🔌</p>AI 검색을 불러오지 못했어요. AI 토글을 끄고 <b>일반 검색</b>으로 찾아보세요.</>
+          ) : (
+            <><p className="text-4xl mb-2">🔍</p>검색 결과가 없어요. 다른 키워드로 찾아보세요.</>
+          )}
         </div>
       ) : (
         <>
