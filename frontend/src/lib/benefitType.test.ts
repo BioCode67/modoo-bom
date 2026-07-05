@@ -34,6 +34,14 @@ describe('benefitType — 지원형태 규칙 태깅', () => {
   it('2차 회귀 방지: 카드 발급수수료 지원은 voucher 아님(요금성 지원)', () => {
     expect(benefitTypeOf(P('장애인통합복지카드 발급수수료 지원', '발급수수료 지원'))).not.toBe('voucher')
   })
+  it('3차 회귀 방지: 광의 "임대주택"은 감면/현금/융자를 service로 가로채지 않음(정밀토큰만 유지)', () => {
+    // '임대주택' 부분문자열이 요금감면·주거비현금·무이자보증금 정책을 service로 오분류하던 회귀
+    expect(benefitTypeOf(P('공공임대주택 공동전기료 감면', '전기료를 감면'))).toBe('discount')
+    expect(benefitTypeOf(P('저소득계층 임대보증금 지원 사업', '임대보증금 무이자 융자'))).toBe('loan')
+    // 집을 '제공'하는 정밀 케이스는 여전히 service 유지
+    expect(benefitTypeOf(P('청년 전세임대주택', '보증금 월 임대료 만원'))).toBe('service')
+    expect(benefitTypeOf(P('기숙사형 매입임대', '월 임대료 지원'))).toBe('service')
+  })
   it('요금 감면 → discount', () => {
     expect(benefitTypeOf(P('다자녀 전기요금 감면', '전기요금 감면'))).toBe('discount')
   })
