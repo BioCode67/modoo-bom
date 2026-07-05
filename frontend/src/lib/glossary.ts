@@ -179,3 +179,71 @@ export function searchGlossary(q: string): Term[] {
     return hay.includes(query)
   })
 }
+
+/**
+ * 본문 인라인 하이라이트용 별칭 → 용어 매핑.
+ * ⚠️ 과잉매칭 방지: 단독 '소득/기준/급여/재산' 같은 흔한 단어는 제외하고, 오해 없는 표기만 포함.
+ * 길이 내림차순으로 정렬해 긴 표기('기준 중위소득')가 짧은 표기('중위소득')보다 먼저 매칭되게 한다.
+ */
+const ALIAS_MAP: { alias: string; term: string }[] = [
+  { alias: '기준 중위소득', term: '기준 중위소득' },
+  { alias: '중위소득', term: '기준 중위소득' },
+  { alias: '소득인정액', term: '소득인정액' },
+  { alias: '소득평가액', term: '소득평가액 / 근로소득공제' },
+  { alias: '근로소득공제', term: '소득평가액 / 근로소득공제' },
+  { alias: '재산의 소득환산', term: '재산의 소득환산' },
+  { alias: '소득환산', term: '재산의 소득환산' },
+  { alias: '차상위계층', term: '차상위계층' },
+  { alias: '차상위', term: '차상위계층' },
+  { alias: '기초생활수급자', term: '기초생활수급자' },
+  { alias: '기초생활', term: '기초생활수급자' },
+  { alias: '생계급여', term: '생계급여' },
+  { alias: '의료급여', term: '의료급여' },
+  { alias: '주거급여', term: '주거급여' },
+  { alias: '부양의무자', term: '부양의무자' },
+  { alias: '가구원 수', term: '가구원 수' },
+  { alias: '본인부담금', term: '본인부담금' },
+  { alias: '바우처', term: '바우처' },
+  { alias: '간편인증', term: '간편인증' },
+  { alias: '긴급복지', term: '긴급복지지원' },
+  { alias: '한부모가족', term: '한부모가족' },
+  { alias: '한부모', term: '한부모가족' },
+  { alias: '근로장려금', term: '근로장려금 (EITC)' },
+  { alias: '자활근로', term: '자활사업 / 자활근로' },
+  { alias: '자활사업', term: '자활사업 / 자활근로' },
+  { alias: '구직촉진수당', term: '구직촉진수당' },
+  { alias: '부가급여', term: '부가급여' },
+].sort((a, b) => b.alias.length - a.alias.length)
+
+const TERM_BY_NAME: Record<string, Term> = Object.fromEntries(GLOSSARY.map((t) => [t.term, t]))
+
+/** 정규식 특수문자 이스케이프. */
+function esc(s: string): string { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') }
+
+const ALIAS_RE = new RegExp(`(${ALIAS_MAP.map((a) => esc(a.alias)).join('|')})`, 'g')
+
+export interface InlineSegment { text: string; term?: Term }
+
+/**
+ * 본문 텍스트를 세그먼트 배열로 분해 — 사전 용어는 term을 붙여 반환(하이라이트+팝오버용).
+ * 같은 용어는 '첫 등장'만 표시(반복 하이라이트로 지저분해지는 것 방지).
+ */
+export function annotateTerms(text: string): InlineSegment[] {
+  if (!text) return [{ text: '' }]
+  const segs: InlineSegment[] = []
+  const usedTerms = new Set<string>()
+  let last = 0
+  for (const m of text.matchAll(ALIAS_RE)) {
+    const idx = m.index ?? 0
+    const alias = m[0]
+    const mapped = ALIAS_MAP.find((a) => a.alias === alias)
+    const term = mapped ? TERM_BY_NAME[mapped.term] : undefined
+    if (!term || usedTerms.has(term.term)) continue // 매핑 없거나 이미 표시한 용어면 스킵(일반 텍스트로 둠)
+    if (idx > last) segs.push({ text: text.slice(last, idx) })
+    segs.push({ text: alias, term })
+    usedTerms.add(term.term)
+    last = idx + alias.length
+  }
+  if (last < text.length) segs.push({ text: text.slice(last) })
+  return segs.length ? segs : [{ text }]
+}

@@ -14,6 +14,8 @@ import { trustInfo } from '@/lib/trust'
 import { useBackend } from '@/lib/useBackend'
 import { AgentSubmitButton } from '@/components/AgentSubmitButton'
 import { ApplyFlow } from '@/components/ApplyFlow'
+import { TermText } from '@/components/TermText'
+import { VisitKit } from '@/components/VisitKit'
 import { ApplyKit } from '@/components/ApplyKit'
 import { oneTapApply } from '@/lib/quickApply'
 import { useAppStore } from '@/store/useAppStore'
@@ -132,6 +134,7 @@ function DrawerBody({
   const { ready, caps } = useBackend()
   const hasBackend = ready === true && !!caps?.rpa
   const { profile, rpaInfo } = useAppStore()
+  const [visitKit, setVisitKit] = useState(false)
   const [applied, setApplied] = useState<false | 'copied' | 'opened'>(false)
   const related = onOpen
     ? getCatalog().filter((p) => p.category === policy.category && p.id !== policy.id)
@@ -222,7 +225,7 @@ function DrawerBody({
           if (summaryOnly) {
             return (
               <Section title="📋 서비스 안내">
-                <p className="text-sm text-foreground/80 leading-relaxed">{policy.benefit}</p>
+                <TermText text={policy.benefit} className="text-sm text-foreground/80 leading-relaxed block" />
                 <a href={applyLink(policy.application).url} target="_blank" rel="noopener noreferrer"
                   className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-sprout-600 hover:underline">
                   복지로에서 자세한 자격·금액 확인 <ExternalLink className="h-3.5 w-3.5" />
@@ -234,13 +237,13 @@ function DrawerBody({
             <>
               <Section title="💰 혜택 내용">
                 {monthly > 0 && <p className="text-2xl font-extrabold text-sprout-600 mb-1">월 {formatWon(monthly)}까지</p>}
-                <p className="text-sm text-foreground/80 leading-relaxed">{policy.benefit}</p>
+                <TermText text={policy.benefit} className="text-sm text-foreground/80 leading-relaxed block" />
               </Section>
               <Section title="🎯 지원 대상">
-                <p className="text-sm text-foreground/80 leading-relaxed">{policy.target}</p>
+                <TermText text={policy.target} className="text-sm text-foreground/80 leading-relaxed block" />
               </Section>
               <Section title="📋 자격 요건">
-                <p className="text-sm text-foreground/80 leading-relaxed">{policy.eligibility}</p>
+                <TermText text={policy.eligibility} className="text-sm text-foreground/80 leading-relaxed block" />
               </Section>
             </>
           )
@@ -316,6 +319,11 @@ function DrawerBody({
             </a>
           )
         })()}
+
+        {/* 주민센터 방문용 인쇄 — 어르신·디지털 소외층의 실제 신청 경로(창구 방문) 지원 */}
+        <button onClick={() => setVisitKit(true)} className="btn-secondary w-full !py-2.5 text-sm">
+          📄 주민센터 방문용으로 큰 글씨 인쇄
+        </button>
 
         <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
           <span className="inline-flex items-center gap-1.5"><Building2 className="h-3.5 w-3.5" /> {policy.department}</span>
@@ -416,6 +424,8 @@ function DrawerBody({
           <ExternalLink className="h-4 w-4" />
         </a>
       </div>
+
+      {visitKit && <VisitKit policy={policy} profile={profile} onClose={() => setVisitKit(false)} />}
     </div>
   )
 }

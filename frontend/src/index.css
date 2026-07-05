@@ -202,7 +202,27 @@
   .print-amount { font-weight: 700; color: #15803d !important; }
   .print-dept { font-size: 11px; color: #666; margin-top: 3px; }
   .print-foot { margin-top: 14px; border-top: 1px solid #cbd5e1; padding-top: 8px; font-size: 11px; color: #666; }
+
+  /* ── 주민센터 방문 키트(단일 정책, 큰 글씨) — vk-printing일 때만 이 문서만 인쇄 ── */
+  body.vk-printing #root { display: none !important; }        /* 앱 본문 숨김 */
+  body.vk-printing .print-doc { display: none !important; }   /* 전체 결과 인쇄물과 충돌 방지 */
+  body.vk-printing .vk-doc { position: static !important; box-shadow: none !important; max-height: none !important; overflow: visible !important; }
+  body.vk-printing .modal-overlay { position: static !important; background: #fff !important; backdrop-filter: none !important; display: block !important; padding: 0 !important; }
 }
+/* vk 인쇄 문서 스타일(화면 미리보기 = 인쇄물) */
+.vk-cat { font-size: 13px; color: #16a34a; font-weight: 700; }
+.vk-title { font-size: 26px; font-weight: 900; color: #111; margin: 4px 0 14px; line-height: 1.2; }
+.vk-block { border: 1.5px solid #d1fae5; border-radius: 12px; padding: 12px 14px; margin-bottom: 12px; page-break-inside: avoid; }
+.vk-h { font-size: 15px; font-weight: 800; color: #15803d; margin-bottom: 6px; }
+.vk-say { font-size: 20px; font-weight: 800; color: #111; }
+.vk-line { font-size: 16px; color: #222; line-height: 1.6; }
+.vk-tel { font-size: 22px; font-weight: 900; color: #0369a1; margin-top: 2px; }
+.vk-docs { list-style: none; padding: 0; margin: 0; }
+.vk-docs li { font-size: 17px; color: #111; padding: 5px 0; line-height: 1.5; }
+.vk-check { font-size: 19px; margin-right: 6px; }
+.vk-where { font-size: 13px; color: #666; }
+.vk-foot { font-size: 12px; color: #777; margin-top: 12px; }
+@media print { .vk-title { font-size: 30px; } .vk-say { font-size: 24px; } .vk-tel { font-size: 26px; } .vk-docs li { font-size: 19px; } }
 
 /* 고대비(저시력) 모드 — 텍스트/테두리 대비 강화 */
 .high-contrast {
