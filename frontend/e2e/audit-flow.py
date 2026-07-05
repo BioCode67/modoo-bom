@@ -38,8 +38,9 @@ def main():
             pg.goto(BASE, wait_until="networkidle"); pg.wait_for_timeout(1200)
             try: pg.click('[aria-label="닫기"]', timeout=3000)
             except Exception: pass
-            # 분석: 복지 찾기 → 독거 어르신 → 결과
+            # 분석: 복지 찾기 → (기본이 '새싹이와 대화'라) 직접 입력 탭 → 데모 페르소나 → 결과
             pg.click("text=복지 찾기")
+            pg.click("text=직접 입력")
             pg.click("text=독거 어르신")
             pg.wait_for_selector("text=맞춤 추천 복지", timeout=30000)
             pg.wait_for_timeout(800)
