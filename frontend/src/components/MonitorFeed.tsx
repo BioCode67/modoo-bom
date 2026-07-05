@@ -4,8 +4,8 @@ import { Bell, BellRing, FileText, Rocket, RefreshCw, CalendarClock, ExternalLin
 import { useAppStore } from '@/store/useAppStore'
 import { getPolicyMap } from '@/data/catalog'
 import { buildActionFeed, type Alert } from '@/lib/monitoring'
-import { applyLink } from '@/lib/officialLinks'
 import { buildPrefill, prefillText } from '@/lib/prefill'
+import { bestApplyUrl } from '@/lib/quickApply'
 import { notifySupported, notifyPermission, enableNotify, maybeNotifyDue } from '@/lib/notify'
 import { cn } from '@/lib/utils'
 
@@ -86,7 +86,7 @@ export function MonitorFeed({ onOpenItem }: { onOpenItem: (policyId: string) => 
                 </div>
                 <div className="shrink-0 self-center">
                   {alert.kind === 'submit' && (
-                    <a href={applyLink(policy?.application || '').url} target="_blank" rel="noopener noreferrer"
+                    <a href={bestApplyUrl(policy?.application || '', policy?.name)} target="_blank" rel="noopener noreferrer"
                       onClick={() => { setStatus(item.policyId, 'applied'); copyPrefill() }}
                       className="btn-primary !px-3 !py-1.5 text-xs"><Rocket className="h-3.5 w-3.5" /> 신청</a>
                   )}

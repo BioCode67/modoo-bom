@@ -164,7 +164,7 @@ function DrawerBody({
   const startApply = async () => {
     if (!saved) ctx.toggleSaved({ id: policy.id, name: policy.name, category: policy.category })
     ctx.setStatus(policy.id, 'tracking')
-    await oneTapApply(policy.application, profile, rpaInfo) // 정보 복사 + 공식 신청 페이지 열기
+    await oneTapApply(policy.application, policy.name, profile, rpaInfo) // 정보 복사 + 공식 신청 페이지 열기
     setApplied(true)
     setTimeout(() => setApplied(false), 4000)
   }

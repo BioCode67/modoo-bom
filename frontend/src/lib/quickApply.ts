@@ -9,11 +9,28 @@ import type { UserProfile } from '@/lib/welfare-engine'
  * 개인정보·본인인증은 정부 공식 사이트에만 머문다(우리 서버 전송 없음 — 안전).
  * @returns 클립보드 복사 성공 여부(안내 문구 분기용)
  */
-export async function oneTapApply(application: string, profile: UserProfile | null, rpaInfo?: RpaInfo): Promise<boolean> {
+// 일반 홈으로만 연결되는 URL(딥링크 없음) — 이 경우 정책명으로 공식 검색 결과로 보낸다.
+const GENERIC_HOME = new Set([
+  'https://www.bokjiro.go.kr', 'https://www.gov.kr/portal/main', 'https://www.work24.go.kr',
+])
+
+/**
+ * 신청 시 열 최적 URL — 딥링크가 있으면 그대로, 없으면(일반 홈) 정책명으로 정부24 통합검색 결과로.
+ * (홈에서 사용자가 서비스를 못 찾고 헤매는 것을 방지 — 66%의 큐레이션 정책이 일반 홈 착지였음)
+ */
+export function bestApplyUrl(application: string, policyName?: string): string {
+  const url = applyLink(application).url
+  if (policyName && GENERIC_HOME.has(url)) {
+    return `https://www.gov.kr/search?srhQuery=${encodeURIComponent(policyName)}`
+  }
+  return url
+}
+
+export async function oneTapApply(application: string, policyName: string | undefined, profile: UserProfile | null, rpaInfo?: RpaInfo): Promise<boolean> {
   // ⚠️ 새 탭은 사용자 제스처 안에서 '먼저' 열어야 한다. clipboard await 뒤에 open하면 제스처 체인이
   //    끊겨 모바일 Safari 등에서 팝업이 차단된다 → 반드시 window.open을 동기적으로 먼저 호출.
   try {
-    window.open(applyLink(application).url, '_blank', 'noopener,noreferrer')
+    window.open(bestApplyUrl(application, policyName), '_blank', 'noopener,noreferrer')
   } catch { /* 팝업 차단 등 */ }
   let copied = false
   try {
