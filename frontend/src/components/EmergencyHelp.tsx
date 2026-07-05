@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { LifeBuoy, X, Phone, ExternalLink } from 'lucide-react'
 import { CRISES, matchEmergency } from '@/lib/emergency'
 import { applyLink } from '@/lib/officialLinks'
 import { parseMonthly, formatWon, categoryMeta } from '@/lib/format'
+import { useModalFocus } from '@/hooks/useModalFocus'
 import { cn } from '@/lib/utils'
 
 /** 위기 상황 빠른 진단 — 복지 사각지대의 가장 급한 사용자를 즉시 돕는다. */
@@ -11,15 +12,8 @@ export function EmergencyHelp() {
   const [open, setOpen] = useState(false)
   const [sel, setSel] = useState<string[]>([])
   const matched = matchEmergency(sel)
-
-  useEffect(() => {
-    if (!open) return
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
-    document.addEventListener('keydown', onKey)
-    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = prev }
-  }, [open])
+  const panelRef = useRef<HTMLDivElement>(null)
+  useModalFocus(panelRef, open, () => setOpen(false))
 
   const toggle = (k: string) => setSel((s) => (s.includes(k) ? s.filter((x) => x !== k) : [...s, k]))
 
@@ -46,7 +40,7 @@ export function EmergencyHelp() {
             <motion.div
               className="card-cute w-full max-w-lg max-h-[90vh] overflow-auto nice-scroll"
               initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0 }}
-              onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="긴급복지 빠른 진단"
+              onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="긴급복지 빠른 진단" ref={panelRef} tabIndex={-1}
             >
               <div className="sticky top-0 bg-white/95 backdrop-blur border-b border-sprout-100 px-5 py-4 flex items-center justify-between">
                 <h2 className="font-extrabold text-lg flex items-center gap-2"><LifeBuoy className="h-5 w-5 text-rose-500" /> 긴급 도움받기</h2>

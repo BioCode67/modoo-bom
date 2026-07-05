@@ -39,6 +39,13 @@ export function PolicyCard({
       transition={{ duration: 0.35, delay: Math.min(index * 0.04, 0.4) }}
       className="card-cute card-hover p-5 flex flex-col h-full cursor-pointer group"
       onClick={() => onOpen(policy)}
+      // 키보드 접근성: 카드 전체가 상세 열기 버튼(Enter/Space) — 키보드 사용자도 5천여 정책 상세 진입 가능
+      role="button"
+      tabIndex={0}
+      aria-label={`${policy.name} 상세 보기`}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(policy) }
+      }}
     >
       <div className="flex items-start gap-3">
         <div className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-xl', meta.cls)}>

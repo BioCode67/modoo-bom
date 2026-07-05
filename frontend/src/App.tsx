@@ -1,5 +1,5 @@
-import { lazy, Suspense, useEffect } from 'react'
-import { motion } from 'framer-motion'
+import { lazy, Suspense, useEffect, useRef } from 'react'
+import { motion, MotionConfig } from 'framer-motion'
 import { Loader2 } from 'lucide-react'
 import { Navbar } from '@/components/Navbar'
 import { Home } from '@/sections/Home'
@@ -53,14 +53,23 @@ export default function App() {
     document.documentElement.classList.toggle('high-contrast', highContrast)
   }, [elderly, highContrast])
 
+  // 화면(뷰) 전환 시 본문으로 포커스 이동 — SPA에서 스크린리더가 '화면 바뀜'을 인지하게(첫 로드는 제외).
+  const firstView = useRef(true)
+  useEffect(() => {
+    if (firstView.current) { firstView.current = false; return }
+    document.getElementById('main')?.focus()
+  }, [view])
+
   return (
     <AuthProvider>
+    {/* 동작 줄이기(prefers-reduced-motion) 존중 — 어지럼증 민감 사용자에게 애니메이션 최소화 */}
+    <MotionConfig reducedMotion="user">
     <div className={cn('min-h-screen bg-background')}>
       <a href="#main" className="skip-link no-print">본문 바로가기</a>
       <div className="no-print"><Navbar /></div>
 
       {/* 모바일 하단 여백 = 탭바(5rem)+챗 FAB(3.5rem) — 페이지 맨 아래 우측 버튼·하트가 FAB에 영구히 가리지 않게 */}
-      <main id="main" className="pb-36 md:pb-0 no-print">
+      <main id="main" tabIndex={-1} className="pb-36 md:pb-0 no-print outline-none">
         {/* 뷰 전환: key 변경으로 새 뷰를 즉시 마운트(enter-only). exit 대기 deadlock 방지. */}
         <motion.div
           key={view}
@@ -82,6 +91,7 @@ export default function App() {
       <div className="no-print"><Onboarding /></div>
       <PrintSummary />
     </div>
+    </MotionConfig>
     </AuthProvider>
   )
 }

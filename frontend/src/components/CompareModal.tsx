@@ -1,18 +1,13 @@
-import { useEffect } from 'react'
+import { useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X } from 'lucide-react'
 import type { Policy } from '@/data/policies'
 import { parseMonthly, formatWon, categoryMeta } from '@/lib/format'
+import { useModalFocus } from '@/hooks/useModalFocus'
 
 export function CompareModal({ policies, onClose }: { policies: Policy[]; onClose: () => void }) {
-  useEffect(() => {
-    const prevOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    document.addEventListener('keydown', onKey)
-    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = prevOverflow }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  const panelRef = useRef<HTMLDivElement>(null)
+  useModalFocus(panelRef, true, onClose) // 포커스 이동·트랩·ESC·스크롤잠금·복원
   const rows: { label: string; get: (p: Policy) => string }[] = [
     { label: '카테고리', get: (p) => p.category },
     { label: '예상 월 혜택', get: (p) => { const m = parseMonthly(p.benefit); return m > 0 ? `월 ${formatWon(m)}` : '상세 확인' } },
@@ -29,6 +24,7 @@ export function CompareModal({ policies, onClose }: { policies: Policy[]; onClos
           className="card-cute w-full max-w-3xl max-h-[90vh] overflow-auto nice-scroll"
           initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0 }}
           onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="정책 비교"
+          ref={panelRef} tabIndex={-1}
         >
           <div className="sticky top-0 bg-white/95 backdrop-blur border-b border-sprout-100 px-5 py-4 flex items-center justify-between">
             <h2 className="font-extrabold text-lg">정책 비교 ⚖️</h2>

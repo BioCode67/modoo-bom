@@ -92,16 +92,17 @@
   .gradient-text-sky { @apply bg-gradient-to-r from-sky2-400 to-sprout-400 bg-clip-text text-transparent; }
 
   /* 친근한 버튼 */
+  /* WCAG AA 대비: 흰 글씨는 sprout-700(#15803d ≈ 5:1)·peach-600 이상에서만 (기존 500은 2.3:1로 미달) */
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-2xl bg-sprout-500 text-white
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl bg-sprout-700 text-white
            px-6 py-3 text-sm font-bold shadow-soft
-           hover:bg-sprout-600 hover:-translate-y-0.5 active:scale-95 active:translate-y-0
+           hover:bg-sprout-800 hover:-translate-y-0.5 active:scale-95 active:translate-y-0
            transition-all duration-200 disabled:opacity-50 disabled:pointer-events-none;
   }
   .btn-warm {
-    @apply inline-flex items-center justify-center gap-2 rounded-2xl bg-peach-400 text-white
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl bg-peach-600 text-white
            px-6 py-3 text-sm font-bold shadow-cute
-           hover:bg-peach-500 hover:-translate-y-0.5 active:scale-95 transition-all duration-200;
+           hover:bg-peach-700 hover:-translate-y-0.5 active:scale-95 transition-all duration-200;
   }
   .btn-secondary {
     @apply inline-flex items-center justify-center gap-2 rounded-2xl border-2 border-sprout-200 bg-white

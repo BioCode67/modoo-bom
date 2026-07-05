@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useRef, useState } from 'react'
 import { LogIn, LogOut, Cloud } from 'lucide-react'
 import { useAuthCtx } from '@/lib/authContext'
 import { SproutLogo } from '@/ui/SproutLogo'
+import { useModalFocus } from '@/hooks/useModalFocus'
 
 /**
  * 로그인 컨트롤 (Navbar용).
@@ -13,15 +14,8 @@ export function AuthControl() {
   const { enabled, user, loading, signIn, signOut, name, avatar, syncing } = useAuthCtx()
   const [open, setOpen] = useState(false)
   const [menu, setMenu] = useState(false)
-
-  // 모달: ESC 닫기 + 스크롤 락 (focus-trap 미사용 — 닫힘 루프 방지)
-  useEffect(() => {
-    if (!open) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
-    document.addEventListener('keydown', onKey)
-    document.body.style.overflow = 'hidden'
-    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = '' }
-  }, [open])
+  const panelRef = useRef<HTMLDivElement>(null)
+  useModalFocus(panelRef, open, () => setOpen(false)) // 포커스 이동·트랩·ESC·복원
 
   if (!enabled || loading) return null
 
@@ -30,6 +24,7 @@ export function AuthControl() {
       <>
         <button
           onClick={() => setOpen(true)}
+          aria-label="로그인"
           className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold border-2 bg-white border-sprout-100 text-sprout-700 hover:border-sprout-300 transition-colors"
         >
           <LogIn className="h-4 w-4" />
@@ -39,7 +34,7 @@ export function AuthControl() {
         {open && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="로그인">
             <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setOpen(false)} />
-            <div className="relative card-cute w-full max-w-sm p-7 text-center">
+            <div className="relative card-cute w-full max-w-sm p-7 text-center" ref={panelRef} tabIndex={-1}>
               <SproutLogo withFace className="mx-auto h-14 w-14" />
               <h2 className="mt-3 text-xl font-extrabold">모두봄 로그인</h2>
               <p className="mt-1.5 text-sm text-muted-foreground leading-relaxed">

@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { BookOpen, X, Search } from 'lucide-react'
 import { searchGlossary } from '@/lib/glossary'
+import { useModalFocus } from '@/hooks/useModalFocus'
 
 /**
  * 복지 용어 쉬운 사전 — 어려운 용어를 일상어로. 어르신·저소득·청년 누구나 이해하도록.
@@ -11,15 +12,8 @@ export function Glossary({ trigger = 'button' }: { trigger?: 'button' | 'link' }
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
   const results = searchGlossary(q)
-
-  useEffect(() => {
-    if (!open) return
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
-    document.addEventListener('keydown', onKey)
-    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = prev }
-  }, [open])
+  const panelRef = useRef<HTMLDivElement>(null)
+  useModalFocus(panelRef, open, () => setOpen(false))
 
   return (
     <>
@@ -40,6 +34,7 @@ export function Glossary({ trigger = 'button' }: { trigger?: 'button' | 'link' }
               className="card-cute w-full max-w-lg max-h-[88vh] overflow-hidden flex flex-col"
               initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0 }}
               onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="복지 용어 사전"
+              ref={panelRef} tabIndex={-1}
             >
               <div className="sticky top-0 bg-white/95 backdrop-blur border-b border-sprout-100 px-5 pt-4 pb-3">
                 <div className="flex items-center justify-between">

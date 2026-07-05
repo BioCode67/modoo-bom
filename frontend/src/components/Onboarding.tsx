@@ -1,8 +1,9 @@
-import { useEffect } from 'react'
+import { useRef } from 'react'
 import { motion } from 'framer-motion'
 import { Search, Compass, Heart, LifeBuoy, Sparkles, X, Globe } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
 import { SproutLogo } from '@/ui/SproutLogo'
+import { useModalFocus } from '@/hooks/useModalFocus'
 
 const STEPS = [
   { icon: Globe, title: '🌍 다국어 AI 의미 검색', desc: '한국어·English·Tiếng Việt 등 어떤 언어로 말·글이든, AI가 내 기기에서 뜻을 이해해 복지를 찾아 요약해드려요 (서버 전송 없음)', tint: 'text-white bg-gradient-to-br from-sprout-500 to-emerald-500' },
@@ -15,15 +16,8 @@ const STEPS = [
 /** 첫 방문 1회 노출되는 친근한 안내 — 신규·어르신 진입장벽 완화 */
 export function Onboarding() {
   const { onboarded, setOnboarded, setView } = useAppStore()
-
-  useEffect(() => {
-    if (onboarded) return
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOnboarded() }
-    document.addEventListener('keydown', onKey)
-    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = prev }
-  }, [onboarded, setOnboarded])
+  const panelRef = useRef<HTMLDivElement>(null)
+  useModalFocus(panelRef, !onboarded, setOnboarded)
 
   if (onboarded) return null
 
@@ -33,6 +27,7 @@ export function Onboarding() {
         initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }}
         className="card-cute w-full max-w-md max-h-[90vh] overflow-auto nice-scroll p-6"
         onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="모두봄 안내"
+        ref={panelRef} tabIndex={-1}
       >
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-2.5">
