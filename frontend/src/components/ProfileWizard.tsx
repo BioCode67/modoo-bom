@@ -237,6 +237,9 @@ function Toggle({ label, on, onClick }: { label: string; on: boolean; onClick: (
   return (
     <button
       onClick={onClick}
+      role="switch"
+      aria-checked={on}
+      aria-label={label}
       className={cn(
         'flex items-center justify-between rounded-2xl border-2 px-4 py-3 text-sm font-bold transition-all',
         on ? 'bg-sprout-50 border-sprout-300 text-sprout-700' : 'bg-white border-sprout-100 text-muted-foreground',
