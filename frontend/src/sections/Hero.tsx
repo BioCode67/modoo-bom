@@ -104,7 +104,7 @@ export function Hero() {
             </p>
             <div className="mt-1.5 flex flex-wrap gap-1.5">
               {MULTI.map((m) => (
-                <button key={m.q} onClick={() => askAI(m.q)} onMouseEnter={warm} onFocus={warm}
+                <button key={m.q} onClick={() => askAI(m.q)} onMouseEnter={warm} onFocus={warm} onTouchStart={warm}
                   className="text-xs rounded-full border border-violet-200 bg-white px-2.5 py-1 text-violet-800 hover:border-violet-400 transition-colors max-w-full truncate">
                   {m.flag} {m.q}
                 </button>

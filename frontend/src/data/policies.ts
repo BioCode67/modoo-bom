@@ -336,7 +336,7 @@ export const WELFARE_POLICIES: Policy[] = [
     category: '청년주거',
     target: '만 34세 이하 무주택 청년',
     benefit: '보증금 2억원 이내 연 1.8%~2.7% 저금리 대출',
-    eligibility: '만 19~34세 무주택자, 부부합산 연소득 5,000만원 이하',
+    eligibility: '만 19~34세 무주택자, 부부합산 연소득 5,000만원 이하(기준 중위소득 120% 수준)',
     required_docs: ['임대차계약서', '주민등록등본', '가족관계증명서', '소득 증빙'],
     application: '주택도시기금 수탁은행 방문',
     department: '국토교통부',
