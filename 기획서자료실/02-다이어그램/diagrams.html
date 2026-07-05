@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif; }
+  body { background:#fff; padding:20px; }
+  .card { width:1280px; background:linear-gradient(135deg,#fdfcf8,#f0fdf4); border-radius:20px; padding:36px 42px; margin-bottom:30px; border:1px solid #dcfce7; }
+  h1 { font-size:26px; color:#166534; margin-bottom:6px; }
+  .sub { font-size:14px; color:#666; margin-bottom:24px; }
+  .row { display:flex; gap:16px; align-items:stretch; }
+  .box { background:#fff; border:2px solid #86efac; border-radius:14px; padding:14px 16px; flex:1; }
+  .box h3 { font-size:16px; color:#166534; margin-bottom:8px; }
+  .box p, .box li { font-size:12.5px; color:#444; line-height:1.55; }
+  .box ul { padding-left:16px; }
+  .tag { display:inline-block; font-size:11px; font-weight:bold; padding:2px 8px; border-radius:99px; margin-bottom:8px; }
+  .arrow { display:flex; align-items:center; font-size:26px; color:#16a34a; font-weight:bold; }
+  .down { text-align:center; font-size:24px; color:#16a34a; margin:8px 0; }
+  .pill { background:#16a34a; color:#fff; border-radius:99px; padding:10px 18px; font-size:14px; font-weight:bold; text-align:center; }
+  .note { margin-top:16px; font-size:11.5px; color:#888; }
+  .g { border-color:#16a34a; } .o { border-color:#fb923c; } .b { border-color:#38bdf8; } .r { border-color:#fb7185; }
+  .loop { display:flex; gap:10px; }
+  .loopstep { flex:1; text-align:center; background:#fff; border-radius:16px; border:2px solid #86efac; padding:18px 10px; }
+  .loopstep .emoji { font-size:34px; }
+  .loopstep h3 { font-size:17px; color:#166534; margin:8px 0 6px; }
+  .kpi { display:grid; grid-template-columns:repeat(3,1fr); gap:18px; }
+  .kpibox { background:#fff; border-radius:16px; padding:26px 22px; box-shadow:0 4px 14px rgba(22,101,52,.08); }
+  .kpibox .num { font-size:40px; font-weight:900; color:#16a34a; }
+  .kpibox .lab { font-size:14px; color:#555; margin-top:6px; }
+  table { border-collapse:collapse; width:100%; background:#fff; border-radius:12px; overflow:hidden; }
+  th { background:#16a34a; color:#fff; font-size:13.5px; padding:10px 12px; }
+  td { font-size:12.5px; padding:9px 12px; border-bottom:1px solid #f0f0f0; color:#333; }
+  td:first-child { font-weight:bold; }
+  .ok { color:#16a34a; font-weight:bold; } .no { color:#bbb; } .half { color:#d97706; font-weight:bold; }
+</style></head><body>
+
+<!-- ① 핵심지표 인포그래픽 -->
+<div class="card" id="d1">
+  <h1>🌱 모두봄 핵심 지표 <span style="font-size:14px;color:#888;font-weight:normal">(2026.7 실측 — 전 수치 저장소·라이브에서 재현 가능)</span></h1>
+  <div class="sub">개인 복지 자산 관리 AI Agent — 찾고, 이해하고, 대신 실행하고, 계속 지켜보는</div>
+  <div class="kpi">
+    <div class="kpibox"><div class="num">5,251건</div><div class="lab">전국 복지 통합(중앙 463·지자체 4,598·검증 큐레이션 190) — 전부 실데이터</div></div>
+    <div class="kpibox"><div class="num">7개 언어</div><div class="lab">온디바이스 AI 의미검색·AI 답변 (한국어·EN·VI·ZH·JA·TH·RU·AR)</div></div>
+    <div class="kpibox"><div class="num">서버 $0</div><div class="lab">정적 배포 + 브라우저 안 AI — 운영비 0원, 항상 켜져 있음</div></div>
+    <div class="kpibox"><div class="num">전송 0</div><div class="lab">개인정보(프로필·이름) 기기 내 보관 — 이름은 디스크에도 저장 안 함</div></div>
+    <div class="kpibox"><div class="num">9 → 1</div><div class="lab">서류 발급 9단계 중 사람은 '폰 인증 승인' 1번만 (13종 자동발급)</div></div>
+    <div class="kpibox"><div class="num">354개</div><div class="lab">자동 테스트(프론트 320+백엔드 34) + 실브라우저 E2E 10여정 + 접근성 96점</div></div>
+  </div>
+  <div class="note">2026 AI·SW중심대학 디지털 경진대회 SW부문 · 라이브: https://biocode67.github.io/modoo-bom/</div>
+</div>
+
+<!-- ② AI Agent 루프 -->
+<div class="card" id="d2">
+  <h1>🤖 AI Agent 자율 루프 — 챗봇이 아니라, 이 순환 전체가 에이전트</h1>
+  <div class="sub">사용자를 대신해 인지→판단→이해→행동→관찰을 계속 도는 구조 (대회 주제 'AI Agent 기반 SW' 정면 대응)</div>
+  <div class="loop">
+    <div class="loopstep"><div class="emoji">👂</div><h3>① 인지</h3><p>새싹이와 대화 온보딩<br>자연어 한 문장·음성<br>"72세 혼자 살아요"</p></div>
+    <div class="arrow">→</div>
+    <div class="loopstep"><div class="emoji">🧠</div><h3>② 판단</h3><p>5,251건에서 자격판정<br>2026 공식 선정기준<br>확실/관련 신뢰도 분리</p></div>
+    <div class="arrow">→</div>
+    <div class="loopstep"><div class="emoji">💬</div><h3>③ 이해</h3><p>쉬운 말 결과·용어사전<br>7개 언어 AI 답변<br>TTS 읽어주기</p></div>
+    <div class="arrow">→</div>
+    <div class="loopstep"><div class="emoji">🦾</div><h3>④ 행동</h3><p>"다 담아줘" 한마디 저장<br>서류 13종 자동발급<br>복지 자동신청(RPA)</p></div>
+    <div class="arrow">→</div>
+    <div class="loopstep"><div class="emoji">👀</div><h3>⑤ 관찰</h3><p>마감 D-day·갱신 감시<br>서류 미비 점검<br>열면 먼저 브리핑</p></div>
+  </div>
+  <div class="down">↻ 관찰 결과가 다시 '인지'로 — 프로필·상황이 바뀌면 새 복지를 능동 제안</div>
+  <div class="note">⚖️ 안전장치: 본인인증·최종 제출은 사람 몫(human-in-the-loop) — 법적 필수 단계는 자동화하지 않는 것이 설계 원칙</div>
+</div>
+
+<!-- ③ 3층 아키텍처 -->
+<div class="card" id="d3">
+  <h1>🏗️ 시스템 아키텍처 — 3층 하이브리드</h1>
+  <div class="sub">기본은 전부 브라우저 안(프라이버시·운영비 0) · 연결되면 더 강해짐(LLM·RPA) · 실패해도 규칙 폴백으로 항상 동작</div>
+  <div class="row">
+    <div class="box g"><span class="tag" style="background:#dcfce7;color:#166534">① 온디바이스 (기본·항상 동작)</span>
+      <ul>
+        <li><b>React 18 + Vite PWA</b> — GitHub Pages 정적 배포, 설치·오프라인</li>
+        <li><b>복지엔진</b> — 5,251건 자격판정(2026 선정기준), 대화형 온보딩</li>
+        <li><b>AI 의미검색</b> — multilingual-e5 신경망을 브라우저에서 직접 실행</li>
+        <li><b>모니터링 엔진</b> — 마감·갱신·서류 감시, 챗 브리핑</li>
+        <li>🔒 개인정보 이탈 0 (이름은 디스크에도 저장 안 함)</li>
+      </ul>
+    </div>
+    <div class="box b"><span class="tag" style="background:#e0f2fe;color:#075985">② 백엔드 (선택 — 감지 시 자동 활성)</span>
+      <ul>
+        <li><b>FastAPI + WebSocket</b> — 클라우드(Render)/로컬 겸용</li>
+        <li><b>LangGraph 10노드 StateGraph</b> — 분석 파이프라인</li>
+        <li><b>Claude LLM</b> — 지식형 챗 실시간 답변(🧠 라벨)</li>
+        <li><b>ChromaDB RAG</b> — 정책 검색 보강</li>
+        <li>연결 안 되면 → 규칙 폴백으로 동일 기능(신뢰성 설계)</li>
+      </ul>
+    </div>
+    <div class="box o"><span class="tag" style="background:#ffedd5;color:#9a3412">③ 실행층 — 크롬 확장 RPA (선택)</span>
+      <ul>
+        <li><b>정부24·복지로·건보·고용24·국민연금·장학재단</b> 실사이트 자동화</li>
+        <li>서류 <b>13종 자동발급</b> · 복지 <b>6종 자동신청</b></li>
+        <li>화면(DOM)을 읽고 다음 행동을 판단 — 안티봇(Mbuster) 통과 실증</li>
+        <li>개인정보는 <b>사용자 브라우저 안에서만</b> 사용(서버 경유 0)</li>
+        <li>🙋 본인인증·최종 제출만 사람(법적 필수)</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ④ 데이터 파이프라인 -->
+<div class="card" id="d4">
+  <h1>🗄️ 데이터 파이프라인 — "사이트마다 흩어진 복지"를 한곳에</h1>
+  <div class="sub">가짜 데이터 0 원칙 — 전부 공식 출처에서 수집·실측 검증, 죽은 링크는 자동 감사로 잡아 정정</div>
+  <div class="row">
+    <div class="box"><h3>수집원</h3><ul>
+      <li>한국사회보장정보원 OpenAPI (중앙 463·지자체 4,598)</li>
+      <li>보건복지부 등 공식 고시 — 큐레이션 124건 수기 검증</li>
+      <li>정부 지원사업 33 · 청년주택 공고 7 · 서민금융 5 (2026 실측)</li>
+      <li>민간재단 21곳 공식 사이트 전수 확인</li></ul></div>
+    <div class="arrow">→</div>
+    <div class="box"><h3>ETL 정규화</h3><ul>
+      <li>단일 Policy 스키마로 변환</li>
+      <li>카테고리 추론·금액 파싱</li>
+      <li>이름 기준 디듑(검증 시드 우선)</li>
+      <li>재수집 파이프라인(갱신 가능)</li></ul></div>
+    <div class="arrow">→</div>
+    <div class="box"><h3>배포·서빙</h3><ul>
+      <li>policies.json (정적 서빙, 재빌드 없이 갱신)</li>
+      <li>런타임 병합 — 카탈로그 5,251건</li>
+      <li>정책 벡터 5,222건 사전계산(의미검색용)</li>
+      <li>Web Worker 파싱(메인스레드 무정지)</li></ul></div>
+    <div class="arrow">→</div>
+    <div class="box g"><h3>품질 감사(자동)</h3><ul>
+      <li>신청 URL 70건 생존검사</li>
+      <li>금액·조건 공식 출처 대조</li>
+      <li>멀티에이전트 감사(29 AI) — 23건 발견·전부 정정</li>
+      <li>모집종료 정책 추천 제외 게이트</li></ul></div>
+  </div>
+</div>
+
+<!-- ⑤ 신청 자동화 human-in-the-loop -->
+<div class="card" id="d5">
+  <h1>📄 서류 발급·신청 자동화 — 사람은 딱 한 번, 폰에서 승인만</h1>
+  <div class="sub">에이전트가 실제 정부 사이트를 운전하고, 법이 요구하는 본인인증만 사람이 — 실브라우저 검증 완료(스크린샷 증거 보유)</div>
+  <div class="row" style="align-items:center">
+    <div class="pill" style="background:#16a34a">🤖 [자동발급] 클릭</div><div class="arrow">→</div>
+    <div class="pill" style="background:#16a34a">정부24 이동·로그인 화면</div><div class="arrow">→</div>
+    <div class="pill" style="background:#16a34a">간편인증 선택·정보 자동입력·동의 체크</div><div class="arrow">→</div>
+    <div class="pill" style="background:#fb923c">🙋 폰에서 카카오 인증 승인 (본인)</div><div class="arrow">→</div>
+    <div class="pill" style="background:#16a34a">민원 검색·발급 신청·PDF 저장</div>
+  </div>
+  <div class="row" style="margin-top:22px">
+    <div class="box g"><h3>지원 범위(실측)</h3><p>서류 13종: 주민등록등본·초본, 가족관계, 장애인증명, 소득금액증명, 지방세 2종, 수급자·한부모 증명, 국민연금 2종, 건보 자격득실, 고용보험 이력<br>자동신청 6종: 기초연금·아동수당·부모급여·내일저축·첫만남·생계급여</p></div>
+    <div class="box o"><h3>왜 완전 무인이 아닌가 (정직성)</h3><p>본인인증은 법이 사람에게 요구하는 단계이고, 신청 제출은 비가역 행위. 무인 대행은 기술이 아니라 <b>철학의 문제</b> — 모두봄은 human-in-the-loop를 의도적으로 선택. 심사 질문에 대한 정면 답변이 됨.</p></div>
+    <div class="box b"><h3>확장 없이도(폴백)</h3><p>확장·백엔드가 없으면 모든 버튼이 공식 발급처 딥링크로 정직하게 폴백. 어떤 환경에서도 막다른 길 없음. 내 정보 복사+공식페이지 열기 원탭 신청 지원.</p></div>
+  </div>
+</div>
+
+<!-- ⑥ 하이브리드 챗 -->
+<div class="card" id="d6">
+  <h1>💬 하이브리드 챗 에이전트 — 행동은 기기 안, 지식은 LLM, 실패해도 동작</h1>
+  <div class="sub">"이게 AI인가요?"에 대한 구조적 답 — 역할별로 가장 적합한 두뇌를 쓰고, 어느 쪽이 죽어도 서비스는 멈추지 않음</div>
+  <div class="row">
+    <div class="box g"><h3>🌱 로컬 에이전트 (행동·개인화)</h3>
+      <ul><li>"다 담아줘" → 실제 저장(스토어 연동)</li>
+      <li>"서류 뭐 필요해?" → 담은 복지 서류 집계</li>
+      <li>"내가 뭐 받을 수 있어?" → 프로필 기반 자격+이유</li>
+      <li>열면 급한 마감·서류부터 능동 브리핑</li>
+      <li>즉시·정확·환각 0 (규칙+스토어)</li></ul></div>
+    <div class="box b"><h3>🧠 Claude LLM (지식형 질문)</h3>
+      <ul><li>백엔드 감지 시 자동 활성('실시간 AI' 라벨)</li>
+      <li>"기초연금이랑 노령연금 차이가 뭐야?" 류</li>
+      <li>WebSocket 실시간 + 관련 정책 '담기' 칩 연결</li>
+      <li>12초 무응답 시 자동 폴백</li></ul></div>
+    <div class="box o"><h3>🛟 규칙 폴백 (신뢰성)</h3>
+      <ul><li>LLM 실패·미연결이어도 같은 질문에 답</li>
+      <li>가이드형 상담(연령·상황·소득 좁히기)</li>
+      <li>폴백은 결함이 아니라 <b>신뢰성 설계</b> — 시연 리스크 0</li></ul></div>
+  </div>
+</div>
+
+<!-- ⑦ 사용자 여정 -->
+<div class="card" id="d7">
+  <h1>🚶 사용자 여정 — 김복순(72) 님의 5분</h1>
+  <div class="sub">회원가입 없음 · 어려운 말 없음 · 막다른 길 없음</div>
+  <div class="row" style="align-items:center">
+    <div class="box g" style="text-align:center"><h3>① 만남</h3><p>새싹이와 대화<br>"65세 이상 어르신" 탭<br>→ 큰글씨 제안 수락</p></div>
+    <div class="arrow">→</div>
+    <div class="box g" style="text-align:center"><h3>② 발견</h3><p>맞춤 37건<br><b>월 최대 64만원</b><br>민간재단 💝 별도</p></div>
+    <div class="arrow">→</div>
+    <div class="box g" style="text-align:center"><h3>③ 행동</h3><p>챗에 "다 담아줘"<br>서류 도우미: 필요 서류<br>28종 자동 집계</p></div>
+    <div class="arrow">→</div>
+    <div class="box o" style="text-align:center"><h3>④ 신청</h3><p>[자동발급] → 정부24<br>자동 진행, 폰 인증만 직접<br>등본 PDF 저장</p></div>
+    <div class="arrow">→</div>
+    <div class="box b" style="text-align:center"><h3>⑤ 동행</h3><p>마감·갱신 자동 감시<br>다음 방문 때 새싹이가<br>먼저 브리핑</p></div>
+  </div>
+  <div class="note">각 단계 실화면 스크린샷: 04-스크린샷 폴더 참조 (전부 라이브에서 재현 가능)</div>
+</div>
+
+<!-- ⑧ 경쟁 비교표 -->
+<div class="card" id="d8">
+  <h1>⚔️ 기존 서비스와의 정면 비교</h1>
+  <div class="sub">"복지로랑 뭐가 달라요?" — 심사 1번 질문에 대한 표 하나 답변</div>
+  <table>
+    <tr><th style="text-align:left">구분</th><th>복지로·보조금24<br>(정부)</th><th>웰로<br>(상용 앱)</th><th>토스 지원금 찾기<br>(2024.8 종료)</th><th style="background:#166534">모두봄</th></tr>
+    <tr><td>정부+지자체 통합</td><td class="ok">✓</td><td class="ok">✓</td><td class="no">종료</td><td class="ok">✓ 5,251건</td></tr>
+    <tr><td>민간재단(장학·의료·위기)</td><td class="no">✗</td><td class="half">△ 일부</td><td class="no">✗</td><td class="ok">✓ 21곳 실측 큐레이션</td></tr>
+    <tr><td>개인화 방식</td><td>로그인+공적정보</td><td>서버에 프로필 저장</td><td>앱 내 정보</td><td class="ok">온디바이스 — 서버 전송 0</td></tr>
+    <tr><td>다국어(외국인·다문화)</td><td class="half">제한적</td><td class="no">✗</td><td class="no">✗</td><td class="ok">7개 언어 AI 답변·음성</td></tr>
+    <tr><td>신청 실행</td><td>링크 안내</td><td>링크 안내</td><td>일부 연계</td><td class="ok">서류 13종 자동발급+자동신청</td></tr>
+    <tr><td>사후관리</td><td class="half">알림 일부</td><td>알림</td><td class="no">✗</td><td class="ok">마감·갱신·서류 감시+능동 브리핑</td></tr>
+    <tr><td>가입 장벽</td><td>회원가입+인증</td><td>회원가입</td><td>토스 계정</td><td class="ok">없음 (열면 바로)</td></tr>
+    <tr><td>어르신 접근성</td><td class="half">보통</td><td class="half">보통</td><td class="half">보통</td><td class="ok">큰글씨 제안·TTS·고대비·음성입력</td></tr>
+  </table>
+  <div class="note">※ 각 서비스 공개 정보 기준(2026.7). 토스 '숨은 정부지원금 찾기'는 2024년 8월 서비스 종료 — 시장 공백 존재.</div>
+</div>
+
+</body></html>
