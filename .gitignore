@@ -45,6 +45,7 @@ frontend/e2e/*.log
 frontend/e2e/*.png
 frontend/e2e/audit/
 frontend/e2e/doc-audit-urls.txt
+frontend/e2e/demo-video/
 
 # 확장 빌드 산출물
 extension/dist/
