@@ -131,7 +131,8 @@ async def websocket_endpoint(ws: WebSocket):
         except Exception:
             pass
     except Exception as e:
-        print(f"[ws/analyze] error: {e}")  # 상세는 서버 로그에만
+        from logging_config import get_logger
+        get_logger("ws.analyze").error("분석 처리 오류: %s", e)  # 상세는 서버 로그에만(PII 미포함)
         try:
             await _send(ws, "error", {"message": "분석 중 문제가 발생했어요. 잠시 후 다시 시도해 주세요."})
         except Exception:

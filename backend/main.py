@@ -7,9 +7,12 @@ load_dotenv()
 
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
+from logging_config import get_logger
 from api.routes import router
 from api.websocket import websocket_endpoint
 from api.chat import chat_websocket_endpoint
+
+log = get_logger("modoobom")
 
 
 @asynccontextmanager
@@ -19,10 +22,10 @@ async def lifespan(app: FastAPI):
     try:
         from rag.search import seed, warmup, backend_label
         count, kind = seed()
-        print(f"[ModooBom] RAG 초기화 완료 — {backend_label()} · {count}건")
+        log.info("RAG 초기화 완료 — %s · %d건", backend_label(), count)
         warmup()
     except Exception as e:
-        print(f"[ModooBom] RAG 초기화 스킵: {e}")
+        log.warning("RAG 초기화 스킵: %s", e)
     yield
 
 

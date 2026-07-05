@@ -94,6 +94,7 @@ def get_chat_llm(temperature: float = 0.0, max_tokens: int = 1024):
                 max_retries=retries,
             )
     except ImportError as e:
-        print(f"[llm] provider '{provider}' 패키지 미설치 → 규칙기반 폴백: {e}")
+        from logging_config import get_logger
+        get_logger("llm").warning("provider '%s' 패키지 미설치 → 규칙기반 폴백: %s", provider, e)
         return None
     return None
