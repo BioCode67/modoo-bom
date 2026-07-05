@@ -175,6 +175,39 @@ describe('소득 상한 게이트 — 연령이 맞아도 소득 초과면 제�
     expect(incomeCeiling('소득 하위 70% 어르신')).toBe(100)
     expect(incomeCeiling('기준 중위소득 80% 이하')).toBe(80)
   })
+  it('회귀: %가 없는 "수급 가구" 문구도 저소득 상한(50)으로 인식(에너지바우처 누수 차단)', () => {
+    expect(incomeCeiling('생계·의료급여 수급 가구')).toBe(50)
+    expect(incomeCeiling('수급자 대상')).toBe(50)
+    // 명시 %가 있으면 그 값이 우선(수급 문구가 있어도 과배제 안 함)
+    expect(incomeCeiling('하위 70% 어르신(수급자 포함)')).toBe(100)
+  })
+})
+
+describe('감사 반영 — 인구통계/소득 게이트 우회 차단 (2026-07-05)', () => {
+  it('첫만남이용권(출생지원)은 자녀 없는 성인에게 뜨지 않고, 0세 부모에겐 뜬다', () => {
+    const childless = runAnalysis({ ...base, age: 61, income_percentile: 90 }).eligible_policies
+    expect(childless.some((p) => /첫만남/.test(p.name))).toBe(false)
+    const newborn = runAnalysis({ ...base, age: 32, has_children: true, children_ages: [0] }).eligible_policies
+    expect(newborn.some((p) => /첫만남/.test(p.name))).toBe(true)
+  })
+  it('에너지바우처(수급 가구)는 고소득(중위200%)에게 안 뜨고, 저소득 임신부에겐 뜬다', () => {
+    const rich = runAnalysis({ ...base, age: 32, is_pregnant: true, income_percentile: 200 }).eligible_policies
+    expect(rich.some((p) => /에너지바우처/.test(p.name))).toBe(false)
+    const poor = runAnalysis({ ...base, age: 32, is_pregnant: true, income_percentile: 30 }).eligible_policies
+    expect(poor.some((p) => /에너지바우처/.test(p.name))).toBe(true)
+  })
+  it('유아학비(유치원 만3~5세)는 8세 자녀 부모에겐 안 뜨고, 4세 부모에겐 뜬다', () => {
+    const school = runAnalysis({ ...base, age: 40, has_children: true, children_ages: [8] }).eligible_policies
+    expect(school.some((p) => /유아학비/.test(p.name))).toBe(false)
+    const kinder = runAnalysis({ ...base, age: 40, has_children: true, children_ages: [4] }).eligible_policies
+    expect(kinder.some((p) => /유아학비/.test(p.name))).toBe(true)
+  })
+  it('근로장려금(EITC)은 무직 명시자에겐 안 권하고, 일반/미지정에겐 뜬다', () => {
+    const jobless = runAnalysis({ ...base, age: 40, employment_status: 'unemployed', income_percentile: 80 }).eligible_policies
+    expect(jobless.some((p) => /근로장려금/.test(p.name))).toBe(false)
+    const worker = runAnalysis({ ...base, age: 40, income_percentile: 80 }).eligible_policies
+    expect(worker.some((p) => /근로장려금/.test(p.name))).toBe(true)
+  })
 })
 
 describe('situationRelevance — 핵심 상황 우선 개인화', () => {

@@ -244,8 +244,9 @@ function checkPolicyDoc(doc: string, name: string, p: UserProfile): CheckResult 
   }
 
   // 근로·자녀장려금(EITC/CTC) — 중위소득%가 아닌 절대 총소득 기준이라 별도 매칭(저소득 근로가구).
+  // ⚠️ 근로·사업·종교인 소득이 있어야 하므로 '무직'으로 명시한 사람에겐 권하지 않는다(오추천 방지).
   if (anyIn(doc, ['근로장려금', '자녀장려금', 'EITC'])) {
-    if (p.income_percentile <= 100)
+    if (p.income_percentile <= 100 && p.employment_status !== 'unemployed')
       return { eligible: true, reason: `저소득 근로·사업 가구로 ${name.includes('자녀') ? '자녀장려금' : '근로장려금'} 신청 대상이에요(소득·재산 요건은 국세청에서 확인)`, priority: 'medium', confidence: 0.8 }
     return NO
   }
@@ -349,6 +350,11 @@ export function demographicMismatch(name: string, doc: string, p: UserProfile): 
   if (/노인|어르신|경로|고령자|시니어/.test(name) && p.age < 60) return true
   // 아동·영유아·보육·유아·육아 전용인데 자녀 없음
   if (/아동|영유아|보육|유아|어린이집|어린이|육아|키즈|양육|보육료/.test(name) && !hasChild) return true
+  // 출생 지원(첫만남이용권·출생아 지원)은 신생아 대상 — 임신 중이거나 만 0~1세 자녀가 있어야.
+  // (자녀 없는 성인이 소득무관 분기로 '첫만남이용권 200만원'을 추천받던 오류 차단)
+  if (/첫만남|출생아|출생 아동|출산지원금/.test(name) && !(p.is_pregnant || ages.some((a) => a <= 1))) return true
+  // 유치원 학비(유아학비·누리과정)는 만 3~5세 대상 — 아이 나이가 적혀 있는데 3~5세가 없으면 제외.
+  if (/유아학비|유치원|누리과정/.test(name) && ages.length > 0 && !ages.some((a) => a >= 3 && a <= 5)) return true
   // 청소년·학령기 전용인데 본인이 청소년도 아니고 학령기 자녀도 없음
   if (/청소년|학령기/.test(name) && !(p.age >= 9 && p.age <= 24) && !ages.some((a) => a >= 7 && a <= 18)) return true
   // 임산부·산모·임신·난임 전용인데 임신 중도 아니고 영아도 없음
@@ -392,7 +398,9 @@ export function incomeCeiling(doc: string): number | null {
     if (!Number.isNaN(v) && (ceil === null || v > ceil)) ceil = v
   }
   if (ceil === null && /차상위/.test(doc)) ceil = 50
-  if (ceil === null && /(기초생활|생계급여|기초생활수급|기초수급)/.test(doc)) ceil = 50
+  // '수급 가구/수급자/급여 수급'처럼 %가 안 적힌 자산심사형도 저소득 상한으로 본다(중위 50% 근사).
+  // (예: 에너지바우처 '생계·의료급여 수급 가구' — 명시 %가 없어 고소득자에게 새던 것을 막음)
+  if (ceil === null && /(기초생활|생계급여|기초생활수급|기초수급|수급자|수급\s*가구|급여\s*수급)/.test(doc)) ceil = 50
   return ceil
 }
 
