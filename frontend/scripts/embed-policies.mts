@@ -13,12 +13,16 @@ import { pipeline } from '@huggingface/transformers'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { WELFARE_POLICIES, type Policy } from '../src/data/policies.ts'
 import { PRIVATE_POLICIES } from '../src/data/privatePolicies.ts'
+import { HOUSING_POLICIES } from '../src/data/housingPolicies.ts'
+import { GOV_PROGRAMS } from '../src/data/govPrograms.ts'
+import { FINANCIAL_POLICIES } from '../src/data/financialPolicies.ts'
 
 const MODEL = 'Xenova/multilingual-e5-small'
 const DIM = 384
 
 // ── 통합 카탈로그 구성(런타임 catalog.ts 병합 규칙과 동일: 시드 우선, 외부 동명 스킵) ──
-const SEEDS: Policy[] = [...WELFARE_POLICIES, ...PRIVATE_POLICIES] // 정부 + 민간재단 큐레이션
+// 시드 = 정부(POL)+민간재단(PRV)+청년주택(HOU)+정부지원사업(SUP)+정책서민금융(FIN) — catalog.ts SEED_POLICIES와 일치
+const SEEDS: Policy[] = [...WELFARE_POLICIES, ...PRIVATE_POLICIES, ...HOUSING_POLICIES, ...GOV_PROGRAMS, ...FINANCIAL_POLICIES]
 const policies: Policy[] = [...SEEDS]
 const seedNames = new Set(SEEDS.map((p) => p.name.replace(/\s/g, '')))
 try {

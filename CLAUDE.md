@@ -87,6 +87,10 @@ src/
   런타임 병합 → 총 **약 5,000건**. 이름 기준 디듑(시드 우선). 가짜 데이터 미생성 원칙.
   키는 `backend/.env`의 `DATA_GO_KR_SERVICE_KEY`, 수집은 `python etl/ingest_welfare.py --csv <중앙CSV> --local`
   (ETL은 https+페이지 재시도로 견고). 더 받으려면 중앙부처(15090532)도 활용신청 후 `--api`.
+  + **정책서민금융 큐레이션 5건**(`src/data/financialPolicies.ts`, FIN-###: 소액생계비대출·햇살론유스·햇살론 일반/특례·미소금융 —
+  서민금융진흥원 kinfa.or.kr 2026 실측·URL 생존). **대출**이라 benefit에 '대출·상환' 명시(현금성 합산 제외), PRV처럼 저신뢰
+  '관련 복지'로만 노출. ⚠️신용 '하위 N%'는 benefit에만(eligibility/target에 두면 incomeCeiling이 소득상한으로 오게이트).
+  → 정부24·복지로·보건복지부는 이미 B554287 아그리게이터로 커버. 서민금융진흥원은 그 밖의 저소득·청년 금융 안전망 출처.
 - **⭐ 온디바이스 다국어 AI 의미 검색(헤드라인)**: 브라우저에서 직접 도는 신경망 임베딩
   (`multilingual-e5-small`, `src/lib/semanticSearch.ts`)으로 복지를 **의미**로 매칭.
   한국어·English·Tiếng Việt 등 **다국어 교차검색**(외국인·다문화 사각지대). 정책 벡터는 빌드 시

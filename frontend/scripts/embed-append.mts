@@ -11,6 +11,9 @@ import { pipeline } from '@huggingface/transformers'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { WELFARE_POLICIES, type Policy } from '../src/data/policies.ts'
 import { PRIVATE_POLICIES } from '../src/data/privatePolicies.ts'
+import { HOUSING_POLICIES } from '../src/data/housingPolicies.ts'
+import { GOV_PROGRAMS } from '../src/data/govPrograms.ts'
+import { FINANCIAL_POLICIES } from '../src/data/financialPolicies.ts'
 
 const MODEL = 'Xenova/multilingual-e5-small'
 const DIM = 384
@@ -29,7 +32,8 @@ if (existing.model !== MODEL || existing.dim !== DIM) {
   process.exit(1)
 }
 const have = new Set(existing.ids)
-const seeds: Policy[] = [...WELFARE_POLICIES, ...PRIVATE_POLICIES]
+// 카탈로그 SEED와 동일하게 — 청년주택(HOU)·정부지원사업(SUP)·정책서민금융(FIN)도 의미검색 대상에 포함
+const seeds: Policy[] = [...WELFARE_POLICIES, ...PRIVATE_POLICIES, ...HOUSING_POLICIES, ...GOV_PROGRAMS, ...FINANCIAL_POLICIES]
 const missing = seeds.filter((p) => !have.has(p.id))
 if (missing.length === 0) {
   console.log('[append] 누락 시드 없음 — 변경 없이 종료')
