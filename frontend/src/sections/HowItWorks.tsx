@@ -3,7 +3,7 @@ import { SectionHeading } from '@/ui/SectionHeading'
 
 const STEPS = [
   { emoji: '📝', title: '간단 입력', desc: '나이·소득·가족 상황을 1분이면 입력 끝. 어려우면 데모 프로필로 바로 체험!', color: 'bg-sprout-100' },
-  { emoji: '🤖', title: 'AI 자동 분석', desc: '120개 복지 정책 중 내가 받을 수 있는 혜택만 똑똑하게 골라드려요.', color: 'bg-sky2-100' },
+  { emoji: '🤖', title: 'AI 자동 분석', desc: '정부·지자체·민간 5,000여 건의 복지 중 내가 받을 수 있는 혜택만 똑똑하게 골라드려요.', color: 'bg-sky2-100' },
   { emoji: '🎁', title: '맞춤 결과', desc: '예상 금액·우선순위·필요 서류까지 한눈에. 마음에 들면 관심목록에 저장!', color: 'bg-peach-100' },
   { emoji: '🚀', title: '신청까지', desc: '단계별 신청 가이드와 정부24·복지로 바로가기로 신청을 끝까지 도와드려요.', color: 'bg-sun-100' },
 ]
