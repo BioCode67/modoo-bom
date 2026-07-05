@@ -58,7 +58,7 @@ src/
 ```
 
 ### 복지정책 카탈로그 (확장 가능)
-- 프론트는 **동적 카탈로그**(`src/data/catalog.ts`): 내장 시드 120건 + 런타임에 `public/policies.json` 병합
+- 프론트는 **동적 카탈로그**(`src/data/catalog.ts`): 내장 시드 190건(POL 124·SUP 33·PRV 21·HOU 7·FIN 5) + 런타임에 `public/policies.json` 병합
   (`useCatalog` 훅으로 자동 리렌더). 엔진/탐색기/챗봇/대시보드/모니터링 모두 `getCatalog()`/`getPolicyMap()` 사용.
 - **ETL**(`backend/etl/ingest_welfare.py`): 공공데이터(한국사회보장정보원 중앙부처 복지서비스)를 Policy 스키마로
   정규화해 `frontend/public/policies.json` 생성. CSV 모드(키 불필요, 367건) / OpenAPI 모드(B554287, 1,600+건).
@@ -79,12 +79,12 @@ src/
   `gh-pages` 브랜치 + Pages REST API 방식으로 배포함.
 
 ### 기능·품질 현황 (전문화 완료)
-- **데이터**: 시드 120건(정밀 규칙·검증 금액) + **민간재단 큐레이션 9건**(`src/data/privatePolicies.ts`, PRV-###:
+- **데이터**: 시드 190건(정밀 규칙·검증 금액; 정부 124 + 지원사업 SUP 33 + 주택공고 HOU 7 + 서민금융 FIN 5) + **민간재단 큐레이션 21건**(`src/data/privatePolicies.ts`, PRV-###:
   현대차 정몽구 스칼러십·관정·삼성꿈장학·미래에셋(장학) + 심장재단·백혈병어린이·아산SOS·초록우산·밀알(의료·위기·장애) —
   전 항목 공식 사이트 실측 검증·URL 생존 확인, 심사·선발형 명시, 엔진에선 저신뢰 '관련 복지'로만 노출(과장 방지))
   + 한국사회보장정보원 공공데이터 OpenAPI(B554287)로
   **중앙부처 367 + 지자체 4,598 = 약 4,965건 실데이터**(`public/policies.json`, 약 3.3MB·gh-pages gzip 전송)를
-  런타임 병합 → 총 **약 5,000건**. 이름 기준 디듑(시드 우선). 가짜 데이터 미생성 원칙.
+  런타임 병합 → 총 **약 5,250건**. 이름 기준 디듑(시드 우선). 가짜 데이터 미생성 원칙.
   키는 `backend/.env`의 `DATA_GO_KR_SERVICE_KEY`, 수집은 `python etl/ingest_welfare.py --csv <중앙CSV> --local`
   (ETL은 https+페이지 재시도로 견고). 더 받으려면 중앙부처(15090532)도 활용신청 후 `--api`.
   + **정책서민금융 큐레이션 5건**(`src/data/financialPolicies.ts`, FIN-###: 소액생계비대출·햇살론유스·햇살론 일반/특례·미소금융 —
@@ -112,8 +112,8 @@ src/
   긴급복지 진단, 복지 점수·TOP3, **대표문의 전화 tel: 연결**, **포트폴리오 차트**(SVG), 온보딩,
   **로그인·동기화**(카카오·구글, Supabase 무료 티어, 선택 — 미설정 시 인증 UI 숨김 + supabase-js 트리셰이킹 제외, 설정은 `supabase/SETUP.md`),
   **PWA**(설치형·오프라인·autoUpdate·beforeinstallprompt), 큰글씨·고대비·ESC·ARIA·focus-visible 접근성, ErrorBoundary.
-- **품질 게이트(모두 통과)**: `npm run lint`(eslint9 flat, react-hooks, 0건) · `npm test`(vitest **269**) ·
-  `tsc --noEmit` · `npm run build` · E2E 스모크(`frontend/e2e/smoke.py`, 실브라우저 4여정) / 백엔드 `pytest`(15). 변경마다 브라우저 회귀 검증.
+- **품질 게이트(모두 통과)**: `npm run lint`(eslint9 flat, react-hooks, 0건) · `npm test`(vitest **315**) ·
+  `tsc --noEmit` · `npm run build` · E2E 스모크(`frontend/e2e/smoke.py`, 실브라우저 10여정 + e2e:chat/save/fin/ext) / 백엔드 `pytest`(34). 변경마다 브라우저 회귀 검증.
 - **데이터 정확성(2026 검증)**: 기초연금·장애인연금·아동수당(9세 확대)·생계급여(32%)·한부모(23만/65%)·
   청년도약(33,000)·교육급여·보육료·긴급복지·노인일자리·국가장학금을 보건복지부 등 공식 출처로 검증·정정.
   엔진 소득 자격판정은 2026 정밀 선정기준(생계32·의료40·주거48·교육/차상위50)으로 동작.
