@@ -30,6 +30,8 @@ interface AppState {
   setAiIntent: (v: boolean) => void
   aiQuery: string
   setAiQuery: (q: string) => void
+  pendingRegion: string // '우리 동네 복지' 진입 시 Explore에 미리 지정할 시·도
+  setPendingRegion: (r: string) => void
 
   // 접근성 — 큰글씨 모드 / 고대비 모드
   elderly: boolean
@@ -78,6 +80,8 @@ export const useAppStore = create<AppState>()(
       setAiIntent: (v) => set({ aiIntent: v }),
       aiQuery: '',
       setAiQuery: (q) => set({ aiQuery: q }),
+      pendingRegion: '',
+      setPendingRegion: (pendingRegion) => set({ pendingRegion }),
 
       elderly: false,
       toggleElderly: () => set((s) => ({ elderly: !s.elderly })),

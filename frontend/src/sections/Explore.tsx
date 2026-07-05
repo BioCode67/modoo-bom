@@ -84,6 +84,13 @@ export function Explore() {
     }
   }, [aiIntent, aiQuery, setAiIntent, setAiQuery])
 
+  // '우리 동네 복지'로 진입한 경우 해당 시·도 필터를 미리 지정
+  const pendingRegion = useAppStore((s) => s.pendingRegion)
+  const setPendingRegion = useAppStore((s) => s.setPendingRegion)
+  useEffect(() => {
+    if (pendingRegion) { setRegion(pendingRegion); setPendingRegion('') }
+  }, [pendingRegion, setPendingRegion])
+
   // 선택한 시·도 안에서 고를 수 있는 시·군·구 목록(해당 시도 LOC 정책에서 추출, 가나다순)
   const gunguOptions = useMemo(() => {
     if (!region) return []

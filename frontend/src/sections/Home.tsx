@@ -6,6 +6,7 @@ import { Footer } from './Footer'
 import { EmergencyHelp } from '@/components/EmergencyHelp'
 import { RpaShowcase } from '@/components/RpaShowcase'
 import { ForeignerWelcome } from '@/components/ForeignerWelcome'
+import { LocalWelfare } from '@/components/LocalWelfare'
 
 export function Home() {
   return (
@@ -14,6 +15,7 @@ export function Home() {
       <EmergencyHelp />
       <HowItWorks />
       <Features />
+      <LocalWelfare />
       <ForeignerWelcome />
       <RpaShowcase />
       <Faq />
