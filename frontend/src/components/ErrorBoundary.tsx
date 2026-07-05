@@ -35,7 +35,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, State> {
                 초기화 후 새로고침
               </button>
             </div>
-            <p className="mt-4 text-[11px] text-muted-foreground">문제가 계속되면 복지로 ☎ 129로 문의하세요.</p>
+            <p className="mt-4 text-[11px] text-muted-foreground">문제가 계속되면 보건복지상담센터 ☎129 또는 복지로(bokjiro.go.kr)로 문의하세요.</p>
           </div>
         </div>
       )

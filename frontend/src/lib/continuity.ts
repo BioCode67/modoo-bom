@@ -38,7 +38,8 @@ export function recordSnapshot(profile: UserProfile, now: number): void {
     const h = safeGet()
     const last = h[h.length - 1]
     if (last && profilesEqual(last.profile, profile)) return
-    h.push({ profile, at: now })
+    // 최소저장: 이름(호칭)은 이력에 남기지 않는다 — diff 비교(FIELDS)에도 불필요(개인정보 노출면 축소)
+    h.push({ profile: { ...profile, name: '' }, at: now })
     localStorage.setItem(KEY, JSON.stringify(h.slice(-MAX)))
   } catch { /* 저장 실패는 조용히 무시(핵심 기능 아님) */ }
 }
@@ -81,4 +82,15 @@ export function diffProfiles(prev: UserProfile, curr: UserProfile): ProfileChang
 export function newlyUnlocked(prev: UserProfile, curr: UserProfile): EligiblePolicy[] {
   const prevIds = new Set(getEligiblePolicies(prev).map((p) => p.id))
   return getEligiblePolicies(curr).filter((p) => !prevIds.has(p.id))
+}
+
+/** 이 앱이 기기에 남긴 데이터 전부 삭제 — 초기화·'다시 분석' 등에서 사용(개인정보처리방침 §5 이행). */
+export function clearLocalData(): void {
+  try {
+    if (typeof localStorage === 'undefined') return
+    for (const k of Object.keys(localStorage)) {
+      if (k.startsWith('modoo:') || k.startsWith('modoobom-')) localStorage.removeItem(k)
+    }
+    try { sessionStorage.removeItem('modoo-chat-draft-v1') } catch { /* noop */ }
+  } catch { /* noop */ }
 }

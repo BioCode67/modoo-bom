@@ -26,6 +26,7 @@ function request(type: string, payload?: unknown, timeout = 1500): Promise<ExtRe
   return new Promise((resolve) => {
     const reqId = Math.random().toString(36).slice(2)
     const onMsg = (e: MessageEvent) => {
+      if (e.source !== window) return // 같은 창에서 온 메시지만(iframe·외부 창 위조 차단)
       const d = e.data
       if (d && d.source === 'modoo-ext' && d.kind === 'response' && d.reqId === reqId) {
         window.removeEventListener('message', onMsg)
@@ -55,6 +56,7 @@ export async function extensionDocs(): Promise<string[]> {
 /** 진행상태 구독. 해제 함수 반환. */
 export function onExtensionStatus(cb: (s: ExtStatus) => void): () => void {
   const handler = (e: MessageEvent) => {
+    if (e.source !== window) return // 같은 창에서 온 메시지만(가짜 '발급 완료' 위조 차단)
     const d = e.data
     if (d && d.source === 'modoo-ext' && d.kind === 'status') cb(d.payload as ExtStatus)
   }

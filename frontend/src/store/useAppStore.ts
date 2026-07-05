@@ -96,7 +96,11 @@ export const useAppStore = create<AppState>()(
       profile: null,
       result: null,
       setAnalysis: (profile, result) => set({ profile, result }),
-      clearAnalysis: () => set({ profile: null, result: null }),
+      clearAnalysis: () => {
+        // 분석 초기화 시 기기에 남은 프로필 이력(modoo:profileHistory)도 함께 삭제(방침 §5 이행)
+        try { localStorage.removeItem('modoo:profileHistory') } catch { /* noop */ }
+        set({ profile: null, result: null })
+      },
       pendingProfile: null,
       setPendingProfile: (pendingProfile) => set({ pendingProfile }),
 
@@ -140,7 +144,8 @@ export const useAppStore = create<AppState>()(
       // ⚠️ 개인정보 최소저장(보안): rpaInfo(이름·생년월일·휴대폰)는 **디스크에 저장하지 않는다**.
       //   신청서 미리채움용 강식별 PII라 세션(메모리) 동안만 유지 → 공용 기기 잔존·유출 위험 제거.
       //   profile/result는 '나의 복지' 재방문 경험에 필요해 유지(이름·연락처 없음, 초기화 버튼으로 삭제 가능).
-      partialize: (s) => ({ tracked: s.tracked, elderly: s.elderly, highContrast: s.highContrast, onboarded: s.onboarded, profile: s.profile, result: s.result }),
+      // 최소저장: 이름(호칭)은 디스크에 남기지 않는다(세션 중엔 메모리로 유지 — 새로고침 후 '회원님'으로 표시)
+      partialize: (s) => ({ tracked: s.tracked, elderly: s.elderly, highContrast: s.highContrast, onboarded: s.onboarded, profile: s.profile ? { ...s.profile, name: '' } : null, result: s.result }),
       merge: (persisted, current) => {
         const p = (persisted || {}) as Partial<AppState>
         return { ...current, ...p, rpaInfo: current.rpaInfo } // rpaInfo는 항상 메모리 기본값에서 시작
