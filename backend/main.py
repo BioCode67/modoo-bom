@@ -57,6 +57,11 @@ async def _allow_private_network(request, call_next):
     return response
 
 
+# 레이트 리미트 — 공개 배포 시 남용·LLM 비용 폭주 방지(가장 바깥쪽에서 먼저 차단).
+from api.rate_limit import rate_limit_middleware
+app.middleware("http")(rate_limit_middleware)
+
+
 app.include_router(router)
 
 

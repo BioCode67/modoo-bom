@@ -2,7 +2,7 @@
 import os
 from fastapi import APIRouter, HTTPException, Header, Depends
 from fastapi.responses import HTMLResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from rag.search import search_policies
 from rag.embedder import seed_chromadb
 from mocks.gov24_api import issue_document, _doc_store
@@ -23,8 +23,8 @@ def require_admin(x_admin_token: str = Header(default="")):
 
 
 class SearchRequest(BaseModel):
-    query: str
-    n_results: int = 5
+    query: str = Field(min_length=1, max_length=500)
+    n_results: int = Field(default=5, ge=1, le=50)  # 상한으로 과도한 조회 방지(감사 반영)
 
 
 class DocRequest(BaseModel):

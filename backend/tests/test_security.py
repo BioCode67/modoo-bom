@@ -39,3 +39,21 @@ def test_admin_requires_matching_token(monkeypatch):
         require_admin("wrong")
     assert ei.value.status_code == 401
     assert require_admin("secret123") is True
+
+
+def test_rate_limit_targets_expensive_endpoints_only():
+    from api.rate_limit import _limit_for
+    assert _limit_for("/api/search") == 40
+    assert _limit_for("/api/estimate") == 40
+    assert _limit_for("/api/health") is None  # 헬스체크는 제한 없음
+    assert _limit_for("/api/documents/rpa-issue") == 10
+
+
+def test_search_request_bounds_n_results():
+    from api.routes import SearchRequest
+    from pydantic import ValidationError
+    assert SearchRequest(query="노인").n_results == 5
+    with pytest.raises(ValidationError):
+        SearchRequest(query="노인", n_results=100000)  # 상한 초과 거부
+    with pytest.raises(ValidationError):
+        SearchRequest(query="")  # 빈 질의 거부
