@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Heart, ExternalLink, FileText, CheckCircle2, Building2, RefreshCw, Rocket, Volume2, Square, Phone, Sparkles, ShieldCheck } from 'lucide-react'
 import { useTTS } from '@/lib/useTTS'
@@ -33,16 +33,43 @@ export function PolicyDetailDrawer({
   onOpen?: (p: Policy | EligiblePolicy) => void
 }) {
   const { isSaved, toggleSaved, setStatus, setView } = useAppStore()
+  const panelRef = useRef<HTMLElement>(null)
 
-  // ESC로 닫기 + 열려있는 동안 배경 스크롤 잠금 (포커스 트랩 없이 안전하게)
+  // ESC 닫기 + 배경 스크롤 잠금 + 포커스 관리(모달 접근성: 열 때 포커스 이동, 닫을 때 복원, Tab 트랩)
   const open = policy != null
   useEffect(() => {
     if (!open) return
     const prevOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    const prevFocused = document.activeElement as HTMLElement | null
+    // 다음 프레임에 패널 안 첫 포커스 요소(또는 패널)로 포커스 이동
+    const focusTimer = setTimeout(() => {
+      const panel = panelRef.current
+      if (!panel) return
+      const f = panel.querySelector<HTMLElement>('button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])')
+      ;(f || panel).focus()
+    }, 40)
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { onClose(); return }
+      if (e.key !== 'Tab') return
+      const panel = panelRef.current
+      if (!panel) return
+      const items = Array.from(panel.querySelectorAll<HTMLElement>('button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])'))
+        .filter((el) => el.offsetParent !== null)
+      if (items.length === 0) return
+      const first = items[0], last = items[items.length - 1]
+      // Tab이 패널 밖으로 새지 않게 순환(배경 콘텐츠로의 포커스 이탈 방지)
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus() }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus() }
+      else if (!panel.contains(document.activeElement)) { e.preventDefault(); first.focus() }
+    }
     document.addEventListener('keydown', onKey)
-    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = prevOverflow }
+    return () => {
+      clearTimeout(focusTimer)
+      document.removeEventListener('keydown', onKey)
+      document.body.style.overflow = prevOverflow
+      try { prevFocused?.focus() } catch { /* 무시 */ } // 닫을 때 이전 포커스 복원
+    }
     // open만 의존: onClose는 매 렌더 새 함수라 deps에 넣으면 churn 발생
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
@@ -59,7 +86,9 @@ export function PolicyDetailDrawer({
             onClick={onClose}
           />
           <motion.aside
-            className="fixed z-50 inset-x-0 bottom-0 sm:inset-y-0 sm:right-0 sm:left-auto sm:w-[480px] max-h-[92vh] sm:max-h-none overflow-y-auto nice-scroll bg-background rounded-t-3xl sm:rounded-none sm:rounded-l-3xl shadow-2xl"
+            ref={panelRef}
+            tabIndex={-1}
+            className="fixed z-50 inset-x-0 bottom-0 sm:inset-y-0 sm:right-0 sm:left-auto sm:w-[480px] max-h-[92vh] sm:max-h-none overflow-y-auto nice-scroll bg-background rounded-t-3xl sm:rounded-none sm:rounded-l-3xl shadow-2xl outline-none"
             initial={{ y: '100%', x: 0 }}
             animate={{ y: 0, x: 0 }}
             exit={{ y: '100%' }}

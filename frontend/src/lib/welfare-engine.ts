@@ -374,6 +374,10 @@ export function demographicMismatch(name: string, doc: string, p: UserProfile): 
   if (/다자녀/.test(name) && !((ages.filter((a) => a < 18).length >= 2) || (p.household_type || '').includes('다자녀'))) return true
   // 유치원 학비(유아학비·누리과정)는 만 3~5세 대상 — 아이 나이가 적혀 있는데 3~5세가 없으면 제외.
   if (/유아학비|유치원|누리과정/.test(name) && ages.length > 0 && !ages.some((a) => a >= 3 && a <= 5)) return true
+  // 미취업 전용(일경험·구직지원)인데 이미 직업(재직·자영·은퇴)이 있으면 제외 — 연령만 맞아 강력추천되던 오류 차단.
+  if (/미취업|일경험|구직/.test(name) && ['employed', 'self', 'retired'].includes(p.employment_status)) return true
+  // 재학생 전용(학자금대출 등)인데 학생이 아님이 명시되면 제외(무직·재직 등 학생 아닌 경우).
+  if (/학자금대출|재학생/.test(name) && p.employment_status !== '' && p.employment_status !== 'student') return true
   // 청소년·학령기 전용인데 본인이 청소년도 아니고 학령기 자녀도 없음
   if (/청소년|학령기/.test(name) && !(p.age >= 9 && p.age <= 24) && !ages.some((a) => a >= 7 && a <= 18)) return true
   // 임산부·산모·임신·난임 전용인데 임신 중도 아니고 영아도 없음

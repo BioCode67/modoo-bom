@@ -79,4 +79,17 @@ describe('GOV_PROGRAMS — 대상별 노출/누수', () => {
     expect(rich.has('SUP-010')).toBe(true) // 본인부담상한제
     expect(rich.has('SUP-013')).toBe(true) // 정신건강 위기상담
   })
+
+  it('미취업 전용(일경험)은 재직자에게 안 뜨고, ICL(재학)은 학생에게만 — 취업/재학 상태 반영', () => {
+    // 재직 중이면 미취업 대상 '일경험'·재학 대상 'ICL' 모두 제외(연령만 맞아 강력추천되던 오류 차단)
+    const employed = supIds({ ...base, age: 31, employment_status: 'employed' })
+    expect(employed.has('SUP-020')).toBe(false) // 일경험(미취업)
+    expect(employed.has('SUP-018')).toBe(false) // ICL(재학)
+    // 무직 청년엔 일경험 노출, 학생 아님이라 ICL은 제외
+    const jobless = supIds({ ...base, age: 26, employment_status: 'unemployed' })
+    expect(jobless.has('SUP-020')).toBe(true)
+    expect(jobless.has('SUP-018')).toBe(false)
+    // 학생엔 ICL 노출
+    expect(supIds({ ...base, age: 22, employment_status: 'student' }).has('SUP-018')).toBe(true)
+  })
 })

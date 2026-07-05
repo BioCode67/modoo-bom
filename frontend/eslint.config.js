@@ -21,4 +21,9 @@ export default tseslint.config(
       '@typescript-eslint/no-explicit-any': 'warn',
     },
   },
+  {
+    // public의 서비스워커 스크립트(sw-notify.js)는 워커 전역(self 등)을 사용
+    files: ['public/**/*.js'],
+    languageOptions: { globals: { ...globals.serviceworker } },
+  },
 )
