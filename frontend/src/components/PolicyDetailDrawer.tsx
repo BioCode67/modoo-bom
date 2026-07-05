@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Heart, ExternalLink, FileText, CheckCircle2, Building2, RefreshCw, Rocket, Volume2, Square, Phone, Sparkles } from 'lucide-react'
+import { X, Heart, ExternalLink, FileText, CheckCircle2, Building2, RefreshCw, Rocket, Volume2, Square, Phone, Sparkles, ShieldCheck } from 'lucide-react'
 import { useTTS } from '@/lib/useTTS'
 import { relatedPolicies, type SemanticHit } from '@/lib/semanticSearch'
 import type { Policy } from '@/data/policies'
@@ -10,6 +10,7 @@ import { generateGuides } from '@/lib/welfare-engine'
 import { categoryMeta, parseMonthly, formatWon, PRIORITY_META } from '@/lib/format'
 import { deadlineHint } from '@/lib/deadline'
 import { docLink, applyLink, isApplyAutomatable } from '@/lib/officialLinks'
+import { trustInfo } from '@/lib/trust'
 import { useBackend } from '@/lib/useBackend'
 import { AgentSubmitButton } from '@/components/AgentSubmitButton'
 import { ApplyFlow } from '@/components/ApplyFlow'
@@ -283,6 +284,20 @@ function DrawerBody({
           <span className="inline-flex items-center gap-1.5"><Building2 className="h-3.5 w-3.5" /> {policy.department}</span>
           <span className="inline-flex items-center gap-1.5"><RefreshCw className="h-3.5 w-3.5" /> 갱신: {policy.renewal}</span>
         </div>
+
+        {/* 출처·신뢰 근거 — 투명성(경쟁 서비스의 AI 환각 리스크와 차별화, 정직성 원칙) */}
+        {(() => {
+          const t = trustInfo(policy.id)
+          return (
+            <div className="rounded-2xl border border-sky2-100 bg-sky2-50/40 p-3 text-xs leading-relaxed">
+              <p className="font-bold text-foreground/80 inline-flex items-center gap-1.5">
+                <ShieldCheck className="h-3.5 w-3.5 text-sprout-600" /> 출처 · 신뢰 근거
+              </p>
+              <p className="mt-1 text-muted-foreground">{t.verified ? '✅ ' : 'ℹ️ '}{t.source}{t.note ? ` · ${t.note}` : ''}</p>
+              <p className="mt-1 text-muted-foreground/80">실제 자격·지급액은 신청 기관의 <b>행정 심사</b>로 최종 확정돼요. 모두봄은 공식 정보를 있는 그대로 안내해요(추정·과장 없음).</p>
+            </div>
+          )
+        })()}
 
         {/* 함께 보면 좋은 복지 */}
         {related.length > 0 && onOpen && (
