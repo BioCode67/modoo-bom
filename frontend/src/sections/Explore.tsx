@@ -75,7 +75,7 @@ export function Explore() {
   const setAiIntent = useAppStore((s) => s.setAiIntent)
   const aiQuery = useAppStore((s) => s.aiQuery)
   const setAiQuery = useAppStore((s) => s.setAiQuery)
-  const { supported: micOk, listening, toggle: toggleMic } = useSpeech((text) => { setQ(text); setVoiceUsed(true) }, voiceLang)
+  const { supported: micOk, listening, toggle: toggleMic, error: micError } = useSpeech((text) => { setQ(text); setVoiceUsed(true) }, voiceLang)
 
   // 홈 카드·외국어 입력 등으로 진입한 경우 AI 모드 자동 활성화(+질의 프리필)
   useEffect(() => {
@@ -309,6 +309,9 @@ export function Explore() {
                   </select>
                   로 말할 수 있어요 (🎤 아이콘)
                 </p>
+              )}
+              {micError && (
+                <p role="alert" className="mt-1.5 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">🎤 {micError}</p>
               )}
               {detected && (
                 <p className="mt-1.5 text-[11px] font-semibold text-sprout-700">🌐 감지된 언어: {detected.flag} {detected.label}</p>

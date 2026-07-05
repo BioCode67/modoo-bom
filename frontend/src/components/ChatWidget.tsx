@@ -155,7 +155,7 @@ export function ChatWidget() {
   }
 
   // 음성으로 질문 → 바로 전송
-  const { supported: micOk, listening, toggle: toggleMic } = useSpeech((text) => send(text))
+  const { supported: micOk, listening, toggle: toggleMic, error: micError } = useSpeech((text) => send(text))
 
   return (
     <>
@@ -254,6 +254,9 @@ export function ChatWidget() {
               )}
             </div>
 
+            {micError && (
+              <p role="alert" className="mx-3 mb-1 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">🎤 {micError}</p>
+            )}
             <form onSubmit={(e) => { e.preventDefault(); send(input) }} className="p-3 flex gap-2">
               <input
                 value={input} onChange={(e) => setInput(e.target.value)} placeholder={listening ? '듣고 있어요…' : '복지 질문을 입력하세요'}
