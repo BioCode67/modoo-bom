@@ -77,8 +77,22 @@ export function AnalyzingOverlay({
   // 백엔드 배포 시: 실제 LangGraph 10노드 에이전트 실시간 스트리밍
   if (useBackendStream) return <BackendAgentStream profile={profile} onDone={onDone} />
 
+  // 인지 단계에서 실제로 읽어낸 '상황 신호'를 사람이 읽을 수 있게(에이전트가 무엇을 근거로 판단하는지 투명하게)
+  const signals: string[] = []
+  if (profile.age >= 65) signals.push('어르신')
+  else if (profile.age >= 19 && profile.age <= 34) signals.push('청년')
+  if (profile.income_percentile <= 50) signals.push('저소득')
+  if (profile.disability) signals.push('장애')
+  if (profile.is_pregnant) signals.push('임신')
+  if (profile.has_children) signals.push('자녀 양육')
+  if (profile.employment_status === 'unemployed') signals.push('구직 중')
+  if (/한부모|조손/.test(profile.household_type)) signals.push('한부모·조손')
+  if (profile.household_type.includes('다문화')) signals.push('다문화')
+  if (profile.household_type) signals.push(profile.household_type)
+  const signalText = signals.length ? ` — ${[...new Set(signals)].slice(0, 4).join('·')}` : ''
+
   const STEPS = [
-    '프로필에서 상황 신호를 읽었어요',
+    `프로필에서 상황 신호를 읽었어요${signalText}`,
     `내게 맞는 복지를 자격 기준으로 대조했어요 (${eligible.length}건 해당)`,
     '온디바이스 신경망으로 5천여 복지와 의미를 비교하는 중…',
     count === null ? '관련 복지를 정리하는 중…' : `AI가 놓치기 쉬운 관련 복지 ${count}건을 더 찾았어요`,
