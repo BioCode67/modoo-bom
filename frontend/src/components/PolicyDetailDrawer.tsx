@@ -21,6 +21,7 @@ import { ApplyKit } from '@/components/ApplyKit'
 import { oneTapApply } from '@/lib/quickApply'
 import { useAppStore } from '@/store/useAppStore'
 import { buildPrefill } from '@/lib/prefill'
+import { buildEvents, downloadICS } from '@/lib/calendar'
 import { cn } from '@/lib/utils'
 
 function toEligible(p: Policy | EligiblePolicy): EligiblePolicy {
@@ -328,9 +329,23 @@ function DrawerBody({
         })()}
 
         {/* 주민센터 방문용 인쇄 — 어르신·디지털 소외층의 실제 신청 경로(창구 방문) 지원 */}
-        <button onClick={() => setVisitKit(true)} className="btn-secondary w-full !py-2.5 text-sm">
-          📄 {tr(uiLang, 'visitPrint')}
-        </button>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <button onClick={() => setVisitKit(true)} className="btn-secondary !py-2.5 text-sm">
+            📄 {tr(uiLang, 'visitPrint')}
+          </button>
+          {/* 폰 캘린더에 준비 알림 — 저장 시점 앵커, 하루 전 알람(.ics VALARM). 마감을 날조하지 않음(정직) */}
+          <button
+            onClick={() => {
+              if (!saved) ctx.toggleSaved({ id: policy.id, name: policy.name, category: policy.category })
+              const synthetic = { policyId: policy.id, name: policy.name, category: policy.category, status: 'tracking' as const, savedAt: Date.now(), checkedDocs: [] }
+              const ev = buildEvents([synthetic], { [policy.id]: policy as Policy })
+              if (ev.length) downloadICS(ev)
+            }}
+            className="btn-secondary !py-2.5 text-sm"
+          >
+            ⏰ 폰 캘린더에 준비 알림
+          </button>
+        </div>
 
         <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
           <span className="inline-flex items-center gap-1.5"><Building2 className="h-3.5 w-3.5" /> {policy.department}</span>
