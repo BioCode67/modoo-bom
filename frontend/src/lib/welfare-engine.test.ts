@@ -307,6 +307,12 @@ describe('estimateBenefits / runAnalysis', () => {
   it('출산 프로필 → 출산 관련 알림 생성', () => {
     expect(runAnalysis(newborn).notifications.length).toBeGreaterThan(0)
   })
+  it('신규 모집 종료 정책은 추천에서 제외 — "신청할 수 있는 것만" 원칙(청년도약계좌 → 후속 청년미래적금)', () => {
+    // 26세 청년: 연령은 도약계좌(POL-040)에 맞지만 신규가입 종료라 신청 불가 → 제외, 후속(POL-121)은 노출
+    const r = getEligiblePolicies({ ...base, age: 26, income_percentile: 60 })
+    expect(r.some((p) => p.id === 'POL-040')).toBe(false)
+    expect(r.some((p) => p.id === 'POL-121')).toBe(true)
+  })
   it('에이전트 요약문 숫자 = 화면 헤더(맞춤 추천/강력 추천)와 일치(불일치 신뢰붕괴 방지)', () => {
     // 요약문의 "맞춤 복지 N건 / 강력 추천 M건"이 ResultsView 헤더의 primary/highCount와 같아야 한다.
     const r = runAnalysis(senior)

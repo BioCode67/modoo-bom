@@ -431,9 +431,20 @@ export function incomeCeiling(doc: string): number | null {
   return ceil
 }
 
+/**
+ * 신규 신청이 막힌 정책(모집 종료·신규가입 중단) — '신청할 수 있는 것만 추천' 원칙의 하드 게이트.
+ * 예: 청년도약계좌(신규 2025.12 종료, 기존 가입자만 유지) — 연령이 맞아도 새 사용자는 신청 불가.
+ * 후속 제도(청년미래적금 등)가 별도 정책으로 있으므로 종료 정책은 추천에서 제외해도 손해가 없다.
+ */
+export function isClosedForNew(policy: Policy): boolean {
+  const doc = `${policy.eligibility} ${policy.benefit} ${policy.target}`
+  return /신규\s*(모집|가입|신청)\s*[^,.·(]{0,8}(종료|중단|불가)|모집\s*종료|신규가입.{0,6}종료/.test(doc)
+}
+
 // 공개 API: 정책 1건 자격 판별. doc = eligibility + ' ' + target + ' ' + name (mock_eligibility/estimate와 동일).
 export function checkPolicy(policy: Policy, p: UserProfile): CheckResult {
   const doc = `${policy.eligibility} ${policy.target} ${policy.name}`
+  if (isClosedForNew(policy)) return NO // 신규 신청 불가 정책은 추천하지 않음(신뢰 원칙)
   if (demographicMismatch(policy.name, doc, p)) return NO
   // 소득 상한이 명시돼 있고 사용자가 명백히 초과하면 대상 아님(연령만 맞아도 제외)
   const ceil = incomeCeiling(doc)
@@ -539,6 +550,8 @@ export function getEligiblePolicies(p: UserProfile): EligiblePolicy[] {
   const precise: EligiblePolicy[] = []
   const inferred: EligiblePolicy[] = []
   for (const policy of getCatalog()) {
+    // 신규 신청이 막힌 정책(모집 종료)은 정밀·추론 양쪽 모두에서 제외 — '신청할 수 있는 것만'
+    if (isClosedForNew(policy)) continue
     // 인구통계 하드 미스매치(예: 72세에 청년·유아 정책)는 정밀·추론 양쪽 모두에서 제외
     if (demographicMismatch(policy.name, `${policy.eligibility} ${policy.target} ${policy.name}`, p)) continue
     // 민간재단(PRV-)은 심사·선발형 — 일반 소득룰 등 정밀 매칭으로 '자격 충족'을 단정하지 않고

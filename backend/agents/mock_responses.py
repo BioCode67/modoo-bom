@@ -103,6 +103,10 @@ def _income_ceiling(doc: str):
 def _check_policy(doc: str, name: str, pid: str, profile) -> tuple[bool, str, str, float]:
     """(eligible, reason, priority, confidence) 반환"""
 
+    # 신규 신청 불가(모집 종료) 게이트 — '신청할 수 있는 것만 추천' 원칙(프론트 isClosedForNew와 동일)
+    if re.search(r"신규\s*(모집|가입|신청)\s*[^,.·(]{0,8}(종료|중단|불가)|모집\s*종료|신규가입.{0,6}종료", doc):
+        return False, "", "low", 0.0
+
     # 소득 상한 게이트 — 명시 상한이 있고 명백히 초과하면 연령이 맞아도 대상 아님(프론트와 동일)
     ceil = _income_ceiling(doc)
     if ceil is not None and profile.income_percentile > ceil:
