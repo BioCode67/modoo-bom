@@ -65,6 +65,18 @@ from api.rate_limit import rate_limit_middleware
 app.middleware("http")(rate_limit_middleware)
 
 
+# 전역 예외 처리 — 예상 못 한 오류의 스택트레이스가 클라이언트로 새지 않게(내부정보 유출 차단).
+# 상세는 서버 로그에만 남기고, 클라이언트엔 일반 메시지 + 500.
+from fastapi import Request
+from fastapi.responses import JSONResponse
+
+
+@app.exception_handler(Exception)
+async def _unhandled_exception(request: Request, exc: Exception):
+    log.error("처리되지 않은 오류 [%s %s]: %s", request.method, request.url.path, exc)
+    return JSONResponse(status_code=500, content={"detail": "서버에서 문제가 발생했어요. 잠시 후 다시 시도해 주세요."})
+
+
 app.include_router(router)
 
 
