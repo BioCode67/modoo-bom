@@ -132,7 +132,7 @@ function DrawerBody({
   const { ready, caps } = useBackend()
   const hasBackend = ready === true && !!caps?.rpa
   const { profile, rpaInfo } = useAppStore()
-  const [applied, setApplied] = useState(false)
+  const [applied, setApplied] = useState<false | 'copied' | 'opened'>(false)
   const related = onOpen
     ? getCatalog().filter((p) => p.category === policy.category && p.id !== policy.id)
         .sort((a, b) => parseMonthly(b.benefit) - parseMonthly(a.benefit)).slice(0, 3)
@@ -164,8 +164,8 @@ function DrawerBody({
   const startApply = async () => {
     if (!saved) ctx.toggleSaved({ id: policy.id, name: policy.name, category: policy.category })
     ctx.setStatus(policy.id, 'tracking')
-    await oneTapApply(policy.application, policy.name, profile, rpaInfo) // 정보 복사 + 공식 신청 페이지 열기
-    setApplied(true)
+    const copied = await oneTapApply(policy.application, policy.name, profile, rpaInfo) // 정보 복사 + 공식 신청 페이지 열기
+    setApplied(copied ? 'copied' : 'opened')
     setTimeout(() => setApplied(false), 4000)
   }
 
@@ -392,7 +392,7 @@ function DrawerBody({
       {/* 원터치 신청 후 안내 — 설치 없이 안전하게 */}
       {applied && (
         <div className="sticky bottom-[76px] mx-4 mb-2 rounded-2xl bg-sprout-50 border border-sprout-200 px-4 py-2.5 text-xs text-sprout-800" role="status" aria-live="polite">
-          ✅ 내 정보를 <b>복사</b>했어요. 열린 공식 사이트에서 <b>간편인증(카카오 등)</b> 후 붙여넣어 제출하면 끝이에요. 🔒 인증은 정부 사이트에서만 — 안전해요.
+          {applied === 'copied' ? '✅ 내 정보를 복사했어요. ' : '✅ 공식 신청 페이지를 열었어요. '}열린 공식 사이트에서 <b>간편인증(카카오 등)</b> 후 {applied === 'copied' ? '붙여넣어 ' : ''}제출하면 끝이에요. 🔒 인증은 정부 사이트에서만 — 안전해요.
         </div>
       )}
       {/* 하단 고정 액션 */}
