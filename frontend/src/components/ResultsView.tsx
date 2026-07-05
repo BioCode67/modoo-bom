@@ -12,6 +12,7 @@ import { LifeTimeline } from '@/components/LifeTimeline'
 import { ContinuityCard } from '@/components/ContinuityCard'
 import { AiDiscovery } from '@/components/AiDiscovery'
 import { NearMissCard } from '@/components/NearMissCard'
+import { ComboCard } from '@/components/ComboCard'
 import { WelfareScore } from '@/components/WelfareScore'
 import { ShareButton } from '@/components/ShareButton'
 import { Glossary } from '@/components/Glossary'
@@ -206,6 +207,9 @@ export function ResultsView({ result, profile, onReset }: { result: AnalysisResu
               )}
             </div>
           )}
+
+          {/* 🧩 수급 조합 도우미 — 같이 받을 것 vs 하나만 고를 것(경쟁 서비스에 없는 기능, 공식 출처 기반) */}
+          <ComboCard eligible={eligible} />
 
           {/* 🎯 아깝게 놓친 복지 — 딱 한 조건만 벗어난 정책을 근거와 함께(에이전트의 판단 근거 노출) */}
           <NearMissCard profile={profile} onOpen={setSelected} />
