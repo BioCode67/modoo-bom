@@ -18,6 +18,10 @@ services:
       # 클라우드에선 RPA 비활성(개인정보 서버 유입 차단) — 기본 자동감지지만 명시
       - key: RPA_DISABLED
         value: "1"
+      # 관리자 엔드포인트(/api/admin/*) 보호 토큰. 미설정 시 관리 기능은 404(비활성)로 안전.
+      # 관리 기능을 쓰려면 대시보드에서 임의의 긴 비밀값 입력 → X-Admin-Token 헤더로 호출.
+      - key: ADMIN_TOKEN
+        sync: false
       # 배포 웹(github.io) + 로컬 개발 허용
       - key: CORS_ORIGINS
         value: "https://biocode67.github.io,http://localhost:5173,http://localhost:4173"
