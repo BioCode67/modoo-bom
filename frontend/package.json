@@ -13,6 +13,8 @@
     "test": "vitest run",
     "e2e": "../backend/venv/Scripts/python.exe e2e/smoke.py",
     "e2e:save": "../backend/venv/Scripts/python.exe e2e/audit-flow.py",
+    "e2e:chat": "../backend/venv/Scripts/python.exe e2e/audit-chat.py",
+    "e2e:fin": "../backend/venv/Scripts/python.exe e2e/audit-fin.py",
     "e2e:ext": "../backend/venv/Scripts/python.exe e2e/ext-flow.py",
     "e2e:ext:headed": "cross-env EXT_HEADED=1 ../backend/venv/Scripts/python.exe e2e/ext-flow.py",
     "embed": "node --experimental-strip-types scripts/embed-policies.mts",

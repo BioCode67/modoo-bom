@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Sparkles } from 'lucide-react'
+import { Sparkles, MessageCircleHeart, ListChecks } from 'lucide-react'
 import { ProfileWizard } from '@/components/ProfileWizard'
+import { MascotChat } from '@/components/MascotChat'
 import { QuickAsk } from '@/components/QuickAsk'
 import { AnalyzingOverlay } from '@/components/AnalyzingOverlay'
 import { ResultsView } from '@/components/ResultsView'
@@ -14,6 +15,7 @@ export function Analyze() {
   const { profile: savedProfile, result: savedResult, setAnalysis, clearAnalysis, pendingProfile, setPendingProfile } = useAppStore()
   // 캐시된 결과가 있으면 바로 결과 화면 (오랜만에 들어와도 즉시 표시)
   const [phase, setPhase] = useState<Phase>(savedResult ? 'result' : 'form')
+  const [mode, setMode] = useState<'chat' | 'quick' | 'form'>('chat')
   const [pending, setPending] = useState<{ profile: UserProfile; result: AnalysisResult } | null>(null)
 
   const handleSubmit = (profile: UserProfile) => {
@@ -57,13 +59,33 @@ export function Analyze() {
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-7">
         <span className="chip-sprout inline-flex"><Sparkles className="h-3.5 w-3.5" /> 1분이면 충분해요</span>
         <h1 className="mt-3 text-2xl sm:text-3xl font-extrabold">내 복지 찾기</h1>
-        <p className="text-muted-foreground mt-1.5">간단한 정보만 알려주시면 맞춤 복지를 찾아드려요.</p>
+        <p className="text-muted-foreground mt-1.5">폼을 채우지 마세요. 새싹이와 <b>말하듯 답만 골라주시면</b> 딱 맞는 복지를 찾아드려요.</p>
       </motion.div>
-      <QuickAsk onSubmit={handleSubmit} />
-      <div className="flex items-center gap-3 my-5 text-xs text-muted-foreground/70">
-        <span className="h-px flex-1 bg-sprout-100" /> 또는 직접 입력 <span className="h-px flex-1 bg-sprout-100" />
+
+      {/* 입력 방식 선택 — 대화형(기본) / 한 문장 / 직접 입력 */}
+      <div className="flex justify-center gap-2 mb-5">
+        <ModeTab active={mode === 'chat'} onClick={() => setMode('chat')} icon={<MessageCircleHeart className="h-4 w-4" />}>새싹이와 대화</ModeTab>
+        <ModeTab active={mode === 'quick'} onClick={() => setMode('quick')} icon={<Sparkles className="h-4 w-4" />}>한 문장으로</ModeTab>
+        <ModeTab active={mode === 'form'} onClick={() => setMode('form')} icon={<ListChecks className="h-4 w-4" />}>직접 입력</ModeTab>
       </div>
-      <ProfileWizard onSubmit={handleSubmit} />
+
+      {mode === 'chat' && <MascotChat onSubmit={handleSubmit} />}
+      {mode === 'quick' && <QuickAsk onSubmit={handleSubmit} />}
+      {mode === 'form' && <ProfileWizard onSubmit={handleSubmit} />}
     </div>
+  )
+}
+
+function ModeTab({ active, onClick, icon, children }: { active: boolean; onClick: () => void; icon: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      aria-pressed={active}
+      className={active
+        ? 'inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold bg-sprout-500 text-white shadow-soft transition-all'
+        : 'inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold bg-white border-2 border-sprout-100 text-muted-foreground hover:border-sprout-300 hover:text-foreground transition-all'}
+    >
+      {icon}{children}
+    </button>
   )
 }
