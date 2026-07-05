@@ -5,6 +5,7 @@ import { useAppStore } from '@/store/useAppStore'
 import { getPolicyMap } from '@/data/catalog'
 import { buildActionFeed, type Alert } from '@/lib/monitoring'
 import { applyLink } from '@/lib/officialLinks'
+import { buildPrefill, prefillText } from '@/lib/prefill'
 import { notifySupported, notifyPermission, enableNotify, maybeNotifyDue } from '@/lib/notify'
 import { cn } from '@/lib/utils'
 
@@ -18,8 +19,15 @@ const LEVEL_CLS: Record<Alert['level'], string> = {
 }
 
 export function MonitorFeed({ onOpenItem }: { onOpenItem: (policyId: string) => void }) {
-  const { tracked, markChecked, setStatus } = useAppStore()
+  const { tracked, markChecked, setStatus, profile, rpaInfo } = useAppStore()
   const feed = buildActionFeed(tracked, getPolicyMap())
+  // '신청' 클릭 시 내 정보를 클립보드에 복사(공식 신청서에 바로 붙여넣기) — 드로어와 동일한 원터치 경험
+  const copyPrefill = async () => {
+    try {
+      const fields = buildPrefill(profile, rpaInfo)
+      if (fields.length) await navigator.clipboard.writeText(prefillText(fields))
+    } catch { /* 무시 */ }
+  }
 
   // 선제 알림: 옵트인 상태면 '지금 챙길 일'(high/medium)을 재방문 시 하루 1회 로컬 알림으로.
   const [perm, setPerm] = useState<NotificationPermission>(() => notifyPermission())
@@ -79,7 +87,7 @@ export function MonitorFeed({ onOpenItem }: { onOpenItem: (policyId: string) => 
                 <div className="shrink-0 self-center">
                   {alert.kind === 'submit' && (
                     <a href={applyLink(policy?.application || '').url} target="_blank" rel="noopener noreferrer"
-                      onClick={() => setStatus(item.policyId, 'applied')}
+                      onClick={() => { setStatus(item.policyId, 'applied'); copyPrefill() }}
                       className="btn-primary !px-3 !py-1.5 text-xs"><Rocket className="h-3.5 w-3.5" /> 신청</a>
                   )}
                   {alert.kind === 'docs' && (

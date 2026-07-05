@@ -15,7 +15,7 @@ import { useBackend } from '@/lib/useBackend'
 import { AgentSubmitButton } from '@/components/AgentSubmitButton'
 import { ApplyFlow } from '@/components/ApplyFlow'
 import { ApplyKit } from '@/components/ApplyKit'
-import { buildPrefill, prefillText } from '@/lib/prefill'
+import { oneTapApply } from '@/lib/quickApply'
 import { useAppStore } from '@/store/useAppStore'
 import { cn } from '@/lib/utils'
 
@@ -163,12 +163,7 @@ function DrawerBody({
   const startApply = async () => {
     if (!saved) ctx.toggleSaved({ id: policy.id, name: policy.name, category: policy.category })
     ctx.setStatus(policy.id, 'tracking')
-    try {
-      const fields = buildPrefill(profile, rpaInfo)
-      if (fields.length) await navigator.clipboard.writeText(prefillText(fields))
-    } catch { /* 클립보드 미지원 환경은 무시 */ }
-    const dest = applyLink(policy.application).url
-    window.open(dest, '_blank', 'noopener,noreferrer')
+    await oneTapApply(policy.application, profile, rpaInfo) // 정보 복사 + 공식 신청 페이지 열기
     setApplied(true)
     setTimeout(() => setApplied(false), 4000)
   }
