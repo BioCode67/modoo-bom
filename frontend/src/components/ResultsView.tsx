@@ -150,10 +150,21 @@ export function ResultsView({ result, profile, onReset }: { result: AnalysisResu
 
       {/* 정책 목록 */}
       {eligible.length === 0 ? (
-        <div className="py-16 text-center text-muted-foreground">
+        /* 막다른 길 금지 — 0건이어도 반드시 '다음 행동'을 준다(기존 복지앱의 '멈춤' 불만 대응) */
+        <div className="py-14 text-center">
           <p className="text-4xl mb-2">🤔</p>
-          현재 입력 기준으로는 딱 맞는 정책을 찾지 못했어요.<br />
-          조건을 조금 바꿔 다시 분석하거나, 정책 탐색에서 직접 둘러보세요.
+          <p className="text-muted-foreground">
+            현재 입력 기준으로는 딱 맞는 정책을 찾지 못했어요.<br />
+            조건을 조금 바꾸거나, 아래에서 계속 찾아볼 수 있어요.
+          </p>
+          <div className="mt-5 flex flex-wrap justify-center gap-2">
+            <button onClick={onReset} className="btn-primary"><RotateCcw className="h-4 w-4" /> 조건 바꿔 다시 분석</button>
+            <button onClick={() => setView('explore')} className="btn-secondary">정책 5,000여 건 직접 둘러보기</button>
+            <a href="tel:129" className="btn-secondary">📞 129 무료 복지상담</a>
+          </div>
+          <p className="mt-3 text-xs text-muted-foreground/70">
+            갑작스러운 위기 상황(실직·질병 등)이라면 홈의 <b>긴급 도움</b>에서 빠른 진단을 받아보세요.
+          </p>
         </div>
       ) : (
         <>

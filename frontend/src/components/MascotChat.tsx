@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowLeft, RotateCcw, Sparkles } from 'lucide-react'
+import { ArrowLeft, Eye, RotateCcw, Sparkles } from 'lucide-react'
 import { SproutLogo } from '@/ui/SproutLogo'
+import { useAppStore } from '@/store/useAppStore'
 import type { UserProfile } from '@/lib/welfare-engine'
 import {
   EMPTY_PROFILE, AGE_BRACKETS, INCOME_OPTIONS, HOUSEHOLD_OPTIONS, SITUATIONS,
@@ -40,6 +41,9 @@ export function MascotChat({ onSubmit }: { onSubmit: (p: UserProfile) => void })
   const [history, setHistory] = useState<{ step: StepId; profile: UserProfile; len: number }[]>([])
   const [done, setDone] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
+  // 어르신(65+) 선택 시 큰글씨 모드를 즉시 제안 — 기존 복지앱의 최대 불만('작은 글씨, 어르신 미고려') 대응.
+  const { elderly, toggleElderly } = useAppStore()
+  const [offerElderly, setOfferElderly] = useState(false)
 
   // 새 메시지가 쌓이면 항상 아래로 스크롤(대화 흐름)
   useEffect(() => {
@@ -48,6 +52,8 @@ export function MascotChat({ onSubmit }: { onSubmit: (p: UserProfile) => void })
 
   const advance = (patched: UserProfile, userLabel: string) => {
     setHistory((h) => [...h, { step, profile, len: msgs.length }])
+    // 어르신을 골랐고 아직 큰글씨가 아니면, 다음 질문과 함께 큰글씨 제안 카드를 띄운다(원탭·강요 없음)
+    if (step === 'age' && patched.age >= 65 && !elderly) setOfferElderly(true)
     const reaction = mascotReaction(step, patched)
     const nxt = nextStep(step, patched)
     setProfile(patched)
@@ -117,6 +123,24 @@ export function MascotChat({ onSubmit }: { onSubmit: (p: UserProfile) => void })
         {msgs.map((m, i) => (
           <Bubble key={i} role={m.role} text={m.text} />
         ))}
+        {/* 어르신 배려 — 글씨를 크게 해드릴까요? (원탭, 거절도 존중) */}
+        {offerElderly && (
+          <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="flex items-end gap-2">
+            <SproutLogo withFace className="h-7 w-7 shrink-0 mb-0.5" />
+            <div className="max-w-[85%] rounded-2xl rounded-bl-sm border border-sprout-100 bg-white px-3.5 py-2.5">
+              <p className="text-sm leading-relaxed">화면 글씨를 <b>크게</b> 해드릴까요? 언제든 위 메뉴의 ‘큰글씨’로 바꿀 수 있어요.</p>
+              <div className="mt-2 flex gap-2">
+                <button
+                  onClick={() => { toggleElderly(); setOfferElderly(false) }}
+                  className="btn-primary !px-3.5 !py-2 text-xs"
+                >
+                  <Eye className="h-3.5 w-3.5" /> 네, 크게 볼래요
+                </button>
+                <button onClick={() => setOfferElderly(false)} className="btn-secondary !px-3.5 !py-2 text-xs">지금은 괜찮아요</button>
+              </div>
+            </div>
+          </motion.div>
+        )}
       </div>
 
       {/* 답변 입력부 — 현재 단계에 맞는 컨트롤 */}

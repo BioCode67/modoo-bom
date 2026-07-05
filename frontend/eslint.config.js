@@ -5,7 +5,7 @@ import globals from 'globals'
 
 // 정확성 중심의 경량 설정 — 스타일보다 버그 방지(특히 hooks 규칙)에 집중
 export default tseslint.config(
-  { ignores: ['dist', 'e2e-dist', 'e2e/audit', 'node_modules', '*.config.js', '*.config.ts', 'scripts/**'] },
+  { ignores: ['dist', 'e2e-dist', 'e2e/audit', 'node_modules', 'public', '*.config.js', '*.config.ts', 'scripts/**'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {

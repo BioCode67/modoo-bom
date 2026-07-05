@@ -16,10 +16,17 @@ export function Footer() {
             <p>2026 AI·SW 중심대학 디지털 경진대회 SW부문</p>
             <p className="mt-0.5 text-muted-foreground/70">React · Three.js · FastAPI · LangGraph · Claude AI</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap justify-center gap-2">
             <a href="https://www.bokjiro.go.kr" target="_blank" rel="noopener noreferrer" className="btn-ghost">복지로</a>
             <a href="https://www.gov.kr" target="_blank" rel="noopener noreferrer" className="btn-ghost">정부24</a>
             <a href="tel:129" className="btn-ghost">129 상담</a>
+            {/* 피드백 채널 — 기존 복지앱의 '항의해도 응답 없음' 불만 대응: 닿는 창구를 명시 */}
+            <a
+              href="mailto:6wngud@gmail.com?subject=%5B%EB%AA%A8%EB%91%90%EB%B4%84%5D%20%EC%9D%98%EA%B2%AC%C2%B7%EB%B6%88%ED%8E%B8%20%EC%8B%A0%EA%B3%A0&body=%EA%B2%AA%EC%9C%BC%EC%8B%A0%20%EB%B6%88%ED%8E%B8%EC%9D%B4%EB%82%98%20%EB%B0%94%EB%9E%8C%EC%9D%84%20%EC%A0%81%EC%96%B4%EC%A3%BC%EC%84%B8%EC%9A%94.%20%EB%B9%A0%EB%A5%B4%EA%B2%8C%20%EA%B3%A0%EC%B9%A0%EA%B2%8C%EC%9A%94!%0A%0A%E2%80%A2%20%EC%96%B4%EB%96%A4%20%ED%99%94%EB%A9%B4%EC%97%90%EC%84%9C%3A%20%0A%E2%80%A2%20%EB%AC%B4%EC%97%87%EC%9D%B4%20%EB%B6%88%ED%8E%B8%ED%96%88%EB%82%98%EC%9A%94%3A%20"
+              className="btn-ghost text-sprout-600"
+            >
+              💬 의견 보내기
+            </a>
           </div>
         </div>
         <div className="mt-6 flex items-center justify-center gap-3 text-[11px]">
