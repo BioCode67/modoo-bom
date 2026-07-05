@@ -44,6 +44,9 @@ export function AnalyzingOverlay({
     setActive(1)
     ;(async () => {
       try {
+        // 데이터 절약·저사양·2G 환경에선 3.9MB 임베딩을 받지 않고 규칙기반 결과로 바로 진행(정직 폴백).
+        const { prefersDataSaving } = await import('@/lib/netHint')
+        if (prefersDataSaving()) { finish(); return }
         const { semanticDiscover } = await import('@/lib/semanticSearch')
         setActive(2) // 신경망 임베딩 로드·의미 유사도 계산(실제 async 작업)
         const userSido = sidoOf(profile.region)

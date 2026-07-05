@@ -59,7 +59,10 @@ export function AiDiscovery({
   useEffect(() => {
     if (auto.current || !eligible.length) return
     auto.current = true
-    run()
+    // 데이터 절약·저사양 환경에선 5.4MB 임베딩을 자동 다운로드하지 않고, 사용자가 'AI로 더 찾기'를 눌렀을 때만.
+    import('@/lib/netHint').then(({ prefersDataSaving }) => {
+      if (!prefersDataSaving()) run()
+    })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
