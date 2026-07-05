@@ -1,17 +1,18 @@
 import { motion } from 'framer-motion'
-import { MousePointerClick, Smartphone, FileCheck2, ShieldCheck, PlayCircle } from 'lucide-react'
+import { MessageCircleHeart, MousePointerClick, Smartphone, ShieldCheck, PlayCircle } from 'lucide-react'
 import { SectionHeading } from '@/ui/SectionHeading'
 
+// 무설치 기본 경로 — 어떤 브라우저·폰에서도, 설치 없이. (대부분의 사용자가 이 경로)
 const STEPS = [
-  { icon: MousePointerClick, n: '1', title: '누르기만 하면', desc: '“자동발급”을 누르면 에이전트가 정부24를 실제로 조작해 로그인·정보 입력을 대신 해요.', who: 'AI 에이전트' },
-  { icon: Smartphone, n: '2', title: '본인인증만 나', desc: '카카오톡 간편인증 승인만 직접. (명의도용·비가역 행위라 사람이 하는 게 맞아요)', who: '사용자' },
-  { icon: FileCheck2, n: '3', title: '발급·저장까지', desc: '발급 폼 작성→신청→문서출력→PDF 저장까지 에이전트가 이어서 끝냅니다.', who: 'AI 에이전트' },
+  { icon: MessageCircleHeart, n: '1', title: '말로 말하면', desc: '“72세 혼자 사는데 소득이 적어요” 한마디(음성도)면 맞춤 복지를 바로 찾아드려요.', who: '모두봄 AI' },
+  { icon: MousePointerClick, n: '2', title: '[신청] 한 번', desc: '내 정보를 자동 복사하고 공식 신청 페이지를 바로 열어드려요. 설치도, 크롬 전용도 아니에요.', who: '모두봄' },
+  { icon: Smartphone, n: '3', title: '인증만 나', desc: '정부 공식 사이트에서 카카오 간편인증만. 개인정보·인증은 정부 사이트에만 머물러 안전해요.', who: '사용자' },
 ]
 
 /**
- * 실제 정부 사이트 자동화 쇼케이스 — 우리의 가장 '에이전트다운' 자산.
- * 라이브 사이트에선 개인정보·보안 때문에 로컬(진짜 크롬+CDP)에서 동작하므로, 여기선 '무엇을 하는지'와
- * '왜 이게 진짜인지(목업 아님)'를 정직하게 보여준다. (시연 영상은 아래 자리에 삽입)
+ * 신청까지 이어지는 경험을 정직하게 보여준다.
+ * 기본(무설치): 말하기→추천→원터치 신청 이동(내 정보 복사+공식 페이지)→인증만. 어느 브라우저·폰이든.
+ * 선택(완전 자동): 크롬 확장/로컬 에이전트로 발급·작성까지 자동(파워 유저). 미래: 공공 마이데이터로 인증만 하면 완전 자동.
  */
 export function RpaShowcase() {
   return (
@@ -19,11 +20,11 @@ export function RpaShowcase() {
       <div className="page-container">
         <SectionHeading
           eyebrow="찾기에서 끝나지 않아요"
-          title={<>서류 발급·신청까지 <span className="gradient-text">AI가 실제로</span> 대신해요</>}
+          title={<>말하면 → 추천 → <span className="gradient-text">신청까지</span>, 설치 없이</>}
         />
         <p className="text-center text-muted-foreground -mt-4 mb-10 max-w-2xl mx-auto text-sm leading-relaxed">
-          목업이 아니라 <b className="text-foreground">진짜 정부24를 조작</b>합니다. 사용자의 실제 크롬을 에이전트가 원격으로
-          움직여(안티매크로도 통과) 로그인·인증정보 입력·발급까지 수행해요. <b className="text-foreground">본인인증만</b> 직접 하면 됩니다.
+          앱 설치도, 크롬 전용도 아니에요. <b className="text-foreground">어떤 브라우저·폰</b>에서든 말로 상황을 말하면 맞춤 복지를 찾고,
+          <b className="text-foreground"> [신청] 한 번</b>으로 내 정보를 복사해 공식 신청 페이지까지 데려다드려요. 정부 사이트에서 <b className="text-foreground">인증만</b> 하면 끝.
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
@@ -52,10 +53,10 @@ export function RpaShowcase() {
             <PlayCircle className="h-8 w-8" />
           </div>
           <div className="flex-1">
-            <p className="font-bold">실제 발급 시연 — 등본이 8단계에서 폰 승인 1단계로</p>
+            <p className="font-bold">더 자동으로도 — 원하는 분만 (선택)</p>
             <p className="text-sm text-muted-foreground mt-0.5">
-              발표·심사에서 실제 자동발급 화면을 시연합니다(로컬 에이전트 <code className="text-xs bg-muted px-1 rounded">run-agent-cdp.bat</code>).
-              완전 무인 대리인증은 <b className="text-foreground">일부러 배제</b>했어요 — 안전하고 정직한 설계입니다.
+              크롬 확장/로컬 에이전트를 쓰면 서류 발급·양식 작성까지 <b className="text-foreground">AI가 대신</b>(정부24 실제 조작). 본인인증·최종 제출만 본인이요.
+              <br className="hidden sm:block" />앞으로는 <b className="text-foreground">공공 마이데이터</b>로 <b className="text-foreground">인증 한 번이면 완전 자동</b> — 설치 없이 안전하게 준비 중이에요.
             </p>
           </div>
           <span className="inline-flex items-center gap-1.5 text-xs font-bold text-sprout-700 bg-sprout-50 rounded-full px-3 py-1.5 shrink-0">
