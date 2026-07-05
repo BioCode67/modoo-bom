@@ -44,6 +44,13 @@ describe('relevance', () => {
     const one = relevance(CATALOG[0], [['노인']])
     expect(both).toBeGreaterThan(one)
   })
+  it('감사 회귀: target=benefit=eligibility 동일문장(지자체 요약형)이 3배 가산되지 않음', () => {
+    // 세 본문 필드가 완전 동일한 정책 vs 이름에만 매칭되는 정책 — 본문 중복이 이름 매칭을 밀어내면 안 됨
+    const dup = P('LOC-1', '무슨지원', '기타', '전기요금 감면', '전기요금 감면', '전기요금 감면')
+    const nameOnly = P('POL-X', '전기요금 지원사업', '기타', '', '', '')
+    // 이름에 '전기요금' 포함(3점) ≥ 본문에만 동일문장 3필드(합쳐서 1.5+0.6=2.1점) → 이름 우선 유지
+    expect(relevance(nameOnly, [['전기요금']])).toBeGreaterThan(relevance(dup, [['전기요금']]))
+  })
 })
 
 describe('searchPolicies', () => {

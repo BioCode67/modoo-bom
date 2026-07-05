@@ -95,7 +95,17 @@ export function ProfileWizard({ onSubmit }: { onSubmit: (p: UserProfile) => void
               </Field>
               <Field label={`나이 — 만 ${p.age}세`}>
                 <input type="range" aria-label={`나이 슬라이더, 현재 만 ${p.age}세`} min={0} max={100} value={p.age} onChange={(e) => set({ age: +e.target.value })} className="w-full accent-sprout-500" />
-                <input type="number" aria-label="나이 직접 입력" min={0} max={120} value={p.age} onChange={(e) => set({ age: +e.target.value })} className="input-cute mt-2 w-28" />
+                <input
+                  type="number" aria-label="나이 직접 입력" min={0} max={120} value={p.age}
+                  onChange={(e) => {
+                    // 빈 값을 0(신생아)으로 저장하지 않는다 — 지우는 중에는 유지, 유효 범위로 클램프(0~120)
+                    const v = e.target.value
+                    if (v === '') return
+                    const n = parseInt(v, 10)
+                    if (!Number.isNaN(n)) set({ age: Math.max(0, Math.min(120, n)) })
+                  }}
+                  className="input-cute mt-2 w-28"
+                />
               </Field>
               <Field label="성별">
                 <div className="grid grid-cols-3 gap-2">
@@ -166,7 +176,7 @@ export function ProfileWizard({ onSubmit }: { onSubmit: (p: UserProfile) => void
                   <input
                     aria-label="자녀 나이 (쉼표로 구분)"
                     defaultValue={p.children_ages.join(', ')}
-                    onChange={(e) => set({ children_ages: e.target.value.split(',').map((x) => parseInt(x.trim(), 10)).filter((n) => !isNaN(n)) })}
+                    onChange={(e) => set({ children_ages: e.target.value.split(',').map((x) => parseInt(x.trim(), 10)).filter((n) => !isNaN(n) && n >= 0 && n <= 30) })}
                     placeholder="예: 0, 5"
                     className="input-cute"
                   />

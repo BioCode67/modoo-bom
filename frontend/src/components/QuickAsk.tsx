@@ -22,6 +22,7 @@ const EXAMPLES = [
 export function QuickAsk({ onSubmit }: { onSubmit: (p: UserProfile) => void }) {
   const [text, setText] = useState('')
   const speech = useSpeech((t) => setText((prev) => (prev ? prev + ' ' : '') + t))
+  // 마이크 오류(권한 거부·무음 등)를 조용히 삼키지 않고 안내 — 데모 중 흔한 실패 모드
   const setView = useAppStore((s) => s.setView)
   const setAiIntent = useAppStore((s) => s.setAiIntent)
   const setAiQuery = useAppStore((s) => s.setAiQuery)
@@ -65,6 +66,10 @@ export function QuickAsk({ onSubmit }: { onSubmit: (p: UserProfile) => void }) {
           </button>
         )}
       </div>
+
+      {speech.error && (
+        <p role="alert" className="mt-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">🎤 {speech.error}</p>
+      )}
 
       <div className="mt-2 flex flex-wrap gap-1.5">
         {EXAMPLES.map((ex) => (

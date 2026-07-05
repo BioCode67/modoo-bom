@@ -34,7 +34,18 @@ if (existing.model !== MODEL || existing.dim !== DIM) {
 const have = new Set(existing.ids)
 // 카탈로그 SEED와 동일하게 — 청년주택(HOU)·정부지원사업(SUP)·정책서민금융(FIN)도 의미검색 대상에 포함
 const seeds: Policy[] = [...WELFARE_POLICIES, ...PRIVATE_POLICIES, ...HOUSING_POLICIES, ...GOV_PROGRAMS, ...FINANCIAL_POLICIES]
-const missing = seeds.filter((p) => !have.has(p.id))
+// ⚠️ 외부 공공데이터(public/policies.json의 GOV-/LOC-)도 대상 — 이게 빠지면 '5천건 AI검색' 헤드라인이
+//    해당 정책에선 거짓이 되고, 상세의 'AI로 비슷한 복지'가 조용히 0건이 된다(감사 실측).
+let external: Policy[] = []
+try {
+  const raw = JSON.parse(readFileSync(new URL('../public/policies.json', import.meta.url), 'utf-8'))
+  external = (Array.isArray(raw) ? raw : raw.policies || []) as Policy[]
+} catch { /* 외부 파일 없으면 시드만 */ }
+const seedNames = new Set(seeds.map((p) => (p.name || '').replace(/\s/g, '')))
+// 런타임 catalog.ts dedup과 동일: LOC-는 지역별 동명사업이라 항상 유지, 그 외만 이름중복 제거(시드 우선)
+const catalog: Policy[] = [...seeds, ...external.filter((p) =>
+  p && p.id && (String(p.id).startsWith('LOC-') || !seedNames.has((p.name || '').replace(/\s/g, ''))))]
+const missing = catalog.filter((p) => !have.has(p.id))
 if (missing.length === 0) {
   console.log('[append] 누락 시드 없음 — 변경 없이 종료')
   process.exit(0)

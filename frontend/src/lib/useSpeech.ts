@@ -7,9 +7,26 @@ interface SpeechRecognitionLike {
   interimResults: boolean
   onresult: ((e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null
   onend: (() => void) | null
-  onerror: (() => void) | null
+  onerror: ((e: { error?: string }) => void) | null
   start: () => void
   stop: () => void
+}
+
+/** 음성 인식 오류코드 → 사용자용 안내(어르신도 이해할 쉬운 말). */
+function speechErrorMessage(code?: string): string {
+  switch (code) {
+    case 'not-allowed':
+    case 'service-not-allowed':
+      return '마이크 사용이 막혀 있어요. 브라우저 주소창의 🔒(자물쇠)에서 마이크를 허용해 주세요.'
+    case 'no-speech':
+      return '소리가 들리지 않았어요. 다시 한 번 또박또박 말씀해 주세요.'
+    case 'audio-capture':
+      return '마이크를 찾지 못했어요. 마이크가 연결돼 있는지 확인해 주세요.'
+    case 'network':
+      return '네트워크 문제로 음성 인식을 못 했어요. 연결을 확인하고 다시 시도해 주세요.'
+    default:
+      return '음성 인식에 실패했어요. 글로 입력하셔도 됩니다.'
+  }
 }
 type SRCtor = new () => SpeechRecognitionLike
 
@@ -24,6 +41,7 @@ function getCtor(): SRCtor | null {
 export function useSpeech(onResult: (text: string) => void, lang: string = 'ko-KR') {
   const [supported] = useState(() => !!getCtor())
   const [listening, setListening] = useState(false)
+  const [error, setError] = useState<string | null>(null) // 마지막 오류 안내(권한거부·무음 등) — UI에서 노출
   const recRef = useRef<SpeechRecognitionLike | null>(null)
   const cbRef = useRef(onResult)
   cbRef.current = onResult
@@ -40,7 +58,7 @@ export function useSpeech(onResult: (text: string) => void, lang: string = 'ko-K
       if (text) cbRef.current(text)
     }
     rec.onend = () => setListening(false)
-    rec.onerror = () => setListening(false)
+    rec.onerror = (e) => { setListening(false); setError(speechErrorMessage(e?.error)) }
     recRef.current = rec
     return () => { try { rec.stop() } catch { /* noop */ } }
   }, [lang])
@@ -52,9 +70,10 @@ export function useSpeech(onResult: (text: string) => void, lang: string = 'ko-K
       try { rec.stop() } catch { /* noop */ }
       setListening(false)
     } else {
-      try { rec.start(); setListening(true) } catch { /* noop */ }
+      setError(null)
+      try { rec.start(); setListening(true) } catch { setError(speechErrorMessage()) }
     }
   }
 
-  return { supported, listening, toggle }
+  return { supported, listening, toggle, error }
 }

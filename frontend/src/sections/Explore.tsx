@@ -152,10 +152,13 @@ export function Explore() {
     return buildAiAnswer(aiHits.map((h) => h.policy), q)
   }, [aiMode, aiHits, q])
 
+  // AI 답변의 언어 = 질의 언어(aiAnswer가 질의 언어로 생성) → TTS도 그 언어 보이스로 읽어야 발음이 안 깨진다
+  const answerLang = useMemo(() => (aiMode && q.trim() ? (detectLang(q)?.code || 'ko') : 'ko'), [aiMode, q])
+
   // 음성으로 물었으면 AI가 음성으로 답한다(대화형) — 마이크 클릭이 사용자 제스처라 TTS 허용됨
   useEffect(() => {
     if (voiceUsed && aiMode && aiAnswer && tts.supported) {
-      tts.speak(aiAnswer)
+      tts.speak(aiAnswer, answerLang)
       setVoiceUsed(false)
     }
     // tts는 매 렌더 새 객체라 deps에서 제외(speak만 호출)
@@ -407,7 +410,7 @@ export function Explore() {
             </div>
             {tts.supported && (
               <button
-                onClick={() => tts.toggle(aiAnswer)}
+                onClick={() => tts.toggle(aiAnswer, answerLang)}
                 aria-label={tts.speaking ? '읽기 중지' : '음성으로 듣기'}
                 className="shrink-0 inline-flex items-center gap-1 rounded-full border border-sprout-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-sprout-700 transition-colors hover:bg-sprout-50"
               >
