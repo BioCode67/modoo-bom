@@ -397,6 +397,8 @@ export function demographicMismatch(name: string, doc: string, p: UserProfile): 
   // 보수적: gender==='male'일 때만(‘other’/미지정은 배제하지 않아 트랜스·논바이너리 포용).
   if (p.gender === 'male' &&
       /생리|모유수유|여성\s?청소년|경력단절\s?여성|여성가장|여성\s?새로일하기|여성경제활동|여성장애인|이주여성/.test(name)) return true
+  // 중장년 전용(만 40~64세, 예: 중장년 새출발 재취업)인데 그 연령대 아님 — 29세에 '중장년 재취업' 강추 방지
+  if (/중장년/.test(name) && !(p.age >= 40 && p.age <= 64)) return true
   // 사업주·고용주 대상(고용장려금 등)은 개인 수혜가 아님
   if (/사업주|고용주/.test(doc) || /고용장려금|고용지원금|고용촉진장려금|채용장려금/.test(name)) return true
   return false
