@@ -1,6 +1,6 @@
 """FastAPI REST 라우터"""
 import os
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Header, Depends
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from rag.search import search_policies
@@ -9,6 +9,17 @@ from mocks.gov24_api import issue_document, _doc_store
 from agents.mock_responses import is_mock_mode
 
 router = APIRouter(prefix="/api")
+
+
+def require_admin(x_admin_token: str = Header(default="")):
+    """관리자 엔드포인트 보호 — ADMIN_TOKEN 환경변수와 일치하는 헤더만 허용.
+    ADMIN_TOKEN 미설정(로컬 개발)이면 관리 기능을 아예 비활성화(공개 배포 시 무인증 노출 방지)."""
+    expected = os.getenv("ADMIN_TOKEN", "")
+    if not expected:
+        raise HTTPException(status_code=404, detail="Not found")  # 미설정 시 존재하지 않는 것처럼
+    if x_admin_token != expected:
+        raise HTTPException(status_code=401, detail="관리자 인증이 필요합니다.")
+    return True
 
 
 class SearchRequest(BaseModel):
@@ -106,16 +117,23 @@ async def issue_doc(req: DocRequest):
 
 @router.get("/documents/view/{receipt_number}", response_class=HTMLResponse)
 async def view_document(receipt_number: str):
-    """발급된 Mock 서류를 HTML로 반환 (브라우저에서 직접 열기 / 인쇄)"""
-    html = _doc_store.get(receipt_number)
-    if not html:
+    """발급된 Mock 서류를 HTML로 반환 (브라우저에서 직접 열기 / 인쇄).
+    사용자 입력(이름)은 생성 시점에 이미 정제되지만, 뷰 응답에도 강한 격리 헤더를 둔다:
+    - CSP default-src 'none'(script 실행 원천 차단) + nosniff → 혹시 남은 주입도 무력화."""
+    doc_html = _doc_store.get(receipt_number)
+    if not doc_html:
         raise HTTPException(status_code=404, detail="서류를 찾을 수 없습니다. (만료되었거나 존재하지 않는 접수번호)")
-    return HTMLResponse(content=html)
+    return HTMLResponse(content=doc_html, headers={
+        "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; img-src data:",
+        "X-Content-Type-Options": "nosniff",
+        "X-Frame-Options": "DENY",
+        "Referrer-Policy": "no-referrer",
+    })
 
 
 @router.post("/admin/seed")
-async def seed_data():
-    """ChromaDB 샘플 데이터 임베딩 (초기화용). Mock 모드에서는 스킵."""
+async def seed_data(_: bool = Depends(require_admin)):
+    """ChromaDB 샘플 데이터 임베딩 (초기화용). Mock 모드에서는 스킵. (관리자 토큰 필요)"""
     if is_mock_mode():
         return {"message": "Mock 모드 — 시딩 스킵", "mode": "mock", "count": 0}
     count = seed_chromadb()
@@ -123,7 +141,7 @@ async def seed_data():
 
 
 @router.get("/admin/status")
-async def db_status():
+async def db_status(_: bool = Depends(require_admin)):
     from rag.chromadb_client import get_collection
     try:
         col = get_collection()
@@ -364,13 +382,18 @@ async def journey_status(journey_id: str):
 
 
 @router.get("/admin/env")
-async def env_check():
-    """환경변수 상태 확인 (키 값은 마스킹)"""
-    anthropic_key = os.getenv("ANTHROPIC_API_KEY", "")
-    claude_model = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-6")
+async def env_check(_: bool = Depends(require_admin)):
+    """환경변수 상태 확인 (키 값은 노출하지 않고 set/not set 여부만). 관리자 토큰 필요."""
+    try:
+        from agents.llm import active_provider
+        provider = active_provider() or "rule-based(mock)"
+    except Exception:
+        provider = "unknown"
     return {
-        "ANTHROPIC_API_KEY": f"{'set (' + anthropic_key[:10] + '...)' if anthropic_key else 'not set'}",
-        "CLAUDE_MODEL": claude_model,
+        "active_provider": provider,  # 실제 사용 중인 제공자(Gemini/Groq/Anthropic/mock)
+        "GEMINI_API_KEY": "set" if os.getenv("GEMINI_API_KEY") else "not set",
+        "GROQ_API_KEY": "set" if os.getenv("GROQ_API_KEY") else "not set",
+        "ANTHROPIC_API_KEY": "set" if os.getenv("ANTHROPIC_API_KEY") else "not set",
         "CHROMA_PERSIST_DIR": os.getenv("CHROMA_PERSIST_DIR", "./chroma_db"),
         "CORS_ORIGINS": os.getenv("CORS_ORIGINS", "http://localhost:5173"),
         "mock_mode": is_mock_mode(),

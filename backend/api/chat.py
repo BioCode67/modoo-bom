@@ -98,6 +98,9 @@ async def _ai_answer(question: str, policies: list[dict]) -> str:
 # ── WebSocket 엔드포인트 ────────────────────────────────────────────────────
 
 async def chat_websocket_endpoint(ws: WebSocket):
+    from api.ws_security import reject_bad_origin
+    if await reject_bad_origin(ws):
+        return
     await ws.accept()
     try:
         while True:
@@ -152,9 +155,10 @@ async def chat_websocket_endpoint(ws: WebSocket):
     except WebSocketDisconnect:
         pass
     except Exception as e:
+        print(f"[ws/chat] error: {e}")  # 상세는 서버 로그에만(클라이언트엔 일반 메시지)
         try:
             await ws.send_text(json.dumps(
-                {"type": "error", "message": str(e)}, ensure_ascii=False,
+                {"type": "error", "message": "답변 생성 중 문제가 발생했어요. 잠시 후 다시 시도해 주세요."}, ensure_ascii=False,
             ))
         except Exception:
             pass

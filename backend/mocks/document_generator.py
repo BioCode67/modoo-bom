@@ -3,8 +3,20 @@
 - 주민등록등본, 건강보험 자격득실확인서, 고용보험 피보험자격 이력내역서 등
 - 브라우저에서 미리보기 가능, Ctrl+P로 PDF 저장 가능
 """
+import html
+import re
 import uuid
 from datetime import datetime, date
+
+
+def _safe_name(user_name: str) -> str:
+    """사용자 입력 이름을 HTML에 안전하게 넣기 위한 정제.
+    - 이름 문자셋(한글·영문·공백·점)만 허용하고 길이 제한 → 스크립트/태그 주입 차단(저장형 XSS·문서위조 방지).
+    - HTML 특수문자는 escape로 이중 방어.
+    """
+    raw = (user_name or "").strip()[:40]
+    cleaned = re.sub(r"[^0-9A-Za-z가-힣\s.\-]", "", raw) or "홍길동"
+    return html.escape(cleaned, quote=True)
 
 
 def _today() -> str:
@@ -525,11 +537,13 @@ DOCUMENT_GENERATORS = {
 
 
 def generate_document(doc_name: str, user_name: str, birth_year: int = 1990):  # Optional[str]
-    """문서 이름에 맞는 HTML 생성. 지원 안 하면 None 반환."""
+    """문서 이름에 맞는 HTML 생성. 지원 안 하면 None 반환.
+    ⚠️ user_name은 사용자 입력이므로 반드시 정제해 f-string에 넣는다(저장형 XSS·문서위조 차단)."""
     gen = DOCUMENT_GENERATORS.get(doc_name)
     if gen is None:
         return None
+    safe = _safe_name(user_name)
     try:
-        return gen(user_name, birth_year)  # type: ignore
+        return gen(safe, birth_year)  # type: ignore
     except TypeError:
-        return gen(user_name)  # type: ignore
+        return gen(safe)  # type: ignore

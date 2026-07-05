@@ -108,6 +108,9 @@ async def run_agent_with_streaming(ws: WebSocket, profile_data: dict):
 
 
 async def websocket_endpoint(ws: WebSocket):
+    from api.ws_security import reject_bad_origin
+    if await reject_bad_origin(ws):
+        return
     await ws.accept()
     try:
         raw = await ws.receive_text()
@@ -128,7 +131,8 @@ async def websocket_endpoint(ws: WebSocket):
         except Exception:
             pass
     except Exception as e:
+        print(f"[ws/analyze] error: {e}")  # 상세는 서버 로그에만
         try:
-            await _send(ws, "error", {"message": str(e)})
+            await _send(ws, "error", {"message": "분석 중 문제가 발생했어요. 잠시 후 다시 시도해 주세요."})
         except Exception:
             pass
