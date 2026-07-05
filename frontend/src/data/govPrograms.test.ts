@@ -29,7 +29,7 @@ describe('GOV_PROGRAMS — 정부 지원사업 큐레이션 데이터 무결성'
   })
 
   it('application에 공식 URL 포함, 정제 후 깨끗한 도메인', () => {
-    const allow = /(enhuf\.molit\.go\.kr|myhome\.go\.kr|apply\.lh\.or\.kr|khug\.or\.kr|bokjiro\.go\.kr|nhis\.or\.kr|gov\.kr|hira\.or\.kr|mohw\.go\.kr|ncc\.re\.kr|korea-pass\.kr|youthculturepass\.or\.kr|kosaf\.go\.kr|q-net\.or\.kr|yw\.work24\.go\.kr|4insure\.or\.kr|8899\.or\.kr|sbiz24\.kr|foodvoucher\.go\.kr)/
+    const allow = /(enhuf\.molit\.go\.kr|myhome\.go\.kr|apply\.lh\.or\.kr|khug\.or\.kr|bokjiro\.go\.kr|nhis\.or\.kr|gov\.kr|hira\.or\.kr|mohw\.go\.kr|ncc\.re\.kr|ncrc\.or\.kr|korea-pass\.kr|youthculturepass\.or\.kr|kosaf\.go\.kr|q-net\.or\.kr|yw\.work24\.go\.kr|4insure\.or\.kr|8899\.or\.kr|sbiz24\.kr|foodvoucher\.go\.kr)/
     for (const p of GOV_PROGRAMS) {
       const url = applyLink(p.application).url
       expect(url).toMatch(/^https:\/\//)
@@ -38,8 +38,8 @@ describe('GOV_PROGRAMS — 정부 지원사업 큐레이션 데이터 무결성'
     }
   })
 
-  it('카탈로그·맵에 병합됨(25건)', () => {
-    expect(GOV_PROGRAMS.length).toBe(25)
+  it('카탈로그·맵에 병합됨(33건)', () => {
+    expect(GOV_PROGRAMS.length).toBe(33)
     const map = getPolicyMap()
     const cat = new Set(getCatalog().map((p) => p.id))
     for (const p of GOV_PROGRAMS) {

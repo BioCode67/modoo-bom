@@ -88,6 +88,13 @@ describe('demographicMismatch (인구통계 하드 게이트)', () => {
   it('대상어 없는 보편 정책은 미스매치 아님', () => {
     expect(demographicMismatch('국민기초생활보장 생계급여', '중위소득 32% 이하', senior)).toBe(false)
   })
+  it('농어촌 전용 지원은 대도시(광역시) 거주자에겐 미스매치, 도(道)·미지정은 유지', () => {
+    const nm = '농어촌 출산지원금'
+    expect(demographicMismatch(nm, nm, { ...base, region: '서울', is_pregnant: true })).toBe(true)
+    expect(demographicMismatch(nm, nm, { ...base, region: '부산', is_pregnant: true })).toBe(true)
+    expect(demographicMismatch(nm, nm, { ...base, region: '경기', is_pregnant: true })).toBe(false)
+    expect(demographicMismatch(nm, nm, { ...base, region: '', is_pregnant: true })).toBe(false)
+  })
   it('여성 전용 급여(생리용품·여성청소년)는 남성에게만 미스매치(other/female은 포용)', () => {
     const nm = '여성 청소년 생리용품 바우처'
     expect(demographicMismatch(nm, nm, { ...base, gender: 'male', age: 15 })).toBe(true)

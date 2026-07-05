@@ -386,6 +386,10 @@ export function demographicMismatch(name: string, doc: string, p: UserProfile): 
   if (/장애인|장애아/.test(name) && !p.disability) return true
   // 한부모·모자/부자가정·미혼모/부 전용인데 아님
   if (/한부모|모자가정|부자가정|미혼모|미혼부|조손/.test(name) && !p.household_type.includes('한부모')) return true
+  // 농어촌·농업 전용 지원은 대도시(특별시·광역시) 거주자에겐 제외 — 서울 임신부에게 '농어촌 출산지원금'
+  // 이 강력추천되던 오류 차단. 도(道) 지역·미지정은 농촌 포함 가능성이 있어 게이트하지 않음(과배제 방지).
+  if (/농어촌|농업인|어업인|농촌|귀농|귀어|농가|어가/.test(name) &&
+      ['서울', '부산', '대구', '인천', '광주', '대전', '울산', '세종'].some((m) => (p.region || '').includes(m))) return true
   // 다문화·결혼이민 전용인데 아님
   if (/다문화|결혼이민|이주여성|이주민/.test(name) && !p.household_type.includes('다문화')) return true
   // 여성 생물학·여성 전용 급여인데 명백히 남성 — 남성에게 '생리용품·여성청소년·경력단절여성' 등 방지.
