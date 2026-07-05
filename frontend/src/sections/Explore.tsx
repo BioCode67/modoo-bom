@@ -6,6 +6,7 @@ import { useTTS } from '@/lib/useTTS'
 import { semanticSearch, warmupSemantic, type SemanticHit } from '@/lib/semanticSearch'
 import { detectLang } from '@/lib/detectLang'
 import { isUiLang } from '@/lib/i18nLite'
+import { benefitTypeOf, BENEFIT_TYPE_META, type BenefitType } from '@/lib/benefitType'
 import { useAppStore } from '@/store/useAppStore'
 import { IncomeCalculator } from '@/components/IncomeCalculator'
 import { parseMonthly } from '@/lib/format'
@@ -54,6 +55,7 @@ export function Explore() {
   const [bucket, setBucket] = useState('all')
   const [sort, setSort] = useState<SortKey>('default')
   const [onlyCash, setOnlyCash] = useState(false)
+  const [benefitType, setBenefitType] = useState('')
   const [region, setRegion] = useState('')
   const [gungu, setGungu] = useState('')
   const [showCalc, setShowCalc] = useState(false)
@@ -105,7 +107,7 @@ export function Explore() {
   }, [catalog, region])
 
   // 필터/검색/정렬 변경 시 노출 개수 초기화(점진 렌더링)
-  useEffect(() => { setVisible(PAGE) }, [q, bucket, sort, onlyCash, region, gungu])
+  useEffect(() => { setVisible(PAGE) }, [q, bucket, sort, onlyCash, benefitType, region, gungu])
   // 시·도가 바뀌면 시·군·구 선택 초기화
   useEffect(() => { setGungu('') }, [region])
 
@@ -177,6 +179,7 @@ export function Explore() {
         if (g && g !== gungu) return false
       }
       if (onlyCash && parseMonthly(p.benefit) <= 0) return false
+      if (benefitType && benefitTypeOf(p) !== benefitType) return false
       return true
     }
 
@@ -205,7 +208,7 @@ export function Explore() {
     if (sort === 'amount') return [...list].sort((a, b2) => parseMonthly(b2.benefit) - parseMonthly(a.benefit))
     if (sort === 'name') return [...list].sort((a, b2) => a.name.localeCompare(b2.name, 'ko'))
     return list
-  }, [q, bucket, catalog, sort, onlyCash, region, gungu, aiMode, aiHits])
+  }, [q, bucket, catalog, sort, onlyCash, benefitType, region, gungu, aiMode, aiHits])
 
   const detected = aiMode && q.trim() ? detectLang(q) : null
   // 외국어 질의를 감지하면 UI 표시 언어를 그 언어로 — 상세·신청키트가 자국어로 뜬다(외국인 딥퍼널).
@@ -374,6 +377,18 @@ export function Explore() {
             className={cn('ml-1 rounded-full px-3 py-1.5 text-xs font-semibold border transition-colors', onlyCash ? 'bg-peach-400 border-peach-400 text-white' : 'bg-white border-sprout-100 text-muted-foreground hover:border-sprout-200')}>
             💰 현금 지원만
           </button>
+          {/* 지원형태 파셋 — 지자체 4,598건도 텍스트 신호로 분류(현금 필터가 못 잡던 것 보완) */}
+          <select
+            value={benefitType}
+            onChange={(e) => setBenefitType(e.target.value)}
+            aria-label="지원형태 선택"
+            className={cn('rounded-full px-3 py-1.5 text-xs font-semibold border transition-colors cursor-pointer', benefitType ? 'bg-violet-500 border-violet-500 text-white' : 'bg-white border-sprout-100 text-muted-foreground hover:border-sprout-200')}
+          >
+            <option value="">🎁 지원형태</option>
+            {(Object.keys(BENEFIT_TYPE_META) as BenefitType[]).map((k) => (
+              <option key={k} value={k}>{BENEFIT_TYPE_META[k].emoji} {BENEFIT_TYPE_META[k].label}</option>
+            ))}
+          </select>
           <select
             value={region}
             onChange={(e) => setRegion(e.target.value)}
@@ -448,9 +463,9 @@ export function Explore() {
                     🧠 AI 의미 검색으로 다시 찾기
                   </button>
                 )}
-                {(q.trim() || bucket !== 'all' || onlyCash || region) && (
+                {(q.trim() || bucket !== 'all' || onlyCash || benefitType || region) && (
                   <button
-                    onClick={() => { setQ(''); setBucket('all'); setOnlyCash(false); setRegion(''); setGungu('') }}
+                    onClick={() => { setQ(''); setBucket('all'); setOnlyCash(false); setBenefitType(''); setRegion(''); setGungu('') }}
                     className="btn-secondary !py-2 text-sm"
                   >
                     필터 지우고 전체 보기

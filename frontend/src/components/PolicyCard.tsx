@@ -4,6 +4,7 @@ import type { Policy } from '@/data/policies'
 import type { EligiblePolicy } from '@/lib/welfare-engine'
 import { categoryMeta, parseMonthly, formatWon, isCashBenefit, PRIORITY_META } from '@/lib/format'
 import { deadlineHint } from '@/lib/deadline'
+import { benefitTypeOf, BENEFIT_TYPE_META } from '@/lib/benefitType'
 import { useAppStore } from '@/store/useAppStore'
 import { cn } from '@/lib/utils'
 
@@ -31,6 +32,7 @@ export function PolicyCard({
   const region = rm ? (rm[1].split(/\s+/).pop() || rm[1]) : ''
   const targetText = rm ? policy.target.replace(/^\[[^\]]+\]\s*/, '') : policy.target
   const deadline = deadlineHint(policy) // 신청 기한 힌트(있으면 ⏰ 배지)
+  const btype = benefitTypeOf(policy) // 지원형태(현금·바우처·감면·서비스·대출)
 
   return (
     <motion.div
@@ -55,6 +57,7 @@ export function PolicyCard({
           <div className="flex items-center gap-1.5 flex-wrap">
             <span className="text-[11px] font-semibold text-muted-foreground">{policy.category}</span>
             {region && <span className="text-[10px] font-semibold text-sky2-700 bg-sky2-50 rounded-full px-1.5 py-0.5">📍 {region}</span>}
+            {btype && <span className="text-[10px] font-semibold text-violet-700 bg-violet-50 rounded-full px-1.5 py-0.5">{BENEFIT_TYPE_META[btype].emoji} {BENEFIT_TYPE_META[btype].label}</span>}
             {deadline && (
               <span className={cn('text-[10px] font-semibold rounded-full px-1.5 py-0.5', deadline.urgent ? 'text-rose-700 bg-rose-50' : 'text-amber-700 bg-amber-50')}>
                 ⏰ {deadline.label}
