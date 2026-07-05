@@ -78,8 +78,12 @@ export function ChatWidget() {
     if (!q) return
     setMsgs((m) => [...m, { role: 'user', text: q }])
     setInput('')
-    // 대화 맥락 기억: 직전에 보여준 복지를 "그거/첫번째/다 담아줘"로 가리키면 실제로 담는다
-    const context = [...msgs].reverse().find((m) => m.role === 'bot' && m.policies?.length)?.policies ?? []
+    // 대화 맥락 기억: 직전에 보여준 복지를 "그거/첫번째/다 담아줘"로 가리키면 실제로 담는다.
+    // 챗 내 맥락이 없으면(열자마자 "다 담아줘") 분석 결과의 정밀추천(POL-)을 저장 대상으로 폴백 —
+    // '분석 → 챗 열기 → 다 담아줘'가 바로 동작하게(관련/민간은 과담기 방지 위해 제외).
+    const inChat = [...msgs].reverse().find((m) => m.role === 'bot' && m.policies?.length)?.policies ?? []
+    const fallback = result?.eligible_policies?.filter((p) => /^POL-/.test(p.id)) ?? []
+    const context = inChat.length ? inChat : (fallback as Policy[])
     const toSave = matchSaveIntent(q, context)
     if (toSave) {
       const added: string[] = []

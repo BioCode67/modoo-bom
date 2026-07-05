@@ -11,6 +11,7 @@
     "deploy": "npm run build && node scripts/clean-wasm.mjs && gh-pages -d dist -b gh-pages --nojekyll -m \"deploy: 모두봄 프론트엔드 정적 빌드\"",
     "test": "vitest run",
     "e2e": "../backend/venv/Scripts/python.exe e2e/smoke.py",
+    "e2e:save": "../backend/venv/Scripts/python.exe e2e/audit-flow.py",
     "e2e:ext": "../backend/venv/Scripts/python.exe e2e/ext-flow.py",
     "e2e:ext:headed": "cross-env EXT_HEADED=1 ../backend/venv/Scripts/python.exe e2e/ext-flow.py",
     "embed": "node --experimental-strip-types scripts/embed-policies.mts",
