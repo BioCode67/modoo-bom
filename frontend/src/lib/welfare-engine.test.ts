@@ -300,6 +300,17 @@ describe('estimateBenefits / runAnalysis', () => {
   it('출산 프로필 → 출산 관련 알림 생성', () => {
     expect(runAnalysis(newborn).notifications.length).toBeGreaterThan(0)
   })
+  it('에이전트 요약문 숫자 = 화면 헤더(맞춤 추천/강력 추천)와 일치(불일치 신뢰붕괴 방지)', () => {
+    // 요약문의 "맞춤 복지 N건 / 강력 추천 M건"이 ResultsView 헤더의 primary/highCount와 같아야 한다.
+    const r = runAnalysis(senior)
+    const primary = r.eligible_policies.filter((p) => /^POL-/.test(p.id))
+    const high = primary.filter((p) => p.priority === 'high')
+    const fr = r.final_response
+    expect(fr).toContain(`맞춤 복지 ${primary.length}건`)
+    expect(fr).toContain(`강력 추천이 ${high.length}건`)
+    // 낡은 '수혜 가능 정책 N건'(전체 분모) 표현이 남아있지 않아야 함
+    expect(fr).not.toContain('수혜 가능 정책')
+  })
 })
 
 describe('disabilityLabel — 현행 장애 체계 표시(2019 등급제 폐지)', () => {

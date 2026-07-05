@@ -722,13 +722,20 @@ function buildFinalResponse(
     )
   }
 
-  const high = eligible.filter((p) => p.priority === 'high')
-  const top3 = [...eligible].sort((a, b) => b.confidence - a.confidence).slice(0, 3)
+  // 화면 헤더(맞춤 추천/강력 추천)와 같은 분류로 집계해 숫자가 어긋나지 않게 한다.
+  // primary = 정밀 큐레이션(POL-), related = 공공데이터 텍스트신호로 '관련'만(낮은 신뢰)
+  const primary = eligible.filter((p) => /^POL-/.test(p.id))
+  const related = eligible.filter((p) => !/^(POL|PRV)-/.test(p.id))
+  const base = primary.length ? primary : eligible
+  const high = base.filter((p) => p.priority === 'high')
+  // 가장 먼저 권할 정책은 정밀 추천(primary)에서 신뢰도순으로 — 낮은 신뢰 '관련'이 앞서지 않게.
+  const top3 = [...base].sort((a, b) => b.confidence - a.confidence).slice(0, 3)
   const names = top3.map((p) => p.name).join(', ')
 
   const sentences: string[] = [
-    `분석 결과 수혜 가능 정책 ${eligible.length}건을 찾았으며, ` +
-      `그 중 우선순위 높은 정책이 ${high.length}건입니다.`,
+    `분석 결과 맞춤 복지 ${base.length}건을 찾았고, ` +
+      `그 중 강력 추천이 ${high.length}건입니다.` +
+      (related.length ? ` 이 밖에 관련 있어 보이는 복지 ${related.length}건도 아래에 따로 모았어요.` : ''),
     `가장 먼저 ${names} 신청을 권장합니다.`,
   ]
 
