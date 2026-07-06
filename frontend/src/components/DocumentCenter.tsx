@@ -95,7 +95,11 @@ export function DocumentCenter() {
           birth_date: rpaInfo.birth_date, phone: rpaInfo.phone, carrier: rpaInfo.carrier,
         }),
       })
-      if (!res.ok) throw new Error('지원하지 않는 서류')
+      if (!res.ok) {
+        // 503(이용자 많음/RPA 비활성)은 서버의 안내 문구를 그대로 — 옆의 '전자발급' 링크로 폴백하면 됨
+        const detail = await res.json().then((d) => d?.detail).catch(() => '')
+        throw new Error(detail || (res.status === 503 ? '지금은 자동 발급이 어려워요 — 옆의 전자발급으로 진행해 주세요.' : '지원하지 않는 서류'))
+      }
       const { task_id } = await res.json()
       for (let i = 0; i < 60; i++) {
         await new Promise((r) => setTimeout(r, 1500))

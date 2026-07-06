@@ -1,11 +1,66 @@
-"""RPA 태스크 생명주기 관리"""
+"""RPA 태스크 생명주기 관리 + 다중 사용자 안전 계층.
+
+원격 다중 사용자(심사·시연)에서도 '안 터지게' 하기 위한 3중 안전장치:
+  1) 동시 실행 상한(_MAX_CONCURRENT) + 대기 큐 — 브라우저가 무한 생성돼 서버가 죽는 것을 차단.
+  2) 태스크당 하드 타임아웃(_TASK_TIMEOUT) — 멈춘 세션이 슬롯을 영구 점유하지 못하게.
+  3) 태스크 저장소 크기 상한(_MAX_TASKS) — 메모리 무한 증가 방지(오래된 것부터 제거).
+큐가 가득 차면 can_accept()=False → 라우터가 503으로 정중히 거절하고 프론트가 무설치 안내로 폴백.
+
+개인정보 원칙(rpa/config.py): 이름·생년월일·연락처는 메모리에서만 쓰고 로깅/디스크 저장하지 않는다.
+"""
 import asyncio
+import os
 import uuid
+from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Optional
 
-# task_id → RPATask 저장소
+# task_id → RPATask(실행 중) 또는 dict(완료) 저장소
 _rpa_tasks: dict = {}
+
+# ── 다중 사용자 안전 파라미터(환경변수로 조정) ──
+_MAX_CONCURRENT = max(1, int(os.getenv("RPA_MAX_CONCURRENT", "2")))   # 동시에 띄우는 브라우저 수
+_MAX_QUEUE = max(0, int(os.getenv("RPA_MAX_QUEUE", "8")))             # 대기 큐 최대 길이(초과 시 거절)
+_TASK_TIMEOUT = max(60, int(os.getenv("RPA_TASK_TIMEOUT", "900")))    # 태스크 하드 타임아웃(초)
+_MAX_TASKS = max(50, int(os.getenv("RPA_MAX_TASKS", "200")))          # 저장소 보관 상한
+
+_sem: Optional[asyncio.Semaphore] = None
+_active = 0     # 현재 브라우저를 점유 중인 태스크 수
+_waiting = 0    # 슬롯을 기다리는(큐) 태스크 수
+
+
+def _get_sem() -> asyncio.Semaphore:
+    # 세마포어는 실행 중 이벤트 루프에 바인딩돼야 하므로 최초 사용 시점에 생성한다.
+    global _sem
+    if _sem is None:
+        _sem = asyncio.Semaphore(_MAX_CONCURRENT)
+    return _sem
+
+
+def can_accept() -> bool:
+    """새 RPA 요청을 받아들일 여력이 있는지(대기 큐가 넘치지 않았는지)."""
+    return _waiting < _MAX_QUEUE
+
+
+def capacity() -> dict:
+    """현재 처리 용량 스냅샷 — /api/health 노출용(프론트가 '대기 N명'·폴백 판단)."""
+    return {
+        "max_concurrent": _MAX_CONCURRENT,
+        "active": _active,
+        "waiting": _waiting,
+        "queue_limit": _MAX_QUEUE,
+        "accepting": can_accept(),
+    }
+
+
+def _evict_old() -> None:
+    """저장소가 상한을 넘으면 가장 오래된 태스크부터 제거(메모리 보호)."""
+    if len(_rpa_tasks) <= _MAX_TASKS:
+        return
+    def _created(v):
+        return v.get("created_at", "") if isinstance(v, dict) else getattr(v, "created_at", "")
+    for k, _ in sorted(_rpa_tasks.items(), key=lambda kv: _created(kv[1]))[: len(_rpa_tasks) - _MAX_TASKS]:
+        _rpa_tasks.pop(k, None)
 
 
 class RPATask:
@@ -48,6 +103,46 @@ def get_task(task_id: str) -> Optional[dict]:
     return _rpa_tasks.get(task_id)
 
 
+@asynccontextmanager
+async def rpa_slot():
+    """RPA 실행 슬롯 — 동시 실행 상한 안에서만 브라우저를 띄우게 하는 게이트.
+    오케스트레이터(여정)의 각 단계도 이 슬롯을 거쳐 전체 동시성이 _MAX_CONCURRENT로 묶인다."""
+    global _active
+    async with _get_sem():
+        _active += 1
+        try:
+            yield
+        finally:
+            _active = max(0, _active - 1)
+
+
+async def _guarded_run(task: "RPATask", run_coro) -> None:
+    """태스크를 동시성 상한·타임아웃·정리 안에서 실행한다. run_coro는 인자 없는 async 팩토리."""
+    global _active, _waiting
+    _waiting += 1
+    if _active >= _MAX_CONCURRENT:
+        task.update("queued", "대기 중… 앞의 자동화가 끝나면 자동으로 시작해요")
+    dequeued = False
+    try:
+        async with _get_sem():
+            _waiting -= 1
+            dequeued = True
+            _active += 1
+            try:
+                await asyncio.wait_for(run_coro(), timeout=_TASK_TIMEOUT)
+            finally:
+                _active = max(0, _active - 1)
+    except asyncio.TimeoutError:
+        task.update("error", "시간이 초과돼 자동화를 종료했어요. 공식 사이트에서 이어서 진행해 주세요.")
+    except Exception as e:  # noqa: BLE001 — 어떤 실패도 슬롯을 정상 반납해야 함
+        task.update("error", f"자동화 오류: {str(e)[:200]}")
+    finally:
+        if not dequeued:
+            _waiting = max(0, _waiting - 1)
+        _rpa_tasks[task.task_id] = task.to_dict()
+        _evict_old()
+
+
 _SUPPORTED_DOCS = {
     "주민등록등본": ("gov24", "정부24"),
     "주민등록초본": ("gov24", "정부24"),
@@ -66,39 +161,32 @@ SUPPORTED_SERVICE_NAMES = _SUPPORTED_SERVICES
 
 
 def start_apply_task(service_name: str, user_name: str, profile: dict) -> str:
-    """복지 서비스 신청 RPA 태스크 시작"""
+    """복지 서비스 신청 RPA 태스크 시작(동시성 상한·타임아웃 적용)."""
     task_id = uuid.uuid4().hex[:10]
     task = RPATask(task_id, service_name, user_name)
-    _rpa_tasks[task_id] = task.to_dict()
+    _rpa_tasks[task_id] = task
 
-    loop = asyncio.get_event_loop()
-
-    async def _run():
-        _rpa_tasks[task_id] = task
+    async def run_coro():
         from rpa.apply_rpa import run_apply_rpa
         await run_apply_rpa(task, service_name, profile)
-        _rpa_tasks[task_id] = task.to_dict()
 
-    loop.create_task(_run())
+    loop = asyncio.get_event_loop()
+    loop.create_task(_guarded_run(task, run_coro))
     return task_id
 
 
 def start_rpa_task(doc_name: str, user_name: str, user_info: dict = None) -> str:
-    """RPA 태스크를 비동기 시작하고 task_id 반환"""
+    """RPA 태스크를 비동기 시작하고 task_id 반환(동시성 상한·타임아웃 적용)."""
     if doc_name not in _SUPPORTED_DOCS:
         raise ValueError(f"지원하지 않는 문서: {doc_name}. 지원 목록: {SUPPORTED_DOC_NAMES}")
 
     task_id = uuid.uuid4().hex[:10]
     task = RPATask(task_id, doc_name, user_name)
-    _rpa_tasks[task_id] = task.to_dict()
+    _rpa_tasks[task_id] = task
     _info = user_info or {}
 
-    loop = asyncio.get_event_loop()
-
-    async def _run():
-        _rpa_tasks[task_id] = task  # 객체로 교체 (update() 호출용)
+    async def run_coro():
         rpa_type = _SUPPORTED_DOCS[doc_name][0]
-
         if rpa_type == "gov24":
             from rpa.gov24_rpa import run_gov24_rpa
             await run_gov24_rpa(task, doc_name, _info)
@@ -109,8 +197,6 @@ def start_rpa_task(doc_name: str, user_name: str, user_info: dict = None) -> str
             from rpa.work24_rpa import run_work24_rpa
             await run_work24_rpa(task)
 
-        # 최종 dict 저장
-        _rpa_tasks[task_id] = task.to_dict()
-
-    loop.create_task(_run())
+    loop = asyncio.get_event_loop()
+    loop.create_task(_guarded_run(task, run_coro))
     return task_id

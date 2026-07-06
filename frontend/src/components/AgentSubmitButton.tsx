@@ -76,7 +76,11 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ service_name: policy.name, user_name: rpaInfo.name || profile?.name || '사용자', profile: { ...(profile || {}), ...rpaInfo } }),
       })
-      if (!res.ok) throw new Error('이 서비스는 자동 신청을 지원하지 않아요')
+      if (!res.ok) {
+        // 503(이용자 많음/RPA 비활성)은 서버 안내를 그대로 노출 — 아래 공식 신청 링크로 폴백
+        const detail = await res.json().then((d) => d?.detail).catch(() => '')
+        throw new Error(detail || (res.status === 503 ? '지금은 자동 신청이 어려워요 — 공식 신청 페이지로 진행해 주세요.' : '이 서비스는 자동 신청을 지원하지 않아요'))
+      }
       const { task_id } = await res.json()
       for (let i = 0; i < 200; i++) {
         await new Promise((r) => setTimeout(r, 1500))

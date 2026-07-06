@@ -68,6 +68,7 @@ async def _run_journey(jid, user_info, profile):
     j["status"] = "running"
     user_name = j["user_name"]
 
+    from rpa.manager import rpa_slot, _TASK_TIMEOUT
     for step in j["steps"]:
         j["current"] = step["name"]
         step["status"] = "running"
@@ -75,15 +76,20 @@ async def _run_journey(jid, user_info, profile):
         step["task_id"] = task.task_id
         _rpa_tasks[task.task_id] = task
         try:
-            if step["kind"] == "doc":
-                await _run_step_doc(task, step["name"], user_info)
-                saved = (task.result or {}).get("saved_path")
-                step["saved_path"] = saved
-                if saved:
-                    j["saved_docs"].append(saved)
-            else:  # apply
-                await run_apply_rpa(task, step["name"], {**profile, **user_info})
+            # 전체 동시성(_MAX_CONCURRENT)을 넘지 않도록 슬롯을 거치고, 멈춘 단계는 타임아웃으로 종료
+            async with rpa_slot():
+                if step["kind"] == "doc":
+                    await asyncio.wait_for(_run_step_doc(task, step["name"], user_info), timeout=_TASK_TIMEOUT)
+                    saved = (task.result or {}).get("saved_path")
+                    step["saved_path"] = saved
+                    if saved:
+                        j["saved_docs"].append(saved)
+                else:  # apply
+                    await asyncio.wait_for(run_apply_rpa(task, step["name"], {**profile, **user_info}), timeout=_TASK_TIMEOUT)
             step["status"] = task.status if task.status in ("done", "error", "completed") else "done"
+        except asyncio.TimeoutError:
+            step["status"] = "error"
+            step["error"] = "시간 초과로 이 단계를 종료했어요."
         except Exception as e:
             step["status"] = "error"
             step["error"] = str(e)[:200]

@@ -78,6 +78,14 @@ async def health():
     _seeded = doc_count >= max(60, int(_expected * 0.8)) if _expected else doc_count >= 60
 
     ai_ok = active_provider() is not None
+    # RPA 처리 용량(다중 사용자 안전) — 프론트가 '지금 이용자 많음 → 무설치 안내' 폴백 판단에 사용
+    rpa_capacity = None
+    if rpa_enabled():
+        try:
+            from rpa.manager import capacity
+            rpa_capacity = capacity()
+        except Exception:
+            rpa_capacity = None
     return {
         "status": "ok",
         "service": "ModooBom API",
@@ -86,6 +94,7 @@ async def health():
         "capabilities": {
             "ai": ai_ok,
             "rpa": rpa_enabled(),
+            "rpa_capacity": rpa_capacity,
             "ai_provider": provider_label(),
             "rag": backend_label(),
         },
@@ -181,10 +190,12 @@ async def rpa_issue(req: DocRequest):
     실제 브라우저 자동화로 서류 발급 시작.
     지원: 주민등록등본, 주민등록초본, 건강보험 자격득실확인서, 고용보험 피보험자격 이력내역서
     """
-    from rpa.manager import start_rpa_task, SUPPORTED_DOC_NAMES
+    from rpa.manager import start_rpa_task, SUPPORTED_DOC_NAMES, can_accept
     from rpa.config import rpa_enabled, rpa_disabled_reason
     if not rpa_enabled():
         raise HTTPException(status_code=503, detail=rpa_disabled_reason())
+    if not can_accept():
+        raise HTTPException(status_code=503, detail="지금 자동 발급 이용자가 많아요. 잠시 후 다시 시도하거나 공식 사이트에서 바로 발급하실 수 있어요.")
     if req.doc_name not in SUPPORTED_DOC_NAMES:
         raise HTTPException(
             status_code=400,
@@ -223,10 +234,12 @@ async def apply_supported():
 @router.post("/apply/start")
 async def apply_start(req: ApplyRequest):
     """복지 서비스 신청 RPA 시작"""
-    from rpa.manager import start_apply_task, SUPPORTED_SERVICE_NAMES
+    from rpa.manager import start_apply_task, SUPPORTED_SERVICE_NAMES, can_accept
     from rpa.config import rpa_enabled, rpa_disabled_reason
     if not rpa_enabled():
         raise HTTPException(status_code=503, detail=rpa_disabled_reason())
+    if not can_accept():
+        raise HTTPException(status_code=503, detail="지금 자동 신청 이용자가 많아요. 잠시 후 다시 시도하거나 공식 사이트에서 바로 신청하실 수 있어요.")
     if req.service_name not in SUPPORTED_SERVICE_NAMES:
         raise HTTPException(
             status_code=400,
@@ -378,6 +391,12 @@ async def journey_run(req: JourneyRunRequest):
     """복지 여정 실행 — 지정된 서류들을 순차 발급(자동 저장)하고 신청까지 오케스트레이션.
     각 사이트에서 카카오 본인인증만 사용자가 하면 로그인·양식·발급·저장·신청은 자동."""
     from rpa.orchestrator import start_journey
+    from rpa.manager import can_accept
+    from rpa.config import rpa_enabled, rpa_disabled_reason
+    if not rpa_enabled():
+        raise HTTPException(status_code=503, detail=rpa_disabled_reason())
+    if not can_accept():
+        raise HTTPException(status_code=503, detail="지금 자동화 이용자가 많아요. 잠시 후 다시 시도하거나 공식 사이트에서 바로 진행하실 수 있어요.")
     user_info = {"user_name": req.user_name, "birth_date": req.birth_date,
                  "phone": req.phone, "carrier": req.carrier}
     jid = start_journey(req.doc_names, req.service_names, req.user_name, user_info, req.profile)
