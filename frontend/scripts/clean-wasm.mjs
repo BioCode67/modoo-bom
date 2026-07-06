@@ -8,7 +8,9 @@
 import { readdirSync, rmSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 
-const dir = new URL('../dist/assets/', import.meta.url)
+// 대상 산출물 폴더: 인자로 지정(예: `node scripts/clean-wasm.mjs dist-app`), 기본은 dist.
+const outDir = process.argv[2] || 'dist'
+const dir = new URL(`../${outDir}/assets/`, import.meta.url)
 let removed = 0
 let bytes = 0
 try {

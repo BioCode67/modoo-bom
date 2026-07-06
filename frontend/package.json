@@ -8,6 +8,7 @@
     "build": "tsc && vite build",
     "build:app": "tsc && vite build --mode app",
     "postbuild": "node scripts/clean-wasm.mjs",
+    "postbuild:app": "node scripts/clean-wasm.mjs dist-app",
     "preview": "vite preview",
     "lint": "eslint .",
     "deploy": "npm run build && gh-pages -d dist -b gh-pages --nojekyll -m \"deploy: 모두봄 프론트엔드 정적 빌드\"",
