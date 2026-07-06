@@ -4,8 +4,12 @@
 > 개인 복지 자산 관리 AI Agent · 2026 AI·SW 중심대학 디지털 경진대회 SW부문
 
 ### 🌐 라이브 데모 — **https://biocode67.github.io/modoo-bom/**
+### 📱 지금 바로 체험·설치 (웹 QR + 안드로이드 앱) — **https://biocode67.github.io/app.html**
 
-![tests](https://img.shields.io/badge/frontend_tests-353_passed-brightgreen) ![pytest](https://img.shields.io/badge/backend_pytest-34_passed-brightgreen) ![e2e](https://img.shields.io/badge/E2E_실브라우저-10여정·에러0-brightgreen) ![data](https://img.shields.io/badge/실데이터-5,250여건_검증-blue) ![lighthouse](https://img.shields.io/badge/Lighthouse-A11y96·BP100·SEO100-blue)
+> **실시간 AI 백엔드도 라이브**입니다 — 클라우드(Render)에 LangGraph 10노드 에이전트 + 챗이 배포돼
+> 배포 사이트에서 **진짜 LLM(Google Gemini) 답변**이 동작합니다(무키 시 규칙 폴백, Gemini 실패 시 Groq 자동 폴백).
+
+![tests](https://img.shields.io/badge/frontend_tests-392_passed-brightgreen) ![pytest](https://img.shields.io/badge/backend_pytest-34_passed-brightgreen) ![e2e](https://img.shields.io/badge/E2E_실브라우저-10여정·에러0-brightgreen) ![data](https://img.shields.io/badge/실데이터-5,250여건_검증-blue) ![lighthouse](https://img.shields.io/badge/Lighthouse-A11y96·BP100·SEO100-blue)
 
 회원가입·백엔드 없이 바로 동작합니다. 프론트엔드는 **전국 5,250여 건 복지**(보건복지부 검증 큐레이션 124 + 정부지원사업·청년주택·서민금융 45
 + **민간재단 큐레이션 21** + 한국사회보장정보원 공공데이터 5,061 — 현대차 정몽구 스칼러십·심장재단 수술비 등
@@ -381,7 +385,7 @@ modoo-bom/
 
 - **정직성 코드화**: 민간재단·서민금융은 심사·상환형이라 `priority high/신뢰도 0.68↑` 표시가 **테스트에서 거부**됨.
   현금성 합산은 보수적(바우처·대출 제외). 모집종료 정책은 추천 제외(`isClosedForNew`).
-- **품질 게이트**(차트 4): 프론트 vitest **320** · 백엔드 pytest **34** · 실브라우저 E2E **10여정**(+대화온보딩·저장흐름·확장연동·라이브체크
+- **품질 게이트**(차트 4): 프론트 vitest **392** · 백엔드 pytest **34** · 실브라우저 E2E **11여정**(+대화온보딩·저장흐름·확장연동·라이브체크
   전용 게이트) · lint 0 · tsc 0 — 매 변경마다 실행.
 - **멀티에이전트 상호감사**: 29개 AI 에이전트가 데이터·URL·코드·문구·보안 5차원을 감사하고 발견마다 별도 검증자가 반박 시도 —
   확정 23건 전부 즉시 정정(오탐 1건은 반박으로 기각). "AI가 만들고 AI가 감사하는" 개발 프로세스 자체가 차별점.
