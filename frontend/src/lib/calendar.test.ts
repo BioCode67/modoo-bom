@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildEvents, toICS, futureEvents } from './calendar'
+import { buildEvents, toICS, futureEvents, formatEventDate } from './calendar'
 import type { Policy } from '@/data/policies'
 import type { TrackedItem } from '@/store/useAppStore'
 
@@ -78,5 +78,26 @@ describe('toICS', () => {
     expect(ics).toContain('BEGIN:VEVENT')
     expect(ics).toContain('SUMMARY:')
     expect(ics).toContain('END:VCALENDAR')
+  })
+})
+
+describe('감사 수정 회귀 — 날짜 정확성', () => {
+  it('DTSTAMP는 UTC(Z)로 끝나야 함(RFC 5545)', () => {
+    const ics = toICS([{ id: 'x', date: Date.now() + 86400000, title: '테스트', note: '메모', kind: 'prepare' }])
+    const stamp = ics.split('\r\n').find((l) => l.startsWith('DTSTAMP:'))
+    expect(stamp).toBeTruthy()
+    expect(/^DTSTAMP:\d{8}T\d{6}Z$/.test(stamp!)).toBe(true)
+  })
+  it("오늘 늦은 시각 이벤트는 '내일'이 아니라 '오늘'로 표기", () => {
+    const now = new Date()
+    // 오늘 23:59(이미 지났으면 과거지만 같은 날) — 자정 정규화로 days=0 → '오늘/지남'
+    const todayLate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59).getTime()
+    expect(formatEventDate(todayLate)).toContain('오늘')
+    expect(formatEventDate(todayLate)).not.toContain('내일')
+  })
+  it("정확히 내일 자정은 '내일'", () => {
+    const now = new Date()
+    const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 9, 0).getTime()
+    expect(formatEventDate(tomorrow)).toContain('내일')
   })
 })

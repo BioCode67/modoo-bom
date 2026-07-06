@@ -62,7 +62,9 @@ export const SITUATIONS: { id: string; label: string; emoji: string; patch: Part
 export const CHILD_AGE_OPTIONS: { label: string; emoji: string; age: number }[] = [
   { label: '0~1세 (영아)', emoji: '🍼', age: 0 },
   { label: '2~5세 (유아)', emoji: '🧸', age: 4 },
-  { label: '6~12세 (초등)', emoji: '🎒', age: 9 },
+  // 아동수당(만 9세 미만) 경계가 6~12 구간을 관통 → 6~8세와 9~12세로 분리해 6~8세가 아동수당을 놓치지 않게
+  { label: '6~8세 (초등 저학년)', emoji: '🎒', age: 7 },
+  { label: '9~12세 (초등 고학년)', emoji: '🎒', age: 11 },
   { label: '13~18세 (청소년)', emoji: '📚', age: 15 },
 ]
 

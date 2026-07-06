@@ -24,11 +24,15 @@ function emptyMember(relation = '배우자', age = 40): Member {
   return { id: uid(), relation, age, disability: false, is_pregnant: false, unemployed: false }
 }
 
-function toProfile(m: Member, income: number, household: string): UserProfile {
+function toProfile(m: Member, income: number, household: string, childrenAges: number[] = []): UserProfile {
+  // '자녀' 나이는 부모(본인·배우자)에게만 주입 — 자녀 본인/조부모에게 부모용 아동복지가 붙지 않게
+  const isParent = m.relation === '본인' || m.relation === '배우자'
+  const kids = isParent ? childrenAges : []
   return {
     name: m.relation, age: m.age, gender: 'other', region: '', household_type: household,
-    income_percentile: income, disability: m.disability, disability_grade: m.disability ? '1급' : '',
-    employment_status: m.unemployed ? 'unemployed' : '', has_children: false, children_ages: [],
+    // 장애 체크만으론 중증 단정 불가 → 등급 비움('등록 장애' 일반 분기로만 매칭, 중증 전용 오노출 방지)
+    income_percentile: income, disability: m.disability, disability_grade: '',
+    employment_status: m.unemployed ? 'unemployed' : '', has_children: kids.length > 0, children_ages: kids,
     is_pregnant: m.is_pregnant, life_events: [],
   }
 }
@@ -48,15 +52,18 @@ export function HouseholdAnalyzer({ onOpen }: { onOpen: (p: Policy | EligiblePol
   })
 
   const analysis = useMemo(() => {
+    // 미성년 '자녀' 구성원의 나이를 모아 부모 프로필에 주입 — 아동수당·부모급여 등이 매칭되게(구조적 누락 수정)
+    const childrenAges = members.filter((m) => m.relation === '자녀' && m.age < 18).map((m) => m.age)
     const per = members.map((m) => {
-      const elig = getEligiblePolicies(toProfile(m, income, household))
+      const elig = getEligiblePolicies(toProfile(m, income, household, childrenAges))
       // 현금성만 합산 — 서비스 한도·바우처를 가구 현금소득처럼 부풀리지 않는다(정직성).
       const monthly = sumCashMonthly(elig)
       return { member: m, elig, monthly }
     })
     const uniq = new Map<string, EligiblePolicy>()
     per.forEach((r) => r.elig.forEach((p) => uniq.set(p.id, p)))
-    const refTotal = per.reduce((s, r) => s + r.monthly, 0)
+    // 가구 단위 급여(생계·주거 등)를 구성원 수만큼 중복 합산하지 않도록 — 고유 정책 기준 1회만 현금성 합계(정직성)
+    const refTotal = sumCashMonthly([...uniq.values()])
     return { per, uniqueCount: uniq.size, refTotal }
   }, [members, income, household])
 
@@ -127,7 +134,7 @@ export function HouseholdAnalyzer({ onOpen }: { onOpen: (p: Policy | EligiblePol
       </div>
 
       <button onClick={() => setMembers((ms) => [...ms, emptyMember()])} className="btn-secondary mt-3 w-full"><Plus className="h-4 w-4" /> 가구 구성원 추가</button>
-      <p className="mt-2 text-[11px] text-muted-foreground">※ ‘참고 합산’은 구성원별 단순 합계예요. 생계급여 등 가구 단위 급여는 실제 수급액이 다를 수 있어요.</p>
+      <p className="mt-2 text-[11px] text-muted-foreground">※ ‘참고 합산’은 가구 전체 <b>고유 복지</b>의 현금성 월 합계예요(같은 급여 중복 제거). 생계급여 등 가구 단위 급여는 실제 수급액이 다를 수 있어요.</p>
     </section>
   )
 }

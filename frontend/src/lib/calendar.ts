@@ -66,9 +66,16 @@ function icsDate(ms: number): string {
   return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}`
 }
 
+// DTSTAMP는 RFC 5545상 반드시 UTC(끝에 'Z') — 로컬 floating은 위반이라 UTC로 생성
+function icsStampUTC(ms: number): string {
+  const d = new Date(ms)
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${d.getUTCFullYear()}${p(d.getUTCMonth() + 1)}${p(d.getUTCDate())}T${p(d.getUTCHours())}${p(d.getUTCMinutes())}${p(d.getUTCSeconds())}Z`
+}
+
 /** 이벤트 목록을 .ics(아이캘린더) 문자열로 변환 */
 export function toICS(events: WelfareEvent[]): string {
-  const stamp = icsDate(Date.now()) + 'T090000'
+  const stamp = icsStampUTC(Date.now())
   const lines = [
     'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//ModooBom//Welfare//KO', 'CALSCALE:GREGORIAN',
   ]
@@ -104,7 +111,9 @@ export function downloadICS(events: WelfareEvent[]) {
 
 export function formatEventDate(ms: number): string {
   const d = new Date(ms)
-  const days = Math.ceil((ms - Date.now()) / DAY)
+  // 자정 기준으로 '일수 차'를 계산 — 오늘 늦은 시각 이벤트가 '내일'로 오표기되던 문제 방지(밀리초 차 반올림 금지)
+  const startOfDay = (t: number) => { const x = new Date(t); x.setHours(0, 0, 0, 0); return x.getTime() }
+  const days = Math.round((startOfDay(ms) - startOfDay(Date.now())) / DAY)
   const rel = days <= 0 ? '오늘/지남' : days === 1 ? '내일' : `D-${days}`
   return `${d.getMonth() + 1}월 ${d.getDate()}일 · ${rel}`
 }

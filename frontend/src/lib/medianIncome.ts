@@ -1,5 +1,5 @@
-// 2026년 기준 중위소득 100% (월, 원) — 보건복지부 고시 / 정책브리핑(korea.kr) 출처
-// 1~6인 공식 확정값. 7인 이상은 6인 + (6인-5인) 가산으로 근사(추정 표기).
+// 2026년 기준 중위소득 100% (월, 원) — 보건복지부 고시 출처. 1~7인 공식 확정값.
+// 8인 이상은 공식 가산액(959,198원/인)으로 산정.
 const MEDIAN_2026: Record<number, number> = {
   1: 2_564_238,
   2: 4_199_292,
@@ -7,8 +7,9 @@ const MEDIAN_2026: Record<number, number> = {
   4: 6_494_738,
   5: 7_556_719,
   6: 8_555_952,
+  7: 9_515_150,
 }
-const ADD_PER_PERSON = MEDIAN_2026[6] - MEDIAN_2026[5] // 7인+ 가산 근사
+const ADD_PER_PERSON = 959_198 // 8인+ 공식 1인 가산액(= 7인 9,515,150 - 6인 8,555,952)
 
 export const MEDIAN_YEAR = 2026
 
@@ -19,7 +20,7 @@ export function medianIncome(size: number): number {
   return MEDIAN_2026[6] + ADD_PER_PERSON * (n - 6)
 }
 export function isApprox(size: number): boolean {
-  return size > 6
+  return size > 7 // 1~7인은 공식 확정값, 8인+만 가산 산정
 }
 
 /** 월 소득(소득인정액 근사) → 기준 중위소득 대비 % */

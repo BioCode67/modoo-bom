@@ -58,3 +58,16 @@ describe('livelihoodPayment (예상 생계급여 = 기준액 − 소득)', () =>
     expect(livelihoodPayment(1, 1_000_000)).toBe(0)
   })
 })
+
+describe('감사 수정 회귀 — 7인 공식값·8인 가산(2026)', () => {
+  it('7인 가구는 공식 확정값 9,515,150원(근사 아님)', () => {
+    expect(medianIncome(7)).toBe(9_515_150)
+  })
+  it('8인 가구는 7인 + 공식 가산 959,198', () => {
+    expect(medianIncome(8)).toBe(9_515_150 + 959_198)
+  })
+  it('1~6인 공식값 유지', () => {
+    expect(medianIncome(4)).toBe(6_494_738)
+    expect(medianIncome(6)).toBe(8_555_952)
+  })
+})

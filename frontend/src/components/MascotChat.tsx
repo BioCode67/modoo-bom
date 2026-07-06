@@ -296,8 +296,11 @@ export function MascotChat({ onSubmit }: { onSubmit: (p: UserProfile) => void })
                   <button
                     onClick={() => {
                       // 건너뛰면 나이 미상으로 유지(자리표시 0세 금지 — 신생아 오추천 방지).
-                      // 단 '최근 아기를 낳았어요'를 골랐다면 이미 [0]이 사실이므로 그대로 보존.
-                      const picked = ages.length ? [...ages].sort((a, b) => a - b) : profile.children_ages
+                      // 단 '최근 아기를 낳았어요'로 이미 [0]이 잡혔으면, 여기서 손위 자녀 나이를 골라도
+                      // [0]을 잃지 않도록 '병합'한다(덮어쓰면 부모급여·첫만남 등 영아 지원이 통째로 탈락).
+                      const picked = ages.length
+                        ? Array.from(new Set([...(profile.children_ages || []), ...ages])).sort((a, b) => a - b)
+                        : profile.children_ages
                       const label = ages.length
                         ? CHILD_AGE_OPTIONS.filter((c) => ages.includes(c.age)).map((c) => c.label).join(', ')
                         : '나중에 알려줄게요'

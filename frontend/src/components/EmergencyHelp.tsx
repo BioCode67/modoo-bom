@@ -49,7 +49,7 @@ export function EmergencyHelp() {
               </div>
 
               <div className="p-5">
-                <p className="text-sm text-muted-foreground">지금 겪고 계신 상황을 선택하세요(중복 가능). 받을 수 있는 긴급 지원을 바로 찾아드려요.</p>
+                <p className="text-sm text-muted-foreground">지금 겪고 계신 상황을 선택하세요(중복 가능). <b>관련 있는</b> 긴급 지원을 바로 찾아드려요. <span className="text-[11px]">(긴급복지 등은 소득·재산 요건이 있어 실제 자격은 129·주민센터에서 확인해요.)</span></p>
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   {CRISES.map((c) => (
                     <button

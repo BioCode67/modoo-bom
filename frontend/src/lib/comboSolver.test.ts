@@ -18,9 +18,13 @@ describe('comboSolver — 수급 조합 관계 안내', () => {
       expect(r.note.length).toBeGreaterThan(10)
     }
   })
-  it('기초연금+장애인연금 동시 자격 → 하나만(exclusive)', () => {
+  it('기초연금↔장애인연금 → 부분배타(reduction) — 기초급여만 택1, 부가급여는 병급이라 exclusive 아님', () => {
     const r = analyzeCombos(mk(['POL-001', 'POL-003']))
-    expect(r.exclusive.length).toBe(1)
+    expect(r.exclusive.length).toBe(0)
+    const rule = r.reduction.find((c) => c.rule.a === 'POL-001' && c.rule.b === 'POL-003')
+    expect(rule).toBeTruthy()
+    // 신청 포기 방지 문구(부가급여 병급)가 명시돼야
+    expect(rule!.rule.note).toContain('부가급여')
   })
   it('아동수당+부모급여 → 병급 가능(compatible)', () => {
     const r = analyzeCombos(mk(['POL-004', 'POL-005']))
@@ -38,13 +42,13 @@ describe('comboSolver — 수급 조합 관계 안내', () => {
   })
   it('같은 쌍은 한 번만(중복 제거)', () => {
     const r = analyzeCombos(mk(['POL-001', 'POL-003', 'POL-003']))
-    expect(r.exclusive.length).toBe(1)
+    expect(r.reduction.filter((c) => c.rule.a === 'POL-001' && c.rule.b === 'POL-003').length).toBe(1)
   })
   it('실분석 연결: 복합(노인+장애) 프로필에서 기초연금↔장애인연금 관계가 잡힌다', () => {
     const res = runAnalysis({ ...base, age: 66, disability: true, disability_grade: '1급', income_percentile: 25 })
     const combos = analyzeCombos(res.eligible_policies)
-    // POL-001·POL-003이 둘 다 자격이면 exclusive에 포함
+    // POL-001·POL-003이 둘 다 자격이면 reduction(부분배타)에 포함
     const ids = new Set(res.eligible_policies.map((p) => p.id))
-    if (ids.has('POL-001') && ids.has('POL-003')) expect(combos.exclusive.length).toBeGreaterThanOrEqual(1)
+    if (ids.has('POL-001') && ids.has('POL-003')) expect(combos.reduction.some((c) => c.rule.a === 'POL-001' && c.rule.b === 'POL-003')).toBe(true)
   })
 })
