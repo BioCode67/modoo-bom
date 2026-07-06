@@ -80,39 +80,49 @@ export async function checkBackend(onWake?: (attempt: number, max: number) => vo
   // (connection refused 는 즉시 실패하므로 미설치 방문자에게도 지연 부담이 거의 없다.)
   const localProbe = fetchHealth(LOCAL_AGENT, 1500)
 
-  // ── AI 베이스 확보 ──
+  // AI 베이스: 우선 '짧게' 한 번만 두드린다(따뜻하면 즉답). 콜드스타트 웨이크(최대 ~60초)는
+  // 로컬 에이전트도 클라우드도 즉답하지 않을 때만 마지막에 돈다 → 로컬 에이전트 사용자가
+  // 클라우드 콜드스타트 뒤에서 60초 기다리는 일이 없다.
   let aiCaps: Capabilities | null = null
   let aiBase = ''
   if (API_BASE) {
-    // 명시된 클라우드 백엔드 — 콜드스타트 대비 웨이크업 재시도
-    aiCaps = await wake(API_BASE, onWake)
+    aiCaps = await fetchHealth(API_BASE, 4500)
     if (aiCaps) aiBase = API_BASE
   } else if ((import.meta.env.BASE_URL || '/') === '/') {
     // 동일 출처 프로브는 코호스팅(도커/uvicorn, base='/')일 때만 의미가 있다.
     // 정적 프로젝트 페이지(gh-pages, base='/modoo-bom/')에선 매 방문 404 노이즈만 만들므로 스킵.
     aiCaps = await fetchHealth('', 1500)
-    if (aiCaps) aiBase = ''
   }
 
-  const local = await localProbe
-  if (!aiCaps && !local) { cached = false; return false }
+  let local = await localProbe
 
-  // ── RPA 베이스: 로컬 에이전트 우선(실제 발급 가능). 없으면 동일출처 RPA 지원 백엔드. ──
+  // 로컬/클라우드 어느 쪽도 즉답 안 했고 클라우드가 설정돼 있으면 → 콜드스타트 웨이크업 재시도.
+  if (!aiCaps && !local && API_BASE) {
+    aiCaps = await wake(API_BASE, onWake)
+    if (aiCaps) {
+      aiBase = API_BASE
+      local = await fetchHealth(LOCAL_AGENT, 1500) // 웨이크 대기 동안 에이전트가 떴을 수도
+    }
+  }
+
+  if (!aiCaps && !local) { cached = false; return false }
+  finalizeCaps(aiCaps, aiBase, local)
+  cached = true
+  return true
+}
+
+/** 감지 결과를 API_BASE/RPA_BASE/caps 로 확정. AI 는 클라우드/동일출처, RPA 는 로컬 우선. */
+function finalizeCaps(aiCaps: Capabilities | null, aiBase: string, local: Capabilities | null) {
   if (local?.rpa) RPA_BASE = LOCAL_AGENT
   else if (aiCaps?.rpa) RPA_BASE = aiBase
-
   // AI 베이스를 못 잡았고 로컬만 있으면 로컬을 AI 베이스로도 승격(완전 로컬 구동).
   if (!aiCaps && local) API_BASE = LOCAL_AGENT
-
-  // capabilities 병합: AI 는 클라우드/동일출처에서, RPA 는 로컬(또는 동일출처)에서.
   caps = {
     ai: aiCaps?.ai ?? local?.ai ?? false,
     rpa: !!(local?.rpa || aiCaps?.rpa),
     ai_provider: aiCaps?.ai_provider ?? local?.ai_provider,
     rag: aiCaps?.rag ?? local?.rag,
   }
-  cached = true
-  return true
 }
 
 export function resetBackendCache() {

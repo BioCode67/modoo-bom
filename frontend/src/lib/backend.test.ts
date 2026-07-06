@@ -62,6 +62,16 @@ describe('backend 하이브리드 감지', () => {
     expect(b.API_BASE).toBe(LOCAL)
   })
 
+  it('클라우드 콜드(무응답)여도 로컬 에이전트(rpa)는 즉시 감지 — 60초 웨이크 뒤에서 안 기다림', async () => {
+    // CLOUD 는 항상 실패(콜드/다운), LOCAL 만 응답 → 로컬이 응답하면 웨이크 루프를 돌지 않아야 함.
+    vi.stubGlobal('fetch', mockFetch({ [CLOUD]: null, [LOCAL]: { ai: false, rpa: true } }))
+    const b = await loadBackend(CLOUD)
+    // 웨이크 루프(~8초)를 탔다면 이 테스트는 기본 타임아웃(5초)에 걸린다 → 빠른 통과 자체가 개선 증거.
+    expect(await b.checkBackend()).toBe(true)
+    expect(b.getCapabilities()?.rpa).toBe(true)
+    expect(b.getRpaBase()).toBe(LOCAL)
+  })
+
   it('아무 백엔드도 없음 → false, 베이스 그대로 (클라우드 웨이크업 재시도 소진)', async () => {
     vi.stubGlobal('fetch', mockFetch({ [CLOUD]: null, [LOCAL]: null }))
     const b = await loadBackend(CLOUD)
