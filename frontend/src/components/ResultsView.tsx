@@ -18,6 +18,7 @@ import { WelfareScore } from '@/components/WelfareScore'
 import { ShareButton } from '@/components/ShareButton'
 import { Glossary } from '@/components/Glossary'
 import { formatWon, sumCashMonthly } from '@/lib/format'
+import { profileSignals } from '@/lib/profileSignals'
 import { useAppStore } from '@/store/useAppStore'
 import { encodeHelperLink, decodeHelperPayload } from '@/lib/helperLink'
 
@@ -38,6 +39,8 @@ export function ResultsView({ result, profile, onReset, helperMode = false }: { 
   // 자활·구직수당처럼 근로능력/상황 전제이거나 중복불가인 항목까지 더해 과장되지 않도록 의도적으로 좁힘.
   const monthly = sumCashMonthly(primary.filter((p) => p.priority === 'high'))
   const highCount = primary.filter((p) => p.priority === 'high').length
+  // 에이전트가 '무엇을 파악했는지'를 결과에서도 되비춘다(백엔드 스트림 경로에선 오버레이 신호가 안 보이므로 여기서 보강)
+  const signals = profileSignals(profile)
   const tts = useTTS()
 
   // 스크린리더: 결과 화면 진입 시 '분석 완료 + 찾은 개수'를 안내(마운트 후 채워 확실히 읽히게)
@@ -160,6 +163,15 @@ export function ResultsView({ result, profile, onReset, helperMode = false }: { 
             <p className="text-sm leading-relaxed text-foreground/90">
               {result.final_response || `${profile.name || '회원'}님께 맞는 복지 ${primary.length}개를 골라봤어요. 이제 신청 준비를 도와드릴게요.`}
             </p>
+            {/* 이렇게 이해했어요 — 에이전트가 파악한 상황 신호를 칩으로 되비춤(판단 근거 투명화) */}
+            {signals.length > 0 && (
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                <span className="text-[11px] font-bold text-sprout-600">이렇게 이해했어요</span>
+                {signals.slice(0, 5).map((sig) => (
+                  <span key={sig} className="rounded-full bg-white border border-sprout-200 px-2 py-0.5 text-[11px] font-semibold text-sprout-700">{sig}</span>
+                ))}
+              </div>
+            )}
             {/* 에이전트가 대신 해줄 다음 행동을 앞세운다 — '목록을 준' 게 아니라 '함께 진행하는' 느낌 */}
             <div className="mt-3 flex flex-wrap gap-2">
               <button
