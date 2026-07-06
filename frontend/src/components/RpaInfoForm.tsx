@@ -38,6 +38,21 @@ export function RpaInfoForm() {
           className="rounded-lg border border-sprout-100 px-2.5 py-1.5 text-xs focus-ring"
           aria-label="휴대폰 번호"
         />
+        {/* 주민등록상 주소 — 회원정보 주소와 다르면 발급 폼에서 자동으로 이 주소로 정정 */}
+        <input
+          value={rpaInfo.sido ?? ''}
+          onChange={(e) => setRpaInfo({ sido: e.target.value })}
+          placeholder="시도 (예: 경상북도)"
+          className="rounded-lg border border-sprout-100 px-2.5 py-1.5 text-xs focus-ring"
+          aria-label="주민등록상 시도"
+        />
+        <input
+          value={rpaInfo.sigungu ?? ''}
+          onChange={(e) => setRpaInfo({ sigungu: e.target.value })}
+          placeholder="시군구 (예: 경산시)"
+          className="rounded-lg border border-sprout-100 px-2.5 py-1.5 text-xs focus-ring"
+          aria-label="주민등록상 시군구"
+        />
       </div>
       <div className="flex flex-wrap gap-1">
         {CARRIERS.map((c) => (

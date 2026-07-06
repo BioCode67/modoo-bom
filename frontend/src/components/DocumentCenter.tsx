@@ -93,6 +93,7 @@ export function DocumentCenter() {
         body: JSON.stringify({
           doc_name: doc, user_name: rpaInfo.name || profile?.name || '사용자',
           birth_date: rpaInfo.birth_date, phone: rpaInfo.phone, carrier: rpaInfo.carrier,
+          sido: rpaInfo.sido, sigungu: rpaInfo.sigungu,
         }),
       })
       if (!res.ok) {
