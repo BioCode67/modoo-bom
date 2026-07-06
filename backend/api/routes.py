@@ -39,6 +39,14 @@ class DocRequest(BaseModel):
     sigungu: str = ""      # 주민등록상 시군구(예: 경산시)
 
 
+def _ws_limits() -> dict:
+    try:
+        from api.ws_rate_limit import limits
+        return limits()
+    except Exception:
+        return {}
+
+
 @router.get("/health")
 async def health(debug: int = 0):
     """서버 상태 + 환경 정보 + capabilities(프론트 게이팅용) 반환.
@@ -102,6 +110,7 @@ async def health(debug: int = 0):
             "rpa_capacity": rpa_capacity,
             "ai_provider": provider_label(),
             "rag": backend_label(),
+            "ws_limits": _ws_limits(),  # WS 남용방지 적용 한도(런칭 config 확인용)
         },
         "rag": {
             "ok": chroma_ok,
