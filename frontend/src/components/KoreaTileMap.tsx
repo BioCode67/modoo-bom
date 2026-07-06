@@ -9,13 +9,13 @@ import { SIDOS } from '@/lib/localWelfare'
 
 // 각 시·도의 지도상 대략 위치(x%, y%) — 남한 지리를 근사(정밀 국경 아님, 인식 가능한 배치).
 const POS: Record<string, [number, number]> = {
-  서울: [37, 23], 인천: [27, 26], 경기: [45, 28], 강원: [66, 18],
-  충남: [30, 42], 세종: [42, 41], 충북: [53, 37], 경북: [70, 40],
-  대전: [45, 48], 대구: [68, 52],
-  전북: [37, 56], 울산: [80, 56],
-  광주: [31, 68], 경남: [59, 63], 부산: [76, 66],
-  전남: [35, 78],
-  제주: [30, 94],
+  서울: [38, 21], 인천: [21, 26], 경기: [52, 29], 강원: [72, 16],
+  충남: [26, 43], 세종: [40, 44], 충북: [56, 37], 경북: [73, 40],
+  대전: [46, 51], 대구: [71, 53],
+  전북: [34, 58], 울산: [83, 57],
+  광주: [29, 70], 경남: [58, 65], 부산: [77, 68],
+  전남: [33, 80],
+  제주: [30, 95],
 }
 
 // 건수 비율(0~1) → 단계 색(연한 초록 → 진한 초록)
@@ -55,7 +55,7 @@ export function KoreaTileMap({ counts, myS, sel, onHover, onPick }: Props) {
             onClick={() => onPick(s)}
             aria-label={`${s} 복지 ${n}건`}
             className={
-              'absolute -translate-x-1/2 -translate-y-1/2 rounded-xl px-2 py-1 text-center leading-none ' +
+              'absolute -translate-x-1/2 -translate-y-1/2 rounded-lg px-1.5 py-0.5 text-center leading-none ' +
               'shadow-sm transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-sprout-500 ' +
               (active ? 'z-20 scale-110 ring-2 ring-sprout-600'
                 : mine ? 'z-10 ring-2 ring-sky2-500'
@@ -63,10 +63,10 @@ export function KoreaTileMap({ counts, myS, sel, onHover, onPick }: Props) {
             }
             style={{ left: `${x}%`, top: `${y}%`, background: bg, color: fg }}
           >
-            <span className="flex items-center justify-center gap-0.5 text-[11px] font-extrabold sm:text-xs">
-              {mine && <MapPin className="h-3 w-3" />}{s}
+            <span className="flex items-center justify-center gap-0.5 text-[10px] font-extrabold sm:text-[11px]">
+              {mine && <MapPin className="h-2.5 w-2.5" />}{s}
             </span>
-            <span className="mt-0.5 block text-[9px] font-bold tabular-nums opacity-90 sm:text-[10px]">
+            <span className="block text-[8px] font-bold tabular-nums opacity-90 sm:text-[9px]">
               {n.toLocaleString()}
             </span>
           </button>
