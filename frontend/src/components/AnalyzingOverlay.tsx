@@ -32,10 +32,12 @@ export function AnalyzingOverlay({
   const done = useRef(false)
   // 백엔드(LangGraph)가 배포돼 있으면 실제 10노드 에이전트를 실시간 스트리밍(대회 주제의 핵심 순간).
   // 결과는 신뢰도 높은 클라이언트 엔진 것을 쓰되, 이 화면이 '진짜 에이전트'를 보여준다.
-  const useBackendStream = !!API_BASE
+  // 단, WS가 403·콜드스타트로 실패하면 아래 클라이언트 연출로 폴백(streamFailed) → 에이전트 느낌 항상 유지.
+  const [streamFailed, setStreamFailed] = useState(false)
+  const streamMode = !!API_BASE && !streamFailed
 
   useEffect(() => {
-    if (useBackendStream) return // 백엔드 스트림 모드에선 클라이언트 단계 연출을 돌리지 않음
+    if (streamMode) return // 백엔드 스트림 모드에선 클라이언트 단계 연출을 돌리지 않음
     const start = Date.now()
     const steps = 4
     const finish = () => {
@@ -77,10 +79,10 @@ export function AnalyzingOverlay({
     // 안전망: 신경망이 너무 오래 걸리면(첫 임베딩 다운로드 등) 결과부터 보여준다
     const safety = setTimeout(finish, 12000)
     return () => clearTimeout(safety)
-  }, [profile, eligible, onDone, useBackendStream])
+  }, [profile, eligible, onDone, streamMode])
 
-  // 백엔드 배포 시: 실제 LangGraph 10노드 에이전트 실시간 스트리밍
-  if (useBackendStream) return <BackendAgentStream profile={profile} onDone={onDone} />
+  // 백엔드 배포 시: 실제 LangGraph 10노드 에이전트 실시간 스트리밍(WS 실패 시 클라이언트 연출로 폴백)
+  if (streamMode) return <BackendAgentStream profile={profile} onDone={onDone} onFallback={() => setStreamFailed(true)} />
 
   // 인지 단계에서 실제로 읽어낸 '상황 신호'를 사람이 읽을 수 있게(에이전트가 무엇을 근거로 판단하는지 투명하게)
   const signals: string[] = []

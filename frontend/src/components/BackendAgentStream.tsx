@@ -29,23 +29,28 @@ interface NodeState { status: 'running' | 'done' | 'error'; message: string }
  * 결과 자체는 신뢰도 높은 클라이언트 엔진 것을 쓰고(넓은 커버리지), 이 패널은 '살아있는 에이전트'를 증명.
  * 연결 실패·콜드스타트 지연이면 안전하게 onDone으로 폴백(클라이언트 결과 표시).
  */
-export function BackendAgentStream({ profile, onDone }: { profile: UserProfile; onDone: () => void }) {
+export function BackendAgentStream({ profile, onDone, onFallback }: { profile: UserProfile; onDone: () => void; onFallback?: () => void }) {
   const [nodes, setNodes] = useState<Record<string, NodeState>>({})
   const [woke, setWoke] = useState(false)
   const done = useRef(false)
+  const gotData = useRef(false) // 백엔드가 실제로 노드를 하나라도 스트리밍했는지
 
   useEffect(() => {
     const start = Date.now()
     const finish = () => { if (done.current) return; done.current = true; const w = Math.max(0, 900 - (Date.now() - start)); setTimeout(onDone, w) }
+    // WS가 열리지도/스트리밍하지도 못하면(403·콜드스타트 등) 결과로 점프하지 말고 클라이언트 에이전트 연출로 폴백
+    //  → 어느 환경에서도 'AI 에이전트가 판단하는' 연출이 유지된다(빈 화면·0.9초 깜빡임 방지).
+    const fallback = () => { if (done.current) return; done.current = true; (onFallback || onDone)() }
     let ws: WebSocket | null = null
     try {
       ws = new WebSocket(`${API_BASE.replace(/^http/, 'ws')}/ws/analyze`)
-    } catch { finish(); return }
+    } catch { fallback(); return }
     ws.onopen = () => { setWoke(true); ws!.send(JSON.stringify({ type: 'start_analysis', profile })) }
     ws.onmessage = (e) => {
       try {
         const m = JSON.parse(e.data)
         if (m.type === 'node_event') {
+          gotData.current = true
           setWoke(true)
           setNodes((prev) => ({ ...prev, [m.node]: { status: m.status, message: m.message || '' } }))
         } else if (m.type === 'complete') {
@@ -54,10 +59,13 @@ export function BackendAgentStream({ profile, onDone }: { profile: UserProfile; 
         }
       } catch { /* noop */ }
     }
-    ws.onerror = () => finish()
-    // 안전망: Render 콜드스타트가 너무 오래 걸리면 결과부터(클라이언트 엔진) 보여준다
+    // 스트리밍 시작 전 에러면 클라이언트 연출로 폴백, 스트리밍 중 끊기면 지금까지로 마무리
+    ws.onerror = () => { if (gotData.current) finish(); else fallback() }
+    // 빠른 폴백: 6초 안에 노드 스트리밍이 없으면(403·콜드스타트 지연) 클라이언트 연출로 전환
+    const quick = setTimeout(() => { if (!gotData.current) fallback() }, 6000)
+    // 안전망: 스트리밍은 시작됐지만 complete가 안 오면 결과부터 보여준다
     const safety = setTimeout(finish, 45000)
-    return () => { clearTimeout(safety); try { ws?.close() } catch { /* noop */ } }
+    return () => { clearTimeout(quick); clearTimeout(safety); try { ws?.close() } catch { /* noop */ } }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
