@@ -10,6 +10,7 @@
 """
 import asyncio
 import os
+import secrets
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime
@@ -74,6 +75,9 @@ class RPATask:
         self.screenshot_b64: Optional[str] = None
         self.result: Optional[dict] = None
         self.created_at = datetime.now().isoformat()
+        # 발급 문서 다운로드 인가 토큰(추측 불가). 시작자에게만 rpa-issue 응답으로 주고, rpa-status에는 노출하지 않는다.
+        # → task_id(로그·URL에 노출됨)만으로는 남의 개인문서(주민번호 포함)를 받을 수 없게 한다.
+        self.download_token = secrets.token_urlsafe(18)
 
     def update(self, status: str, step: str, screenshot: Optional[str] = None):
         self.status = status
@@ -96,6 +100,7 @@ class RPATask:
             "screenshot_b64": self.screenshot_b64,
             "result": self.result,
             "created_at": self.created_at,
+            "download_token": self.download_token,  # 저장은 하되, rpa-status 응답에선 라우터가 제거해 노출 안 함
         }
 
 
@@ -162,7 +167,7 @@ SUPPORTED_SERVICE_NAMES = _SUPPORTED_SERVICES
 
 def start_apply_task(service_name: str, user_name: str, profile: dict) -> str:
     """복지 서비스 신청 RPA 태스크 시작(동시성 상한·타임아웃 적용)."""
-    task_id = uuid.uuid4().hex[:10]
+    task_id = uuid.uuid4().hex
     task = RPATask(task_id, service_name, user_name)
     _rpa_tasks[task_id] = task
 
@@ -180,7 +185,7 @@ def start_rpa_task(doc_name: str, user_name: str, user_info: dict = None) -> str
     if doc_name not in _SUPPORTED_DOCS:
         raise ValueError(f"지원하지 않는 문서: {doc_name}. 지원 목록: {SUPPORTED_DOC_NAMES}")
 
-    task_id = uuid.uuid4().hex[:10]
+    task_id = uuid.uuid4().hex
     task = RPATask(task_id, doc_name, user_name)
     _rpa_tasks[task_id] = task
     _info = user_info or {}

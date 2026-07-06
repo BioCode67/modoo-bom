@@ -224,31 +224,41 @@ async def rpa_issue(req: DocRequest):
     user_info = {"user_name": req.user_name, "birth_date": req.birth_date, "phone": req.phone,
                  "carrier": req.carrier, "sido": req.sido, "sigungu": req.sigungu}
     task_id = start_rpa_task(req.doc_name, req.user_name, user_info)
-    return {"task_id": task_id, "status": "started", "doc_name": req.doc_name}
+    # 다운로드 토큰은 '시작한 사람'에게만 여기서 반환(rpa-status엔 노출 안 함) → task_id 유출만으론 문서 못 받음
+    from rpa.manager import get_task
+    _t = get_task(task_id)
+    token = getattr(_t, "download_token", "") if _t is not None and not isinstance(_t, dict) else (_t or {}).get("download_token", "")
+    return {"task_id": task_id, "download_token": token, "status": "started", "doc_name": req.doc_name}
 
 
 @router.get("/documents/rpa-status/{task_id}")
 async def rpa_status(task_id: str):
-    """RPA 태스크 현재 상태 조회"""
+    """RPA 태스크 현재 상태 조회. ⚠️ download_token은 응답에서 제거(파일 다운로드 인가 비밀 유출 방지)."""
     from rpa.manager import get_task
     task = get_task(task_id)
     if task is None:
         raise HTTPException(status_code=404, detail="태스크를 찾을 수 없습니다.")
-    if hasattr(task, "to_dict"):
-        return task.to_dict()
-    return task
+    d = task.to_dict() if hasattr(task, "to_dict") else dict(task)
+    d.pop("download_token", None)
+    return d
 
 
 @router.get("/documents/rpa-file/{task_id}")
-async def rpa_file(task_id: str):
+async def rpa_file(task_id: str, t: str = ""):
     """RPA로 발급 완료된 문서(PDF/이미지)를 사용자 브라우저로 반환(다운로드).
     확장 없이 인증만 하면 '내 서류가 내 손에' 흐름을 완성한다 — 원격 사용자가 자기 문서를 받게 함.
-    ⚠️ 개인 문서(주민번호 포함)라 안전장치: 완료+저장된 태스크만, task_id를 bearer로, 캐시 금지."""
+    ⚠️ 개인 문서(주민번호 포함) 인가: 발급을 '시작한 사람'만 아는 download_token(?t=)이 일치해야 반환.
+       task_id는 rpa-status URL·로그에 노출되므로 task_id만으로는 남의 문서를 받을 수 없다(다중 사용자 유출 차단).
+       완료+저장된 태스크만, 저장 폴더 밖 경로 거절, 캐시 금지."""
+    import hmac
     from rpa.manager import get_task
     task = get_task(task_id)
     if task is None:
         raise HTTPException(status_code=404, detail="태스크를 찾을 수 없습니다.")
     d = task if isinstance(task, dict) else task.to_dict()
+    token = d.get("download_token") or ""
+    if not t or not token or not hmac.compare_digest(str(t), str(token)):
+        raise HTTPException(status_code=403, detail="다운로드 인가 토큰이 필요합니다.")
     result = d.get("result") or {}
     path = result.get("saved_path")
     if d.get("status") not in ("done", "completed") or not path or not os.path.exists(path):

@@ -100,7 +100,7 @@ async def test_store_eviction_caps_memory():
 
 
 def test_rpa_file_endpoint_guards():
-    """발급 문서 다운로드 엔드포인트 — 안전장치(미완료·미저장·존재하지 않는 태스크는 거절)."""
+    """발급 문서 다운로드 엔드포인트 — 인가 토큰·미저장·경로이탈·토큰 비노출 방어."""
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
     from api.routes import router
@@ -112,19 +112,26 @@ def test_rpa_file_endpoint_guards():
     # 존재하지 않는 태스크 → 404
     assert c.get("/api/documents/rpa-file/nope").status_code == 404
 
-    # 완료됐지만 저장 파일이 없는 태스크 → 404
+    # 완료됐지만 다운로드 토큰이 없거나 틀리면 → 403(남의 task_id만으론 문서 못 받음)
     t = manager.RPATask("filetest", "주민등록등본", "사용자")
     t.status = "done"
     t.result = {"success": True, "doc_name": "주민등록등본", "saved_path": None}
     manager._rpa_tasks["filetest"] = t.to_dict()
-    assert c.get("/api/documents/rpa-file/filetest").status_code == 404
+    tok = t.download_token
+    assert c.get("/api/documents/rpa-file/filetest").status_code == 403          # 토큰 없음
+    assert c.get("/api/documents/rpa-file/filetest?t=wrong").status_code == 403  # 틀린 토큰
+    assert c.get(f"/api/documents/rpa-file/filetest?t={tok}").status_code == 404  # 인가 OK지만 저장 파일 없음
 
-    # 저장 경로가 DOCS_DIR 밖(경로 이탈)이면 403 또는 404(존재하지 않아 404) — 어떤 경우든 파일 안 내줌
+    # 경로 이탈(DOCS_DIR 밖) + 올바른 토큰 → 파일 안 내줌(403/404)
     t2 = manager.RPATask("filetest2", "주민등록등본", "사용자")
     t2.status = "done"
     t2.result = {"success": True, "doc_name": "x", "saved_path": "C:/Windows/system.ini"}
     manager._rpa_tasks["filetest2"] = t2.to_dict()
-    assert c.get("/api/documents/rpa-file/filetest2").status_code in (403, 404)
+    assert c.get(f"/api/documents/rpa-file/filetest2?t={t2.download_token}").status_code in (403, 404)
+
+    # 상태 조회 응답에는 download_token이 노출되지 않아야 함(비밀 유출 방지)
+    stat = c.get("/api/documents/rpa-status/filetest").json()
+    assert "download_token" not in stat
 
 
 @pytest.mark.asyncio

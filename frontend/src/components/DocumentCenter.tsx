@@ -11,7 +11,7 @@ import { setPendingReturn } from '@/lib/returnPrompt'
 import { RpaInfoForm } from '@/components/RpaInfoForm'
 import { cn } from '@/lib/utils'
 
-type RpaState = { status: string; step: string; at?: number; taskId?: string; saved?: boolean } | null
+type RpaState = { status: string; step: string; at?: number; taskId?: string; saved?: boolean; downloadToken?: string } | null
 
 export function DocumentCenter() {
   const { tracked, profile, rpaInfo, toggleDocDone, isDocDone } = useAppStore()
@@ -101,12 +101,14 @@ export function DocumentCenter() {
         const detail = await res.json().then((d) => d?.detail).catch(() => '')
         throw new Error(detail || (res.status === 503 ? '지금은 자동 발급이 어려워요 — 옆의 전자발급으로 진행해 주세요.' : '지원하지 않는 서류'))
       }
-      const { task_id } = await res.json()
+      const issued = await res.json()
+      const task_id = issued.task_id
+      const downloadToken = issued.download_token || ''  // 시작자에게만 반환되는 다운로드 인가 토큰
       for (let i = 0; i < 60; i++) {
         await new Promise((r) => setTimeout(r, 1500))
         const st = await fetch(`${API_BASE}/api/documents/rpa-status/${task_id}`).then((r) => r.json())
         // 발급 완료 시 result.saved_path가 있으면 문서를 사용자에게 돌려줄 수 있음(다운로드 버튼 노출)
-        setRpa((s) => ({ ...s, [doc]: { status: st.status, step: st.current_step || '', at: s[doc]?.at, taskId: task_id, saved: !!(st.result && st.result.saved_path) } }))
+        setRpa((s) => ({ ...s, [doc]: { status: st.status, step: st.current_step || '', at: s[doc]?.at, taskId: task_id, downloadToken, saved: !!(st.result && st.result.saved_path) } }))
         if (st.status === 'done' || st.status === 'error' || st.status === 'completed') break
       }
     } catch (e) {
@@ -255,14 +257,16 @@ export function DocumentCenter() {
                   {/* 자동발급 진행/완료/오류를 스크린리더가 즉시 읽도록 라이브 영역으로 */}
                   <p className="text-xs flex items-center gap-1 mt-0.5" role="status" aria-live="polite">
                     {st.status === 'error' ? <AlertCircle className="h-3.5 w-3.5 text-rose-500" />
+                      // 발급까지 진행됐지만 문서 저장을 확정 못 한 'done'(saved 없음)은 초록 성공이 아니라 주의(amber)로 — 과장 방지
+                      : (st.status === 'done' || st.status === 'completed') && !st.saved ? <AlertCircle className="h-3.5 w-3.5 text-amber-500" />
                       : st.status === 'done' || st.status === 'completed' ? <CheckCircle2 className="h-3.5 w-3.5 text-success-500" />
                       : <Loader2 className="h-3.5 w-3.5 animate-spin text-sky2-500" />}
                     <span className="text-muted-foreground truncate">{st.step || st.status}</span>
                   </p>
-                  {/* 발급 완료 + 서버에 문서 저장됨 → 내 브라우저로 바로 받기(확장 없이 인증만 하면 내 손에) */}
-                  {(st.status === 'done' || st.status === 'completed') && st.saved && st.taskId && (
+                  {/* 발급 완료 + 서버에 문서 저장됨 → 내 브라우저로 바로 받기(확장 없이 인증만 하면 내 손에). 토큰(?t=)으로 인가 */}
+                  {(st.status === 'done' || st.status === 'completed') && st.saved && st.taskId && st.downloadToken && (
                     <a
-                      href={`${API_BASE}/api/documents/rpa-file/${st.taskId}`}
+                      href={`${API_BASE}/api/documents/rpa-file/${st.taskId}?t=${encodeURIComponent(st.downloadToken)}`}
                       target="_blank" rel="noopener noreferrer"
                       className="btn-primary !px-3 !py-1.5 mt-1.5 text-xs inline-flex"
                     >

@@ -17,7 +17,7 @@ def get_journey(journey_id: str):
 
 
 def _new_journey(doc_names, service_names, user_name) -> str:
-    jid = uuid.uuid4().hex[:10]
+    jid = uuid.uuid4().hex
     steps = (
         [{"kind": "doc", "name": d, "status": "pending", "task_id": None, "saved_path": None} for d in doc_names]
         + [{"kind": "apply", "name": s, "status": "pending", "task_id": None} for s in service_names]
@@ -52,7 +52,7 @@ async def _run_step_doc(task, doc_name, user_info):
     rpa_type = _SUPPORTED_DOCS[doc_name][0]
     if rpa_type == "gov24":
         from rpa.gov24_rpa import run_gov24_rpa
-        await run_gov24_rpa(task, doc_name)
+        await run_gov24_rpa(task, doc_name, user_info)  # 이름·생년월일·휴대폰 자동입력 + 주소(sido/sigungu) 자동정정에 필요
     elif rpa_type == "nhis":
         from rpa.nhis_rpa import run_nhis_rpa
         await run_nhis_rpa(task, user_info)
@@ -72,7 +72,7 @@ async def _run_journey(jid, user_info, profile):
     for step in j["steps"]:
         j["current"] = step["name"]
         step["status"] = "running"
-        task = RPATask(uuid.uuid4().hex[:10], step["name"], user_name)
+        task = RPATask(uuid.uuid4().hex, step["name"], user_name)
         step["task_id"] = task.task_id
         _rpa_tasks[task.task_id] = task
         try:
