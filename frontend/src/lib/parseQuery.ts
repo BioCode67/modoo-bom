@@ -51,7 +51,8 @@ export function parseProfileFromText(text: string): UserProfile {
   if (/기초생활|기초수급|수급자|생계급여|기초\s*수급/.test(t)) p.income_percentile = 28
   else if (/차상위/.test(t)) p.income_percentile = 45
   // 저소득: '소득이 많지 않다·많이 부족하다·넉넉지 않다' 같은 부정형도 저소득으로 흡수(고소득 오분류 방지).
-  else if (/저소득|소득.*(없|적|낮|많지\s*않|많진\s*않|많이\s*부족|넉넉[하지]*\s*않|부족)|형편.*(어렵|힘들)|생활.*(어렵|힘들)|돈.*(없|부족)|가난|빈곤/.test(t)) p.income_percentile = 40
+  //   소득뿐 아니라 '월급·벌이·수입·연봉이 적다'(워킹푸어)와 '장사 안돼·매출 줄·폐업'(자영업 부진)도 저소득 신호로 흡수.
+  else if (/저소득|(?:소득|월급|월수입|벌이|수입|연봉).*(없|적|낮|많지\s*않|많진\s*않|많이\s*부족|넉넉[하지]*\s*않|부족)|형편.*(어렵|힘들)|생활(?:비)?.*(어렵|힘들|빠듯|쪼들)|돈.*(없|부족)|가난|빈곤|장사.*안\s*(돼|되|굴러)|매출.*(줄|없|감소|반토막)|폐업|가게.*(접|문\s*닫)/.test(t)) p.income_percentile = 40
   else if (/고소득|소득.*많|여유.*있|잘\s*사/.test(t)) p.income_percentile = 130
 
   // ── 장애 ──
@@ -77,8 +78,21 @@ export function parseProfileFromText(text: string): UserProfile {
   if (p.children_ages.length >= 3) p.household_type = p.household_type || '다자녀가구'
   if (/출산|아기.*낳|애.*낳/.test(t) && !p.life_events.includes('출산')) p.life_events.push('출산')
 
-  // ── 질병(투병·입원) ── 갑작스러운 질병은 긴급복지·의료 신호
-  if (/암(이|에|을|으로|\s|$)|백혈병|투병|입원(했|중|하)|큰\s*병|수술\s*받/.test(t) && !p.life_events.includes('질병')) {
+  // ── 출생 순서(첫째·둘째·셋째…) ── "셋째 낳았어요"처럼 '아이/자녀' 명시어 없이도 자녀·출산·다자녀를 인식
+  const ORDINAL: Record<string, number> = { 첫째: 1, 둘째: 2, 셋째: 3, 넷째: 4, 다섯째: 5 }
+  const ord = t.match(/(첫째|둘째|셋째|넷째|다섯째|막내)/)
+  if (ord) {
+    p.has_children = true
+    const born = /낳|출산|태어|생겼|가졌|봤/.test(t)
+    if (born && !p.life_events.includes('출산')) p.life_events.push('출산')
+    if (!p.children_ages.length) p.children_ages = born ? [0] : [5]
+    const n = ORDINAL[ord[1]]
+    if (n && n >= 3) p.household_type = p.household_type || '다자녀가구'
+  }
+
+  // ── 질병(투병·입원·의료비) ── 갑작스러운 질병·큰 의료비는 긴급복지·의료 신호
+  //   희귀·난치·중증질환, 병원비/치료비/수술비 부담, 아픈 자녀까지 포함(의료 지원 발굴 유도)
+  if (/암(이|에|을|으로|\s|$)|백혈병|투병|입원(했|중|하)|큰\s*병|수술\s*받|수술비|희귀질환|난치병|중증질환|지병|만성질환|병원비|치료비|(아이|애(?!인)|아들|딸|아기).*아[파프픈팠]/.test(t) && !p.life_events.includes('질병')) {
     p.life_events.push('질병')
   }
 
@@ -88,9 +102,9 @@ export function parseProfileFromText(text: string): UserProfile {
     if (!p.life_events.includes('실직')) p.life_events.push('실직')
   } else if (/구직|취준|취업.*준비|일\s*구하|일자리.*찾|구직활동/.test(t)) {
     p.employment_status = 'unemployed'
-  } else if (/대학생|대학원생|학생|휴학|재학|등록금/.test(t)) {
+  } else if (/대학생|대학원생|학생|휴학|복학|재학|등록금/.test(t)) {
     p.employment_status = 'student'
-  } else if (/직장인|회사원|재직|근무\s*(중|해)|다니고\s*있|직장.*다/.test(t)) {
+  } else if (/직장인|회사원|재직|근무\s*(중|해)|다니고\s*있|직장.*다|취업했|취직했|맞벌이/.test(t)) {
     p.employment_status = 'employed'
   }
   // 주거 위기(집 상실·재개발·화재 등)는 저소득 신호로 반영 → 주거급여·긴급복지·저소득 매칭 유도

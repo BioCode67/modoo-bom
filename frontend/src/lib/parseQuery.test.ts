@@ -97,3 +97,44 @@ describe('실사용 문장 회귀(2026-07 품질 스윕)', () => {
     expect(p.has_children).toBe(false)
   })
 })
+
+describe('파악 보강(2026-07 자연어 신호 확장)', () => {
+  it('워킹푸어: 월급·벌이가 적으면 저소득 + 취업했으면 재직', () => {
+    const p = parseProfileFromText('취업했는데 월급이 적어요')
+    expect(p.income_percentile).toBe(40)
+    expect(p.employment_status).toBe('employed')
+    expect(parseProfileFromText('벌이가 넉넉지 않아요').income_percentile).toBe(40)
+    expect(parseProfileFromText('연봉이 낮아요').income_percentile).toBe(40)
+  })
+  it('자영업 부진(장사 안돼·매출 줄·폐업)은 저소득으로 인식', () => {
+    expect(parseProfileFromText('자영업 하는데 장사가 안돼요').income_percentile).toBe(40)
+    expect(parseProfileFromText('소상공인인데 매출이 줄었어요').income_percentile).toBe(40)
+    expect(parseProfileFromText('가게 문 닫았어요').income_percentile).toBe(40)
+  })
+  it('출생 순서(셋째 낳음)만으로 자녀·출산·다자녀 인식', () => {
+    const p = parseProfileFromText('셋째 낳았어요')
+    expect(p.has_children).toBe(true)
+    expect(p.household_type).toBe('다자녀가구')
+    expect(p.life_events).toContain('출산')
+    expect(p.children_ages).toEqual([0]) // 갓 태어난 아이
+  })
+  it('둘째는 다자녀가 아님(순서만 인식)', () => {
+    const p = parseProfileFromText('둘째 가졌어요')
+    expect(p.has_children).toBe(true)
+    expect(p.household_type).not.toBe('다자녀가구')
+    expect(p.life_events).toContain('출산')
+  })
+  it('의료비·희귀질환·아픈 자녀 → 질병 이벤트', () => {
+    expect(parseProfileFromText('희귀질환을 앓고 있어요').life_events).toContain('질병')
+    expect(parseProfileFromText('병원비가 많이 들어요').life_events).toContain('질병')
+    expect(parseProfileFromText('아이가 아파서 걱정이에요').life_events).toContain('질병')
+  })
+  it('복학한 사람은 학생으로 인식', () => {
+    expect(parseProfileFromText('군 제대하고 복학했어요').employment_status).toBe('student')
+  })
+  it('회귀: 애인이 아파도 자녀 질병으로 오인하지 않음(애(?!인) 가드)', () => {
+    // '애인'은 자녀 아픔 패턴에서 제외 — 다만 '아프'가 없으니 질병 미발생이 정상
+    const p = parseProfileFromText('애인이랑 살아요')
+    expect(p.life_events).not.toContain('질병')
+  })
+})
