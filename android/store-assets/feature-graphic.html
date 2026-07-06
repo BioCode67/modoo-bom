@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>모두봄 — 특성 그래픽 1024x500</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css" />
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{width:1024px;height:500px;overflow:hidden;
+    font-family:'Pretendard Variable','Pretendard','Malgun Gothic','맑은 고딕',sans-serif;
+    background:
+      radial-gradient(720px 420px at 88% -20%, #d8f7e0 0%, transparent 60%),
+      radial-gradient(640px 420px at -10% 110%, #fff0dc 0%, transparent 55%),
+      linear-gradient(135deg,#fffaf3 0%,#f4fbf6 100%);
+    color:#14281d;display:flex;align-items:center}
+  .left{flex:1;padding:0 0 0 64px;position:relative;z-index:2}
+  .brand{display:flex;align-items:center;gap:14px;margin-bottom:22px}
+  .logo{width:58px;height:58px;border-radius:17px;background:linear-gradient(135deg,#22c55e,#15803d);
+    display:grid;place-items:center;font-size:30px;box-shadow:0 8px 24px -8px rgba(21,128,61,.45)}
+  .name{font-size:40px;font-weight:800;letter-spacing:-.02em}
+  h1{font-size:44px;font-weight:800;letter-spacing:-.03em;line-height:1.22}
+  h1 .em{color:#15803d}
+  .sub{margin-top:14px;font-size:19px;color:#5c6b61;font-weight:600}
+  .chips{display:flex;gap:9px;margin-top:22px}
+  .chip{font-size:15px;font-weight:800;padding:8px 15px;border-radius:999px;background:#fff;
+    border:1.5px solid #d5ecda;color:#15803d;box-shadow:0 2px 8px -3px rgba(20,40,29,.12)}
+  .chip.sky{color:#0369a1;border-color:#bfe3f5}
+  .chip.sun{color:#b45309;border-color:#f6d894}
+  .right{width:330px;height:100%;position:relative;z-index:1}
+  .sprout{position:absolute;right:60px;bottom:-24px;font-size:230px;
+    filter:drop-shadow(0 18px 30px rgba(21,128,61,.25))}
+  .bubble{position:absolute;right:46px;top:64px;background:#fff;border-radius:18px 18px 4px 18px;
+    padding:13px 17px;font-size:16px;font-weight:700;color:#14281d;
+    box-shadow:0 10px 30px -10px rgba(20,40,29,.25)}
+  .bubble small{display:block;color:#16a34a;font-weight:800;font-size:12px;margin-bottom:2px}
+</style>
+</head>
+<body>
+  <div class="left">
+    <div class="brand"><div class="logo">🌱</div><div class="name">모두봄</div></div>
+    <h1>몰라서 못 받던 복지,<br><span class="em">AI가 대신 찾아드려요</span></h1>
+    <p class="sub">전국 5,000여 실데이터 · 회원가입 없이 · 개인정보는 내 폰에만</p>
+    <div class="chips">
+      <span class="chip">맞춤 자격판정</span>
+      <span class="chip sky">7개 언어 AI 검색</span>
+      <span class="chip sun">신청까지 3단계</span>
+    </div>
+  </div>
+  <div class="right">
+    <div class="bubble"><small>모두봄 AI</small>어르신, 기초연금 받으실 수 있어요!</div>
+    <div class="sprout">🌱</div>
+  </div>
+</body>
+</html>

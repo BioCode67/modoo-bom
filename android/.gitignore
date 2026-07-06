@@ -1,0 +1,9 @@
+# ⚠️ 서명키·비밀번호는 절대 커밋 금지 (분실 시 앱 업데이트 불가 — 반드시 별도 백업)
+keystore/
+build/
+app/build/
+.gradle/
+node_modules/
+*.apk
+*.aab
+*.idsig

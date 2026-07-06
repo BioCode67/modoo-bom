@@ -68,9 +68,10 @@ async def _ai_answer(question: str, policies: list[dict]) -> str:
     from agents.utils import safe_json_dumps
     from agents.llm import get_chat_llm
 
+    # 검색 백엔드(BM25/ChromaDB)마다 필드 구성이 달라 KeyError로 폴백되던 문제 방지 — 전부 .get().
     policy_context = safe_json_dumps(
-        [{"name": p["name"], "target": p["target"], "benefit": p.get("benefit", ""),
-          "eligibility": p["eligibility"], "application": p.get("application", "")}
+        [{"name": p.get("name", ""), "target": p.get("target", ""), "benefit": p.get("benefit", ""),
+          "eligibility": p.get("eligibility", ""), "application": p.get("application", "")}
          for p in policies[:5]],
         indent=2,
     )

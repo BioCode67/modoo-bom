@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Sparkles, ArrowRight, ShieldCheck, Compass, Search } from 'lucide-react'
 import { MascotCanvas } from '@/three/MascotCanvas'
+import { HeroAgentBubble } from '@/components/HeroAgentBubble'
 import { useAppStore } from '@/store/useAppStore'
 import { parseProfileFromText } from '@/lib/parseQuery'
 
@@ -16,6 +17,8 @@ const HERO_EXAMPLES = ['72세 혼자 사는데 소득이 적어요', '서울 사
 export function Hero() {
   const { setView, setPendingProfile, setAiIntent, setAiQuery } = useAppStore()
   const [text, setText] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+  const focusInput = () => { inputRef.current?.focus(); inputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }) }
 
   // 🌍 다국어 시연 — 외국어 한 문장 → 온디바이스 AI 의미검색(번역 없이 한국 복지 매칭).
   // 대회 헤드라인이자 참가자 투표용 30초 임팩트. 호버 시 모델을 미리 데워 체감 지연을 줄인다.
@@ -73,6 +76,7 @@ export function Hero() {
             <div className="relative flex-1">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
               <input
+                ref={inputRef}
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 placeholder="예: 72세 혼자 사는데 소득이 적어요"
@@ -134,14 +138,20 @@ export function Hero() {
           </div>
         </motion.div>
 
-        {/* 우: 3D 마스코트 */}
+        {/* 우: 새싹이 에이전트가 먼저 말을 건다 + 3D 마스코트 */}
         <motion.div
           initial={{ opacity: 0, scale: 0.92 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.7, delay: 0.1 }}
-          className="order-1 lg:order-2 h-[320px] sm:h-[420px] lg:h-[520px]"
+          className="order-1 lg:order-2 relative"
         >
-          <MascotCanvas />
+          {/* 말풍선 — 마스코트 위에 겹쳐 '새싹이가 말하는' 느낌 */}
+          <div className="relative z-20 px-2 -mb-2 lg:mb-0 lg:absolute lg:top-2 lg:left-0 lg:right-4">
+            <HeroAgentBubble onFocusInput={focusInput} />
+          </div>
+          <div className="h-[300px] sm:h-[420px] lg:h-[520px]">
+            <MascotCanvas />
+          </div>
         </motion.div>
       </div>
     </section>
