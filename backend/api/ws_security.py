@@ -4,8 +4,15 @@ import os
 from fastapi import WebSocket
 
 
+# main.py의 CORSMiddleware 기본값과 동일하게 유지(라이브 배포 도메인 포함) —
+# CORS_ORIGINS 환경변수를 안 넣어도 배포 프론트(github.io)의 WS가 바로 붙게 한다.
+_DEFAULT_ORIGINS = (
+    "http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173,https://biocode67.github.io"
+)
+
+
 def _allowed_origins() -> set[str]:
-    raw = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:4173")
+    raw = os.getenv("CORS_ORIGINS", _DEFAULT_ORIGINS)
     return {o.strip().rstrip("/") for o in raw.split(",") if o.strip()}
 
 
