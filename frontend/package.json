@@ -17,6 +17,7 @@
     "e2e:chat": "../backend/venv/Scripts/python.exe e2e/audit-chat.py",
     "e2e:fin": "../backend/venv/Scripts/python.exe e2e/audit-fin.py",
     "e2e:ext": "../backend/venv/Scripts/python.exe e2e/ext-flow.py",
+    "e2e:app": "../backend/venv/Scripts/python.exe e2e/local-app.py",
     "e2e:ext:headed": "cross-env EXT_HEADED=1 ../backend/venv/Scripts/python.exe e2e/ext-flow.py",
     "embed": "node --experimental-strip-types scripts/embed-policies.mts",
     "verify:semantic": "node scripts/verify-semantic.mjs",
