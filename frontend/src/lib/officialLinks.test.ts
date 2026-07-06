@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { applyLink, docLink, isRpaSupported, isApplyAutomatable } from './officialLinks'
+import { applyLink, docLink, isRpaSupported, isApplyAutomatable, isCertIssuable, CERT_WALLET } from './officialLinks'
 
 describe('applyLink', () => {
   it('복지로 상세 딥링크(application이 URL)면 그 URL 그대로 연결', () => {
@@ -89,6 +89,27 @@ describe('docLink', () => {
     expect(isRpaSupported('임대차계약서')).toBe(false)
     expect(isRpaSupported('신분증')).toBe(false)
     expect(isRpaSupported('재학증명서')).toBe(false)
+  })
+})
+
+describe('isCertIssuable — 무설치 전자발급(전자증명서) 가능 서류', () => {
+  it('정부24·공공 전자발급 서류는 true', () => {
+    expect(isCertIssuable('주민등록등본')).toBe(true)
+    expect(isCertIssuable('가족관계증명서')).toBe(true)
+    expect(isCertIssuable('장애인증명서')).toBe(true)
+    expect(isCertIssuable('기초생활수급자 증명서')).toBe(true)
+    expect(isCertIssuable('건강보험 자격득실확인서')).toBe(true)
+    expect(isCertIssuable('국민연금 가입내역확인서')).toBe(true)
+  })
+  it('병원·은행·회사 발급 서류는 온라인 전자발급 대상 아님(false)', () => {
+    expect(isCertIssuable('진단서')).toBe(false)
+    expect(isCertIssuable('통장 사본')).toBe(false)
+    expect(isCertIssuable('근로계약서')).toBe(false)
+    expect(isCertIssuable('임대차계약서')).toBe(false)
+    expect(isCertIssuable('희귀서류명')).toBe(false) // 검색 폴백은 발급 확정 아님
+  })
+  it('전자문서지갑 안내 링크 제공', () => {
+    expect(CERT_WALLET.url).toContain('dpaper.kr')
   })
 })
 

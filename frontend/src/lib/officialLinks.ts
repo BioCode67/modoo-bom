@@ -108,6 +108,26 @@ export function applyLink(application: string): OfficialLink {
   return { label: '복지로에서 신청', url: 'https://www.bokjiro.go.kr' }
 }
 
+/**
+ * 정부·공공 온라인에서 '전자문서'로 **무설치** 발급 가능한 서류인지 — 크롬 확장·RPA·백엔드 없이 본인이 직접 발급.
+ * 정부24 서류는 **전자증명서(전자문서지갑)**로 발급해 복지로·주민센터에 전자제출까지 가능(정부 공식 유통망).
+ * 병원·은행·회사 발급 서류(진단서·통장사본·재직증명 등)는 온라인 전자발급 대상이 아니라 false.
+ */
+const ONLINE_ISSUE_HOSTS = /gov\.kr\/mw\/AA020|gov\.kr\/portal\/main|efamily\.scourt|nhis\.or\.kr|work24\.go\.kr|nps\.or\.kr\/elctcvlcpt/
+export function isCertIssuable(doc: string): boolean {
+  const url = docLink(doc).url
+  return ONLINE_ISSUE_HOSTS.test(url) && !url.includes('/search')
+}
+
+/**
+ * 정부 전자증명서(전자문서지갑) — 발급한 민원서류를 종이 없이 전자문서로 보관하고
+ * 복지로·주민센터 등 제3자에게 전자제출까지 하는 정부 공식 서비스. 네이버·카카오·토스·은행 앱에서도 지갑 이용 가능.
+ */
+export const CERT_WALLET = {
+  label: '정부 전자문서지갑(전자증명서)',
+  url: 'https://dpaper.kr/',
+}
+
 /** RPA 자동발급 지원 서류 — 크롬 확장 기준 13종 (extension/background.js DOCS와 일치) */
 export const RPA_SUPPORTED_DOCS = [
   '주민등록등본', '주민등록초본', '가족관계증명서', '장애인증명서', '소득금액증명',

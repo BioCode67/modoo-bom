@@ -3,7 +3,7 @@ import { motion } from 'framer-motion'
 import { FileText, ExternalLink, Bot, Loader2, CheckCircle2, AlertCircle } from 'lucide-react'
 import { getPolicyMap } from '@/data/catalog'
 import { useAppStore } from '@/store/useAppStore'
-import { docLink, isRpaSupported } from '@/lib/officialLinks'
+import { docLink, isRpaSupported, isCertIssuable, CERT_WALLET } from '@/lib/officialLinks'
 import { API_BASE } from '@/lib/backend'
 import { useBackend } from '@/lib/useBackend'
 import { detectExtension, issueViaExtension, issueManyViaExtension, getExtensionTrace, onExtensionStatus, sameDocName } from '@/lib/extension'
@@ -107,6 +107,7 @@ export function DocumentCenter() {
 
   // 🚀 연쇄 자동발급 — 지원 서류 전부를 한 흐름으로(정부24는 한 번 로그인으로 이어짐)
   const rpaDocs = docs.filter((d) => isRpaSupported(d)) // 연쇄 발급은 확장 전용(ext && … 조건으로만 노출)
+  const certDocs = docs.filter((d) => isCertIssuable(d)) // 무설치 전자발급(전자증명서) 가능 서류
   const startAll = async () => {
     if (!rpaInfo.name?.trim() || !rpaInfo.birth_date?.trim() || !rpaInfo.phone?.trim()) {
       setRpa((s) => ({ ...s, [rpaDocs[0]]: { status: 'error', step: '아래 "자동입력 추가정보"에 실명·생년월일·휴대폰을 먼저 입력해 주세요.', at: Date.now() } }))
@@ -138,31 +139,36 @@ export function DocumentCenter() {
         <h2 className="text-lg font-extrabold flex items-center gap-2"><FileText className="h-5 w-5 text-sky2-500" /> 서류 준비 도우미</h2>
         {backend ? (
           <span className="chip-sprout"><Bot className="h-3.5 w-3.5" /> 자동발급 가능</span>
+        ) : certDocs.length > 0 ? (
+          <span className="chip-sprout">📄 무설치 전자발급</span>
         ) : (
           <span className="chip-sky">공식 사이트 바로가기</span>
         )}
       </div>
       <p className="text-sm text-muted-foreground mt-1">
-        담은 복지에 필요한 서류 {docs.length}종이에요. 발급처로 바로 이동하거나{backend ? ' 에이전트로 자동 발급하세요.' : ' 직접 발급하세요.'}
+        담은 복지에 필요한 서류 {docs.length}종이에요. {backend ? '에이전트로 자동 발급하거나 발급처로 바로 이동하세요.' : '설치 없이 전자증명서로 발급하거나 발급처로 바로 이동하세요.'}
         {backend && <span className="block mt-0.5 text-xs">🔒 카카오 본인인증은 보안을 위해 본인이 직접 진행해요.</span>}
       </p>
 
-      {/* 확장/로컬 에이전트 둘 다 없을 때 — 설치하면 이 브라우저에서 자동발급이 켜진다는 안내 */}
-      {!backend && (
-        <div className="mt-3 rounded-2xl border-2 border-dashed border-sprout-200 bg-sprout-50/50 p-3 flex items-start gap-2.5">
-          <span className="text-lg">🧩</span>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold">크롬 확장을 설치하면 여기서 <b>서류 자동발급</b>이 켜져요</p>
-            <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-              설치 없이 정부24 서류를 이 브라우저 안에서 자동 발급해요. 개인정보는 서버로 전송되지 않아요.
-              <b> 본인인증만 직접</b> 하시면 됩니다.
-            </p>
+      {/* ⭐ 무설치 전자발급(전자증명서) — 권장 기본 경로. 확장·서버 없이 정부 공식 유통망으로 발급·제출. */}
+      {!ext && certDocs.length > 0 && (
+        <div className="mt-3 rounded-2xl border-2 border-sprout-200 bg-gradient-to-br from-sprout-50 to-emerald-50 p-3.5">
+          <p className="text-sm font-extrabold flex items-center gap-1.5">📄 설치 없이 <span className="gradient-text">전자증명서</span>로 발급하기 <span className="chip-sprout !py-0.5 text-[10px]">권장</span></p>
+          <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+            아래 <b>{certDocs.length}종</b>은 프로그램 설치 없이 정부24에서 <b>전자증명서(전자문서)</b>로 바로 발급돼요.
+            발급한 서류는 <b>전자문서지갑</b>에 담아 복지로·주민센터에 <b>종이 없이 전자제출</b>할 수 있어요(정부 공식 방식).
+            <b> 본인인증만 직접</b> 하시면 됩니다 · 🔒 개인정보는 서버로 안 나가요.
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <a href={CERT_WALLET.url} target="_blank" rel="noopener noreferrer" className="btn-secondary !px-3 !py-1.5 text-xs">
+              <ExternalLink className="h-3.5 w-3.5" /> {CERT_WALLET.label} 알아보기
+            </a>
             <a
               href="https://github.com/BioCode67/modoo-bom/tree/main/extension#설치-개발자-모드--데모"
               target="_blank" rel="noopener noreferrer"
-              className="btn-secondary !px-3 !py-1.5 text-xs mt-2"
+              className="text-xs text-muted-foreground/80 hover:underline self-center"
             >
-              <ExternalLink className="h-3.5 w-3.5" /> 확장 설치 방법
+              고급: 크롬 확장으로 자동화도 가능해요 →
             </a>
           </div>
         </div>
@@ -194,6 +200,7 @@ export function DocumentCenter() {
           const link = docLink(doc)
           // 확장 있으면 13종, 로컬 백엔드만이면 6종만 '자동' 표시(과대 표시 시 클릭 오류 — 감사 실측)
           const supported = ext ? isRpaSupported(doc) : isRpaSupported(doc, 'local')
+          const cert = isCertIssuable(doc) // 무설치 전자발급(전자증명서) 가능 여부
           const st = rpa[doc]
           // 30초 넘게 진행상태가 안 오면(새 탭에서 사용자 조작 대기 등) 웹에서도 정직하게 안내
           const stale = !!(st && !['done', 'completed', 'error'].includes(st.status) && st.at && Date.now() - st.at > 30000 && tick >= 0)
@@ -221,7 +228,10 @@ export function DocumentCenter() {
                 ) : (
                   <>
                     <p className="text-xs text-sprout-600 font-semibold truncate">{needText(doc)}</p>
-                    <p className="text-[11px] text-muted-foreground truncate">{link.label}</p>
+                    <p className="text-[11px] text-muted-foreground truncate flex items-center gap-1">
+                      {cert && <span className="chip-sprout !py-0 !px-1.5 text-[9px] shrink-0">무설치 전자발급</span>}
+                      <span className="truncate">{link.label}</span>
+                    </p>
                   </>
                 )}
               </div>
@@ -231,8 +241,9 @@ export function DocumentCenter() {
                     <Bot className="h-4 w-4" /> 자동
                   </button>
                 )}
-                <a href={link.url} target="_blank" rel="noopener noreferrer" className="btn-secondary !px-3 !py-2 text-xs">
-                  <ExternalLink className="h-4 w-4" /> 발급
+                {/* 전자증명서 발급 가능한 서류는 '전자발급'으로 강조(무설치 기본 경로) */}
+                <a href={link.url} target="_blank" rel="noopener noreferrer" className={cert && !backend ? 'btn-primary !px-3 !py-2 text-xs' : 'btn-secondary !px-3 !py-2 text-xs'}>
+                  <ExternalLink className="h-4 w-4" /> {cert ? '전자발급' : '발급'}
                 </a>
               </div>
             </div>
