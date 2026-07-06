@@ -20,7 +20,9 @@ import { PolicyCard } from '@/components/PolicyCard'
 import { PolicyDetailDrawer } from '@/components/PolicyDetailDrawer'
 import { Glossary } from '@/components/Glossary'
 
-const BUCKETS: { key: string; label: string; emoji: string; match?: string[] }[] = [
+// match: category에 포함되면 해당 버킷. test: 이름·혜택 등 넓은 필드로 판정(장학금·서민금융처럼
+//   카테고리가 아니라 정책명에 흩어져 있는 유형을 정확히 모아 보여주기 위함).
+const BUCKETS: { key: string; label: string; emoji: string; match?: string[]; test?: (p: Policy) => boolean }[] = [
   { key: 'all', label: '전체', emoji: '🌼' },
   { key: 'senior', label: '노인', emoji: '👵', match: ['노인'] },
   { key: 'child', label: '아동·육아', emoji: '👶', match: ['아동', '영유아', '보육'] },
@@ -28,7 +30,12 @@ const BUCKETS: { key: string; label: string; emoji: string; match?: string[] }[]
   { key: 'disabled', label: '장애인', emoji: '♿', match: ['장애'] },
   { key: 'birth', label: '임신·출산', emoji: '🤰', match: ['임신', '출산', '모'] },
   { key: 'lowincome', label: '저소득', emoji: '🤝', match: ['저소득', '생계', '기초'] },
-  { key: 'house', label: '주거', emoji: '🏠', match: ['주거'] },
+  // 🏠 주거 — 카테고리 '주거' + 정책명의 행복주택·임대주택 등을 함께 모은다(공고가 이름에만 있는 경우 대응)
+  { key: 'house', label: '주거·주택', emoji: '🏠', test: (p) => p.category.includes('주거') || /행복주택|임대주택|전세임대|매입임대|청년주택|공공임대|국민임대|주거급여|월세\s*지원|전세\s*지원|주택\s*공고/.test(`${p.name} ${p.benefit}`) },
+  // 🎓 장학금 — 이름·대상·혜택에 장학/학자금이 있으면(카테고리가 청년·교육 등으로 흩어져 있어 test 필요)
+  { key: 'scholarship', label: '장학금', emoji: '🎓', test: (p) => /장학|학자금|스칼러십|등록금\s*지원/.test(`${p.name} ${p.target} ${p.benefit}`) },
+  // 🏦 서민금융 — 서민금융 시드(FIN-)·대출/융자형·햇살론 등(대출이라 현금성 합산엔 이미 제외됨)
+  { key: 'finance', label: '서민금융', emoji: '🏦', test: (p) => p.id.startsWith('FIN-') || benefitTypeOf(p) === 'loan' || /서민금융|햇살론|미소금융|소액생계비|근로자\s*햇살|자립\s*자금/.test(`${p.name} ${p.benefit}`) },
   { key: 'medical', label: '의료', emoji: '🏥', match: ['의료', '건강'] },
   { key: 'job', label: '고용', emoji: '💼', match: ['고용', '취업', '일자리'] },
   { key: 'edu', label: '교육', emoji: '📚', match: ['교육', '학'] },
@@ -177,7 +184,8 @@ export function Explore() {
     const b = BUCKETS.find((x) => x.key === bucket)
     // 비검색 필터(분류·지역·현금성) 공통 술어
     const passNonSearch = (p: Policy) => {
-      if (b?.match && !b.match.some((m) => p.category.includes(m))) return false
+      if (b?.test) { if (!b.test(p)) return false }
+      else if (b?.match && !b.match.some((m) => p.category.includes(m))) return false
       if (region && p.id.startsWith('LOC-') && sidoOf(p.target) !== region) return false
       if (gungu && p.id.startsWith('LOC-')) {
         const g = guOf(p.target)
