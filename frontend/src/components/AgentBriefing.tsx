@@ -7,6 +7,7 @@ import { getPolicyMap } from '@/data/catalog'
 import { useAppStore } from '@/store/useAppStore'
 import { buildActionFeed } from '@/lib/monitoring'
 import { predictTimeline } from '@/lib/lifeAgent'
+import { SproutLogo } from '@/ui/SproutLogo'
 
 const KIND_META: Record<string, { icon: typeof AlarmClock; word: string }> = {
   submit: { icon: AlarmClock, word: '신청 마감' },
@@ -39,10 +40,15 @@ export function AgentBriefing({ onOpen }: { onOpen: (p: Policy | EligiblePolicy)
       initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
       className="card-cute p-5 border-2 border-sprout-200 bg-gradient-to-br from-sprout-50 via-white to-sky2-50 mb-6"
     >
-      <div className="flex items-center gap-2">
-        <span className="text-xl">🌱</span>
-        <h2 className="font-extrabold">에이전트 브리핑</h2>
-        <span className="chip-sprout !py-0.5 text-[11px] ml-auto">AI가 먼저 확인했어요</span>
+      <div className="flex items-center gap-2.5">
+        <span className="shrink-0 flex h-10 w-10 items-center justify-center rounded-full bg-sprout-100">
+          <SproutLogo withFace className="h-8 w-8" />
+        </span>
+        <div className="min-w-0">
+          <p className="text-[11px] font-extrabold text-sprout-600">새싹이 · 복지 에이전트</p>
+          <h2 className="font-extrabold leading-tight">오늘의 복지 브리핑</h2>
+        </div>
+        <span className="chip-sprout !py-0.5 text-[11px] ml-auto shrink-0">제가 먼저 확인했어요</span>
       </div>
 
       {nothing ? (
