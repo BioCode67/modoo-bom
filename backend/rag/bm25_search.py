@@ -77,6 +77,8 @@ def search_policies(query: str, n_results: int = 5, k1: float = 1.5, b: float = 
             "name": p.get("name"),
             "category": p.get("category"),
             "target": p.get("target"),
+            "benefit": p.get("benefit", ""),
+            "eligibility": p.get("eligibility", ""),
             "department": p.get("department"),
             "renewal": p.get("renewal", ""),
             "required_docs": p.get("required_docs") or [],
