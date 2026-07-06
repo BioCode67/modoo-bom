@@ -1,7 +1,16 @@
 """ModooBom FastAPI 서버 엔트리포인트"""
 import os
+import sys
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
+
+# ⚠️ Windows 콘솔 기본 인코딩(cp949)에서 로그·RPA 진행메시지의 이모지(✅📱—)를 출력하면
+#    UnicodeEncodeError가 나고, 그게 이벤트 루프/서버 프로세스를 죽인다(실측 크래시). UTF-8을 강제해 원천 차단.
+for _s in (sys.stdout, sys.stderr):
+    try:
+        _s.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
 
 load_dotenv()
 

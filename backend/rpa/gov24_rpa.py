@@ -64,6 +64,18 @@ ISSUE_URLS = {
     "장애인증명서": _issue_url("14600000273"),
 }
 
+# 새 발급 폼(plus.gov.kr) — 로그인과 같은 호스트라 세션이 유지된다(옛 www.gov.kr/AA040 은 크로스호스트라 세션이 끊김).
+def _apply_form_url(capp_biz_cd: str) -> str:
+    return f"https://plus.gov.kr/minwon/apply/applyMinwonForm/?cappBizCd={capp_biz_cd}&tpSeq=01"
+
+
+APPLY_FORM_URLS = {
+    "주민등록등본": _apply_form_url("13100000015"),
+    "주민등록초본": _apply_form_url("13100000015"),
+    "가족관계증명서": _apply_form_url("97400000004"),
+    "장애인증명서": _apply_form_url("14600000273"),
+}
+
 # plus.gov.kr 간편인증 선택자 (신 UI: button.login-type)
 SIMPLE_AUTH_SELECTORS = [
     "button.login-type:has-text('간편인증')",
@@ -211,23 +223,26 @@ async def _login_on_www_gov(page, task, user_info: dict = None) -> bool:
     # ④ 본인인증 정보 입력 폼 감지 및 안내 (iframe 컨텍스트에서 감지)
     form_detected = await detect_auth_form(auth_ctx)
 
-    # 정보가 있으면 이름·생년월일·휴대폰 자동 입력 + '인증 요청'까지 자동 → 사용자는 폰 승인만
+    # 정보가 있으면 이름·생년월일·휴대폰 자동 입력 → 생년월일까지 있으면 '인증 요청'도 자동(폰 승인만 남김)
     autofilled = await _autofill_auth_form(auth_ctx, user_info)
     requested = False
+    _has_birth = bool(re.sub(r"[^0-9]", "", str((user_info or {}).get("birth_date", ""))))
     if autofilled:
-        await asyncio.sleep(0.6)
-        requested = await _request_auth(auth_ctx)  # 인증 요청 자동 클릭(폰 승인만 남김)
+        # 생년월일이 없으면 인증요청을 자동으로 누르지 않는다(불완전 정보로 요청하면 오류)
+        if _has_birth:
+            await asyncio.sleep(0.6)
+            requested = await _request_auth(auth_ctx)
         await asyncio.sleep(0.5)
         ss = await take_screenshot(page)
 
     if autofilled:
-        task.update(
-            "waiting_login",
-            ("✅ 정보 자동입력 + '인증 요청'까지 완료했어요.\n📱 카카오톡 알림에서 [인증 허용]만 누르시면 됩니다."
-             if requested else
-             "✅ 이름·생년월일·휴대폰을 자동 입력했어요.\n화면에서 '인증 요청'을 누르면, 📱 카카오톡 알림에서 [인증 허용]만 하시면 됩니다."),
-            ss,
-        )
+        if requested:
+            _msg = "✅ 정보 자동입력 + '인증 요청'까지 완료했어요.\n📱 카카오톡 알림에서 [인증 허용]만 누르시면 됩니다."
+        elif not _has_birth:
+            _msg = "✅ 이름·휴대폰을 자동 입력했어요.\n화면에서 '생년월일'을 입력하고 '인증 요청'을 누른 뒤, 📱 카카오톡 [인증 허용]을 해주세요."
+        else:
+            _msg = "✅ 이름·생년월일·휴대폰을 자동 입력했어요.\n화면에서 '인증 요청'을 누르면, 📱 카카오톡 알림에서 [인증 허용]만 하시면 됩니다."
+        task.update("waiting_login", _msg, ss)
     elif kakaotalk_clicked and form_detected:
         task.update("waiting_login", AUTH_FORM_USER_GUIDE, ss)
     elif kakaotalk_clicked:
@@ -380,165 +395,137 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None) -> None:
 
             await asyncio.sleep(2)
 
-            # ③ 발급 신청 폼(AA040)으로 직행 — 안내 페이지(AA020) 저장 방지, 실제 발급으로.
-            issue_url = ISSUE_URLS.get(doc_name, doc_url)
+            # ③ 새 발급 폼(plus.gov.kr) — 로그인과 같은 호스트라 세션 유지(옛 www.gov.kr/AA040 은 크로스호스트로 끊겼음)
+            form_url = APPLY_FORM_URLS.get(doc_name) or ISSUE_URLS.get(doc_name, doc_url)
             task.update("running", f"{doc_name} 발급 폼으로 이동 중...")
-            await page.goto(issue_url, wait_until="domcontentloaded", timeout=30000)
-            await asyncio.sleep(3)
-            ss = await take_screenshot(page)
-            task.update("running", f"{doc_name} 발급 폼 접속\n현재 URL: {page.url}", ss)
+            await page.goto(form_url, wait_until="domcontentloaded", timeout=30000)
+            await asyncio.sleep(4)
 
-            # 회원/비회원 선택 모달이 뜨면 '회원 신청하기'
-            if await click_first_matching(page, [
-                "a:has-text('회원 신청하기')", "button:has-text('회원 신청하기')", "a:has-text('회원신청')",
-            ]):
-                await asyncio.sleep(2)
-                ss = await take_screenshot(page)
-                task.update("running", "회원 신청 진입 — 발급 양식 처리 중...", ss)
-
-            # 혹시 로그인 페이지로 다시 튕긴 경우 재처리
+            # 폼에서 재로그인 요구되면 한 번 더 인증
             if any(k in page.url for k in LOGIN_PAGE_URL_KEYWORDS):
-                task.update("running", "서비스 접근 시 재로그인 요구 — 다시 로그인 중...", ss)
-                login_ok = await _login_on_www_gov(page, task, user_info)
-                if not login_ok:
+                task.update("running", "재로그인이 필요해요 — 다시 인증합니다...")
+                if not await _login_on_www_gov(page, task, user_info):
                     await browser.close()
                     return
-                await asyncio.sleep(2)
-                # 재접속
-                if "AA020InfoCappView" not in page.url:
-                    await page.goto(doc_url, wait_until="domcontentloaded", timeout=30000)
-                    await asyncio.sleep(3)
-                    ss = await take_screenshot(page)
-                    task.update("running", f"{doc_name} 서비스 페이지 재접속 완료", ss)
+                await page.goto(form_url, wait_until="domcontentloaded", timeout=30000)
+                await asyncio.sleep(4)
 
-            # ④ "온라인발급" / "인터넷발급" 탭 선택
-            await asyncio.sleep(1)
-            online_selectors = [
-                "a:has-text('온라인발급')", "a:has-text('온라인 발급')",
-                "a:has-text('인터넷발급')", "a:has-text('전자문서')",
-                "button:has-text('온라인발급')",
-            ]
-            if await click_first_matching(page, online_selectors):
-                await asyncio.sleep(1.5)
-                ss = await take_screenshot(page)
-                task.update("running", "온라인 발급 탭 선택", ss)
-
-            # ⑤ 신청하기 버튼 클릭
-            await asyncio.sleep(1)
-            ss = await take_screenshot(page)
-            task.update("running", "신청하기 버튼 탐색 중...", ss)
-
-            clicked = await click_first_matching(page, APPLY_SELECTORS)
-            await asyncio.sleep(2)
-            # 발급하기 후 회원/비회원 모달 → 회원 신청하기
-            if await click_first_matching(page, [
-                "a:has-text('회원 신청하기')", "button:has-text('회원 신청하기')",
-            ]):
-                clicked = True
-                await asyncio.sleep(2)
-
-            if clicked:
-                # 신청 클릭 후 로그인 페이지로 튕겼으면 다시 로그인
-                if any(k in page.url for k in LOGIN_PAGE_URL_KEYWORDS):
-                    task.update("running", "신청 클릭 후 로그인 요구 — 로그인 처리 중...")
-                    login_ok = await _login_on_www_gov(page, task, user_info)
-                    if not login_ok:
-                        await browser.close()
-                        return
-                    await asyncio.sleep(2)
-                    # 로그인 후 returnUrl로 자동 복귀되지 않으면 재시도
-                    if "AA020InfoCappView" not in page.url:
-                        await page.goto(doc_url, wait_until="domcontentloaded", timeout=30000)
-                        await asyncio.sleep(3)
-                        await click_first_matching(page, online_selectors)
-                        await asyncio.sleep(1)
-                        await click_first_matching(page, APPLY_SELECTORS)
-                        await asyncio.sleep(2)
-
-                ss = await take_screenshot(page)
-                task.update("running", "신청하기 클릭 완료 — 양식 처리 중...", ss)
-
-                # 팝업 처리 및 초본/목적 선택
-                target_page = await _handle_apply_popup(context, page, task, doc_name)
-
-                # 최종 제출 버튼 클릭
-                submit_selectors = [
-                    "button:has-text('발급')",
-                    "button:has-text('확인')",
-                    "input[type='submit']",
-                    "button[type='submit']",
-                    "a:has-text('발급')",
-                ]
-                if await click_first_matching(target_page, submit_selectors):
-                    await asyncio.sleep(2)
-                    ss = await take_screenshot(target_page)
-                    task.update("running", "발급 신청 완료 — 결과 대기 중...", ss)
-            else:
-                ss = await take_screenshot(page)
-                task.update(
-                    "running",
-                    "신청하기 버튼을 자동으로 찾지 못했습니다.\n"
-                    "브라우저에서 '신청하기' 또는 '온라인발급' 버튼을 직접 클릭해주세요.",
-                    ss,
-                )
-
-            # ⑥ 인쇄/출력 창 대기 (최대 120초)
-            printed = False
-            for _ in range(120):
-                try:
-                    # 현재 페이지와 팝업 모두 확인
-                    for check_page in context.pages:
-                        for sel in PRINT_SELECTORS:
-                            try:
-                                el = check_page.locator(sel).first
-                                if await el.count() > 0:
-                                    await check_page.bring_to_front()
-                                    ss = await take_screenshot(check_page)
-                                    task.update("running", "출력 버튼 감지! 클릭합니다.", ss)
-                                    await el.click()
-                                    printed = True
-                                    break
-                            except Exception:
-                                pass
-                        if printed:
-                            break
-                    if printed:
-                        break
-                except Exception:
-                    pass
+            # 초본이면 서비스 선택에서 '초본'을 고른다(기본은 등본)
+            if doc_name == "주민등록초본":
+                await click_by_text(page, ["주민등록표 초본 발급"])
                 await asyncio.sleep(1)
 
-            # 최종 스크린샷
+            ss = await take_screenshot(page)
+            task.update("running", "발급 폼 로드 — 신청하기 진행", ss)
+
+            async def _txt():
+                try:
+                    return await page.evaluate("() => document.body ? document.body.innerText : ''")
+                except Exception:
+                    return ""
+
+            # 주소 자동 선택 — 회원정보 주소가 실제 주민등록과 다를 때, 제공된 시도·시군구로 자동 정정(헤드리스에서도 동작)
+            sido = str((user_info or {}).get("sido") or "").strip()
+            sigungu = str((user_info or {}).get("sigungu") or "").strip()
+            if sido or sigungu:
+                try:
+                    if sido:
+                        await page.evaluate(
+                            """(v) => {
+                                const ss = [...document.querySelectorAll('select')];
+                                const sel = ss.find(s => [...s.options].some(o => o.text.includes('경상북도') || o.text.includes('서울특별시')));
+                                if (sel) { const o = [...sel.options].find(o => o.text.includes(v)); if (o) { sel.value = o.value; sel.dispatchEvent(new Event('change', {bubbles:true})); } }
+                            }""", sido,
+                        )
+                        await asyncio.sleep(1.5)  # 시군구 옵션 로드 대기
+                    if sigungu:
+                        await page.evaluate(
+                            """(v) => {
+                                const ss = [...document.querySelectorAll('select')];
+                                const sel = ss.find(s => [...s.options].some(o => o.text.includes(v)));
+                                if (sel) { const o = [...sel.options].find(o => o.text.includes(v)); if (o) { sel.value = o.value; sel.dispatchEvent(new Event('change', {bubbles:true})); } }
+                            }""", sigungu,
+                        )
+                        await asyncio.sleep(0.8)
+                    task.update("running", f"주민등록상 주소를 {sido} {sigungu}(으)로 설정했어요.", await take_screenshot(page))
+                except Exception:
+                    pass
+
+            # ④ 신청하기 — 자동입력 주소가 실제 주민등록 주소와 다르면(정보 없음 안내) 사용자가 고칠 때까지 기다렸다 자동 재시도
+            submitted = False
+            addr_warned = False
+            for _ in range(24):  # 최대 ~4분(주소 정정 대기 포함)
+                if not await click_by_text(page, ["신청하기", "민원신청하기"]):
+                    await click_first_matching(page, ["button:has-text('신청하기')", "#btnMinwonApply", "#btnApply", "input[value*='신청']"])
+                await asyncio.sleep(3)
+                txt = await _txt()
+                # 주소 불일치 안내 모달 → 닫고, 사용자가 시도·시군구를 고칠 때까지 대기 후 재시도
+                if ("해당 시군구에 존재하지 않" in txt) or ("정보가 해당" in txt and "존재하지 않" in txt):
+                    await click_by_text(page, ["닫기", "확인"])
+                    if not addr_warned:
+                        task.update(
+                            "waiting_login",
+                            "⚠️ 자동 입력된 주소가 실제 주민등록 주소와 달라요.\n"
+                            "화면의 '주민등록상 주소'에서 시도·시군구를 본인 주소로 바꿔 주세요.\n"
+                            "바꾸면 자동으로 다시 신청합니다. (기다리는 중…)",
+                            await take_screenshot(page),
+                        )
+                        addr_warned = True
+                    await asyncio.sleep(8)  # 사용자 정정 시간
+                    continue
+                # 전자서명(간편인증 재요구) 또는 발급 결과 도달 → 다음 단계로
+                if (await _get_simplecert_frame(page, timeout_sec=2)) is not None:
+                    submitted = True
+                    break
+                if any(k in txt for k in ["문서출력", "처리완료", "발급완료", "발급 완료"]) or "mbrAplySrvcList" in page.url:
+                    submitted = True
+                    break
+                await asyncio.sleep(2)
+
+            # ⑤ 전자서명(간편인증 재요구)이 뜨면 자동입력+인증요청, 폰 승인은 본인
+            sign_frame = await _get_simplecert_frame(page, timeout_sec=3)
+            if sign_frame is not None:
+                await click_kakaotalk_in_anyid(sign_frame)
+                await asyncio.sleep(1)
+                if await _autofill_auth_form(sign_frame, user_info) and re.sub(r"[^0-9]", "", str((user_info or {}).get("birth_date", ""))):
+                    await _request_auth(sign_frame)
+                task.update("waiting_login", "📱 전자서명 인증이에요 — 카카오톡 [인증 허용]을 눌러주세요.", await take_screenshot(page))
+                for _ in range(120):
+                    await asyncio.sleep(2)
+                    t = await _txt()
+                    if any(k in t for k in ["문서출력", "처리완료", "발급완료"]) or "mbrAplySrvcList" in page.url:
+                        break
+
+            # ⑥ 발급 결과에서 문서출력 → PDF 저장
+            await asyncio.sleep(2)
+            await click_by_text(page, ["문서출력", "출력하기"])
+            await asyncio.sleep(3)
+            final_page = context.pages[-1] if len(context.pages) > 1 else page
             try:
-                final_page = context.pages[-1] if len(context.pages) > 1 else page
-                ss = await take_screenshot(final_page)
+                await final_page.bring_to_front()
             except Exception:
-                ss = await take_screenshot(page)
-
-            # 실제 발급 결과에 도달했는지 확인 — 안내 페이지(AA020)/로그인 페이지면 완료로 오판하지 않는다.
+                pass
+            saved = await save_document(final_page, doc_name)
             final_url = final_page.url
-            reached_doc = ("AA020InfoCappView" not in final_url
-                           and not any(k in final_url for k in LOGIN_PAGE_URL_KEYWORDS))
-            saved = await save_document(final_page, doc_name) if reached_doc else None
+            body_now = await _txt()
+            issued = ("처리완료" in body_now) or ("mbrAplySrvcList" in final_url) or bool(saved)
 
-            if reached_doc:
+            if saved:
                 task.update(
                     "done",
-                    f"✅ {doc_name} 발급 완료!\n"
-                    + (f"📄 자동 저장됨: {saved}\n" if saved else "브라우저에서 Ctrl+P로 저장하세요.\n")
-                    + "브라우저는 60초 후 자동 종료됩니다.",
-                    ss,
+                    f"✅ {doc_name} 발급 완료!\n📄 자동 저장됨: {saved}\n브라우저는 60초 후 자동 종료됩니다.",
+                    await take_screenshot(final_page),
                 )
                 task.result = {"success": True, "doc_name": doc_name, "saved_path": saved}
             else:
                 task.update(
                     "done",
-                    f"⚠️ {doc_name} 발급 화면까지 진행했지만 자동 완료를 확정하지 못했어요.\n"
-                    "브라우저에서 남은 발급/출력 단계를 직접 마무리해주세요(로그인/양식 확인 필요).\n"
+                    f"⚠️ {doc_name} 발급 화면까지 진행했어요.\n"
+                    "브라우저에서 '문서출력'으로 저장을 마무리해 주세요(주소·인증 확인 필요).\n"
                     "브라우저는 60초 후 자동 종료됩니다.",
-                    ss,
+                    await take_screenshot(final_page),
                 )
-                task.result = {"success": False, "doc_name": doc_name, "note": "발급 결과 페이지 미도달", "final_url": final_url}
+                task.result = {"success": issued, "doc_name": doc_name, "final_url": final_url}
 
             await asyncio.sleep(60)
             await browser.close()

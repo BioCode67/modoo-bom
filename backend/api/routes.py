@@ -33,6 +33,8 @@ class DocRequest(BaseModel):
     birth_date: str = ""   # YYYYMMDD 또는 YYYY-MM-DD
     phone: str = ""        # 01012345678 또는 010-1234-5678
     carrier: str = ""      # SKT / KT / LGU+ / SKM / KTM / LGM
+    sido: str = ""         # 주민등록상 시도(예: 경상북도) — 회원정보 주소와 다를 때 자동 정정용
+    sigungu: str = ""      # 주민등록상 시군구(예: 경산시)
 
 
 @router.get("/health")
@@ -201,7 +203,8 @@ async def rpa_issue(req: DocRequest):
             status_code=400,
             detail=f"지원하지 않는 서류: {req.doc_name}\n지원 목록: {', '.join(SUPPORTED_DOC_NAMES)}",
         )
-    user_info = {"user_name": req.user_name, "birth_date": req.birth_date, "phone": req.phone, "carrier": req.carrier}
+    user_info = {"user_name": req.user_name, "birth_date": req.birth_date, "phone": req.phone,
+                 "carrier": req.carrier, "sido": req.sido, "sigungu": req.sigungu}
     task_id = start_rpa_task(req.doc_name, req.user_name, user_info)
     return {"task_id": task_id, "status": "started", "doc_name": req.doc_name}
 
