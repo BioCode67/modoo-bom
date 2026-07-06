@@ -6,6 +6,7 @@ import { usePolicyMap } from '@/data/useCatalog'
 import type { EligiblePolicy } from '@/lib/welfare-engine'
 import { TrackedCard, STATUS_META } from '@/components/TrackedCard'
 import { PolicyDetailDrawer } from '@/components/PolicyDetailDrawer'
+import { InterestSubscribe } from '@/components/InterestSubscribe'
 import { CompareModal } from '@/components/CompareModal'
 import { DocumentCenter } from '@/components/DocumentCenter'
 import { AgentSummary } from '@/components/AgentSummary'
@@ -55,6 +56,11 @@ export function My() {
           <button onClick={() => setView('analyze')} className="btn-primary"><Sparkles className="h-4 w-4" /> 내 복지 찾기</button>
           <button onClick={() => setView('explore')} className="btn-secondary"><Compass className="h-4 w-4" /> 정책 둘러보기</button>
         </div>
+        {/* 담은 게 없어도 관심 분야는 구독할 수 있게 — 능동 안내의 진입점 */}
+        <div className="mx-auto mt-8 max-w-xl text-left">
+          <InterestSubscribe onOpenPolicy={(id) => { const p = POLICY_MAP[id]; if (p) setSelected(p) }} />
+        </div>
+        <PolicyDetailDrawer policy={selected} onClose={() => setSelected(null)} onOpen={setSelected} />
       </div>
     )
   }
@@ -66,6 +72,9 @@ export function My() {
 
       {/* 복지 여정 지도 — 찾기 → 서류 → 신청 → 관리 중 지금 어디쯤인지 + 다음 한 걸음 */}
       <JourneyStepper />
+
+      {/* 관심 분야 알림 구독 — 구독 분야에서 받을 수 있는데 안 담은 복지를 능동 안내 */}
+      <InterestSubscribe onOpenPolicy={(id) => { const p = POLICY_MAP[id]; if (p) setSelected(p) }} />
 
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
         <h1 className="text-2xl sm:text-3xl font-extrabold">나의 복지 <Heart className="inline h-6 w-6 text-peach-400 fill-peach-400" /></h1>

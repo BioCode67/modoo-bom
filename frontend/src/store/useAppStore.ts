@@ -79,6 +79,10 @@ interface AppState {
   removeTracked: (policyId: string) => void
   /** 추적목록 전체 교체 (클라우드 동기화 병합 결과 반영용) */
   replaceTracked: (items: TrackedItem[]) => void
+
+  /** 관심 분야 구독(웰로식 카테고리 알림) — 구독한 분야의 챙길 복지를 능동 안내 */
+  subscribedCategories: string[]
+  toggleCategory: (cat: string) => void
 }
 
 /**
@@ -176,6 +180,13 @@ export const useAppStore = create<AppState>()(
         set((s) => ({ tracked: s.tracked.map((t) => (t.policyId === policyId ? { ...t, lastChecked: Date.now() } : t)) })),
       removeTracked: (policyId) => set((s) => ({ tracked: s.tracked.filter((t) => t.policyId !== policyId) })),
       replaceTracked: (items) => set({ tracked: items }),
+
+      subscribedCategories: [],
+      toggleCategory: (cat) => set((s) => ({
+        subscribedCategories: s.subscribedCategories.includes(cat)
+          ? s.subscribedCategories.filter((c) => c !== cat)
+          : [...s.subscribedCategories, cat],
+      })),
     }),
     {
       name: 'modoobom-store',
@@ -187,6 +198,7 @@ export const useAppStore = create<AppState>()(
       //   result 통째로 저장하면 그대로 새어나간다. summary의 이름 접두를 '회원님'으로 치환해 실명을 제거한다.
       partialize: (s) => ({
         tracked: s.tracked, docDone: s.docDone, elderly: s.elderly, highContrast: s.highContrast, onboarded: s.onboarded, uiLang: s.uiLang,
+        subscribedCategories: s.subscribedCategories,
         profile: s.profile ? { ...s.profile, name: '' } : null,
         result: s.result ? { ...s.result, profile_summary: stripNameFromSummary(s.result.profile_summary) } : null,
       }),
