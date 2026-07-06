@@ -25,12 +25,14 @@ export interface Capabilities {
   rag?: string
 }
 
-export let API_BASE = (import.meta.env.VITE_API_BASE as string | undefined)?.trim() || ''
+const ENV_API_BASE = (import.meta.env.VITE_API_BASE as string | undefined)?.trim() || ''
+export let API_BASE = ENV_API_BASE
 export let RPA_BASE = '' // RPA 전용 베이스 — 로컬 에이전트 감지 시 채워짐(그 전엔 RPA 버튼도 숨김)
 const LOCAL_AGENT = 'http://localhost:8000'
 
 let cached: boolean | null = null
 let caps: Capabilities | null = null
+let inflight: Promise<boolean> | null = null // 동시 호출 중복 프로브(콜드스타트 웨이크 2배) 방지
 
 export function getCapabilities(): Capabilities | null {
   return caps
@@ -72,9 +74,14 @@ async function wake(base: string, onWake?: (attempt: number, max: number) => voi
  * 백엔드 가용성 확인. onWake 콜백으로 "서버 깨우는 중" UI 를 그릴 수 있다.
  * 성공 시 capabilities 를 캐시(getCapabilities).
  */
-export async function checkBackend(onWake?: (attempt: number, max: number) => void): Promise<boolean> {
-  if (cached !== null) return cached
+export function checkBackend(onWake?: (attempt: number, max: number) => void): Promise<boolean> {
+  if (cached !== null) return Promise.resolve(cached)
+  // 동시 호출(여러 컴포넌트 마운트)이 각자 웨이크(~최대 60초)를 돌리지 않도록 in-flight 프로미스 공유.
+  if (!inflight) inflight = runCheck(onWake).finally(() => { inflight = null })
+  return inflight
+}
 
+async function runCheck(onWake?: (attempt: number, max: number) => void): Promise<boolean> {
   // 로컬 에이전트(사용자 PC)는 RPA 전용으로 **항상 병렬 탐지** — 클라우드 AI와 독립.
   // 배포 HTTPS 사이트에서도 데스크탑 에이전트를 켜두면 자동발급이 살아나게 하는 핵심.
   // (connection refused 는 즉시 실패하므로 미설치 방문자에게도 지연 부담이 거의 없다.)
@@ -129,4 +136,6 @@ export function resetBackendCache() {
   cached = null
   caps = null
   RPA_BASE = ''
+  API_BASE = ENV_API_BASE // 로컬 에이전트 승격으로 바뀐 값을 원복(에이전트를 끈 뒤 재탐지 시 오탐 방지)
+  inflight = null
 }

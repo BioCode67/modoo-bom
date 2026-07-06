@@ -72,6 +72,25 @@ describe('backend 하이브리드 감지', () => {
     expect(b.getRpaBase()).toBe(LOCAL)
   })
 
+  it('resetBackendCache 는 로컬 승격된 API_BASE 를 env 기본값으로 원복', async () => {
+    vi.stubGlobal('fetch', mockFetch({ [LOCAL]: { ai: false, rpa: true } }))
+    const b = await loadBackend('') // 클라우드 미설정
+    await b.checkBackend()
+    expect(b.API_BASE).toBe(LOCAL) // 로컬 에이전트로 승격됨
+    b.resetBackendCache()
+    expect(b.API_BASE).toBe('') // env('')로 원복 → 에이전트 끈 뒤 재탐지 오탐 방지
+  })
+
+  it('동시 checkBackend 호출은 프로브를 한 번만(웨이크 중복 방지)', async () => {
+    const f = mockFetch({ [CLOUD]: { ai: true, rpa: false }, [LOCAL]: { ai: false, rpa: true } })
+    vi.stubGlobal('fetch', f)
+    const b = await loadBackend(CLOUD)
+    const [a, c] = await Promise.all([b.checkBackend(), b.checkBackend()])
+    expect(a).toBe(true)
+    expect(c).toBe(true)
+    expect(f).toHaveBeenCalledTimes(2) // 단일 실행(CLOUD+LOCAL). 중복이면 4회가 됐을 것
+  })
+
   it('아무 백엔드도 없음 → false, 베이스 그대로 (클라우드 웨이크업 재시도 소진)', async () => {
     vi.stubGlobal('fetch', mockFetch({ [CLOUD]: null, [LOCAL]: null }))
     const b = await loadBackend(CLOUD)

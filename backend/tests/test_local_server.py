@@ -81,6 +81,18 @@ def test_apply_start_unsupported_service(monkeypatch):
     assert r.status_code in (400, 503)  # 지원목록 밖 → 400 (rpa 미가용 환경이면 503)
 
 
+def test_apply_status_strips_download_token():
+    """apply-status 도 rpa-status 처럼 download_token(인가 비밀)을 응답에서 제거해야 한다."""
+    from rpa import manager
+    manager._rpa_tasks["fake-apply-tok"] = {"status": "done", "download_token": "secret-xyz", "current_step": "x"}
+    try:
+        r = client.get("/api/apply/status/fake-apply-tok")
+        assert r.status_code == 200
+        assert "download_token" not in r.json()
+    finally:
+        manager._rpa_tasks.pop("fake-apply-tok", None)
+
+
 @pytest.mark.skipif(local_server._APP_DIR is None, reason="dist-app 미빌드")
 def test_serves_frontend_when_built():
     r = client.get("/")

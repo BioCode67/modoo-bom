@@ -202,7 +202,12 @@ async def rpa_file(task_id: str, t: str = ""):
     if d.get("status") not in ("done", "completed") or not path or not os.path.exists(path):
         raise HTTPException(status_code=404, detail="아직 발급이 완료되지 않았거나 저장된 문서가 없습니다.")
     real = os.path.realpath(path)
-    if os.path.commonpath([real, os.path.realpath(str(DOCS_DIR))]) != os.path.realpath(str(DOCS_DIR)):
+    docs_root = os.path.realpath(str(DOCS_DIR))
+    try:
+        outside = os.path.commonpath([real, docs_root]) != docs_root
+    except ValueError:
+        outside = True  # 다른 드라이브 등 commonpath 불가 → 저장 폴더 밖으로 간주(거절)
+    if outside:
         raise HTTPException(status_code=403, detail="허용되지 않은 파일 경로입니다.")
     media = "application/pdf" if real.lower().endswith(".pdf") else "image/png"
     return FileResponse(real, media_type=media, filename=os.path.basename(real), headers={
@@ -237,7 +242,9 @@ async def apply_status(task_id: str):
     task = get_task(task_id)
     if task is None:
         raise HTTPException(status_code=404, detail="태스크를 찾을 수 없습니다.")
-    return task.to_dict() if hasattr(task, "to_dict") else task
+    d = task.to_dict() if hasattr(task, "to_dict") else dict(task)
+    d.pop("download_token", None)  # rpa_status와 동일하게 인가 비밀 노출 방지(일관성)
+    return d
 
 
 @app.exception_handler(Exception)
