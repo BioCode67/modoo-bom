@@ -28,17 +28,26 @@ function scrollToAnchor(id: string) {
  * 복지 여정 스텝퍼 — 찾기 → 서류 → 신청 → 관리의 4단계 지도.
  * 현재 위치를 강조하고, '다음 한 걸음' 버튼으로 해당 섹션(서류·목록·알림)으로 데려간다.
  * 각 단계 노드도 눌러 해당 섹션으로 이동 가능(방향 감각 제공).
+ *
+ * context:
+ *  - 'my'(기본): 나의 복지 화면 — 현재 단계 섹션으로 스크롤.
+ *  - 'result': 결과 화면(찾기 직후) — 찾기 완료를 보여주고 '나의 복지에서 이어가기'로 흐름을 잇는다.
  */
-export function JourneyStepper() {
+export function JourneyStepper({ context = 'my' }: { context?: 'my' | 'result' } = {}) {
   const { tracked, docDone, setView } = useAppStore()
-  const j = computeJourney(tracked, docDone)
-  const next = NEXT[j.current]
+  const isResult = context === 'result'
+  const j = computeJourney(tracked, docDone, isResult)
+  const next = isResult
+    ? { title: '복지 찾기 완료! 🎉', body: '이제 마음에 드는 복지를 담고, 서류 발급·신청·관리를 이어서 진행해요.', cta: '나의 복지에서 이어가기' }
+    : NEXT[j.current]
 
   const go = (stage: JourneyStage) => {
     if (stage === 'find') { setView('analyze'); return }
+    if (isResult) { setView('my'); return } // 결과 화면엔 서류·목록 섹션이 없으니 나의 복지로 이어준다
     const anchor = META[stage].anchor
     if (anchor) scrollToAnchor(anchor)
   }
+  const goNext = () => (isResult ? setView('my') : go(j.current))
 
   return (
     <motion.section
@@ -86,7 +95,7 @@ export function JourneyStepper() {
           <p className="text-xs text-sprout-700/90 mt-0.5 leading-relaxed">{next.body}</p>
         </div>
         <button
-          onClick={() => go(j.current)}
+          onClick={goNext}
           className="shrink-0 inline-flex items-center justify-center gap-1.5 rounded-full bg-sprout-500 px-4 py-2.5 text-sm font-bold text-white hover:bg-sprout-600 transition-colors"
         >
           {next.cta} <ArrowRight className="h-4 w-4" />

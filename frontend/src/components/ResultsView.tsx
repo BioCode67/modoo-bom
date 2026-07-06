@@ -19,6 +19,7 @@ import { ShareButton } from '@/components/ShareButton'
 import { Glossary } from '@/components/Glossary'
 import { formatWon, sumCashMonthly } from '@/lib/format'
 import { profileSignals } from '@/lib/profileSignals'
+import { JourneyStepper } from '@/components/JourneyStepper'
 import { useAppStore } from '@/store/useAppStore'
 import { encodeHelperLink, decodeHelperPayload } from '@/lib/helperLink'
 
@@ -297,6 +298,13 @@ export function ResultsView({ result, profile, onReset, helperMode = false }: { 
 
       {/* 생애주기 시뮬레이터 — 만약 ~하면 시나리오별 미리보기 */}
       <FutureWelfare profile={profile} onOpen={setSelected} />
+
+      {/* 복지 여정 — 긴 결과 페이지 끝에서 '찾기 완료 → 다음 단계'로 흐름을 이어준다(길 잃음 방지) */}
+      {!helperMode && eligible.length > 0 && (
+        <div className="mt-8">
+          <JourneyStepper context="result" />
+        </div>
+      )}
 
       <PolicyDetailDrawer policy={selected} onClose={() => setSelected(null)} onOpen={setSelected} />
     </div>
