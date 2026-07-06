@@ -51,9 +51,10 @@ cors_origins = os.getenv(
     "CORS_ORIGINS",
     "http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173,https://biocode67.github.io",
 ).split(",")
+_ALLOWED_ORIGINS = [o.strip() for o in cors_origins if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[o.strip() for o in cors_origins if o.strip()],
+    allow_origins=_ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -61,11 +62,41 @@ app.add_middleware(
 
 
 # 크롬의 Private Network Access(공개 https 사이트 → 로컬 http 에이전트 호출) 프리플라이트 통과용.
-# 이 미들웨어는 CORS 미들웨어보다 나중에 추가되어 '바깥쪽'에 위치 → 프리플라이트 응답에도 헤더가 붙음.
+#
+# ⚠️ Starlette CORSMiddleware 는 `Access-Control-Request-Private-Network: true` 프리플라이트를
+#    기본적으로 400('Disallowed CORS private-network')으로 **거부**한다(PNA 옵트인 미지원).
+#    그래서 CORS 미들웨어보다 바깥쪽(나중에 add)인 이 미들웨어에서 PNA 프리플라이트를 **가로채**
+#    직접 200 + 허용 헤더로 응답한다 → 브라우저가 로컬 에이전트 호출을 허용한다.
+#    (일반 요청/일반 프리플라이트는 그대로 CORSMiddleware 가 처리)
+from starlette.responses import Response as _Response
+
+
 @app.middleware("http")
 async def _allow_private_network(request, call_next):
+    origin = request.headers.get("origin")
+    is_pna_preflight = (
+        request.method == "OPTIONS"
+        and request.headers.get("access-control-request-private-network") == "true"
+    )
+    if is_pna_preflight and origin in _ALLOWED_ORIGINS:
+        acrm = request.headers.get("access-control-request-method", "*")
+        acrh = request.headers.get("access-control-request-headers", "*")
+        return _Response(
+            status_code=200,
+            headers={
+                "Access-Control-Allow-Origin": origin,
+                "Access-Control-Allow-Credentials": "true",
+                "Access-Control-Allow-Methods": acrm,
+                "Access-Control-Allow-Headers": acrh,
+                "Access-Control-Allow-Private-Network": "true",
+                "Access-Control-Max-Age": "600",
+                "Vary": "Origin",
+            },
+        )
     response = await call_next(request)
-    response.headers["Access-Control-Allow-Private-Network"] = "true"
+    # 비프리플라이트 응답에도 PNA 헤더를 붙여 후속 요청을 매끄럽게(허용 오리진일 때만).
+    if origin in _ALLOWED_ORIGINS:
+        response.headers["Access-Control-Allow-Private-Network"] = "true"
     return response
 
 
