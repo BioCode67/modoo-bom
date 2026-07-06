@@ -3,7 +3,8 @@ import { motion } from 'framer-motion'
 import { MapPin, ArrowRight, Sparkles } from 'lucide-react'
 import { useCatalog } from '@/data/useCatalog'
 import { sidoOf } from '@/lib/welfare-engine'
-import { regionStats, SIDOS } from '@/lib/localWelfare'
+import { regionStats } from '@/lib/localWelfare'
+import { KoreaTileMap } from '@/components/KoreaTileMap'
 import { useAppStore } from '@/store/useAppStore'
 
 /**
@@ -64,30 +65,8 @@ export function LocalWelfare() {
           </button>
         )}
 
-        <div className="mt-5 flex flex-wrap gap-2">
-          {SIDOS.map((s) => {
-            const n = counts[s] || 0
-            const active = sel === s
-            const mine = s === myS
-            return (
-              <button
-                key={s}
-                onMouseEnter={() => setSel(s)} onFocus={() => setSel(s)}
-                onClick={() => go(s)}
-                className={
-                  'inline-flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-sm font-semibold transition-all ' +
-                  (active ? 'bg-sky2-500 border-sky2-500 text-white shadow-sm'
-                    : mine ? 'bg-sky2-50 border-sky2-300 text-sky2-800'
-                    : 'bg-white border-sky2-100 text-foreground hover:border-sky2-300')
-                }
-              >
-                {mine && <MapPin className="h-3.5 w-3.5" />}
-                {s}
-                {n > 0 && <span className={active ? 'text-xs opacity-90' : 'text-xs text-sky2-600'}>{n.toLocaleString()}</span>}
-              </button>
-            )
-          })}
-        </div>
+        {/* 자체 렌더 한국 지도(단계구분도) — 건수 많을수록 진한 초록, 클릭 시 그 지역 복지로 */}
+        <KoreaTileMap counts={counts} myS={myS} sel={sel} onHover={setSel} onPick={go} />
 
         {/* 선택(또는 내 지역)의 실제 지원 예시 — 카운트만이 아니라 '무엇이 있는지' 미리보기 */}
         {shown && shownExamples.length > 0 && (
