@@ -160,14 +160,14 @@ export function ResultsView({ result, profile, onReset, helperMode = false }: { 
             <SproutLogo withFace className="h-8 w-8" />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-extrabold text-sprout-600 mb-0.5">새싹이 · 복지 에이전트</p>
+            <p className="text-xs font-extrabold text-sprout-700 mb-0.5">새싹이 · 복지 에이전트</p>
             <p className="text-sm leading-relaxed text-foreground/90">
               {result.final_response || `${profile.name || '회원'}님께 맞는 복지 ${primary.length}개를 골라봤어요. 이제 신청 준비를 도와드릴게요.`}
             </p>
             {/* 이렇게 이해했어요 — 에이전트가 파악한 상황 신호를 칩으로 되비춤(판단 근거 투명화) */}
             {signals.length > 0 && (
               <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                <span className="text-[11px] font-bold text-sprout-600">이렇게 이해했어요</span>
+                <span className="text-[11px] font-bold text-sprout-700">이렇게 이해했어요</span>
                 {signals.slice(0, 5).map((sig) => (
                   <span key={sig} className="rounded-full bg-white border border-sprout-200 px-2 py-0.5 text-[11px] font-semibold text-sprout-700">{sig}</span>
                 ))}

@@ -79,12 +79,12 @@ export function JourneyStepper({ context = 'my' }: { context?: 'my' | 'result' }
               >
                 <span className={cn('flex h-9 w-9 items-center justify-center rounded-full border-2 transition-all',
                   isDone ? 'bg-sprout-500 border-sprout-500 text-white'
-                    : isCurrent ? 'bg-white border-sprout-500 text-sprout-600 ring-4 ring-sprout-100'
+                    : isCurrent ? 'bg-white border-sprout-500 text-sprout-700 ring-4 ring-sprout-100'
                     : 'bg-white border-muted text-muted-foreground')}>
                   {isDone ? <Check className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
                 </span>
                 <span className={cn('text-[10px] sm:text-[11px] font-bold whitespace-nowrap transition-colors',
-                  isCurrent ? 'text-sprout-700' : isDone ? 'text-sprout-600' : 'text-muted-foreground')}>
+                  isCurrent ? 'text-sprout-700' : isDone ? 'text-sprout-700' : 'text-muted-foreground')}>
                   {m.label}
                 </span>
               </button>

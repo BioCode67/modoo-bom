@@ -100,10 +100,10 @@ export function EmergencyHelp() {
                             <div className="flex items-center gap-2">
                               <span>{categoryMeta(p.category).emoji}</span>
                               <span className="font-bold text-sm flex-1">{p.name}</span>
-                              {m > 0 && <span className="text-xs font-extrabold text-sprout-600">월 {formatWon(m)}</span>}
+                              {m > 0 && <span className="text-xs font-extrabold text-sprout-700">월 {formatWon(m)}</span>}
                             </div>
                             <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{p.benefit}</p>
-                            <a href={bestApplyUrl(p.application, p.name)} target="_blank" rel="noopener noreferrer" className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-sprout-600 hover:underline">
+                            <a href={bestApplyUrl(p.application, p.name)} target="_blank" rel="noopener noreferrer" className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-sprout-700 hover:underline">
                               {applyLink(p.application).label} <ExternalLink className="h-3 w-3" />
                             </a>
                           </li>

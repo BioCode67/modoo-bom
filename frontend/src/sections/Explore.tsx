@@ -285,7 +285,7 @@ export function Explore() {
           )}
           {micOk && (
             <button onClick={toggleMic} aria-label={listening ? '음성 입력 중지' : '음성으로 검색'}
-              className={cn('absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-2 transition-colors', listening ? 'bg-rose-500 text-white animate-pulse' : 'text-sprout-600 hover:bg-sprout-50')}>
+              className={cn('absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-2 transition-colors', listening ? 'bg-rose-500 text-white animate-pulse' : 'text-sprout-700 hover:bg-sprout-50')}>
               <Mic className="h-4 w-4" />
             </button>
           )}
@@ -309,7 +309,7 @@ export function Explore() {
           {aiMode && (
             <div className="mt-2 rounded-2xl border-2 border-sprout-100 bg-sprout-50/50 px-4 py-3 text-xs">
               <p className="flex items-center gap-1.5 font-semibold text-foreground/80">
-                <Sparkles className="h-3.5 w-3.5 text-sprout-600 shrink-0" />
+                <Sparkles className="h-3.5 w-3.5 text-sprout-700 shrink-0" />
                 뜻을 이해하는 AI 검색 — <b>한국어·English·Tiếng Việt</b> 등 어떤 언어로든 상황을 적어보세요.
               </p>
               {micOk && (

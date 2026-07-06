@@ -196,7 +196,7 @@ function DrawerBody({
           </div>
           <div className="flex items-center gap-1 shrink-0">
             {tts.supported && (
-              <button onClick={speakPolicy} aria-label={tts.speaking ? '읽기 중지' : '정책 읽어주기'} className="rounded-full p-2 hover:bg-muted text-sprout-600">
+              <button onClick={speakPolicy} aria-label={tts.speaking ? '읽기 중지' : '정책 읽어주기'} className="rounded-full p-2 hover:bg-muted text-sprout-700">
                 {tts.speaking ? <Square className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
               </button>
             )}
@@ -241,7 +241,7 @@ function DrawerBody({
                 <ul className="mt-2.5 flex flex-col gap-1.5 border-t border-sprout-100 pt-2.5">
                   {facts.map((f, i) => (
                     <li key={i} className="flex items-center gap-1.5 text-sm text-sprout-800">
-                      <CheckCircle2 className="h-4 w-4 shrink-0 text-sprout-600" /> {f}
+                      <CheckCircle2 className="h-4 w-4 shrink-0 text-sprout-700" /> {f}
                     </li>
                   ))}
                 </ul>
@@ -258,7 +258,7 @@ function DrawerBody({
               <Section title={`📋 ${tr(uiLang,'serviceInfo')}`}>
                 <TermText text={policy.benefit} className="text-sm text-foreground/80 leading-relaxed block" />
                 <a href={bestApplyUrl(policy.application, policy.name)} target="_blank" rel="noopener noreferrer"
-                  className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-sprout-600 hover:underline">
+                  className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-sprout-700 hover:underline">
                   복지로에서 자세한 자격·금액 확인 <ExternalLink className="h-3.5 w-3.5" />
                 </a>
               </Section>
@@ -267,7 +267,7 @@ function DrawerBody({
           return (
             <>
               <Section title={`💰 ${tr(uiLang,'benefit')}`}>
-                {monthly > 0 && <p className="text-2xl font-extrabold text-sprout-600 mb-1">월 {formatWon(monthly)}까지</p>}
+                {monthly > 0 && <p className="text-2xl font-extrabold text-sprout-700 mb-1">월 {formatWon(monthly)}까지</p>}
                 <TermText text={policy.benefit} className="text-sm text-foreground/80 leading-relaxed block" />
               </Section>
               <Section title={`🎯 ${tr(uiLang,'target')}`}>
@@ -384,7 +384,7 @@ function DrawerBody({
           return (
             <div className="rounded-2xl border border-sky2-100 bg-sky2-50/40 p-3 text-xs leading-relaxed">
               <p className="font-bold text-foreground/80 inline-flex items-center gap-1.5">
-                <ShieldCheck className="h-3.5 w-3.5 text-sprout-600" /> 출처 · 신뢰 근거
+                <ShieldCheck className="h-3.5 w-3.5 text-sprout-700" /> 출처 · 신뢰 근거
               </p>
               <p className="mt-1 text-muted-foreground">{t.verified ? '✅ ' : 'ℹ️ '}{t.source}{t.note ? ` · ${t.note}` : ''}</p>
               <p className="mt-1 text-muted-foreground/80">실제 자격·지급액은 신청 기관의 <b>행정 심사</b>로 최종 확정돼요. 모두봄은 공식 정보를 있는 그대로 안내해요(추정·과장 없음).</p>
@@ -403,7 +403,7 @@ function DrawerBody({
                     <button onClick={() => onOpen(r)} className="w-full flex items-center gap-2 rounded-xl border border-sprout-100 px-3 py-2 text-left hover:bg-sprout-50 transition-colors">
                       <span>{categoryMeta(r.category).emoji}</span>
                       <span className="flex-1 text-sm font-semibold truncate">{r.name}</span>
-                      {rm > 0 && <span className="text-xs font-bold text-sprout-600 shrink-0">월 {formatWon(rm)}</span>}
+                      {rm > 0 && <span className="text-xs font-bold text-sprout-700 shrink-0">월 {formatWon(rm)}</span>}
                     </button>
                   </li>
                 )
@@ -434,7 +434,7 @@ function DrawerBody({
                       <button onClick={() => onOpen(r)} className="flex w-full items-center gap-2 rounded-xl border border-sprout-100 px-3 py-2 text-left transition-colors hover:bg-sprout-50">
                         <span>{categoryMeta(r.category).emoji}</span>
                         <span className="flex-1 truncate text-sm font-semibold">{r.name}</span>
-                        {rm > 0 && <span className="shrink-0 text-xs font-bold text-sprout-600">월 {formatWon(rm)}</span>}
+                        {rm > 0 && <span className="shrink-0 text-xs font-bold text-sprout-700">월 {formatWon(rm)}</span>}
                       </button>
                     </li>
                   )

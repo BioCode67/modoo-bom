@@ -51,7 +51,7 @@ export function ContinuityCard({ profile, onOpen }: { profile: UserProfile; onOp
             <span key={i} className="inline-flex items-center gap-1 rounded-full bg-white border border-sprout-200 px-2.5 py-1 text-xs font-semibold">
               {c.label} <span className="text-muted-foreground/70">{c.from}</span>
               <ArrowRight className="h-3 w-3 opacity-60" />
-              <span className={c.kind === 'down' ? 'text-amber-600' : c.kind === 'up' ? 'text-sprout-600' : ''}>{c.to}</span>
+              <span className={c.kind === 'down' ? 'text-amber-700' : c.kind === 'up' ? 'text-sprout-700' : ''}>{c.to}</span>
             </span>
           ))}
         </div>
@@ -59,7 +59,7 @@ export function ContinuityCard({ profile, onOpen }: { profile: UserProfile; onOp
 
       {newly.length > 0 && (
         <div className="mt-3">
-          <p className="text-xs font-bold text-sprout-600 flex items-center gap-1">
+          <p className="text-xs font-bold text-sprout-700 flex items-center gap-1">
             <Sparkles className="h-3.5 w-3.5" /> 그래서 새로 받을 수 있는 복지 {newly.length}개
           </p>
           <div className="mt-1.5 flex flex-wrap gap-1.5">

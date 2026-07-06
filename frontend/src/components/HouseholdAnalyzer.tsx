@@ -84,7 +84,7 @@ export function HouseholdAnalyzer({ onOpen }: { onOpen: (p: Policy | EligiblePol
       <div className="mt-3 grid grid-cols-3 gap-3">
         <div className="card-cute px-3 py-3 text-center"><p className="text-xl font-extrabold gradient-text">{members.length}명</p><p className="text-[11px] text-muted-foreground">가구 구성원</p></div>
         <div className="rounded-2xl px-3 py-3 text-center bg-gradient-to-br from-sky2-400 to-sprout-500 text-white"><p className="text-xl font-extrabold">{analysis.uniqueCount}종</p><p className="text-[11px] text-white/80">가구 전체 복지</p></div>
-        <div className="card-cute px-3 py-3 text-center"><p className="text-xl font-extrabold text-sprout-600">{analysis.refTotal > 0 ? formatWon(analysis.refTotal) : '-'}</p><p className="text-[11px] text-muted-foreground">참고 합산/월</p></div>
+        <div className="card-cute px-3 py-3 text-center"><p className="text-xl font-extrabold text-sprout-700">{analysis.refTotal > 0 ? formatWon(analysis.refTotal) : '-'}</p><p className="text-[11px] text-muted-foreground">참고 합산/월</p></div>
       </div>
 
       {/* 구성원별 */}
@@ -105,7 +105,7 @@ export function HouseholdAnalyzer({ onOpen }: { onOpen: (p: Policy | EligiblePol
                   </button>
                 ))}
                 <div className="ml-auto flex items-center gap-2">
-                  <span className="text-xs font-extrabold text-sprout-600">복지 {elig.length}개{monthly > 0 ? ` · 월 ${formatWon(monthly)}` : ''}</span>
+                  <span className="text-xs font-extrabold text-sprout-700">복지 {elig.length}개{monthly > 0 ? ` · 월 ${formatWon(monthly)}` : ''}</span>
                   {members.length > 1 && (
                     <button onClick={() => setMembers((ms) => ms.filter((x) => x.id !== m.id))} aria-label="구성원 삭제" className="rounded-full p-1.5 text-muted-foreground hover:bg-rose-50 hover:text-rose-500"><Trash2 className="h-4 w-4" /></button>
                   )}

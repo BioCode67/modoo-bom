@@ -43,7 +43,7 @@ export function QuickAsk({ onSubmit }: { onSubmit: (p: UserProfile) => void }) {
   return (
     <div className="card-cute p-5 mb-5">
       <p className="font-bold flex items-center gap-1.5"><Sparkles className="h-4 w-4 text-sprout-500" /> 한 문장으로 물어보세요</p>
-      <p className="text-xs text-muted-foreground mt-0.5">상황을 자연스럽게 적으면(또는 말하면) 바로 맞춤 복지를 찾아드려요. <span className="text-sprout-600 font-medium">🌍 외국어로 적으면 AI가 찾아드려요.</span></p>
+      <p className="text-xs text-muted-foreground mt-0.5">상황을 자연스럽게 적으면(또는 말하면) 바로 맞춤 복지를 찾아드려요. <span className="text-sprout-700 font-medium">🌍 외국어로 적으면 AI가 찾아드려요.</span></p>
 
       <div className="mt-3 relative">
         <textarea
@@ -60,7 +60,7 @@ export function QuickAsk({ onSubmit }: { onSubmit: (p: UserProfile) => void }) {
             onClick={speech.toggle}
             aria-label={speech.listening ? '음성 입력 중지' : '음성으로 말하기'}
             className={cn('absolute right-2 top-2 rounded-full p-2 transition-colors',
-              speech.listening ? 'bg-rose-100 text-rose-600 animate-pulse' : 'bg-sprout-100 text-sprout-600 hover:bg-sprout-200')}
+              speech.listening ? 'bg-rose-100 text-rose-600 animate-pulse' : 'bg-sprout-100 text-sprout-700 hover:bg-sprout-200')}
           >
             {speech.listening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
           </button>

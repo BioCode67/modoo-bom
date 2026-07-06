@@ -18,7 +18,7 @@ export function Glossary({ trigger = 'button' }: { trigger?: 'button' | 'link' }
   return (
     <>
       {trigger === 'link' ? (
-        <button onClick={() => setOpen(true)} className="inline-flex items-center gap-1 font-semibold text-sprout-600 hover:underline">
+        <button onClick={() => setOpen(true)} className="inline-flex items-center gap-1 font-semibold text-sprout-700 hover:underline">
           <BookOpen className="h-3.5 w-3.5" /> 복지 용어 사전
         </button>
       ) : (

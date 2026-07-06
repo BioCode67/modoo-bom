@@ -104,7 +104,7 @@ export function Navbar() {
               className={cn(
                 // text-xs(임의값 금지) — 어르신 큰글씨 모드의 확대 규칙(.text-xs 오버라이드)에 주 내비게이션도 포함되게
                 'relative flex flex-col items-center gap-0.5 py-2.5 text-xs font-semibold transition-colors',
-                view === v ? 'text-sprout-600' : 'text-muted-foreground',
+                view === v ? 'text-sprout-700' : 'text-muted-foreground',
               )}
             >
               <Icon className={cn('h-5 w-5 transition-transform', view === v && 'scale-110')} />

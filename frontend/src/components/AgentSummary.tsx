@@ -68,7 +68,7 @@ export function AgentSummary() {
 
       <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="rounded-2xl bg-sprout-50/60 border border-sprout-100 p-3 flex items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-sprout-100 text-sprout-600"><Send className="h-5 w-5" /></div>
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-sprout-100 text-sprout-700"><Send className="h-5 w-5" /></div>
           <div>
             <p className="text-2xl font-extrabold leading-none">{applyable}<span className="text-sm font-bold text-muted-foreground">건</span></p>
             <p className="text-xs text-muted-foreground mt-0.5">에이전트 자동 신청 가능</p>

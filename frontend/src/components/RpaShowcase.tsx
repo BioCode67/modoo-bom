@@ -38,7 +38,7 @@ export function RpaShowcase() {
               className="card-cute p-6 relative"
             >
               <span className="absolute right-5 top-5 text-4xl font-black text-sprout-100">{n}</span>
-              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-sprout-100 text-sprout-600">
+              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-sprout-100 text-sprout-700">
                 <Icon className="h-6 w-6" />
               </div>
               <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-extrabold ${who === '사용자' ? 'bg-peach-100 text-peach-600' : 'bg-sprout-500 text-white'}`}>{who}</span>
@@ -49,7 +49,7 @@ export function RpaShowcase() {
         </div>
 
         <div className="mt-6 rounded-2xl border-2 border-dashed border-sprout-200 bg-white p-5 flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left">
-          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-sprout-100 text-sprout-600">
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-sprout-100 text-sprout-700">
             <PlayCircle className="h-8 w-8" />
           </div>
           <div className="flex-1">

@@ -92,7 +92,7 @@ export function AuthControl() {
           <div className="absolute right-0 mt-2 z-50 w-56 card-cute p-2 shadow-soft" role="menu">
             <div className="px-2.5 py-2">
               <p className="text-sm font-bold truncate">{name}님</p>
-              <p className="mt-0.5 text-[11px] inline-flex items-center gap-1 text-sprout-600">
+              <p className="mt-0.5 text-[11px] inline-flex items-center gap-1 text-sprout-700">
                 <Cloud className="h-3 w-3" /> {syncing ? '동기화 중…' : '기기 간 동기화 켜짐'}
               </p>
             </div>

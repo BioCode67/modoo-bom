@@ -30,9 +30,9 @@ export function Footer() {
           </div>
         </div>
         <div className="mt-6 flex items-center justify-center gap-3 text-[11px]">
-          <a href={`${import.meta.env.BASE_URL}privacy.html`} className="text-muted-foreground hover:text-sprout-600 hover:underline">개인정보처리방침</a>
+          <a href={`${import.meta.env.BASE_URL}privacy.html`} className="text-muted-foreground hover:text-sprout-700 hover:underline">개인정보처리방침</a>
           <span className="text-muted-foreground/40">·</span>
-          <a href={`${import.meta.env.BASE_URL}terms.html`} className="text-muted-foreground hover:text-sprout-600 hover:underline">이용약관</a>
+          <a href={`${import.meta.env.BASE_URL}terms.html`} className="text-muted-foreground hover:text-sprout-700 hover:underline">이용약관</a>
         </div>
         <p className="mt-3 text-center text-[11px] text-muted-foreground">
           ⓘ 본 서비스의 분석 결과는 참고용이며, 최종 수급 자격은 주민센터·복지로에서 확인하세요.

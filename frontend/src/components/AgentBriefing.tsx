@@ -45,7 +45,7 @@ export function AgentBriefing({ onOpen }: { onOpen: (p: Policy | EligiblePolicy)
           <SproutLogo withFace className="h-8 w-8" />
         </span>
         <div className="min-w-0">
-          <p className="text-[11px] font-extrabold text-sprout-600">새싹이 · 복지 에이전트</p>
+          <p className="text-[11px] font-extrabold text-sprout-700">새싹이 · 복지 에이전트</p>
           <h2 className="font-extrabold leading-tight">오늘의 복지 브리핑</h2>
         </div>
         <span className="chip-sprout !py-0.5 text-[11px] ml-auto shrink-0">제가 먼저 확인했어요</span>
@@ -61,7 +61,7 @@ export function AgentBriefing({ onOpen }: { onOpen: (p: Policy | EligiblePolicy)
           <p className="text-sm mt-2 leading-relaxed">
             {name}님, 담아두신 복지를 살펴봤어요.{' '}
             {todo.length > 0
-              ? <>지금 챙기면 좋은 일이 <b className="text-sprout-600">{todo.length}가지</b> 있어요.</>
+              ? <>지금 챙기면 좋은 일이 <b className="text-sprout-700">{todo.length}가지</b> 있어요.</>
               : '지금 당장 할 일은 없지만, 미리 알려드릴 게 있어요.'}
           </p>
 

@@ -53,7 +53,7 @@ export function ApplyKit() {
           </div>
           <button onClick={() => setEditing(false)} className="btn-secondary !py-1.5 text-xs w-full justify-center">완료</button>
         </div>
-        <button onClick={() => setView('analyze')} className="mt-2 text-xs text-sprout-600 hover:underline">+ 가구·소득 등 자세히 입력(프로필)</button>
+        <button onClick={() => setView('analyze')} className="mt-2 text-xs text-sprout-700 hover:underline">+ 가구·소득 등 자세히 입력(프로필)</button>
         <p className="mt-1 text-[11px] text-muted-foreground/70">🔒 화면을 닫으면 지워져요(안전을 위해 기기에 저장하지 않아요). 주민등록번호는 입력하지 마세요.</p>
       </div>
     )
@@ -67,7 +67,7 @@ export function ApplyKit() {
           <button onClick={() => setEditing(true)} className="text-xs font-semibold text-muted-foreground inline-flex items-center gap-1 hover:underline">
             <Pencil className="h-3 w-3" /> 수정
           </button>
-          <button onClick={() => copy('__all', prefillText(fields))} className="text-xs font-semibold text-sprout-600 inline-flex items-center gap-1 hover:underline">
+          <button onClick={() => copy('__all', prefillText(fields))} className="text-xs font-semibold text-sprout-700 inline-flex items-center gap-1 hover:underline">
             {copied === '__all' ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />} 전체 복사
           </button>
         </div>
@@ -89,11 +89,11 @@ export function ApplyKit() {
             {/* 정부 폼이 자주 요구하는 대체 형식(YYYYMMDD·하이픈 없는 번호) 한 탭 복사 */}
             {x.alt && (
               <button onClick={() => copy(`${x.label}·간단`, x.alt!)} aria-label={`${x.label} 하이픈 없이 복사`}
-                className="shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-semibold text-sprout-600 border border-sprout-200 hover:bg-sprout-100">
+                className="shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-semibold text-sprout-700 border border-sprout-200 hover:bg-sprout-100">
                 {copied === `${x.label}·간단` ? '복사됨' : '붙임표 없이'}
               </button>
             )}
-            <button onClick={() => copy(x.label, x.value)} aria-label={`${x.label} 복사`} className="shrink-0 rounded-md p-1 hover:bg-sprout-100 text-sprout-600">
+            <button onClick={() => copy(x.label, x.value)} aria-label={`${x.label} 복사`} className="shrink-0 rounded-md p-1 hover:bg-sprout-100 text-sprout-700">
               {copied === x.label ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
             </button>
           </li>

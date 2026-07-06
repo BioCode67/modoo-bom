@@ -22,7 +22,7 @@ export function BenefitBreakdown({ policies }: { policies: EligiblePolicy[] }) {
           <div key={r.name}>
             <div className="flex items-baseline justify-between mb-1">
               <span className="text-xs font-semibold truncate pr-2">{categoryMeta(r.cat).emoji} {r.name}</span>
-              <span className="text-xs font-extrabold text-sprout-600 tabular-nums shrink-0">{formatWon(r.won)}</span>
+              <span className="text-xs font-extrabold text-sprout-700 tabular-nums shrink-0">{formatWon(r.won)}</span>
             </div>
             <div className="h-2.5 rounded-full bg-sprout-50 overflow-hidden">
               <motion.div

@@ -81,7 +81,7 @@ export function HeroAgentBubble({ onFocusInput }: { onFocusInput?: () => void })
           <SproutLogo withFace className="h-7 w-7" />
         </span>
         <div className="min-w-0">
-          <p className="text-[11px] font-extrabold text-sprout-600">새싹이 · 복지 에이전트</p>
+          <p className="text-[11px] font-extrabold text-sprout-700">새싹이 · 복지 에이전트</p>
           <div className="mt-0.5 min-h-[2.5rem] text-sm font-medium text-foreground leading-relaxed">
             <AnimatePresence mode="wait">
               <motion.p

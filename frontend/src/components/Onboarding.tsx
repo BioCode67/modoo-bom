@@ -7,8 +7,8 @@ import { useModalFocus } from '@/hooks/useModalFocus'
 
 // 기능 나열이 아니라 '새싹이가 나를 어떻게 도와주는지'를 1인칭으로 — 에이전트 루프(파악→실행→관찰)와 맞춤.
 const HELPS = [
-  { icon: MessageCircle, tint: 'text-sprout-600 bg-sprout-100', title: '편하게 한마디만 해주세요', desc: '“72세 혼자 사는데 소득이 적어요”처럼요. 제가 5,300여 개 복지에서 딱 맞는 걸 찾아 쉬운 말로 알려드려요. (한국어·영어·베트남어 등 여러 언어로 물어보셔도 돼요.)' },
-  { icon: FileCheck2, tint: 'text-amber-600 bg-amber-100', title: '찾은 다음이 진짜예요', desc: '필요한 서류 발급부터 신청서 작성까지 제가 함께 준비해요. 설치 없이 웹에서 바로요. 본인 확인만 직접 하시면 됩니다.' },
+  { icon: MessageCircle, tint: 'text-sprout-700 bg-sprout-100', title: '편하게 한마디만 해주세요', desc: '“72세 혼자 사는데 소득이 적어요”처럼요. 제가 5,300여 개 복지에서 딱 맞는 걸 찾아 쉬운 말로 알려드려요. (한국어·영어·베트남어 등 여러 언어로 물어보셔도 돼요.)' },
+  { icon: FileCheck2, tint: 'text-amber-700 bg-amber-100', title: '찾은 다음이 진짜예요', desc: '필요한 서류 발급부터 신청서 작성까지 제가 함께 준비해요. 설치 없이 웹에서 바로요. 본인 확인만 직접 하시면 됩니다.' },
   { icon: BellRing, tint: 'text-rose-600 bg-rose-100', title: '받은 뒤에도 계속 챙겨요', desc: '신청 마감과 갱신 시기를 제가 계속 지켜보고, 놓치지 않게 먼저 알려드려요. 급한 위기 상황이면 긴급복지로 바로 안내해요.' },
 ]
 
@@ -34,7 +34,7 @@ export function Onboarding() {
               <SproutLogo withFace className="h-9 w-9" />
             </span>
             <div>
-              <p className="text-[11px] font-extrabold text-sprout-600">새싹이 · 복지 에이전트</p>
+              <p className="text-[11px] font-extrabold text-sprout-700">새싹이 · 복지 에이전트</p>
               <p className="font-extrabold text-lg leading-tight">안녕하세요, 저 새싹이예요 🌱</p>
             </div>
           </div>

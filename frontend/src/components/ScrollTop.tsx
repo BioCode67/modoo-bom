@@ -25,7 +25,7 @@ export function ScrollTop() {
           exit={{ opacity: 0, scale: 0.8 }}
           onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
           aria-label="맨 위로 이동"
-          className="fixed left-4 bottom-24 md:bottom-6 z-40 flex h-11 w-11 items-center justify-center rounded-full bg-white text-sprout-600 shadow-soft border border-sprout-100 hover:bg-sprout-50 active:scale-95 transition-colors"
+          className="fixed left-4 bottom-24 md:bottom-6 z-40 flex h-11 w-11 items-center justify-center rounded-full bg-white text-sprout-700 shadow-soft border border-sprout-100 hover:bg-sprout-50 active:scale-95 transition-colors"
         >
           <ArrowUp className="h-5 w-5" />
         </motion.button>

@@ -305,7 +305,7 @@ export function ChatWidget() {
               />
               {micOk && (
                 <button type="button" onClick={toggleMic} aria-label={listening ? '음성 입력 중지' : '음성으로 질문'}
-                  className={cn('rounded-xl px-3 border-2 transition-colors', listening ? 'bg-rose-500 border-rose-500 text-white animate-pulse' : 'bg-white border-sprout-100 text-sprout-600 hover:border-sprout-300')}>
+                  className={cn('rounded-xl px-3 border-2 transition-colors', listening ? 'bg-rose-500 border-rose-500 text-white animate-pulse' : 'bg-white border-sprout-100 text-sprout-700 hover:border-sprout-300')}>
                   <Mic className="h-4 w-4" />
                 </button>
               )}

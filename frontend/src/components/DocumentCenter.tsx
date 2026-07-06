@@ -282,7 +282,7 @@ export function DocumentCenter() {
                   </>
                 ) : (
                   <>
-                    <p className="text-xs text-sprout-600 font-semibold truncate">{needText(doc)}</p>
+                    <p className="text-xs text-sprout-700 font-semibold truncate">{needText(doc)}</p>
                     <p className="text-[11px] text-muted-foreground truncate flex items-center gap-1">
                       {kind === 'wallet' && <span className="chip-sprout !py-0 !px-1.5 text-[9px] shrink-0">무설치 전자발급</span>}
                       {kind === 'online' && <span className="chip-sky !py-0 !px-1.5 text-[9px] shrink-0">온라인 발급</span>}
@@ -314,7 +314,7 @@ export function DocumentCenter() {
                   aria-label={done ? `${doc} 발급 완료 표시 취소` : `${doc} 발급 완료로 표시`}
                   title={done ? '완료 표시 취소' : '발급 완료로 표시'}
                   className={cn('rounded-xl border-2 p-2 transition-colors',
-                    done ? 'border-success-500/40 bg-success-50 text-success-600 hover:bg-success-50/60' : 'border-sprout-100 bg-white text-muted-foreground hover:border-sprout-300 hover:text-sprout-600')}
+                    done ? 'border-success-500/40 bg-success-50 text-success-600 hover:bg-success-50/60' : 'border-sprout-100 bg-white text-muted-foreground hover:border-sprout-300 hover:text-sprout-700')}
                 >
                   {done ? <Undo2 className="h-4 w-4" /> : <Check className="h-4 w-4" />}
                 </button>

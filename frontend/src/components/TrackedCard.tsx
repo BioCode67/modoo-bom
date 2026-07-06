@@ -34,7 +34,7 @@ export function TrackedCard({ item, policy, onOpen }: { item: TrackedItem; polic
         <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-lg', meta.cls)}>{meta.emoji}</div>
         <div className="flex-1 min-w-0">
           <p className="text-[11px] font-semibold text-muted-foreground">{item.category}</p>
-          <button onClick={onOpen} className="font-bold text-[15px] leading-snug truncate hover:text-sprout-600 transition-colors text-left block w-full">
+          <button onClick={onOpen} className="font-bold text-[15px] leading-snug truncate hover:text-sprout-700 transition-colors text-left block w-full">
             {item.name}
           </button>
         </div>
@@ -77,7 +77,7 @@ export function TrackedCard({ item, policy, onOpen }: { item: TrackedItem; polic
 
       <div className="mt-3 flex items-center justify-between text-sm">
         {monthly > 0 ? (
-          <span className="font-extrabold text-sprout-600">월 {formatWon(monthly)}</span>
+          <span className="font-extrabold text-sprout-700">월 {formatWon(monthly)}</span>
         ) : (
           <span className="text-xs text-muted-foreground">금액 상세는 신청 시 확인</span>
         )}

@@ -17,9 +17,9 @@ export function NearMissCard({ profile, onOpen }: { profile: UserProfile; onOpen
     <div className="mt-8">
       <div className="rounded-2xl border-2 border-amber-200 bg-amber-50/50 p-4">
         <button onClick={() => setOpen((v) => !v)} className="w-full flex items-center gap-2.5 text-left">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-600"><Target className="h-4 w-4" /></span>
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700"><Target className="h-4 w-4" /></span>
           <span className="flex-1 min-w-0">
-            <span className="text-sm font-extrabold block">아깝게 놓친 복지 <span className="text-amber-600">{misses.length}</span>건</span>
+            <span className="text-sm font-extrabold block">아깝게 놓친 복지 <span className="text-amber-700">{misses.length}</span>건</span>
             <span className="text-xs text-muted-foreground">딱 한 조건만 조금 벗어났어요 — 상황이 바뀌면 열려요. 에이전트가 계속 지켜볼게요.</span>
           </span>
           <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${open ? 'rotate-180' : ''}`} />

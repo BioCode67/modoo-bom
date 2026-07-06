@@ -46,7 +46,7 @@ export function LifeTimeline({ profile, onOpen }: { profile: UserProfile; onOpen
                     <p className="font-bold mt-1">{e.trigger}</p>
                   </div>
                   {e.monthlyDelta !== 0 && (
-                    <span className={`inline-flex items-center gap-1 text-sm font-extrabold ${e.monthlyDelta > 0 ? 'text-sprout-600' : 'text-amber-600'}`}>
+                    <span className={`inline-flex items-center gap-1 text-sm font-extrabold ${e.monthlyDelta > 0 ? 'text-sprout-700' : 'text-amber-700'}`}>
                       {e.monthlyDelta > 0 ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
                       월 {formatWon(Math.abs(e.monthlyDelta))} {e.monthlyDelta > 0 ? '증가' : '감소'}
                     </span>
@@ -55,7 +55,7 @@ export function LifeTimeline({ profile, onOpen }: { profile: UserProfile; onOpen
 
                 {e.gained.length > 0 && (
                   <div className="mt-3">
-                    <p className="text-xs font-bold text-sprout-600 flex items-center gap-1"><Sparkles className="h-3.5 w-3.5" /> 새로 열리는 복지</p>
+                    <p className="text-xs font-bold text-sprout-700 flex items-center gap-1"><Sparkles className="h-3.5 w-3.5" /> 새로 열리는 복지</p>
                     <div className="mt-1.5 flex flex-wrap gap-1.5">
                       {e.gained.map((p) => (
                         <button key={p.id} onClick={() => onOpen(p)}
@@ -69,7 +69,7 @@ export function LifeTimeline({ profile, onOpen }: { profile: UserProfile; onOpen
 
                 {e.lost.length > 0 && (
                   <div className="mt-3">
-                    <p className="text-xs font-bold text-amber-600">⏳ 곧 종료되는 복지 (지금 챙기거나 전환 준비)</p>
+                    <p className="text-xs font-bold text-amber-700">⏳ 곧 종료되는 복지 (지금 챙기거나 전환 준비)</p>
                     <div className="mt-1.5 flex flex-wrap gap-1.5">
                       {e.lost.map((p) => (
                         <button key={p.id} onClick={() => onOpen(p)}
