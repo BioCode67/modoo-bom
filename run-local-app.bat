@@ -24,12 +24,16 @@ if not exist "frontend\dist-app\index.html" (
   exit /b 1
 )
 
-rem 2) 파이썬 인터프리터 선택 (backend\venv 우선, 없으면 시스템 python)
+rem 2) 파이썬 인터프리터 선택 (전용 경량 venv-local 우선 → 기존 venv → 시스템 python)
 set "PY=python"
 if exist "backend\venv\Scripts\python.exe" set "PY=backend\venv\Scripts\python.exe"
+if exist "backend\venv-local\Scripts\python.exe" set "PY=backend\venv-local\Scripts\python.exe"
 
 rem 3) RPA 활성 + 루프백 바인딩(개인정보 보호)으로 백엔드 기동
+rem    시스템 Chrome 을 그대로 구동(RPA_BROWSER_CHANNEL=chrome) — 실제 브라우저라 정부24 안티매크로에
+rem    강하고, 카카오 간편인증(본인이 직접)도 익숙한 크롬에서 진행된다.
 set "RPA_ENABLED=1"
+set "RPA_BROWSER_CHANNEL=chrome"
 set "RPA_HEADLESS=0"
 set "PYTHONUTF8=1"
 set "MODOO_ENV=local"
@@ -40,8 +44,9 @@ echo [모두봄] 로컬 에이전트를 시작합니다... 잠시 후 브라우�
 rem 4) 브라우저는 3초 뒤(서버 기동 대기) 자동 오픈
 start "" cmd /c "timeout /t 3 >nul & start http://localhost:8000/"
 
+rem 경량 로컬 에이전트(local_server) — 즉시 기동(chromadb 시딩 없음) + RPA 서류발급/신청.
 pushd backend
-"%PY%" -m uvicorn main:app --host 127.0.0.1 --port 8000
+"%PY%" -m uvicorn local_server:app --host 127.0.0.1 --port 8000
 popd
 
 endlocal

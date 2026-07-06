@@ -1,0 +1,13 @@
+# 모두봄 로컬 데스크탑 에이전트(local_server.py) 전용 — 경량 의존성.
+# 무거운 RAG/LLM 스택(chromadb·langchain·langgraph·onnxruntime 등)을 제외한다.
+# 로컬 에이전트의 일은 ① 프론트(dist-app) 동일출처 서빙 + ② 실제 RPA 서류발급/신청뿐이며,
+# 추천·검색·챗봇 등 AI는 프론트가 클라이언트에서 스스로 수행한다.
+# → 설치 용량·시간이 작고, PyInstaller 단일 실행파일 번들이 현실적이다.
+
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+pydantic==2.10.3
+python-multipart==0.0.20
+
+# RPA / 브라우저 자동화 (실제 정부24·복지로·건보·고용24)
+playwright>=1.44.0
