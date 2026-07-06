@@ -113,6 +113,18 @@
     for (const { el } of cands.slice(0, 2)) { try { el.click(); return true } catch { /* noop */ } }
     return false
   }
+  // '인증 요청' 자동 클릭 — 자동입력이 '완전히'(이름·생년월일·휴대폰+전체동의) 끝난 뒤 1회만.
+  // ⚠️ 이 버튼은 폰으로 인증 푸시를 보낼 뿐, 실제 본인인증(카카오톡 [인증 허용])은 여전히 사용자가 폰에서 —
+  //    법적 본인확인 단계는 그대로 사람이 한다(자동화 경계 유지). 최상위 프레임은 trusted 클릭, iframe은 .click 폴백.
+  let authRequested = false
+  const requestAuth = async () => {
+    if (authRequested) return false
+    const ok = await realClick(['인증 요청', '인증요청'],
+      ["#oacx_apply", "button[id*='request' i]", "a[id*='request' i]", "button[class*='request' i]", ".btn-certification", ".btn_confirm"],
+      isTop, ['취소', '재요청 안내'])
+    if (ok) authRequested = true
+    return ok
+  }
   // React/Vue 등 프레임워크 폼도 인식하도록 네이티브 setter로 값 설정 후 input/change 발생
   const setVal = (el, val) => {
     try {
@@ -320,7 +332,11 @@
       let submitted = false
       const SUBMIT_TEXTS = ['민원신청하기', '신청하기']
       const SUBMIT_SELS = ['#btnMinwonApply', '#btnApply', "input[value*='신청']", "a[onclick*='apply' i]", "button[onclick*='apply' i]"]
-      const movedOn = () => !/신청하기/.test(allText()) || /전자서명|간편\s*서명|서명\s*요청|처리\s*중|접수(되|됐|완료)/.test(allText()) || location.href !== url
+      // ⚠️ 제출 성공 감지에 '전자서명' 키워드를 쓰면 안 된다 — plus.gov.kr 발급 폼 상단 '시작하기 전에'
+      //   안내에 "인증서를 통한 전자서명이 필요합니다"라는 정적 문구가 늘 있어, 신청하기를 누르기 전에도
+      //   항상 참이 되어 첫 클릭이 빗나가도 '제출됨'으로 오판하고 멈춘다(실측 버그). URL 변화 · '신청하기'
+      //   버튼 소멸 · 실제 후속상태(서명 요청·처리 중·접수)만 성공 신호로 본다.
+      const movedOn = () => location.href !== url || !/신청하기/.test(allText()) || /서명\s*요청|처리\s*중|접수(되|됐|완료)/.test(allText())
       // same-origin iframe 안의 '신청하기'를 찾아 클릭(iframe이면 top realClick이 못 찾음)
       const clickInFrames = () => {
         for (const d of sameOriginFrames()) {
@@ -421,7 +437,13 @@
           clickText(['카카오톡', 'TALK'], ['카카오뱅크', 'BANK'])
           await sleep(500)
           const af = autofillAuth()
-          if (af.all) { topFilled = true; status('waiting', "✅ 인증 정보를 자동 입력했어요. '인증 요청'을 누르고 📱 카카오톡에서 [인증 허용]만 하세요.") }
+          if (af.all) {
+            topFilled = true
+            const req = await requestAuth() // 인증 요청까지 자동 클릭(폰 인증만 남김)
+            status('waiting', req
+              ? '✅ 인증을 요청했어요 — 📱 카카오톡 알림에서 [인증 허용]만 누르면 로그인돼요.'
+              : "✅ 인증 정보를 자동 입력했어요. '인증 요청'을 누르고 📱 카카오톡에서 [인증 허용]만 하세요.")
+          }
           else if (af.any) status('waiting', '인증 정보를 채우는 중이에요…')
         }
       }
@@ -443,10 +465,13 @@
       af = autofillAuth()
     }
     trace('autofill', af)
+    const reqA = af.all ? await requestAuth() : false // 자동입력 완료 시 인증 요청까지 자동
     status('waiting',
-      af.any
-        ? "✅ 이름·생년월일·휴대폰을 자동 입력했어요. '인증 요청'을 누르고 📱 카카오톡 알림에서 [인증 허용]만 하세요."
-        : "카카오톡 선택 후 본인인증 정보를 입력하고 '인증 요청'을 눌러 주세요. 📱")
+      reqA
+        ? '✅ 인증을 요청했어요 — 📱 카카오톡 알림에서 [인증 허용]만 누르세요.'
+        : af.any
+          ? "✅ 이름·생년월일·휴대폰을 자동 입력했어요. '인증 요청'을 누르고 📱 카카오톡 알림에서 [인증 허용]만 하세요."
+          : "카카오톡 선택 후 본인인증 정보를 입력하고 '인증 요청'을 눌러 주세요. 📱")
     return
   }
 
@@ -507,9 +532,12 @@
         clickText(['카카오톡', 'TALK'], ['카카오뱅크', 'BANK'])
         af = autofillAuth()
       }
-      status('waiting', af.any
-        ? "✅ 정보를 자동 입력했어요. '인증 요청' 후 📱 카카오톡 [인증 허용]만 하세요."
-        : "카카오톡 선택 후 정보를 입력하고 '인증 요청'을 눌러 주세요. 📱")
+      const reqN = af.all ? await requestAuth() : false
+      status('waiting', reqN
+        ? '✅ 인증을 요청했어요 — 📱 카카오톡 [인증 허용]만 하세요.'
+        : af.any
+          ? "✅ 정보를 자동 입력했어요. '인증 요청' 후 📱 카카오톡 [인증 허용]만 하세요."
+          : "카카오톡 선택 후 정보를 입력하고 '인증 요청'을 눌러 주세요. 📱")
       return
     }
     if (/jpAea00401/i.test(url)) {
