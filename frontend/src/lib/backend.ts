@@ -1,15 +1,21 @@
 /** 백엔드(FastAPI) 감지 + capabilities 게이팅 + 콜드스타트 웨이크업.
  *
- * 하이브리드 구조:
- *  - 클라우드(Render 상시배포): AI 분석·추천·챗봇·검색. VITE_API_BASE 로 주소 지정.
+ * 하이브리드 구조 — AI 베이스와 RPA 베이스를 분리한다:
+ *  - 클라우드 AI 베이스(Render 상시배포): AI 분석·추천·챗봇·검색. VITE_API_BASE 로 주소 지정.
  *    Render 무료 티어는 유휴 시 슬립 → 첫 요청이 30~60초(콜드스타트)라, 짧은 타임아웃으론
- *    감지 실패한다. 그래서 configured base 는 여러 번 재시도(웨이크업)한다.
- *  - 로컬 에이전트(사용자 PC uvicorn:8000): 실제 RPA 서류발급/자동신청.
+ *    감지 실패한다. 그래서 configured base 는 여러 번 재시도(웨이크업)한다. (RPA는 클라우드에서 비활성)
+ *  - 로컬 에이전트(사용자 PC uvicorn:8000): 실제 RPA 서류발급/자동신청. **항상 병렬로 독립 탐지**하여,
+ *    배포(HTTPS) 사이트에서도 사용자가 데스크탑 에이전트를 켜두면 자동발급이 활성화된다.
+ *    (localhost 는 브라우저 mixed-content 예외라 HTTPS 페이지에서 http://localhost 호출이 허용됨)
  *
- * capabilities.rpa 가 true 일 때만 프론트가 RPA 버튼을 노출한다(클라우드에서 '자동발급 가능'
- * 오표시 방지). ai 는 AI 기능 활성 여부.
+ * 그래서 베이스가 둘이다:
+ *  - API_BASE : AI/WS(분석·챗봇) 호출용. 클라우드 우선, 없으면 로컬/동일출처.
+ *  - RPA_BASE : RPA(서류발급·신청) 호출용. 로컬 에이전트 우선(실제 발급 가능).
+ * capabilities.rpa 가 true 일 때만 프론트가 RPA 버튼을 노출한다(클라우드 단독일 때 '자동발급 가능'
+ * 오표시 방지). rpa 는 로컬 에이전트(또는 동일출처 RPA 지원 백엔드) 감지 시에만 true.
  *
- * API_BASE 는 `export let` 라이브 바인딩 — 로컬 에이전트 승격 시 재할당하면 소비처도 갱신됨.
+ * API_BASE/RPA_BASE 는 `export let` 라이브 바인딩 — 승격 시 재할당하면 소비처도 갱신된다.
+ * (RPA 소비처는 getRpaBase() 사용 권장 — 게이팅 이후 값이 확정됨)
  */
 
 export interface Capabilities {
@@ -20,6 +26,7 @@ export interface Capabilities {
 }
 
 export let API_BASE = (import.meta.env.VITE_API_BASE as string | undefined)?.trim() || ''
+export let RPA_BASE = '' // RPA 전용 베이스 — 로컬 에이전트 감지 시 채워짐(그 전엔 RPA 버튼도 숨김)
 const LOCAL_AGENT = 'http://localhost:8000'
 
 let cached: boolean | null = null
@@ -27,6 +34,11 @@ let caps: Capabilities | null = null
 
 export function getCapabilities(): Capabilities | null {
   return caps
+}
+
+/** RPA(서류발급·신청) 호출에 쓸 베이스. 로컬 에이전트 감지 시 그 주소, 아니면 ''(=미지원). */
+export function getRpaBase(): string {
+  return RPA_BASE
 }
 
 // /api/health 1회 호출 → capabilities 반환(실패 시 null). 짧은 타임아웃.
@@ -63,28 +75,48 @@ async function wake(base: string, onWake?: (attempt: number, max: number) => voi
 export async function checkBackend(onWake?: (attempt: number, max: number) => void): Promise<boolean> {
   if (cached !== null) return cached
 
+  // 로컬 에이전트(사용자 PC)는 RPA 전용으로 **항상 병렬 탐지** — 클라우드 AI와 독립.
+  // 배포 HTTPS 사이트에서도 데스크탑 에이전트를 켜두면 자동발급이 살아나게 하는 핵심.
+  // (connection refused 는 즉시 실패하므로 미설치 방문자에게도 지연 부담이 거의 없다.)
+  const localProbe = fetchHealth(LOCAL_AGENT, 1500)
+
+  // ── AI 베이스 확보 ──
+  let aiCaps: Capabilities | null = null
+  let aiBase = ''
   if (API_BASE) {
     // 명시된 클라우드 백엔드 — 콜드스타트 대비 웨이크업 재시도
-    const c = await wake(API_BASE, onWake)
-    if (c) { caps = c; cached = true; return true }
+    aiCaps = await wake(API_BASE, onWake)
+    if (aiCaps) aiBase = API_BASE
   } else if ((import.meta.env.BASE_URL || '/') === '/') {
     // 동일 출처 프로브는 코호스팅(도커/uvicorn, base='/')일 때만 의미가 있다.
     // 정적 프로젝트 페이지(gh-pages, base='/modoo-bom/')에선 매 방문 404 노이즈만 만들므로 스킵.
-    const c = await fetchHealth('', 1500)
-    if (c) { caps = c; cached = true; return true }
+    aiCaps = await fetchHealth('', 1500)
+    if (aiCaps) aiBase = ''
   }
 
-  // 사용자 PC 로컬 에이전트 감지 → RPA 활성
-  if (API_BASE !== LOCAL_AGENT) {
-    const c = await fetchHealth(LOCAL_AGENT, 1500)
-    if (c) { API_BASE = LOCAL_AGENT; caps = c; cached = true; return true }
-  }
+  const local = await localProbe
+  if (!aiCaps && !local) { cached = false; return false }
 
-  cached = false
-  return false
+  // ── RPA 베이스: 로컬 에이전트 우선(실제 발급 가능). 없으면 동일출처 RPA 지원 백엔드. ──
+  if (local?.rpa) RPA_BASE = LOCAL_AGENT
+  else if (aiCaps?.rpa) RPA_BASE = aiBase
+
+  // AI 베이스를 못 잡았고 로컬만 있으면 로컬을 AI 베이스로도 승격(완전 로컬 구동).
+  if (!aiCaps && local) API_BASE = LOCAL_AGENT
+
+  // capabilities 병합: AI 는 클라우드/동일출처에서, RPA 는 로컬(또는 동일출처)에서.
+  caps = {
+    ai: aiCaps?.ai ?? local?.ai ?? false,
+    rpa: !!(local?.rpa || aiCaps?.rpa),
+    ai_provider: aiCaps?.ai_provider ?? local?.ai_provider,
+    rag: aiCaps?.rag ?? local?.rag,
+  }
+  cached = true
+  return true
 }
 
 export function resetBackendCache() {
   cached = null
   caps = null
+  RPA_BASE = ''
 }

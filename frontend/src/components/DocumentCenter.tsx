@@ -4,7 +4,7 @@ import { FileText, ExternalLink, Bot, Loader2, CheckCircle2, AlertCircle, Check,
 import { getPolicyMap } from '@/data/catalog'
 import { useAppStore } from '@/store/useAppStore'
 import { docLink, isRpaSupported, isCertIssuable, certKind, CERT_WALLET } from '@/lib/officialLinks'
-import { API_BASE } from '@/lib/backend'
+import { getRpaBase } from '@/lib/backend'
 import { useBackend } from '@/lib/useBackend'
 import { detectExtension, issueViaExtension, issueManyViaExtension, getExtensionTrace, onExtensionStatus, sameDocName } from '@/lib/extension'
 import { setPendingReturn } from '@/lib/returnPrompt'
@@ -88,7 +88,7 @@ export function DocumentCenter() {
       return
     }
     try {
-      const res = await fetch(`${API_BASE}/api/documents/rpa-issue`, {
+      const res = await fetch(`${getRpaBase()}/api/documents/rpa-issue`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           doc_name: doc, user_name: rpaInfo.name || profile?.name || '사용자',
@@ -106,7 +106,7 @@ export function DocumentCenter() {
       const downloadToken = issued.download_token || ''  // 시작자에게만 반환되는 다운로드 인가 토큰
       for (let i = 0; i < 60; i++) {
         await new Promise((r) => setTimeout(r, 1500))
-        const st = await fetch(`${API_BASE}/api/documents/rpa-status/${task_id}`).then((r) => r.json())
+        const st = await fetch(`${getRpaBase()}/api/documents/rpa-status/${task_id}`).then((r) => r.json())
         // 발급 완료 시 result.saved_path가 있으면 문서를 사용자에게 돌려줄 수 있음(다운로드 버튼 노출)
         setRpa((s) => ({ ...s, [doc]: { status: st.status, step: st.current_step || '', at: s[doc]?.at, taskId: task_id, downloadToken, saved: !!(st.result && st.result.saved_path) } }))
         if (st.status === 'done' || st.status === 'error' || st.status === 'completed') break
@@ -266,7 +266,7 @@ export function DocumentCenter() {
                   {/* 발급 완료 + 서버에 문서 저장됨 → 내 브라우저로 바로 받기(확장 없이 인증만 하면 내 손에). 토큰(?t=)으로 인가 */}
                   {(st.status === 'done' || st.status === 'completed') && st.saved && st.taskId && st.downloadToken && (
                     <a
-                      href={`${API_BASE}/api/documents/rpa-file/${st.taskId}?t=${encodeURIComponent(st.downloadToken)}`}
+                      href={`${getRpaBase()}/api/documents/rpa-file/${st.taskId}?t=${encodeURIComponent(st.downloadToken)}`}
                       target="_blank" rel="noopener noreferrer"
                       className="btn-primary !px-3 !py-1.5 mt-1.5 text-xs inline-flex"
                     >

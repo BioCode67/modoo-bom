@@ -5,7 +5,7 @@ import type { EligiblePolicy } from '@/lib/welfare-engine'
 import { useBackend } from '@/lib/useBackend'
 import { isApplyAutomatable, applyLink } from '@/lib/officialLinks'
 import { bestApplyUrl } from '@/lib/quickApply'
-import { API_BASE } from '@/lib/backend'
+import { getRpaBase } from '@/lib/backend'
 import { detectExtension, applyViaExtension, onExtensionStatus, sameDocName } from '@/lib/extension'
 import { RpaInfoForm } from '@/components/RpaInfoForm'
 import { useAppStore } from '@/store/useAppStore'
@@ -72,7 +72,7 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
       return
     }
     try {
-      const res = await fetch(`${API_BASE}/api/apply/start`, {
+      const res = await fetch(`${getRpaBase()}/api/apply/start`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ service_name: policy.name, user_name: rpaInfo.name || profile?.name || '사용자', profile: { ...(profile || {}), ...rpaInfo } }),
       })
@@ -84,7 +84,7 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
       const { task_id } = await res.json()
       for (let i = 0; i < 200; i++) {
         await new Promise((r) => setTimeout(r, 1500))
-        const st = await fetch(`${API_BASE}/api/apply/status/${task_id}`).then((r) => r.json())
+        const st = await fetch(`${getRpaBase()}/api/apply/status/${task_id}`).then((r) => r.json())
         setRun({ status: st.status, step: st.current_step || st.status, shot: st.screenshot_b64 || undefined })
         if (['done', 'error', 'completed'].includes(st.status)) break
       }
