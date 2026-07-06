@@ -119,3 +119,97 @@ async def test_spawn_bg_anchors_then_discards():
     await asyncio.sleep(0)          # done 콜백 처리 기회
     assert t not in _bg_tasks       # 완료 후 자동 제거
     assert result == "done"
+
+
+# ═══ 2차 감사(미감사 영역) 회귀 ═══════════════════════════════════════════════
+
+# ── #1(2차) 임신 프로필: recommended_policies는 dict가 아닌 list여야(하위 [:2] TypeError 방지) ──
+async def _preg_notifs():
+    from agents.nodes.notification_agent import notification_agent_node
+    from agents.state import AgentState, UserProfile
+    profile = UserProfile(name="김수정", age=32, gender="female",
+                          is_pregnant=True, life_events=[])  # 생애이벤트 없음 → 임신알림이 [0]
+    out = await notification_agent_node(AgentState(user_profile=profile, query="임신 출산 지원"))
+    return out["notifications"]
+
+
+@pytest.mark.asyncio
+async def test_pregnancy_recommended_policies_is_list():
+    notifs = await _preg_notifs()
+    preg = [n for n in notifs if n.get("type") == "pregnancy"]
+    assert preg, "임신 알림이 생성되지 않음"
+    rp = preg[0]["recommended_policies"]
+    assert isinstance(rp, list), f"list여야 하는데 {type(rp).__name__}"
+    assert all(isinstance(x, str) for x in rp)
+
+
+@pytest.mark.asyncio
+async def test_pregnancy_mock_final_response_no_typeerror():
+    # 예전엔 dict[:2]에서 TypeError로 임신 프로필 분석이 크래시했다.
+    # 시그니처: mock_final_response(eligible, docs, notifications)
+    from agents.mock_responses import mock_final_response
+    notifs = await _preg_notifs()
+    resp = mock_final_response([], [], notifs)  # 크래시 없이 문자열 반환
+    assert isinstance(resp, str) and resp
+
+
+@pytest.mark.asyncio
+async def test_full_graph_pregnant_no_crash():
+    # 임신+생애이벤트 없음(임신알림이 notifications[0]) 프로필로 전체 그래프가 크래시 없이 완주.
+    from agents.graph import build_graph
+    from agents.state import AgentState, UserProfile
+    graph = build_graph()
+    profile = UserProfile(name="김수정", age=32, gender="female", region="서울특별시",
+                          household_type="신혼부부", income_percentile=45,
+                          is_pregnant=True, life_events=[])
+    final_state = await graph.ainvoke(AgentState(user_profile=profile, query="임신 출산 지원").model_dump())
+    assert final_state is not None
+    assert final_state.get("final_response", "") != ""
+
+
+# ── #4 nhis _normalize: None 값 str 강제(TypeError 방지) ──
+def test_nhis_normalize_none_safe():
+    from rpa.nhis_rpa import _normalize
+    assert _normalize({"user_name": None, "birth_date": None, "phone": None}) == ("", "", "010", "")
+    assert _normalize({"user_name": "홍길동", "birth_date": "90-01-02", "phone": "010-1234-5678"}) \
+        == ("홍길동", "900102", "010", "12345678")
+
+
+# ── #5 portfolio _estimate: 콤마만 매칭 시 int("") ValueError 방지 ──
+def test_portfolio_estimate_comma_only():
+    from agents.nodes.portfolio_manager import _estimate_monthly_benefit
+    assert _estimate_monthly_benefit("x", "월 ,원") == 0
+    assert _estimate_monthly_benefit("기초연금", "월 30만원") == 300000
+
+
+# ── #2 rate_limit: 상한 초과 시 만료 버킷 청소(무한증가 방지) ──
+def test_rate_limit_evicts_expired():
+    import api.rate_limit as rl
+    saved_max = rl._MAX_BUCKETS
+    try:
+        rl._buckets.clear()
+        rl._MAX_BUCKETS = 10
+        now = 100000.0
+        for i in range(12):
+            rl._buckets[f"k{i}"] = [1, now - 200]  # 모두 만료
+        rl._maybe_evict(now)
+        assert len(rl._buckets) == 0
+    finally:
+        rl._MAX_BUCKETS = saved_max
+        rl._buckets.clear()
+
+
+# ── #3 gov24 _doc_store: 상한 초과 시 오래된 항목 제거 ──
+@pytest.mark.asyncio
+async def test_gov24_doc_store_bounded():
+    import mocks.gov24_api as g
+    saved_max = g._MAX_DOCS
+    try:
+        g._doc_store.clear()
+        g._MAX_DOCS = 5
+        for i in range(8):
+            await g.issue_document("주민등록등본", f"사용자{i}")
+        assert len(g._doc_store) <= 5
+    finally:
+        g._MAX_DOCS = saved_max
+        g._doc_store.clear()

@@ -29,9 +29,11 @@ ISSUE_SELECTORS = [
 # ── 사용자 정보 정규화 ────────────────────────────────────────────────────────
 
 def _normalize(user_info: dict) -> tuple:
-    name       = user_info.get("user_name", "")
-    birth      = re.sub(r"[^0-9]", "", user_info.get("birth_date", ""))
-    phone_raw  = re.sub(r"[^0-9]", "", user_info.get("phone", ""))
+    # 값이 None으로 들어와도(키는 있고 값이 null) re.sub이 터지지 않게 str(... or "")로 강제
+    # — 다른 RPA 모듈(gov24·apply)과 동일한 방어.
+    name       = str(user_info.get("user_name") or "")
+    birth      = re.sub(r"[^0-9]", "", str(user_info.get("birth_date") or ""))
+    phone_raw  = re.sub(r"[^0-9]", "", str(user_info.get("phone") or ""))
     prefix     = phone_raw[:3]  if len(phone_raw) >= 3  else "010"
     suffix     = phone_raw[3:]  if len(phone_raw) >  3  else ""
     return name, birth, prefix, suffix

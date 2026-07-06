@@ -21,6 +21,18 @@ _LIMITS = {
 }
 _WINDOW = 60.0  # 초
 _buckets: dict[str, list] = defaultdict(lambda: [0, 0.0])  # key -> [count, window_start]
+# X-Forwarded-For는 클라이언트가 위조 가능 → 회전시키면 버킷이 무한 증가(리미터 자체가 메모리 고갈 벡터).
+# 상한 초과 시 만료 버킷을 청소하고, 그래도 넘치면(공격 정황) 전체 초기화로 메모리 폭주를 차단.
+_MAX_BUCKETS = max(1000, int(os.getenv("RATE_LIMIT_MAX_BUCKETS", "20000") or "20000"))
+
+
+def _maybe_evict(now: float) -> None:
+    if len(_buckets) < _MAX_BUCKETS:
+        return
+    for k in [k for k, (_c, start) in _buckets.items() if now - start >= _WINDOW]:
+        _buckets.pop(k, None)
+    if len(_buckets) >= _MAX_BUCKETS:
+        _buckets.clear()  # 정상 사용자는 다음 윈도우에 재생성됨(제한이 잠깐 느슨해질 뿐)
 
 
 def _limit_for(path: str) -> int | None:
@@ -44,9 +56,10 @@ async def rate_limit_middleware(request: Request, call_next):
     limit = _limit_for(path)
     if limit is None:
         return await call_next(request)
+    now = time.time()
+    _maybe_evict(now)  # 버킷 폭주 방지(위조 X-Forwarded-For 회전 대비)
     key = f"{_client_ip(request)}:{path.split('/')[2] if path.count('/') >= 2 else path}"
     count, start = _buckets[key]
-    now = time.time()
     if now - start >= _WINDOW:
         _buckets[key] = [1, now]
     elif count >= limit:

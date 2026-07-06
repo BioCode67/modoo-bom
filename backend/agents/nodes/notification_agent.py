@@ -76,11 +76,16 @@ async def notification_agent_node(state: AgentState) -> dict:
 
     # 임신 중 자동 알림
     if profile.is_pregnant:
+        _preg = _TRIGGERS.get("임신", {})
         notifications.append({
             "trigger": "임신 중",
             "type": "pregnancy",
             "title": "임신 중 — 출산 관련 지원을 미리 준비하세요",
-            "recommended_policies": _TRIGGERS["임신"],
+            # ⚠️ 반드시 policies '리스트'만 — 예전엔 dict 전체를 넣어 하위(mock_final_response의
+            #    recommended_policies[:2])에서 TypeError로 임신 프로필 분석이 크래시했다.
+            "recommended_policies": _preg.get("policies", []) if isinstance(_preg, dict) else _preg,
+            "deadline": _preg.get("deadline", "") if isinstance(_preg, dict) else "",
+            "action": _preg.get("action", "") if isinstance(_preg, dict) else "",
             "urgency": "high",
         })
 

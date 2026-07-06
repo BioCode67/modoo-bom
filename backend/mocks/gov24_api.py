@@ -1,12 +1,15 @@
 """정부24 API Mock — 주민등록등본 자동 발급 시뮬레이션"""
 import asyncio
+import os
 import random
 import uuid
 from datetime import datetime
 from mocks.document_generator import generate_document
 
-# receipt_number → HTML 문서 내용 저장소
+# receipt_number → HTML 문서 내용 저장소. 발급마다 수 KB HTML이 쌓여 무한 증가하므로 상한을 둔다
+# (미리보기용 임시 산출물 — 영속 불필요). 초과 시 가장 오래된 것부터 제거(삽입순 dict 활용).
 _doc_store = {}  # dict[str, str]
+_MAX_DOCS = max(50, int(os.getenv("MOCK_DOC_STORE_MAX", "500") or "500"))
 
 
 _DOCUMENT_TEMPLATES = {
@@ -83,6 +86,8 @@ async def issue_document(doc_name: str, user_name: str = "홍길동") -> dict:
     preview_url = None
     if html_content:
         _doc_store[receipt_number] = html_content
+        while len(_doc_store) > _MAX_DOCS:  # 상한 초과 시 가장 오래된 항목부터 제거
+            _doc_store.pop(next(iter(_doc_store)), None)
         preview_url = f"/api/documents/view/{receipt_number}"
 
     return {

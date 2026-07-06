@@ -30,6 +30,8 @@ def _estimate_monthly_benefit(policy_name: str, benefit_text: str) -> int:
         m = re.search(pat, benefit_text.replace(" ", ""))
         if m:
             raw = m.group(1).replace(",", "")
+            if not raw:  # 정규식이 콤마만 매칭한 경우(예: "월 ,원") — int("") ValueError 방지
+                continue
             val = int(raw)
             # "만원" 단위 처리
             if "만" in benefit_text[max(0, benefit_text.find(raw)-2):benefit_text.find(raw)+len(raw)+3]:
@@ -74,9 +76,9 @@ async def portfolio_manager_node(state: AgentState) -> dict:
         policy_benefit_map.get(p.get("id", ""), "")
         for p in eligible if p.get("id")
     } - {""})
-    # 카테고리가 없으면 정책명 첫 단어로 폴백
+    # 카테고리가 없으면 정책명 첫 단어로 폴백 (.strip()로 공백만 있는 이름 제외 → split()[0] IndexError 방지)
     if not categories:
-        categories = list({p.get("name", "").split()[0] for p in eligible if p.get("name")})
+        categories = list({p["name"].split()[0] for p in eligible if p.get("name", "").strip()})
 
     # sample_data에서 category 필드 가져오기
     try:

@@ -117,12 +117,17 @@ async def health(debug: int = 0):
             info["llm_build"] = type(llm).__name__ if llm else None
         except Exception as e:  # noqa: BLE001
             info["llm_build_error"] = f"{type(e).__name__}: {e}"
+        from importlib.metadata import version as _pkg_version, PackageNotFoundError
         for pkg in ("langchain_core", "langchain_google_genai", "langchain_groq", "langchain_anthropic"):
+            # 일부 패키지(google_genai·anthropic)는 모듈 __version__를 노출하지 않아 "?"가 됐다.
+            # 배포판 메타데이터(하이픈 이름)로 정확히 조회하고, 모듈 속성은 보조로만 사용.
             try:
-                mod = __import__(pkg)
-                info[pkg] = getattr(mod, "__version__", "?")
-            except Exception as e:  # noqa: BLE001
-                info[pkg] = f"import-fail: {type(e).__name__}"
+                info[pkg] = _pkg_version(pkg.replace("_", "-"))
+            except PackageNotFoundError:
+                try:
+                    info[pkg] = getattr(__import__(pkg), "__version__", "?")
+                except Exception as e:  # noqa: BLE001
+                    info[pkg] = f"import-fail: {type(e).__name__}"
         result["llm_debug"] = info
     return result
 
