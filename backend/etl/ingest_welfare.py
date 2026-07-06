@@ -35,6 +35,13 @@ import re
 import sys
 from pathlib import Path
 
+# Windows 콘솔(cp949)에서 이모지 print가 UnicodeEncodeError로 죽는 것 방지
+# (데이터 저장은 됐는데 마지막 안내 출력에서 크래시하던 버그 — 2026-07 실측)
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+except Exception:
+    pass
+
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_OUT = ROOT / "frontend" / "public" / "policies.json"
 
