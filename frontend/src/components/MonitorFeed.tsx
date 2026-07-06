@@ -54,8 +54,8 @@ export function MonitorFeed({ onOpenItem }: { onOpenItem: (policyId: string) => 
       <div className="flex items-center gap-2">
         <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-sprout-500 text-white"><Bell className="h-5 w-5" /></div>
         <div>
-          <h2 className="font-extrabold text-lg leading-tight">복지 비서의 알림</h2>
-          <p className="text-xs text-muted-foreground">신청 준비부터 사후 점검까지 챙겨드려요</p>
+          <h2 className="font-extrabold text-lg leading-tight">새싹이가 챙길 일</h2>
+          <p className="text-xs text-muted-foreground">신청 준비부터 사후 점검까지 제가 챙겨드릴게요</p>
         </div>
         {feed.length > 0 && <span className="ml-auto chip-peach">{feed.length}건</span>}
       </div>
