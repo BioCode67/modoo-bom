@@ -42,4 +42,14 @@ describe('computeJourney', () => {
   it('관리는 계속 지켜보는 단계라 done 아님', () => {
     expect(computeJourney([item({ status: 'applied', checkedDocs: ['x'] })], {}).done.manage).toBe(false)
   })
+  it('필요 서류가 없으면(공공데이터만 담음) 서류 단계 건너뛰고 신청으로', () => {
+    const j = computeJourney([item()], {}, false, /* needsDocs */ false)
+    expect(j.done.docs).toBe(true) // 서류 자동 완료(건너뜀)
+    expect(j.current).toBe('apply') // 막히지 않고 신청 단계로
+  })
+  it('필요 서류가 있으면(기본) 서류 단계에 머문다', () => {
+    const j = computeJourney([item()], {}, false, /* needsDocs */ true)
+    expect(j.done.docs).toBe(false)
+    expect(j.current).toBe('docs')
+  })
 })

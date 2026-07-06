@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion'
 import { Search, FileText, Send, BellRing, Check, ArrowRight } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
+import { usePolicyMap } from '@/data/useCatalog'
 import { computeJourney, JOURNEY_STAGES, type JourneyStage } from '@/lib/journey'
 import { cn } from '@/lib/utils'
 
@@ -35,8 +36,11 @@ function scrollToAnchor(id: string) {
  */
 export function JourneyStepper({ context = 'my' }: { context?: 'my' | 'result' } = {}) {
   const { tracked, docDone, setView } = useAppStore()
+  const map = usePolicyMap()
   const isResult = context === 'result'
-  const j = computeJourney(tracked, docDone, isResult)
+  // 담은 복지 중 필요 서류가 하나라도 있는지 — 없으면(공공데이터만 담은 경우) 서류 단계를 건너뛴다.
+  const needsDocs = isResult ? true : tracked.some((t) => (map[t.policyId]?.required_docs?.length ?? 0) > 0)
+  const j = computeJourney(tracked, docDone, isResult, needsDocs)
   const next = isResult
     ? { title: '복지 찾기 완료! 🎉', body: '이제 마음에 드는 복지를 담고, 서류 발급·신청·관리를 이어서 진행해요.', cta: '나의 복지에서 이어가기' }
     : NEXT[j.current]
