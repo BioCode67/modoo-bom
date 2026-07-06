@@ -28,6 +28,12 @@ pushd backend
 "venv-local\Scripts\python.exe" -m PyInstaller --clean --noconfirm modoobom_agent.spec || (echo [오류] PyInstaller 빌드 실패 & popd & pause & exit /b 1)
 popd
 
+echo [2.5/4] 실행파일 패키징 스모크(뜨고·서빙·RPA 준비 확인)...
+pushd frontend
+"..\backend\venv-local\Scripts\python.exe" e2e\installed-app.py
+if errorlevel 1 (echo [경고] 패키징 스모크 실패 — 번들 누락 의심. 계속 진행하지만 확인 필요.)
+popd
+
 echo [3/4] 배포 ZIP 생성...
 if exist "backend\dist\모두봄-에이전트.zip" del "backend\dist\모두봄-에이전트.zip"
 powershell -NoProfile -Command "Compress-Archive -Path 'backend\dist\모두봄-에이전트\*' -DestinationPath 'backend\dist\모두봄-에이전트.zip' -Force"
