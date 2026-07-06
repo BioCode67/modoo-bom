@@ -246,7 +246,7 @@ export function ResultsView({ result, profile, onReset, helperMode = false }: { 
         </div>
       ) : (
         <>
-          <h2 className="mt-8 mb-3 text-lg font-extrabold">맞춤 추천 복지 <span className="text-sprout-500">{primary.length}</span></h2>
+          <h2 className="mt-8 mb-3 text-lg font-extrabold">맞춤 추천 복지 <span className="text-sprout-700">{primary.length}</span></h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {primary.map((p, i) => (
               <PolicyCard key={p.id} policy={p} index={i} onOpen={setSelected} />
@@ -317,9 +317,9 @@ export function ResultsView({ result, profile, onReset, helperMode = false }: { 
 function StatBox({ icon, value, label, highlight }: { icon: React.ReactNode; value: string; label: string; highlight?: boolean }) {
   return (
     <div className={`rounded-2xl px-3 py-3 text-center ${highlight ? 'bg-sprout-700 text-white' : 'bg-white border border-sprout-100'}`}>
-      <div className={`flex items-center justify-center gap-1 ${highlight ? 'text-white/90' : 'text-sprout-500'}`}>{icon}</div>
+      <div className={`flex items-center justify-center gap-1 ${highlight ? 'text-white' : 'text-sprout-500'}`}>{icon}</div>
       <p className={`text-base font-extrabold mt-0.5 ${highlight ? 'text-white' : 'text-foreground'}`}>{value}</p>
-      <p className={`text-[11px] font-semibold ${highlight ? 'text-white/90' : 'text-muted-foreground'}`}>{label}</p>
+      <p className={`text-[11px] font-semibold ${highlight ? 'text-white' : 'text-muted-foreground'}`}>{label}</p>
     </div>
   )
 }

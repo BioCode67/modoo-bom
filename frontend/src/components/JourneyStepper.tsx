@@ -101,11 +101,11 @@ export function JourneyStepper({ context = 'my' }: { context?: 'my' | 'result' }
       <div className="mt-4 flex flex-col sm:flex-row sm:items-center gap-3 rounded-2xl bg-sprout-50 border border-sprout-100 px-4 py-3">
         <div className="min-w-0 flex-1">
           <p className="text-sm font-extrabold text-sprout-800">{next.title}</p>
-          <p className="text-xs text-sprout-700/90 mt-0.5 leading-relaxed">{next.body}</p>
+          <p className="text-xs text-sprout-700 mt-0.5 leading-relaxed">{next.body}</p>
         </div>
         <button
           onClick={goNext}
-          className="shrink-0 inline-flex items-center justify-center gap-1.5 rounded-full bg-sprout-500 px-4 py-2.5 text-sm font-bold text-white hover:bg-sprout-600 transition-colors"
+          className="shrink-0 inline-flex items-center justify-center gap-1.5 rounded-full bg-sprout-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-sprout-800 transition-colors"
         >
           {next.cta} <ArrowRight className="h-4 w-4" />
         </button>

@@ -53,7 +53,7 @@ export function WelfareScore({ eligible, onOpen }: { eligible: EligiblePolicy[];
             받을 수 있는 <b className="text-foreground">{eligible.length}개</b> 중 <b className="text-sprout-700">{captured.length}개</b>를 챙겼어요.
           </p>
           {potential > 0 ? (
-            <p className="mt-2 inline-flex items-center gap-1.5 rounded-xl bg-peach-100 px-3 py-1.5 text-sm font-bold text-peach-600">
+            <p className="mt-2 inline-flex items-center gap-1.5 rounded-xl bg-peach-100 px-3 py-1.5 text-sm font-bold text-peach-800">
               <Sparkles className="h-4 w-4" /> 지금 챙기면 월 +{formatWon(potential)} 더!
             </p>
           ) : (
