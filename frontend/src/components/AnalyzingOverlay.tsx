@@ -4,6 +4,7 @@ import { Check, Loader2 } from 'lucide-react'
 import { SproutLogo } from '@/ui/SproutLogo'
 import type { EligiblePolicy, UserProfile } from '@/lib/welfare-engine'
 import { incomeCeiling, sidoOf } from '@/lib/welfare-engine'
+import { profileSignals } from '@/lib/profileSignals'
 import { API_BASE } from '@/lib/backend'
 import { BackendAgentStream } from '@/components/BackendAgentStream'
 import { cn } from '@/lib/utils'
@@ -85,21 +86,9 @@ export function AnalyzingOverlay({
   if (streamMode) return <BackendAgentStream profile={profile} onDone={onDone} onFallback={() => setStreamFailed(true)} />
 
   // 인지 단계에서 실제로 읽어낸 '상황 신호'를 사람이 읽을 수 있게(에이전트가 무엇을 근거로 판단하는지 투명하게)
-  const signals: string[] = []
-  if (profile.age >= 65) signals.push('어르신')
-  else if (profile.age >= 19 && profile.age <= 34) signals.push('청년')
-  if (profile.income_percentile <= 50) signals.push('저소득')
-  if (profile.disability) signals.push('장애')
-  if (profile.is_pregnant) signals.push('임신')
-  if (profile.has_children) signals.push('자녀 양육')
-  if (profile.employment_status === 'unemployed') signals.push('구직 중')
-  if (/한부모|조손/.test(profile.household_type)) signals.push('한부모·조손')
-  if (profile.household_type.includes('다문화')) signals.push('다문화')
-  // household_type 원문은 이미 유도된 신호('한부모·조손' 등)와 의미가 겹치면 중복 노출되므로,
-  // 앞에서 특정 신호를 이미 넣은 경우엔 원문 추가를 생략(표시 중복 방지).
-  const hasSpecificHouseholdSignal = /한부모|조손|다문화/.test(profile.household_type) && signals.length > 0
-  if (profile.household_type && !hasSpecificHouseholdSignal) signals.push(profile.household_type)
-  const signalText = signals.length ? ` — ${[...new Set(signals)].slice(0, 4).join('·')}` : ''
+  // — 결과 화면의 '이렇게 이해했어요' 칩과 동일 로직(profileSignals) 공유로 표기 일관.
+  const signals = profileSignals(profile)
+  const signalText = signals.length ? ` — ${signals.slice(0, 4).join('·')}` : ''
 
   const STEPS = [
     `프로필에서 상황 신호를 읽었어요${signalText}`,
