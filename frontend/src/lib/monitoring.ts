@@ -61,7 +61,11 @@ export function monitorItem(item: TrackedItem, policy: Policy | undefined, globa
       if (required.length > 0) alerts.push({ level: 'info', kind: 'docs', text: `서류 ${required.length}종 준비가 필요해요.` })
       break
     case 'tracking':
-      if (docMissing.length > 0) {
+      if (required.length === 0) {
+        // 필요 서류를 앱이 모르는 정책(공공데이터 요약본·정책 미로드)은 '준비 완료'를 단정하지 않는다(과장 금지).
+        nextAction = '필요 서류는 상세·공식 페이지에서 확인한 뒤 신청하세요.'
+        alerts.push({ level: 'medium', kind: 'submit', text: '신청 준비 중 — 필요 서류를 공식 페이지에서 확인하세요.' })
+      } else if (docMissing.length > 0) {
         nextAction = `남은 서류 ${docMissing.length}건을 준비하세요: ${docMissing.slice(0, 2).join(', ')}${docMissing.length > 2 ? ' 외' : ''}`
         alerts.push({ level: 'medium', kind: 'docs', text: `서류 ${docDone}/${required.length} 준비됨 — ${docMissing.length}건 남음` })
       } else {

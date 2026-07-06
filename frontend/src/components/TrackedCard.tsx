@@ -4,7 +4,7 @@ import { Trash2, ChevronDown, FileText, ExternalLink, Info } from 'lucide-react'
 import { ExternalLink as ExtLink, RefreshCw } from 'lucide-react'
 import type { Policy } from '@/data/policies'
 import { useAppStore, type AppStatus, type TrackedItem } from '@/store/useAppStore'
-import { categoryMeta, parseMonthly, formatWon } from '@/lib/format'
+import { categoryMeta, parseMonthly, formatWon, isCashBenefit } from '@/lib/format'
 import { monitorItem } from '@/lib/monitoring'
 import { cn } from '@/lib/utils'
 
@@ -20,7 +20,8 @@ export function TrackedCard({ item, policy, onOpen }: { item: TrackedItem; polic
   const { setStatus, toggleDoc, removeTracked, markChecked, docDone: globalDocDone } = useAppStore()
   const [open, setOpen] = useState(false)
   const meta = categoryMeta(item.category)
-  const monthly = policy ? parseMonthly(policy.benefit) : 0
+  // 현금성 혜택만 '월 N원'으로 표시(PolicyCard와 동일 게이트) — 바우처·감면·서비스한도를 현금처럼 과장 금지
+  const monthly = policy && isCashBenefit(policy.benefit) ? parseMonthly(policy.benefit) : 0
   const docs = policy?.required_docs ?? []
   // 서류 도우미의 '발급 완료' 기억(docDone)도 준비된 것으로 집계 — monitoring 산출(mon.nextAction)과 배지가 어긋나지 않게
   const isPrepared = (d: string) => item.checkedDocs.includes(d) || !!globalDocDone[d.replace(/\s/g, '')]

@@ -3,6 +3,7 @@ import { agentReply, greetingReply, matchSaveIntent, docsReply, isLocalIntent } 
 import type { UserProfile, AnalysisResult, EligiblePolicy } from './welfare-engine'
 import type { Policy } from '@/data/policies'
 import type { TrackedItem } from '@/store/useAppStore'
+import { getPolicyMap } from '@/data/catalog'
 
 const profile: UserProfile = {
   name: '김복순', age: 72, gender: 'female', region: '서울', household_type: '1인가구',
@@ -30,9 +31,13 @@ describe('greetingReply — 능동적 상태 브리핑', () => {
     expect(g.text).toContain('김복순')
     expect(g.cta).toBeTruthy()
   })
-  it('급한 항목(신청준비 완료 등)이 있으면 그것부터 먼저 브리핑', () => {
-    // status tracking + 서류요건 없는(미지) 정책 → "신청 준비 끝" high 알림
-    const g = greetingReply(profile, [mkT('X1', 'tracking')])
+  it('급한 항목(신청준비 완료)이 있으면 그것부터 먼저 브리핑', () => {
+    // 서류요건을 '아는' 정책이 tracking + 필요서류 전부 준비됨 → high "신청 준비 끝" 알림.
+    // (서류요건이 미상인 정책을 '준비 끝'으로 단정하지 않는 정직성 수정 반영)
+    const pid = 'POL-001'
+    const docs = getPolicyMap()[pid]?.required_docs ?? []
+    const t: TrackedItem = { policyId: pid, name: pid, category: '', status: 'tracking', savedAt: 1_700_000_000_000, checkedDocs: docs }
+    const g = greetingReply(profile, [t])
     expect(g.text).toMatch(/급히 챙길|🔔/)
     expect(g.cta?.view).toBe('my')
   })

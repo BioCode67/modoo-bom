@@ -33,6 +33,7 @@ export function ChatWidget() {
   const { ready, caps } = useBackend()
   const aiChat = ready === true && !!caps?.ai // 클라우드/로컬 백엔드의 진짜 LLM(Claude) 사용 가능
   const endRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   /** 지식형 질문을 백엔드 LLM(/ws/chat)에 물어본다 — 실패·지연(12s)이면 null(로컬 폴백) */
   const askCloud = (q: string): Promise<{ answer: string; names: string[] } | null> =>
@@ -71,6 +72,15 @@ export function ChatWidget() {
   }, [open, profile, tracked, docDone])
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [msgs, open, step])
+
+  // 열릴 때 입력창으로 포커스 이동 + ESC로 닫기 — 키보드·스크린리더 접근성(다른 모달과 동작 통일)
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('keydown', onKey)
+    const t = setTimeout(() => inputRef.current?.focus(), 60)
+    return () => { document.removeEventListener('keydown', onKey); clearTimeout(t) }
+  }, [open])
 
   const botSay = (text: string, extra?: Partial<Msg>) => setMsgs((m) => [...m, { role: 'bot', text, ...extra }])
 
@@ -260,6 +270,7 @@ export function ChatWidget() {
             )}
             <form onSubmit={(e) => { e.preventDefault(); send(input) }} className="p-3 flex gap-2">
               <input
+                ref={inputRef}
                 value={input} onChange={(e) => setInput(e.target.value)} placeholder={listening ? '듣고 있어요…' : '복지 질문을 입력하세요'}
                 className="flex-1 rounded-xl border-2 border-sprout-100 bg-white px-3 py-2 text-sm focus-ring" aria-label="질문 입력"
               />

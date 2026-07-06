@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Heart, Wallet, Scale, Sparkles, Compass, Printer, Cloud } from 'lucide-react'
 import type { Policy } from '@/data/policies'
-import { getPolicyMap } from '@/data/catalog'
+import { usePolicyMap } from '@/data/useCatalog'
 import type { EligiblePolicy } from '@/lib/welfare-engine'
 import { TrackedCard, STATUS_META } from '@/components/TrackedCard'
 import { PolicyDetailDrawer } from '@/components/PolicyDetailDrawer'
@@ -32,7 +32,7 @@ export function My() {
   const [filter, setFilter] = useState<AppStatus | 'all'>('all')
   const [selected, setSelected] = useState<Policy | EligiblePolicy | null>(null)
   const [compare, setCompare] = useState(false)
-  const POLICY_MAP = getPolicyMap()
+  const POLICY_MAP = usePolicyMap()  // 반응형 — 외부 정책 지연 병합 시 자동 갱신(담아둔 공공데이터 정책 깨짐 방지)
 
   // 현금성 지원만 합산(바우처·서비스·현물 제외) — 결과화면과 동일 기준으로 과장 없이.
   const totalMonthly = useMemo(
@@ -69,7 +69,7 @@ export function My() {
         {/* 요약/계산기 */}
         <div className="mt-5 grid grid-cols-2 sm:grid-cols-3 gap-3">
           <SummaryCard icon={<Heart className="h-5 w-5" />} value={`${tracked.length}개`} label="담은 복지" />
-          <SummaryCard icon={<Wallet className="h-5 w-5" />} value={totalMonthly > 0 ? formatWon(totalMonthly) : '-'} sub={totalMonthly > 0 ? `연 ${formatWon(totalMonthly * 12)}` : undefined} label="매달 현금 지원" highlight />
+          <SummaryCard icon={<Wallet className="h-5 w-5" />} value={totalMonthly > 0 ? formatWon(totalMonthly) : '-'} sub={totalMonthly > 0 ? `연 최대 ${formatWon(totalMonthly * 12)}` : undefined} label="월 최대 현금지원" highlight />
           <SummaryCard icon={<span className="text-lg">📮</span>} value={`${applied}개`} label="신청 진행" />
         </div>
       </motion.div>

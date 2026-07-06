@@ -2,7 +2,7 @@ import { useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X } from 'lucide-react'
 import type { Policy } from '@/data/policies'
-import { parseMonthly, formatWon, categoryMeta } from '@/lib/format'
+import { parseMonthly, formatWon, categoryMeta, isCashBenefit } from '@/lib/format'
 import { useModalFocus } from '@/hooks/useModalFocus'
 
 export function CompareModal({ policies, onClose }: { policies: Policy[]; onClose: () => void }) {
@@ -10,7 +10,8 @@ export function CompareModal({ policies, onClose }: { policies: Policy[]; onClos
   useModalFocus(panelRef, true, onClose) // 포커스 이동·트랩·ESC·스크롤잠금·복원
   const rows: { label: string; get: (p: Policy) => string }[] = [
     { label: '카테고리', get: (p) => p.category },
-    { label: '예상 월 혜택', get: (p) => { const m = parseMonthly(p.benefit); return m > 0 ? `월 ${formatWon(m)}` : '상세 확인' } },
+    // 현금성 혜택만 '월 N원'(바우처·감면·서비스한도는 현금 아님 → '상세 확인')
+    { label: '예상 월 혜택', get: (p) => { const m = isCashBenefit(p.benefit) ? parseMonthly(p.benefit) : 0; return m > 0 ? `월 ${formatWon(m)}` : '상세 확인' } },
     { label: '지원 대상', get: (p) => p.target },
     { label: '필요 서류', get: (p) => p.required_docs.join(', ') },
     { label: '신청처', get: (p) => p.application },

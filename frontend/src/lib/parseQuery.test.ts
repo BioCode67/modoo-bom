@@ -27,6 +27,16 @@ describe('parseProfileFromText', () => {
     expect(parseProfileFromText('기초생활수급자입니다').income_percentile).toBeLessThanOrEqual(30)
   })
 
+  it("'아이가 N살' 같은 나이 표현을 다자녀로 오분류하지 않음(맨 숫자 3 함정)", () => {
+    // 셋째 이상 전용 현금혜택을 자녀 1명 사용자에게 과장 추천하던 회귀 방지
+    expect(parseProfileFromText('아이가 3살이에요').household_type).not.toBe('다자녀가구')
+    expect(parseProfileFromText('아이가 13살이에요').household_type).not.toBe('다자녀가구')
+    expect(parseProfileFromText('아이 키우는데 33살이에요').household_type).not.toBe('다자녀가구')
+    // 진짜 다자녀 표현은 인식
+    expect(parseProfileFromText('아이 셋 키워요').household_type).toBe('다자녀가구')
+    expect(parseProfileFromText('자녀 3명이에요').household_type).toBe('다자녀가구')
+  })
+
   it('중증 장애인', () => {
     const p = parseProfileFromText('중증 장애가 있어요')
     expect(p.disability).toBe(true)

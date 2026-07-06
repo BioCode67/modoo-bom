@@ -516,6 +516,13 @@ const SIDO: [string, string][] = [
 ]
 export function sidoOf(text: string): string {
   const t = text || ''
+  // 지자체(LOC) target은 "[시도 시군구] …" 접두 — 브라켓 첫 토큰(시도)만으로 판정한다.
+  //   전체 부분문자열 매칭이면 '[경기도 광주시]'의 '광주'가 '광주광역시'보다 먼저 히트해 타 지역으로 오태깅됨(실측 22건).
+  const head = t.match(/^\s*\[([^\]\s]+)/)?.[1]
+  if (head) {
+    for (const [code, alias] of SIDO) if (head.includes(code) || head.includes(alias)) return code
+    // 브라켓 첫 토큰이 어떤 시도와도 안 맞으면 아래 자유서술 매칭으로 폴백
+  }
   for (const [code, alias] of SIDO) if (t.includes(code) || t.includes(alias)) return code
   return ''
 }

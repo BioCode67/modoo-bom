@@ -82,17 +82,20 @@ export function AiDiscovery({
                 <Sparkles className="h-4 w-4" /> AI로 더 찾기
               </button>
             )}
-            {state === 'loading' && (
-              <p className="mt-2 inline-flex items-center gap-2 text-sm font-semibold text-violet-700">
-                <Loader2 className="h-4 w-4 animate-spin" /> AI가 5천여 건을 의미로 훑는 중…
-              </p>
-            )}
-            {state === 'error' && (
-              <p className="mt-2 text-sm text-rose-600">지금은 AI 검색을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.</p>
-            )}
-            {state === 'done' && hits.length === 0 && (
-              <p className="mt-2 text-sm text-muted-foreground">이미 위에서 핵심 복지를 대부분 찾았어요. 추가로 발견된 숨은 복지는 없네요. 👍</p>
-            )}
+            {/* 비동기 AI 상태를 스크린리더가 낭독하도록 라이브 영역으로(Explore의 aiProgress와 동작 통일) */}
+            <div role="status" aria-live="polite">
+              {state === 'loading' && (
+                <p className="mt-2 inline-flex items-center gap-2 text-sm font-semibold text-violet-700">
+                  <Loader2 className="h-4 w-4 animate-spin" /> AI가 5천여 건을 의미로 훑는 중…
+                </p>
+              )}
+              {state === 'error' && (
+                <p className="mt-2 text-sm text-rose-600">지금은 AI 검색을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.</p>
+              )}
+              {state === 'done' && hits.length === 0 && (
+                <p className="mt-2 text-sm text-muted-foreground">이미 위에서 핵심 복지를 대부분 찾았어요. 추가로 발견된 숨은 복지는 없네요. 👍</p>
+              )}
+            </div>
           </div>
         </div>
       </div>
