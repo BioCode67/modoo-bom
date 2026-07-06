@@ -67,6 +67,7 @@ export function Navbar() {
               onClick={toggleHighContrast}
               title={highContrast ? '일반 대비' : '고대비(저시력용)'}
               aria-pressed={highContrast}
+              aria-label="고대비(저시력용) 모드"
               className={cn(
                 'inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold border-2 transition-colors',
                 highContrast ? 'bg-foreground text-background border-foreground' : 'bg-white border-sprout-100 text-muted-foreground hover:border-sprout-200',
@@ -76,7 +77,7 @@ export function Navbar() {
               <span className="hidden sm:inline">고대비</span>
             </button>
             {canInstall && (
-              <button onClick={promptInstall} title="앱으로 설치" className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold border-2 bg-white border-sprout-100 text-sprout-700 hover:border-sprout-300">
+              <button onClick={promptInstall} title="앱으로 설치" aria-label="앱으로 설치" className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold border-2 bg-white border-sprout-100 text-sprout-700 hover:border-sprout-300">
                 <Download className="h-4 w-4" />
                 <span className="hidden sm:inline">앱 설치</span>
               </button>

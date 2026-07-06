@@ -192,6 +192,12 @@ function checkPolicyDoc(doc: string, name: string, p: UserProfile): CheckResult 
       return { eligible: true, reason: `만 ${p.age}세로 청년 연령 기준 충족`, priority: 'high', confidence: 0.9 }
     return NO
   }
+  // 가족돌봄청년(영케어러) 등 만 13~34세 — 어떤 연령 룰과도 안 맞아 dead data였던 표기를 매칭
+  if (doc.includes('만 13~34세') || doc.includes('13~34세')) {
+    if (p.age >= 13 && p.age <= 34)
+      return { eligible: true, reason: `만 ${p.age}세로 대상 연령(13~34세) 충족`, priority: 'high', confidence: 0.88 }
+    return NO
+  }
   if (anyIn(doc, ['만 9~24세', '9~24세'])) {
     if (p.age >= 9 && p.age <= 24)
       return { eligible: true, reason: `만 ${p.age}세 청소년·청년 기준 충족`, priority: 'high', confidence: 0.88 }
@@ -448,14 +454,20 @@ export function incomeCeiling(doc: string): number | null {
     const v = Math.round((parseInt(m[1], 10) * 1.4) / 5) * 5
     if (!Number.isNaN(v) && (ceil === null || v > ceil)) ceil = v
   }
-  if (ceil === null && /차상위/.test(doc)) ceil = 50
-  // '수급 가구/수급자/급여 수급'처럼 %가 안 적힌 자산심사형도 저소득 상한으로 본다(중위 50% 근사).
-  // (예: 에너지바우처 '생계·의료급여 수급 가구' — 명시 %가 없어 고소득자에게 새던 것을 막음)
-  // ⚠️ 단, '미수급자'(부정어 — 다른 급여를 안 받는 사람, 소득 무관)와 '수급자 우선'(하드요건 아닌 우대)은
-  //   소득상한이 아니다. 이 둘을 제거한 뒤 판정해야 50~70%ile 자격자가 부당 배제되지 않는다(노인일자리·장애인 낮활동 등).
+  // %가 안 적힌 자산심사형('차상위 이하'·'수급 가구' 등)도 저소득 상한으로 본다(중위 50% 근사).
+  //   (예: 에너지바우처 '생계·의료급여 수급 가구' — 명시 %가 없어 고소득자에게 새던 것을 막음)
+  // ⚠️ 단, 아래 '우대 선정' 표현은 하드 소득요건이 아니라 상한으로 보면 51~100%ile 자격자가 부당 배제된다:
+  //   ① '(기초생활수급자·차상위 우선)'처럼 우선/우대로 끝나는 괄호군(그룹 전체가 우대)
+  //   ② 괄호 밖 '차상위 우선'·'수급자 우선' 같은 우대 표현
+  //   ③ '미수급자'(부정어 — 다른 급여를 안 받는 사람, 소득 무관)
+  //   (예: 노인 맞춤돌봄서비스 '(기초생활수급자·차상위 우선)'이 51~100%ile 어르신을 오배제하던 문제)
   if (ceil === null) {
-    const docLow = doc.replace(/미수급[가-힣]*/g, '').replace(/수급자?\s*우선/g, '')
-    if (/(기초생활|생계급여|기초생활수급|기초수급|수급자|수급\s*가구|급여\s*수급)/.test(docLow)) ceil = 50
+    const docNoPref = doc
+      .replace(/\([^)]*(?:우선|우대)[^)]*\)/g, '')        // 우대 괄호군 통째 제거
+      .replace(/(?:수급자?|차상위)\s*(?:우선|우대)/g, '') // 괄호 밖 우대 표현
+      .replace(/미수급[가-힣]*/g, '')                      // 부정어(소득 무관)
+    if (/차상위/.test(docNoPref)) ceil = 50
+    else if (/(기초생활|생계급여|기초생활수급|기초수급|수급자|수급\s*가구|급여\s*수급)/.test(docNoPref)) ceil = 50
   }
   return ceil
 }
@@ -644,9 +656,13 @@ export function getEligiblePolicies(p: UserProfile): EligiblePolicy[] {
     }
     // 정밀 룰이 못 잡은 요약본(공공데이터) 정책은 상황 신호로 보조 매칭
     if (!isSummaryPolicy(policy)) continue
-    // 요약문에 명시 소득 상한이 있고 사용자가 초과하면 '관련'에서도 제외(현실성)
-    const ic = incomeCeiling(`${policy.eligibility} ${policy.target} ${policy.name}`)
-    if (ic !== null && p.income_percentile > ic) continue
+    // 요약문에 명시 소득 상한이 있고 사용자가 초과하면 '관련'에서도 제외(현실성).
+    // ⚠️ 단 정책서민금융(FIN-)은 위 전용 150% 게이트로만 판정 — '차상위 이하 또는 저신용'의 '차상위'가
+    //    incomeCeiling 50%로 잡혀 저신용 51~150%ile을 오배제하던 문제 방지(FIN은 저신용 포함 설계).
+    if (!policy.id.startsWith('FIN-')) {
+      const ic = incomeCeiling(`${policy.eligibility} ${policy.target} ${policy.name}`)
+      if (ic !== null && p.income_percentile > ic) continue
+    }
     const inf = inferFromText(policy, p)
     if (!inf) continue
     // 지자체는 사용자 시·도와 다르면 제외(지역 입력 시에만; 중앙·시드는 전국이라 항상 포함)

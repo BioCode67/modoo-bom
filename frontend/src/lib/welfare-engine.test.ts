@@ -402,3 +402,20 @@ describe('감사 수정 회귀 — 자격자 오배제 방지(2026-07)', () => {
     expect(checkPolicy(mk('만 15~69세', '일반 훈련'), { ...base, age: 72 }).eligible).toBe(false)
   })
 })
+
+describe('3차 감사 수정 회귀(2026-07)', () => {
+  const mk = (eligibility: string, name = '테스트'): Policy => ({
+    id: 'T', name, category: '기타', target: eligibility, benefit: '',
+    eligibility, required_docs: [], application: '', department: '', renewal: '',
+  })
+  it("'차상위 우선/우대'는 소득상한이 아님(우대 선정) — 51~100%ile 오배제 방지", () => {
+    expect(incomeCeiling('만 65세 이상 (차상위 우선)')).toBe(null)
+    expect(incomeCeiling('저소득 어르신 (기초생활수급자·차상위 우대)')).toBe(null)
+    // '차상위 이하'(하드 요건)는 그대로 상한 50
+    expect(incomeCeiling('차상위 이하 가구')).toBe(50)
+  })
+  it("'만 13~34세'(가족돌봄청년) 연령 룰 매칭 — dead data 해소", () => {
+    expect(checkPolicy(mk('만 13~34세 가족돌봄청년', '영케어러 지원'), { ...base, age: 20 }).eligible).toBe(true)
+    expect(checkPolicy(mk('만 13~34세', '영케어러 지원'), { ...base, age: 40 }).eligible).toBe(false)
+  })
+})

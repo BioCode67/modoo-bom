@@ -66,3 +66,11 @@ describe('benefitType — 지원형태 규칙 태깅', () => {
     }
   })
 })
+
+describe('3차 감사 수정 회귀 — 의료급여류는 현물/서비스(현금 아님)', () => {
+  it('의료급여·요양급여·장기요양은 cash 아님', () => {
+    const mk = (name: string, benefit: string) => ({ id: 'T', name, category: '의료', target: '', benefit, eligibility: '', required_docs: [], application: '', department: '', renewal: '' })
+    expect(benefitTypeOf(mk('의료급여 1종', '입원·외래 본인부담 경감'))).not.toBe('cash')
+    expect(benefitTypeOf(mk('노인 장기요양보험', '재가급여·시설급여'))).not.toBe('cash')
+  })
+})

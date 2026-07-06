@@ -13,7 +13,7 @@ export function Glossary({ trigger = 'button' }: { trigger?: 'button' | 'link' }
   const [q, setQ] = useState('')
   const results = searchGlossary(q)
   const panelRef = useRef<HTMLDivElement>(null)
-  useModalFocus(panelRef, open, () => setOpen(false))
+  useModalFocus(panelRef, open, () => setOpen(false), 'input') // 열릴 때 검색 입력에 포커스(닫기 버튼 아님)
 
   return (
     <>

@@ -78,10 +78,14 @@ export function diffProfiles(prev: UserProfile, curr: UserProfile): ProfileChang
   return out
 }
 
-/** 변화로 인해 새로 자격이 생긴 복지(엔진 diff). */
+/** 변화로 인해 새로 자격이 생긴 복지(엔진 diff).
+ *  ⚠️ '새로 받을 수 있는 복지'라는 단정 표기라, 저신뢰 '관련 복지'(공공데이터 요약·민간재단 PRV·서민금융 대출 FIN)는
+ *  제외하고 **정밀 매칭(POL- 시드)** 만 비교한다. 그래야 심사·선발형·대출을 '받을 수 있다'고 과장하지 않고(정직성),
+ *  120건 상한(inferred)의 랭킹 변동이 '새로 열림'으로 오표시되는 것도 막는다. */
+const isPrecise = (p: EligiblePolicy) => /^POL-/.test(p.id)
 export function newlyUnlocked(prev: UserProfile, curr: UserProfile): EligiblePolicy[] {
-  const prevIds = new Set(getEligiblePolicies(prev).map((p) => p.id))
-  return getEligiblePolicies(curr).filter((p) => !prevIds.has(p.id))
+  const prevIds = new Set(getEligiblePolicies(prev).filter(isPrecise).map((p) => p.id))
+  return getEligiblePolicies(curr).filter(isPrecise).filter((p) => !prevIds.has(p.id))
 }
 
 /** 이 앱이 기기에 남긴 데이터 전부 삭제 — 초기화·'다시 분석' 등에서 사용(개인정보처리방침 §5 이행). */
