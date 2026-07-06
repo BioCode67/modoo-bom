@@ -34,9 +34,9 @@ export function InterestSubscribe({ onOpenPolicy }: { onOpenPolicy: (id: string)
         <BellRing className="h-5 w-5" />
         <span className="text-sm font-bold">관심 분야 알림</span>
       </div>
-      <h3 className="mt-1.5 text-lg font-extrabold sm:text-xl">
+      <h2 className="mt-1.5 text-lg font-extrabold sm:text-xl">
         분야를 구독하면 <span className="text-peach-700">새로 챙길 복지</span>를 먼저 알려드려요
-      </h3>
+      </h2>
       <p className="mt-1 text-sm text-muted-foreground">
         관심 분야를 켜두면, 받을 수 있는데 아직 안 담은 복지를 이 자리에서 능동적으로 안내해요. (기기에만 저장)
       </p>

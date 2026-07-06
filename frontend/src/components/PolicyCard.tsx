@@ -64,7 +64,9 @@ export function PolicyCard({
               </span>
             )}
           </div>
-          <h3 className="font-bold text-[15px] leading-snug mt-0.5 truncate">{policy.name}</h3>
+          {/* 카드 제목은 heading이 아닌 일반 텍스트 — 5천여 카드 그리드에서 heading 남발/레벨 스킵 방지.
+              스크린리더는 카드의 '자세히' 버튼(aria-label=정책명 상세 보기)으로 정책명을 안내받는다. */}
+          <p className="font-bold text-[15px] leading-snug mt-0.5 truncate">{policy.name}</p>
         </div>
         <button
           onClick={(e) => {
