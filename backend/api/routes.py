@@ -1,4 +1,5 @@
 """FastAPI REST 라우터"""
+import hmac
 import os
 from fastapi import APIRouter, HTTPException, Header, Depends
 from fastapi.responses import HTMLResponse, FileResponse
@@ -17,7 +18,8 @@ def require_admin(x_admin_token: str = Header(default="")):
     expected = os.getenv("ADMIN_TOKEN", "")
     if not expected:
         raise HTTPException(status_code=404, detail="Not found")  # 미설정 시 존재하지 않는 것처럼
-    if x_admin_token != expected:
+    # 상수시간 비교(타이밍 사이드채널 방지) — 다운로드 토큰(compare_digest)과 일관.
+    if not hmac.compare_digest(x_admin_token, expected):
         raise HTTPException(status_code=401, detail="관리자 인증이 필요합니다.")
     return True
 

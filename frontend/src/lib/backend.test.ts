@@ -91,6 +91,17 @@ describe('backend 하이브리드 감지', () => {
     expect(f).toHaveBeenCalledTimes(2) // 단일 실행(CLOUD+LOCAL). 중복이면 4회가 됐을 것
   })
 
+  it('보안: 클라우드가 rpa:true를 보고해도(RPA_ENABLED 오설정) RPA_BASE는 클라우드로 안 감 → PII 미전송', async () => {
+    // 로컬 에이전트 없음 + 원격이 rpa:true → 예전엔 RPA_BASE=클라우드가 되어 이름·생년월일·휴대폰이
+    //   공유 서버로 전송될 수 있었다. 이제 로컬이 아니면 RPA_BASE 빈 값 유지(버튼 숨김·공식링크 폴백).
+    vi.stubGlobal('fetch', mockFetch({ [CLOUD]: { ai: true, rpa: true }, [LOCAL]: null }))
+    const b = await loadBackend(CLOUD)
+    expect(await b.checkBackend()).toBe(true)
+    expect(b.getRpaBase()).toBe('')            // ⚠️ 클라우드로 PII 안 감
+    expect(b.getCapabilities()?.rpa).toBe(false) // RPA 버튼 숨김
+    expect(b.getCapabilities()?.ai).toBe(true)   // AI(분석·챗)는 정상
+  })
+
   it('아무 백엔드도 없음 → false, 베이스 그대로 (클라우드 웨이크업 재시도 소진)', async () => {
     vi.stubGlobal('fetch', mockFetch({ [CLOUD]: null, [LOCAL]: null }))
     const b = await loadBackend(CLOUD)

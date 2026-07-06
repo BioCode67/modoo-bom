@@ -118,15 +118,29 @@ async function runCheck(onWake?: (attempt: number, max: number) => void): Promis
   return true
 }
 
-/** 감지 결과를 API_BASE/RPA_BASE/caps 로 확정. AI 는 클라우드/동일출처, RPA 는 로컬 우선. */
+/** RPA 호출엔 강식별 PII(이름·생년월일·휴대폰)가 실린다 → '로컬'에만 보낸다(공유 클라우드로 새지 않게).
+ *  로컬 = localhost/127.0.0.1 로 향하는 베이스, 또는 페이지 자체가 localhost에서 서빙되는 동일출처(데스크탑 앱). */
+function isLocalRpaBase(base: string): boolean {
+  if (/^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/.test(base)) return true
+  if (base === '') {
+    const h = typeof window !== 'undefined' ? window.location.hostname : ''
+    return h === 'localhost' || h === '127.0.0.1'
+  }
+  return false
+}
+
+/** 감지 결과를 API_BASE/RPA_BASE/caps 로 확정. AI 는 클라우드/동일출처, RPA 는 '로컬 전용'. */
 function finalizeCaps(aiCaps: Capabilities | null, aiBase: string, local: Capabilities | null) {
+  // ⚠️ 보안: RPA_BASE 는 로컬에만 둔다. 클라우드가 rpa:true 를 보고해도(RPA_ENABLED 오설정 등)
+  //    로컬이 아니면 PII 를 보내지 않는다 → RPA_BASE 빈 값 유지 → RPA 버튼 숨김 + 공식 링크 폴백.
   if (local?.rpa) RPA_BASE = LOCAL_AGENT
-  else if (aiCaps?.rpa) RPA_BASE = aiBase
+  else if (aiCaps?.rpa && isLocalRpaBase(aiBase)) RPA_BASE = aiBase
+  else RPA_BASE = ''
   // AI 베이스를 못 잡았고 로컬만 있으면 로컬을 AI 베이스로도 승격(완전 로컬 구동).
   if (!aiCaps && local) API_BASE = LOCAL_AGENT
   caps = {
     ai: aiCaps?.ai ?? local?.ai ?? false,
-    rpa: !!(local?.rpa || aiCaps?.rpa),
+    rpa: !!RPA_BASE, // RPA 는 로컬 베이스가 실제로 확정됐을 때만 '가능'으로 노출(클라우드 PII 전송 차단)
     ai_provider: aiCaps?.ai_provider ?? local?.ai_provider,
     rag: aiCaps?.rag ?? local?.rag,
   }
