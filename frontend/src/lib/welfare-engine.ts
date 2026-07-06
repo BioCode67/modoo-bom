@@ -456,6 +456,27 @@ export function isClosedForNew(policy: Policy): boolean {
 }
 
 // 공개 API: 정책 1건 자격 판별. doc = eligibility + ' ' + target + ' ' + name (mock_eligibility/estimate와 동일).
+/**
+ * 이 정책이 '왜 나에게 맞는지' — 사용자의 실제 프로필 사실 중 정책 조건에 부합하는 것만 반환(설명가능성).
+ * 자격을 단정하지 않고 '해당되는 내 사실'을 정직하게 보여준다("조건이 복잡해 보인다"는 사용자 불편 해소).
+ * 경쟁 앱이 조건을 나열만 하는 것과 달리, 내 상황과 대조해 체크리스트로 투명하게 제시하기 위한 데이터.
+ */
+export function matchFacts(policy: Policy, p: UserProfile): string[] {
+  const doc = `${policy.name} ${policy.category} ${policy.target} ${policy.eligibility} ${policy.benefit}`
+  const f: string[] = []
+  if (p.age >= 65 && /노인|어르신|고령|경로|장기요양|65세/.test(doc)) f.push(`만 ${p.age}세 · 어르신 대상`)
+  else if (p.age >= 19 && p.age <= 39 && /청년|대학생|구직|취업준비|34세|39세/.test(doc)) f.push(`만 ${p.age}세 · 청년 연령`)
+  if (p.income_percentile > 0 && p.income_percentile <= 60 && /저소득|기초생활|차상위|수급|하위|중위소득/.test(doc))
+    f.push(`소득 하위 ${p.income_percentile}% · 소득 조건 부합`)
+  if (p.disability && /장애/.test(doc)) f.push('등록 장애인 · 대상')
+  if ((p.is_pregnant || p.children_ages.some((a) => a <= 1)) && /임신|임산부|출산|산모|영아|난임/.test(doc)) f.push('임신·출산 가구')
+  else if (p.has_children && /아동|영유아|보육|어린이|유아|육아|자녀|양육/.test(doc)) f.push('자녀 양육 가구')
+  if (/한부모|조손/.test(p.household_type) && /한부모|모자|부자가정|조손/.test(doc)) f.push('한부모·조손 가구')
+  if (p.household_type.includes('다문화') && /다문화|결혼이민|외국인주민/.test(doc)) f.push('다문화 가구')
+  if (p.employment_status === 'unemployed' && /실업|실직|구직|일자리|재취업|고용/.test(doc)) f.push('구직 중')
+  return f
+}
+
 export function checkPolicy(policy: Policy, p: UserProfile): CheckResult {
   const doc = `${policy.eligibility} ${policy.target} ${policy.name}`
   if (isClosedForNew(policy)) return NO // 신규 신청 불가 정책은 추천하지 않음(신뢰 원칙)

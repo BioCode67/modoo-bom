@@ -6,7 +6,7 @@ import { relatedPolicies, type SemanticHit } from '@/lib/semanticSearch'
 import type { Policy } from '@/data/policies'
 import { getCatalog } from '@/data/catalog'
 import type { EligiblePolicy } from '@/lib/welfare-engine'
-import { generateGuides } from '@/lib/welfare-engine'
+import { generateGuides, matchFacts } from '@/lib/welfare-engine'
 import { categoryMeta, parseMonthly, formatWon, PRIORITY_META } from '@/lib/format'
 import { deadlineHint } from '@/lib/deadline'
 import { docLink, applyLink, isApplyAutomatable } from '@/lib/officialLinks'
@@ -234,6 +234,19 @@ function DrawerBody({
           <div className="rounded-2xl bg-sprout-50 border border-sprout-100 p-4">
             <p className="text-sm font-bold text-sprout-700 flex items-center gap-1.5"><CheckCircle2 className="h-4 w-4" /> 내가 받을 수 있는 이유</p>
             <p className="text-sm text-sprout-700/90 mt-1">{eligible.reason}</p>
+            {/* '왜 나에게 맞는지'를 내 실제 정보와 대조한 체크리스트 — 조건을 한눈에(경쟁 앱은 조건 나열만) */}
+            {(() => {
+              const facts = profile ? matchFacts(policy, profile) : []
+              return facts.length > 0 ? (
+                <ul className="mt-2.5 flex flex-col gap-1.5 border-t border-sprout-100 pt-2.5">
+                  {facts.map((f, i) => (
+                    <li key={i} className="flex items-center gap-1.5 text-sm text-sprout-800">
+                      <CheckCircle2 className="h-4 w-4 shrink-0 text-sprout-600" /> {f}
+                    </li>
+                  ))}
+                </ul>
+              ) : null
+            })()}
           </div>
         )}
 
