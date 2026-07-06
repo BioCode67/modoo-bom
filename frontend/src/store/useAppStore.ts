@@ -91,7 +91,9 @@ interface AppState {
  * profile.name을 비워도 이 문장 안에 실명이 남는다. 저장 직전 이 함수로 지운다.
  */
 export function stripNameFromSummary(summary: string): string {
-  return (summary || '').replace(/^[^(]*님\(/, '회원님(')
+  // 인구통계 괄호는 항상 '님(<나이>세'로 시작 → '님(' 다음이 숫자인 지점까지 통째로 치환.
+  //   (기존 /^[^(]*님\(/는 이름에 '('가 있으면(예: '홍길동(가명)') 첫 '(' 앞에서 멈춰 실명이 남았음)
+  return (summary || '').replace(/^.*?님\((?=\d)/, '회원님(')
 }
 
 /**
@@ -185,8 +187,9 @@ export const useAppStore = create<AppState>()(
         set((s) => ({
           tracked: s.tracked.map((t) => {
             if (t.policyId !== policyId) return t
-            // 신청 완료로 바뀌는 순간 신청일을 기록(심사 기간/기한 계산 기준)
-            const appliedAt = status === 'applied' && !t.appliedAt ? Date.now() : t.appliedAt
+            // 신청 완료·수급 중으로 바뀌는 순간 시점 기록(심사 기간·갱신 시기 계산 기준).
+            //   'done'을 신청 단계 없이 바로 골라도 오래된 savedAt이 갱신 기준이 돼 즉시 '갱신 임박' 오알림 뜨던 문제 방지.
+            const appliedAt = (status === 'applied' || status === 'done') && !t.appliedAt ? Date.now() : t.appliedAt
             return { ...t, status, appliedAt }
           }),
         })),

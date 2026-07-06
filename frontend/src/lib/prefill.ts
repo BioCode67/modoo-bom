@@ -46,8 +46,9 @@ export function buildPrefill(profile: UserProfile | null, rpa?: RpaInfo): Prefil
   push('가구 형태', profile?.household_type)
   if (profile && profile.income_percentile > 0) push('소득 수준', `기준 중위소득 약 ${profile.income_percentile}% 이하`)
   if (profile?.disability) push('장애', disabilityLabel(profile.disability_grade))
-  if (profile?.has_children && profile.children_ages.length > 0) {
-    push('자녀', `${profile.children_ages.length}명 (만 ${profile.children_ages.join(', ')}세)`)
+  const kids = profile?.children_ages || [] // 재수화된 레거시 프로필에 children_ages가 없을 수 있어 방어(다른 소비자와 동일 패턴)
+  if (profile?.has_children && kids.length > 0) {
+    push('자녀', `${kids.length}명 (만 ${kids.join(', ')}세)`)
   }
   if (profile?.is_pregnant) push('임신', '임신 중')
   return f

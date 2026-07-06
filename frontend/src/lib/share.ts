@@ -11,8 +11,9 @@ export async function shareApp(count?: number): Promise<'shared' | 'copied' | 'f
       await navigator.share(data)
       return 'shared'
     }
-  } catch {
-    return 'failed' // 사용자가 공유 취소
+  } catch (e) {
+    // 사용자 취소(AbortError)면 조용히 종료. 그 외 실제 공유 오류는 아래 클립보드 폴백으로 흘려보낸다.
+    if (e instanceof Error && e.name === 'AbortError') return 'failed'
   }
   try {
     await navigator.clipboard.writeText(`${text}\n${APP_URL}`)

@@ -23,7 +23,11 @@ export function ScrollTop() {
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.8 }}
-          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          onClick={() => {
+            // 동작 최소화 선호 사용자는 부드러운 스크롤 애니메이션을 끈다(접근성)
+            const reduce = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+            window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' })
+          }}
           aria-label="맨 위로 이동"
           className="fixed left-4 bottom-24 md:bottom-6 z-40 flex h-11 w-11 items-center justify-center rounded-full bg-white text-sprout-700 shadow-soft border border-sprout-100 hover:bg-sprout-50 active:scale-95 transition-colors"
         >

@@ -50,16 +50,21 @@ export function useAuth() {
 
       // 병합·push 이후부터 로컬 추적목록 변경을 감지해 동기화
       let prevIds = new Set(merged.map((t) => t.policyId))
+      // ⚠️ 삭제는 debounce 윈도우 동안 '누적'해야 한다 — 매 변경마다 removed를 덮어쓰면(타이머 리셋)
+      //   같은 800ms 안의 여러 삭제 중 마지막 것만 반영돼, 삭제한 정책이 다른 기기에서 되살아난다.
+      const pendingRemovals = new Set<string>()
       unsub = useAppStore.subscribe((state, prev) => {
         if (state.tracked === prev.tracked) return
         const cur = state.tracked
         const curIds = new Set(cur.map((t) => t.policyId))
-        const removed = [...prevIds].filter((id) => !curIds.has(id))
+        for (const id of prevIds) if (!curIds.has(id)) pendingRemovals.add(id)
+        for (const id of curIds) pendingRemovals.delete(id) // 다시 담으면 삭제 취소
         prevIds = curIds
         if (timer) clearTimeout(timer)
         timer = setTimeout(() => {
           void pushTracked(uid, cur)
-          for (const id of removed) void deleteTracked(uid, id)
+          for (const id of pendingRemovals) void deleteTracked(uid, id)
+          pendingRemovals.clear()
         }, 800)
       })
     })()

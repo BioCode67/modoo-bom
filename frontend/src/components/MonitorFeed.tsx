@@ -43,12 +43,9 @@ export function MonitorFeed({ onOpenItem }: { onOpenItem: (policyId: string) => 
   }, [perm, due.length])
 
   const askNotify = async () => {
-    const ok = await enableNotify()
+    await enableNotify()
+    // perm이 'granted'로 바뀌면 위 useEffect가 동일 서명으로 한 번만 알림 → 여기서 중복 호출하지 않는다.
     setPerm(notifyPermission())
-    if (ok && due.length > 0) {
-      const sig = due.map((f) => f.item.policyId + f.alert.kind).join('|') + ':optin'
-      maybeNotifyDue(due.length, `${due[0].item.name}: ${due[0].alert.text}`, sig)
-    }
   }
 
   return (

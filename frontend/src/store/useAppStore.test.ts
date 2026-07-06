@@ -24,6 +24,12 @@ describe('stripNameFromSummary — 디스크 저장 전 실명 제거(개인정�
     expect(stripNameFromSummary('')).toBe('')
     expect(stripNameFromSummary('회원님(30세)의 프로필')).toBe('회원님(30세)의 프로필')
   })
+  it('감사 회귀: 이름에 괄호가 있어도 실명이 남지 않음(예: 홍길동(가명))', () => {
+    const out = stripNameFromSummary('홍길동(가명)님(72세, 서울 거주)의 프로필')
+    expect(out).not.toContain('홍길동')
+    expect(out).not.toContain('가명')
+    expect(out).toBe('회원님(72세, 서울 거주)의 프로필')
+  })
 })
 
 describe('normalizeTracked/normalizeResult — persist 스키마 진화 방어(2026-07)', () => {

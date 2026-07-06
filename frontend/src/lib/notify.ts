@@ -41,8 +41,14 @@ async function fireLocal(title: string, body: string, tag: string) {
     data: { url: base + '/' },
   }
   try {
-    const reg = await navigator.serviceWorker.ready
-    await reg.showNotification(title, opts)
+    // ⚠️ serviceWorker.ready는 등록된 SW가 없으면 영원히 resolve되지 않아 알림이 조용히 사라진다.
+    //   타임아웃과 race해, SW가 없거나 늦으면 직접 Notification으로 폴백.
+    const sw = typeof navigator !== 'undefined' && navigator.serviceWorker
+    const reg = sw
+      ? await Promise.race([navigator.serviceWorker.ready, new Promise<null>((r) => setTimeout(() => r(null), 800))])
+      : null
+    if (reg) await reg.showNotification(title, opts)
+    else new Notification(title, opts)
   } catch {
     try { new Notification(title, opts) } catch { /* 무시 */ }
   }

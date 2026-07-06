@@ -33,7 +33,8 @@ function questionText(step: StepId, name: string): string {
  * 폼을 채우는 느낌이 아니라 에이전트와 대화하는 느낌(대회 주제: AI Agent). 접근성: 큰 탭 타깃·키보드·ARIA.
  */
 // 진행 중 대화 임시저장(같은 브라우저 세션) — 실수로 새로고침해도 이어서.
-// 기존 복지앱 최대 불만("입력하다 상태를 잃고 처음부터") 대응. 탭을 닫으면 사라진다(민감정보 아님·과보관 방지).
+// 기존 복지앱 최대 불만("입력하다 상태를 잃고 처음부터") 대응. 탭을 닫으면 사라진다.
+// ⚠️ 실명(강식별 PII)은 저장하지 않는다(공용/키오스크 기기 잔존 방지) — store partialize와 동일 원칙. 이름은 React state로만.
 const DRAFT_KEY = 'modoo-chat-draft-v1'
 type Draft = { profile: UserProfile; step: StepId; msgs: Msg[]; history?: { step: StepId; profile: UserProfile; len: number }[] }
 function loadDraft(): Draft | null {
@@ -75,11 +76,19 @@ export function MascotChat({ onSubmit }: { onSubmit: (p: UserProfile) => void })
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
   }, [msgs])
 
-  // 진행 상태 임시저장 — 새로고침해도 이어서(완료되면 지움)
+  // 진행 상태 임시저장 — 새로고침해도 이어서(완료되면 지움). 저장 전 실명은 제거(PII 최소저장).
   useEffect(() => {
     try {
-      if (done) sessionStorage.removeItem(DRAFT_KEY)
-      else sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ profile, step, msgs, history } satisfies Draft))
+      if (done) { sessionStorage.removeItem(DRAFT_KEY); return }
+      const nm = profile.name
+      const scrub = (t: string) => (nm ? t.split(nm).join('회원') : t) // 봇 문구 속 '홍길동님'도 실명 제거
+      const safe: Draft = {
+        profile: { ...profile, name: '' },
+        step,
+        msgs: nm ? msgs.map((m) => ({ ...m, text: scrub(m.text) })) : msgs,
+        history: history.map((h) => ({ ...h, profile: { ...h.profile, name: '' } })),
+      }
+      sessionStorage.setItem(DRAFT_KEY, JSON.stringify(safe))
     } catch { /* 저장 불가 환경(시크릿 등)은 조용히 무시 */ }
   }, [profile, step, msgs, history, done])
 
