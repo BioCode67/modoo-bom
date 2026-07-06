@@ -104,6 +104,18 @@ async def health(debug: int = 0):
             from agents.llm import get_chat_llm
             llm = get_chat_llm()
             info["llm_build"] = type(llm).__name__ if llm else None
+            if llm is not None:
+                import time as _t
+                from langchain_core.messages import HumanMessage
+                _t0 = _t.time()
+                try:
+                    _r = await llm.ainvoke([HumanMessage(content="한 문장으로 인사")])
+                    info["llm_invoke"] = "ok"
+                    info["llm_invoke_ms"] = int((_t.time() - _t0) * 1000)
+                    info["llm_answer_head"] = str(_r.content)[:80]
+                except Exception as ie:  # noqa: BLE001
+                    info["llm_invoke_error"] = f"{type(ie).__name__}: {str(ie)[:300]}"
+                    info["llm_invoke_ms"] = int((_t.time() - _t0) * 1000)
         except Exception as e:  # noqa: BLE001
             info["llm_build_error"] = f"{type(e).__name__}: {e}"
         for pkg in ("langchain_core", "langchain_google_genai", "langchain_groq", "langchain_anthropic"):
