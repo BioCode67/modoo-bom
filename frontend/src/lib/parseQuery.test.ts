@@ -190,3 +190,19 @@ describe('감사 수정 회귀 — 오분류 방지(2026-07)', () => {
     expect(parseProfileFromText('소득이 넉넉하지 않아요').income_percentile).toBe(40)
   })
 })
+
+describe('parseProfileFromText — 2차 감사 회귀(2026-07)', () => {
+  it('부정문 자녀 언급은 자녀 있음이 아님(아동수당 오추천 방지)', () => {
+    expect(parseProfileFromText('자녀 없이 혼자 살아요').has_children).toBe(false)
+    expect(parseProfileFromText('아이 없어요').has_children).toBe(false)
+    expect(parseProfileFromText('무자녀 부부입니다').has_children).toBe(false)
+    // 긍정형은 그대로 자녀 있음
+    expect(parseProfileFromText('아이 키워요').has_children).toBe(true)
+  })
+  it('어린 부모 나이를 자녀 나이로 흡수하지 않음(자녀 맥락 이후 나이만)', () => {
+    const p = parseProfileFromText('18살 엄마가 아이 7살 5살 키워요')
+    expect(p.children_ages).toEqual(expect.arrayContaining([7, 5]))
+    expect(p.children_ages).not.toContain(18) // 부모 나이는 자녀에서 제외
+    expect(p.age).toBe(18)                     // 부모 나이는 보존
+  })
+})

@@ -20,10 +20,18 @@ export function parseProfileFromText(text: string): UserProfile {
 
   // ── 자녀 나이 선처리 ── "아이가 셋이에요 7살 5살 2살"처럼 자녀 맥락에서 나이가 여러 개 나열되면
   // 전부 자녀 나이로 보고, 부모 나이 추출에서는 제외한다(첫 토큰을 부모 나이로 오인 방지).
-  const kidContext = /아이|애(?!인)|자녀|아들|딸|아기|애들/.test(t)
-  const ageTokens = [...t.matchAll(/(\d{1,2})\s*(?:살|세)/g)].map((m) => parseInt(m[1], 10))
-  const multiKidAges = kidContext && ageTokens.length >= 2 && ageTokens.every((a) => a <= 18) ? ageTokens : null
-  const tForAge = multiKidAges ? t.replace(/\d{1,2}\s*(?:살|세)/g, '') : t
+  const kidKw = t.match(/아이|애(?!인)|자녀|아들|딸|아기|애들/)
+  const kidCtxIdx = kidKw ? (kidKw.index ?? -1) : -1
+  // 자녀 맥락 키워드 '이후'에 나열된 나이만 자녀 나이로 본다 — 그 앞의 'N살 엄마'(부모 나이)를
+  //   자녀 나이로 흡수하던 오류 방지(예: "18살 엄마가 아이 7살 5살" → 자녀는 7·5, 부모는 18).
+  const ageMatchesAll = [...t.matchAll(/(\d{1,2})\s*(?:살|세)/g)]
+  const kidAgeMatches = kidCtxIdx >= 0 ? ageMatchesAll.filter((m) => (m.index ?? 0) > kidCtxIdx) : []
+  const multiKidAges = kidAgeMatches.length >= 2 && kidAgeMatches.every((m) => parseInt(m[1], 10) <= 18)
+    ? kidAgeMatches.map((m) => parseInt(m[1], 10))
+    : null
+  // 부모 나이 추출용 문자열: 자녀 나이 토큰만 제거(그 앞 부모 나이는 보존)
+  let tForAge = t
+  if (multiKidAges) for (const m of kidAgeMatches) tForAge = tForAge.replace(m[0], ' ')
 
   // ── 나이 ── (단, "5살 아이"처럼 자녀를 가리키는 N살/세는 부모 나이로 잡지 않음)
   const exact = tForAge.match(/(\d{1,3})\s*(?:세|살)(?!\s*(?:아이|자녀|아들|딸|아기|아동|손주|손자|손녀))/)
@@ -73,9 +81,12 @@ export function parseProfileFromText(text: string): UserProfile {
   const kids = [...t.matchAll(/(\d{1,2})\s*(살|세)\s*(아이|자녀|아들|딸|아기)/g)]
   const kidCount = t.match(/(?:아이|애들?|자녀)\s*(둘|두|셋|세|넷|[2-4])\s*(?:명|이|을|이에요|입니다)?/)
   const COUNT: Record<string, number> = { 둘: 2, 두: 2, 셋: 3, 세: 3, 넷: 4 }
+  // 부정문 오탐 방지: '자녀 없이·아이 없어요·무자녀·딩크'는 자녀 있음이 아니다(소득 incomeNegated와 동일 취지).
+  //   → 이 가드가 없으면 childless 사용자에게 아동수당·부모급여가 잘못 추천된다.
+  const childNegated = /(아이|자녀|자식|애|아들|딸).{0,3}(없|안\s*낳|안\s*키)/.test(t) || /무자녀|딩크|자녀\s*계획\s*없/.test(t)
   if (multiKidAges) { p.has_children = true; p.children_ages = multiKidAges }
   else if (kids.length) { p.has_children = true; p.children_ages = kids.map((m) => parseInt(m[1], 10)) }
-  else if (/아이|자녀|아들|딸|육아|아기|영유아|어린이집|유치원|키[우워]|쌍둥이|신생아|갓\s*태어/.test(t)) {
+  else if (!childNegated && /아이|자녀|아들|딸|육아|아기|영유아|어린이집|유치원|키[우워]|쌍둥이|신생아|갓\s*태어/.test(t)) {
     p.has_children = true
     if (/신생아|갓난|갓\s*태어|쌍둥이|0\s*살|돌\s*전/.test(t)) p.children_ages = /쌍둥이/.test(t) ? [0, 0] : [0]
     else if (kidCount) p.children_ages = Array(COUNT[kidCount[1]] ?? parseInt(kidCount[1], 10)).fill(5)

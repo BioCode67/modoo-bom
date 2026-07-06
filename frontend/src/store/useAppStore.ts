@@ -94,6 +94,28 @@ export function stripNameFromSummary(summary: string): string {
   return (summary || '').replace(/^[^(]*님\(/, '회원님(')
 }
 
+/**
+ * 스키마 진화 방어: 예전 클라이언트가 저장(localStorage)했거나 클라우드(Supabase)로 동기화한
+ * tracked/result가 이후 추가된 배열 필드를 결여할 수 있다. 소비자(모니터링·여정·ResultsView)는
+ * checkedDocs.includes / notifications.length 등을 무가드로 접근하므로, 복원 시점에 정규화한다.
+ */
+export function normalizeTracked(items: unknown): TrackedItem[] {
+  if (!Array.isArray(items)) return []
+  return items
+    .filter((t): t is TrackedItem => !!t && typeof (t as TrackedItem).policyId === 'string')
+    .map((t) => ({ ...t, checkedDocs: Array.isArray(t.checkedDocs) ? t.checkedDocs : [] }))
+}
+
+export function normalizeResult<T extends AnalysisResult | null>(result: T): T {
+  if (!result) return result
+  return {
+    ...result,
+    eligible_policies: Array.isArray(result.eligible_policies) ? result.eligible_policies : [],
+    notifications: Array.isArray(result.notifications) ? result.notifications : [],
+    application_guides: Array.isArray(result.application_guides) ? result.application_guides : [],
+  }
+}
+
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
@@ -179,7 +201,7 @@ export const useAppStore = create<AppState>()(
       markChecked: (policyId) =>
         set((s) => ({ tracked: s.tracked.map((t) => (t.policyId === policyId ? { ...t, lastChecked: Date.now() } : t)) })),
       removeTracked: (policyId) => set((s) => ({ tracked: s.tracked.filter((t) => t.policyId !== policyId) })),
-      replaceTracked: (items) => set({ tracked: items }),
+      replaceTracked: (items) => set({ tracked: normalizeTracked(items) }), // 클라우드 동기화분도 정규화
 
       subscribedCategories: [],
       toggleCategory: (cat) => set((s) => ({
@@ -204,7 +226,13 @@ export const useAppStore = create<AppState>()(
       }),
       merge: (persisted, current) => {
         const p = (persisted || {}) as Partial<AppState>
-        return { ...current, ...p, rpaInfo: current.rpaInfo } // rpaInfo는 항상 메모리 기본값에서 시작
+        // 복원 데이터의 배열 필드를 정규화(스키마 진화로 필드가 빠진 레거시 저장분 크래시 방지)
+        return {
+          ...current, ...p,
+          tracked: normalizeTracked(p.tracked ?? current.tracked),
+          result: normalizeResult(p.result ?? current.result),
+          rpaInfo: current.rpaInfo, // rpaInfo는 항상 메모리 기본값에서 시작
+        }
       },
     },
   ),
