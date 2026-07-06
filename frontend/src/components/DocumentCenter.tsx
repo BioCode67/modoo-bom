@@ -11,7 +11,7 @@ import { setPendingReturn } from '@/lib/returnPrompt'
 import { RpaInfoForm } from '@/components/RpaInfoForm'
 import { cn } from '@/lib/utils'
 
-type RpaState = { status: string; step: string; at?: number } | null
+type RpaState = { status: string; step: string; at?: number; taskId?: string; saved?: boolean } | null
 
 export function DocumentCenter() {
   const { tracked, profile, rpaInfo, toggleDocDone, isDocDone } = useAppStore()
@@ -105,7 +105,8 @@ export function DocumentCenter() {
       for (let i = 0; i < 60; i++) {
         await new Promise((r) => setTimeout(r, 1500))
         const st = await fetch(`${API_BASE}/api/documents/rpa-status/${task_id}`).then((r) => r.json())
-        setRpa((s) => ({ ...s, [doc]: { status: st.status, step: st.current_step || '' } }))
+        // 발급 완료 시 result.saved_path가 있으면 문서를 사용자에게 돌려줄 수 있음(다운로드 버튼 노출)
+        setRpa((s) => ({ ...s, [doc]: { status: st.status, step: st.current_step || '', at: s[doc]?.at, taskId: task_id, saved: !!(st.result && st.result.saved_path) } }))
         if (st.status === 'done' || st.status === 'error' || st.status === 'completed') break
       }
     } catch (e) {
@@ -258,6 +259,16 @@ export function DocumentCenter() {
                       : <Loader2 className="h-3.5 w-3.5 animate-spin text-sky2-500" />}
                     <span className="text-muted-foreground truncate">{st.step || st.status}</span>
                   </p>
+                  {/* 발급 완료 + 서버에 문서 저장됨 → 내 브라우저로 바로 받기(확장 없이 인증만 하면 내 손에) */}
+                  {(st.status === 'done' || st.status === 'completed') && st.saved && st.taskId && (
+                    <a
+                      href={`${API_BASE}/api/documents/rpa-file/${st.taskId}`}
+                      target="_blank" rel="noopener noreferrer"
+                      className="btn-primary !px-3 !py-1.5 mt-1.5 text-xs inline-flex"
+                    >
+                      <FileText className="h-3.5 w-3.5" /> 발급 문서 받기 (PDF)
+                    </a>
+                  )}
                   {stale && (
                     <p className="text-[11px] text-amber-700 mt-0.5">
                       진행이 잠시 멈춘 듯해요 — 확장이 연 <b>정부 사이트 탭</b>을 확인해 주세요(본인인증 등 직접 눌러야 하는 단계일 수 있어요).

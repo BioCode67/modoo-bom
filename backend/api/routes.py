@@ -1,7 +1,7 @@
 """FastAPI REST 라우터"""
 import os
 from fastapi import APIRouter, HTTPException, Header, Depends
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, FileResponse
 from pydantic import BaseModel, Field
 from rag.search import search_policies
 from rag.embedder import seed_chromadb
@@ -237,6 +237,33 @@ async def rpa_status(task_id: str):
     if hasattr(task, "to_dict"):
         return task.to_dict()
     return task
+
+
+@router.get("/documents/rpa-file/{task_id}")
+async def rpa_file(task_id: str):
+    """RPA로 발급 완료된 문서(PDF/이미지)를 사용자 브라우저로 반환(다운로드).
+    확장 없이 인증만 하면 '내 서류가 내 손에' 흐름을 완성한다 — 원격 사용자가 자기 문서를 받게 함.
+    ⚠️ 개인 문서(주민번호 포함)라 안전장치: 완료+저장된 태스크만, task_id를 bearer로, 캐시 금지."""
+    from rpa.manager import get_task
+    task = get_task(task_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail="태스크를 찾을 수 없습니다.")
+    d = task if isinstance(task, dict) else task.to_dict()
+    result = d.get("result") or {}
+    path = result.get("saved_path")
+    if d.get("status") not in ("done", "completed") or not path or not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="아직 발급이 완료되지 않았거나 저장된 문서가 없습니다.")
+    # 경로 이탈 방지 — 저장 폴더(DOCS_DIR) 안의 파일만 허용
+    from rpa.base import DOCS_DIR
+    real = os.path.realpath(path)
+    if os.path.commonpath([real, os.path.realpath(str(DOCS_DIR))]) != os.path.realpath(str(DOCS_DIR)):
+        raise HTTPException(status_code=403, detail="허용되지 않은 파일 경로입니다.")
+    media = "application/pdf" if real.lower().endswith(".pdf") else "image/png"
+    return FileResponse(real, media_type=media, filename=os.path.basename(real), headers={
+        "Cache-Control": "no-store",
+        "X-Content-Type-Options": "nosniff",
+        "Referrer-Policy": "no-referrer",
+    })
 
 
 class ApplyRequest(BaseModel):
