@@ -418,6 +418,90 @@ def ingest_local_api(service_key: str, max_pages: int = 200, rows: int = 100) ->
     return out
 
 
+# ── 온통청년 청년정책 API (한국고용정보원, JSON) ───────────────────────────────
+# ⚠️ 키(YOUTH_API_KEY)가 나오면 실행. 응답 필드명이 API 버전에 따라 달라, 첫 페이지 원본 샘플을
+#    로그로 남겨(필드명 검증) 필요 시 아래 _pick 키 목록만 손보면 되도록 방어적으로 작성했다.
+YOUTH_API_URL = "https://www.youthcenter.go.kr/go/ythip/getPlcy"
+
+
+def _first_list(obj):
+    """응답 JSON에서 정책 리스트 배열을 방어적으로 찾는다(응답 구조 변형 대응)."""
+    if isinstance(obj, list):
+        return obj
+    if isinstance(obj, dict):
+        for k in ("youthPolicyList", "result", "youthPolicy", "list", "data", "items", "empList"):
+            v = obj.get(k)
+            if isinstance(v, list):
+                return v
+            if isinstance(v, dict):
+                inner = _first_list(v)
+                if inner:
+                    return inner
+    return []
+
+
+def _pick(d: dict, *keys) -> str:
+    for k in keys:
+        v = d.get(k)
+        if v not in (None, "", "null", "-"):
+            return str(v).strip()
+    return ""
+
+
+def ingest_youth(api_key: str, max_pages: int = 60, rows: int = 100) -> list[dict]:
+    """온통청년 청년정책 목록 수집(JSON) → Policy 스키마 정규화(GOV-YTH… 접두사)."""
+    import httpx
+    out: list[dict] = []
+    with httpx.Client(timeout=30.0) as client:
+        for page in range(1, max_pages + 1):
+            params = {"apiKeyNm": api_key, "pageNum": page, "pageSize": rows, "rtnType": "json"}
+            r = _get_with_retry(client, YOUTH_API_URL, params, f"etl/youth page{page}")
+            if r is None:
+                break
+            try:
+                data = r.json()
+            except Exception:
+                print(f"[etl/youth] JSON 파싱 실패(page{page}). 응답:\n{r.text[:300]}")
+                break
+            items = _first_list(data)
+            if not items:
+                if page == 1:
+                    print(f"[etl/youth] 항목 없음(page1) — 키/권한/엔드포인트 확인:\n"
+                          f"{json.dumps(data, ensure_ascii=False)[:400]}")
+                break
+            if page == 1:  # 첫 페이지 원본 샘플 → 필드명 검증용
+                print(f"[etl/youth] 원본 샘플(필드명 확인):\n{json.dumps(items[0], ensure_ascii=False)[:600]}")
+            for it in items:
+                if not isinstance(it, dict):
+                    continue
+                name = _pick(it, "plcyNm", "polyBizSjnm", "polyBizSjNm")
+                if not name:
+                    continue
+                explain = _pick(it, "plcyExplnCn", "polyItcnCn")
+                support = _pick(it, "plcySprtCn", "sporCn")
+                amin, amax = _pick(it, "sprtTrgtMinAge"), _pick(it, "sprtTrgtMaxAge")
+                age = f"만 {amin}~{amax}세" if (amin or amax) else _pick(it, "ageInfo")
+                target = _pick(it, "sprtTrgtDtlCn", "empmSttsCn", "majrRqisCn")
+                apply_url = _pick(it, "aplyUrlAddr", "rqutUrla", "refUrlAddr1")
+                apply_how = _pick(it, "plcyAplyMthdCn", "rqutProcCn")
+                dept = _pick(it, "sprvsnInstCdNm", "rgtrInstCdNm", "cnsgNmor")
+                pno = _pick(it, "plcyNo", "bizId")
+                out.append(make_policy(
+                    sid=f"YTH{pno}" if pno else "",
+                    name=name, summary=explain,
+                    target=f"{age} {target}".strip(),
+                    eligibility=_pick(it, "addAplyQlfcCndCn") or target or explain,
+                    benefit=support or explain,
+                    application=apply_how or apply_url,
+                    department=dept or "온통청년(한국고용정보원)",
+                    url=apply_url,
+                ))
+            print(f"[etl/youth] page {page}: 누적 {len(out)}건")
+            if len(items) < rows:
+                break
+    return out
+
+
 # ── 상세 API 인리치먼트 (중앙부처 servId → 금액/조건/서류/실제 신청URL) ──────────
 DETAIL_URL = "https://apis.data.go.kr/B554287/NationalWelfareInformationsV001/NationalWelfaredetailedV001"
 
@@ -530,6 +614,8 @@ def main() -> int:
                     help="네트워크 없이 기존 policies.json에 금액/조건/현금성 파생필드만 적용")
     ap.add_argument("--kosaf", type=str,
                     help="한국장학재단 학자금지원정보 CSV 경로 → 기업/민간/지자체/대학 장학금을 기존 카탈로그에 병합")
+    ap.add_argument("--youth", action="store_true",
+                    help="온통청년 청년정책 API 수집 → 기존 카탈로그에 병합 (YOUTH_API_KEY 필요)")
     ap.add_argument("--out", type=str, default=str(DEFAULT_OUT), help="출력 JSON 경로")
     ap.add_argument("--max-pages", type=int, default=60)
     args = ap.parse_args()
@@ -552,6 +638,28 @@ def main() -> int:
         added = len(combined) - len(existing)
         cash = sum(1 for p in combined if p.get("is_cash"))
         print(f"[etl] ✅ 병합 완료 — 총 {len(combined)}건(+{added} 장학금) · 현금성 {cash} → {out_path}")
+        return 0
+
+    # --youth 병합 모드: 온통청년 청년정책을 수집해 기존 카탈로그에 병합(기존 우선 디듑) + 파생
+    if args.youth:
+        key = os.getenv("YOUTH_API_KEY", "").strip()
+        if not key:
+            print("[etl] --youth 에는 YOUTH_API_KEY 가 필요합니다.\n"
+                  "      온통청년(youthcenter.go.kr) 마이페이지 → OPEN API 에서 발급 후 backend/.env 에 설정하세요.")
+            return 1
+        out_path = Path(args.out).expanduser()
+        existing = json.loads(out_path.read_text(encoding="utf-8")) if out_path.exists() else []
+        yth = ingest_youth(key, max_pages=args.max_pages)
+        print(f"[etl] 온통청년에서 청년정책 {len(yth)}건")
+        if not yth:
+            print("[etl] 수집 0건 — 위 로그(원본 샘플/오류 메시지)를 확인하세요. 기존 파일은 그대로 둡니다.")
+            return 1
+        combined = dedupe([p for p in (existing + yth) if p.get("name")])  # 기존 우선
+        for p in combined:
+            enrich_fields(p)
+        out_path.write_text(json.dumps(combined, ensure_ascii=False, indent=2), encoding="utf-8")
+        added = len(combined) - len(existing)
+        print(f"[etl] ✅ 병합 완료 — 총 {len(combined)}건(+{added} 청년정책) → {out_path}")
         return 0
 
     # --derive 단독 모드: API 호출 없이 기존 카탈로그에 금액/조건/현금성 파생필드만 부여

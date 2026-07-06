@@ -32,6 +32,12 @@ describe('profileSignals', () => {
   it('질병 이벤트는 별도 신호가 없어 노출(의료 근거)', () => {
     expect(profileSignals({ ...base, life_events: ['질병'] })).toContain('질병·의료비')
   })
+  it('취약계층 대상군을 파악 칩으로 노출', () => {
+    expect(profileSignals({ ...base, life_events: ['북한이탈'] })).toContain('북한이탈주민')
+    expect(profileSignals({ ...base, life_events: ['보훈'] })).toContain('국가유공·보훈')
+    expect(profileSignals({ ...base, life_events: ['자립준비'] })).toContain('자립준비청년')
+    expect(profileSignals({ ...base, life_events: ['가정폭력'] })).toContain('폭력 피해 지원')
+  })
   it('신호가 없으면 빈 배열(청년·어르신 아닌 중장년, 특이사항 없음)', () => {
     expect(profileSignals({ ...base, age: 45 })).toEqual([])
   })

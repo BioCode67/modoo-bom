@@ -115,6 +115,16 @@ export function parseProfileFromText(text: string): UserProfile {
     if (p.income_percentile === BASE.income_percentile) p.income_percentile = 40
   }
 
+  // ── 특정 대상군(복지 사각지대) ── 프로필 필드가 없는 자격군은 life_events 신호로 표시하고,
+  //   엔진(TEXT_SIGNALS)이 이를 저신뢰 '관련 복지'로 매칭한다. 자격을 단정하지 않으므로 과장이 아니다.
+  if (/북한이탈|탈북|새터민/.test(t)) p.life_events.push('북한이탈')
+  if (/국가유공|보훈|유공자|참전유공|고엽제|독립유공|상이군경|보훈\s*대상/.test(t)) p.life_events.push('보훈')
+  if (/자립준비|보호종료|아동복지시설.*퇴소|가정위탁.*종료/.test(t)) {
+    p.life_events.push('자립준비')
+    if (p.age === BASE.age) p.age = 21 // 자립준비청년·보호종료아동 통상 만 18~24
+  }
+  if (/가정폭력|데이트폭력|성폭력|학대\s*피해|폭력.*피해|피해\s*여성/.test(t)) p.life_events.push('가정폭력')
+
   // ── 지역(시·도) ──
   const sido = sidoOf(t)
   if (sido) p.region = sido
