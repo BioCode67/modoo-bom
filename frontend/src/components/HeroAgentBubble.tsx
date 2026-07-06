@@ -98,7 +98,7 @@ export function HeroAgentBubble({ onFocusInput }: { onFocusInput?: () => void })
           {cta && (
             <button
               onClick={cta.onClick}
-              className="mt-2 inline-flex items-center gap-1 rounded-full bg-sprout-500 px-3 py-1.5 text-xs font-bold text-white hover:bg-sprout-600 transition-colors"
+              className="mt-2 inline-flex items-center gap-1 rounded-full bg-sprout-700 px-3 py-1.5 text-xs font-bold text-white hover:bg-sprout-800 transition-colors"
             >
               {returning ? <Heart className="h-3.5 w-3.5" /> : null}
               {cta.label} <ArrowRight className="h-3.5 w-3.5" />

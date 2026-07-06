@@ -299,7 +299,7 @@ export function Explore() {
             className={cn(
               'inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold border-2 transition-all',
               aiMode
-                ? 'bg-gradient-to-r from-sprout-500 to-emerald-500 border-transparent text-white shadow-cute'
+                ? 'bg-gradient-to-r from-sprout-700 to-emerald-700 border-transparent text-white shadow-cute'
                 : 'bg-white border-sprout-200 text-sprout-700 hover:border-sprout-300',
             )}
           >
@@ -380,7 +380,7 @@ export function Explore() {
               key={b.key}
               onClick={() => setBucket(b.key)}
               className={`shrink-0 inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold border-2 transition-all ${
-                bucket === b.key ? 'bg-sprout-500 border-sprout-500 text-white shadow-soft' : 'bg-white border-sprout-100 text-muted-foreground hover:border-sprout-200'
+                bucket === b.key ? 'bg-sprout-700 border-sprout-700 text-white shadow-soft' : 'bg-white border-sprout-100 text-muted-foreground hover:border-sprout-200'
               }`}
             >
               <span>{b.emoji}</span> {b.label}
@@ -392,7 +392,7 @@ export function Explore() {
           <ArrowDownWideNarrow className="h-4 w-4 text-muted-foreground" />
           {([['default', '기본순'], ['amount', '금액 높은순'], ['name', '이름순']] as [SortKey, string][]).map(([k, l]) => (
             <button key={k} onClick={() => setSort(k)}
-              className={cn('rounded-full px-3 py-1.5 text-xs font-semibold border transition-colors', sort === k ? 'bg-sprout-500 border-sprout-500 text-white' : 'bg-white border-sprout-100 text-muted-foreground hover:border-sprout-200')}>
+              className={cn('rounded-full px-3 py-1.5 text-xs font-semibold border transition-colors', sort === k ? 'bg-sprout-700 border-sprout-700 text-white' : 'bg-white border-sprout-100 text-muted-foreground hover:border-sprout-200')}>
               {l}
             </button>
           ))}

@@ -31,7 +31,7 @@ export function EmergencyHelp() {
             <span className="block font-bold text-rose-700">지금 위기 상황이신가요?</span>
             <span className="block text-xs text-rose-700">실직·질병·재난 등 긴급한 상황이면 바로 도와드릴게요</span>
           </span>
-          <span className="chip bg-rose-500 text-white shrink-0">긴급 도움</span>
+          <span className="chip bg-rose-600 text-white shrink-0">긴급 도움</span>
         </button>
       </div>
 

@@ -104,7 +104,7 @@ export function Hero() {
           {/* 🌍 다국어 AI — 외국어로 물어도 한국 복지를 '의미'로 찾아줘요(브라우저 안에서, 번역 없이) */}
           <div className="mt-4 rounded-2xl border border-violet-200 bg-violet-50/50 px-3 py-2.5">
             <p className="text-[11px] font-bold text-violet-700 flex items-center gap-1">
-              🌍 외국어로도 찾아드려요 <span className="font-normal text-violet-500/80">— 온디바이스 AI가 의미로 매칭</span>
+              🌍 외국어로도 찾아드려요 <span className="font-normal text-violet-600">— 온디바이스 AI가 의미로 매칭</span>
             </p>
             <div className="mt-1.5 flex flex-wrap gap-1.5">
               {MULTI.map((m) => (

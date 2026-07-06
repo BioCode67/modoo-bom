@@ -40,14 +40,9 @@ export function PolicyCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, delay: Math.min(index * 0.04, 0.4) }}
       className="card-cute card-hover p-5 flex flex-col h-full cursor-pointer group"
+      // 마우스는 카드 아무 곳이나 클릭. 키보드·스크린리더는 아래 '자세히' 버튼으로 상세 진입.
+      // (카드 자체를 role=button으로 두면 내부 버튼(하트)과 '중첩 인터랙티브' 접근성 위반 → 분리)
       onClick={() => onOpen(policy)}
-      // 키보드 접근성: 카드 전체가 상세 열기 버튼(Enter/Space) — 키보드 사용자도 5천여 정책 상세 진입 가능
-      role="button"
-      tabIndex={0}
-      aria-label={`${policy.name} 상세 보기`}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(policy) }
-      }}
     >
       <div className="flex items-start gap-3">
         <div className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-xl', meta.cls)}>
@@ -96,15 +91,21 @@ export function PolicyCard({
 
       <div className="mt-auto pt-3 flex items-center justify-between">
         {monthly > 0 ? (
-          <span className="text-sm font-extrabold text-sprout-600">
+          <span className="text-sm font-extrabold text-sprout-700">
             월 {formatWon(monthly)}<span className="text-[11px] font-medium text-muted-foreground"> 까지</span>
           </span>
         ) : (
           <span className="text-xs font-semibold text-muted-foreground line-clamp-1">{policy.benefit.slice(0, 18)}…</span>
         )}
-        <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-sprout-600 group-hover:gap-1.5 transition-all">
+        {/* 키보드·스크린리더용 상세 열기 버튼(카드 role=button 대신). 대비 통과 위해 sprout-700 */}
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onOpen(policy) }}
+          aria-label={`${policy.name} 상세 보기`}
+          className="inline-flex items-center gap-0.5 rounded text-xs font-semibold text-sprout-700 transition-all group-hover:gap-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-sprout-500"
+        >
           자세히 <ChevronRight className="h-3.5 w-3.5" />
-        </span>
+        </button>
       </div>
     </motion.div>
   )
