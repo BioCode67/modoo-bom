@@ -31,13 +31,13 @@
   </g>
 
   <!-- 텍스트 (가운데 정렬) -->
-  <text x="600" y="720" text-anchor="middle" font-family="Apple SD Gothic Neo, AppleGothic, NanumGothic, sans-serif" font-size="200" font-weight="800" fill="url(#title)">모두봄</text>
-  <text x="600" y="820" text-anchor="middle" font-family="Apple SD Gothic Neo, AppleGothic, NanumGothic, sans-serif" font-size="62" font-weight="700" fill="#1f2937">내 복지 혜택, 모두 찾아드릴게요</text>
-  <text x="600" y="895" text-anchor="middle" font-family="Apple SD Gothic Neo, AppleGothic, NanumGothic, sans-serif" font-size="40" font-weight="500" fill="#4b5563">AI 맞춤 복지 · 확인부터 신청·관리까지</text>
+  <text x="600" y="720" text-anchor="middle" font-family="Apple SD Gothic Neo, Malgun Gothic, AppleGothic, NanumGothic, sans-serif" font-size="200" font-weight="800" fill="url(#title)">모두봄</text>
+  <text x="600" y="820" text-anchor="middle" font-family="Apple SD Gothic Neo, Malgun Gothic, AppleGothic, NanumGothic, sans-serif" font-size="62" font-weight="700" fill="#1f2937">내 복지 혜택, 모두 찾아드릴게요</text>
+  <text x="600" y="895" text-anchor="middle" font-family="Apple SD Gothic Neo, Malgun Gothic, AppleGothic, NanumGothic, sans-serif" font-size="40" font-weight="500" fill="#4b5563">AI 맞춤 복지 · 확인부터 신청·관리까지</text>
 
   <!-- 배지 pill -->
   <rect x="315" y="975" width="290" height="74" rx="37" fill="#22c55e"/>
-  <text x="460" y="1023" text-anchor="middle" font-family="Apple SD Gothic Neo, AppleGothic, sans-serif" font-size="34" font-weight="700" fill="#ffffff">회원가입 없이 무료</text>
+  <text x="460" y="1023" text-anchor="middle" font-family="Apple SD Gothic Neo, Malgun Gothic, AppleGothic, sans-serif" font-size="34" font-weight="700" fill="#ffffff">회원가입 없이 무료</text>
   <rect x="625" y="975" width="300" height="74" rx="37" fill="#ffffff" stroke="#fdba74" stroke-width="3"/>
-  <text x="775" y="1023" text-anchor="middle" font-family="Apple SD Gothic Neo, AppleGothic, sans-serif" font-size="34" font-weight="700" fill="#ea580c">복지정책 470여 건</text>
+  <text x="775" y="1023" text-anchor="middle" font-family="Apple SD Gothic Neo, Malgun Gothic, AppleGothic, sans-serif" font-size="34" font-weight="700" fill="#ea580c">복지 5,000여 건</text>
 </svg>
