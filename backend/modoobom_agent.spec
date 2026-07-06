@@ -60,6 +60,7 @@ exe = EXE(
     upx=False,
     console=True,  # 콘솔 창(로그/진행 표시) — 데모에서 상태 확인에 유용
     disable_windowed_traceback=False,
+    icon="modoobom.ico" if os.path.exists("modoobom.ico") else None,
 )
 coll = COLLECT(
     exe, a.binaries, a.datas,

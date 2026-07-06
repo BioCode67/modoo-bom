@@ -16,6 +16,7 @@ DefaultGroupName=모두봄
 DisableProgramGroupPage=yes
 OutputDir=dist
 OutputBaseFilename=모두봄-설치
+SetupIconFile=modoobom.ico
 Compression=lzma2
 SolidCompression=yes
 ArchitecturesInstallIn64BitMode=x64compatible
