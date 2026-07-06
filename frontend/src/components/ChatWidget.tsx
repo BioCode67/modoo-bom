@@ -23,6 +23,8 @@ export function ChatWidget() {
   const [step, setStep] = useState(-1) // -1: 가이드 비활성
   const [answers, setAnswers] = useState<GuideAnswers>({ situations: [] })
   const [multiSel, setMultiSel] = useState<{ v: string; l: string }[]>([])
+  const [guideName, setGuideName] = useState('') // 상담 중 성함(선택) — 실명이면 인증 자동입력에 활용
+  const [guideAge, setGuideAge] = useState('')   // 정확한 나이 직접 입력(연령대 대표값 대신)
   const setView = useAppStore((s) => s.setView)
   const view = useAppStore((s) => s.view)
   const profile = useAppStore((s) => s.profile)
@@ -30,6 +32,7 @@ export function ChatWidget() {
   const tracked = useAppStore((s) => s.tracked)
   const docDone = useAppStore((s) => s.docDone)
   const toggleSaved = useAppStore((s) => s.toggleSaved)
+  const setRpaInfo = useAppStore((s) => s.setRpaInfo)
   const { ready, caps } = useBackend()
   const aiChat = ready === true && !!caps?.ai // 클라우드/로컬 백엔드의 진짜 LLM(Claude) 사용 가능
   const endRef = useRef<HTMLDivElement>(null)
@@ -134,7 +137,7 @@ export function ChatWidget() {
 
   // ── 가이드형 상담 ──
   const startGuide = () => {
-    setAnswers({ situations: [] }); setMultiSel([]); setStep(0)
+    setAnswers({ situations: [] }); setMultiSel([]); setGuideName(''); setGuideAge(''); setStep(0)
     setMsgs((m) => [...m, { role: 'user', text: '맞춤 상담 시작' }, { role: 'bot', text: GUIDE_STEPS[0].question }])
   }
   const stopGuide = () => { setStep(-1); setMultiSel([]); botSay('상담을 멈췄어요. 언제든 다시 시작할 수 있어요. 🙂') }
@@ -152,10 +155,24 @@ export function ChatWidget() {
   const pickSingle = (o: { value: string; label: string }) => {
     const cur = GUIDE_STEPS[step]
     const next: GuideAnswers = { ...answers }
-    if (cur.id === 'age') next.age = Number(o.value)
-    else if (cur.id === 'income') next.income = Number(o.value)
+    if (cur.id === 'age') {
+      next.age = Number(o.value)
+      if (guideName.trim()) { next.name = guideName.trim(); setRpaInfo({ name: guideName.trim() }) }
+    } else if (cur.id === 'income') next.income = Number(o.value)
     setAnswers(next)
     setMsgs((m) => [...m, { role: 'user', text: o.label }])
+    advance(next)
+  }
+  // 성함(선택)+정확한 나이 직접 입력 — 연령대 대표값(예: 청년→27) 대신 실제 나이로 정밀 판정.
+  //   실명이면 서류 발급·신청의 본인인증 자동입력(rpaInfo)에도 바로 쓰인다.
+  const submitNameAge = () => {
+    const age = parseInt(guideAge, 10)
+    if (Number.isNaN(age) || age < 0 || age > 120) return
+    const nm = guideName.trim()
+    const next: GuideAnswers = { ...answers, age, ...(nm ? { name: nm } : {}) }
+    if (nm) setRpaInfo({ name: nm })
+    setAnswers(next)
+    setMsgs((m) => [...m, { role: 'user', text: `${nm ? nm + ', ' : ''}만 ${age}세` }])
     advance(next)
   }
   const confirmMulti = () => {
@@ -242,6 +259,18 @@ export function ChatWidget() {
             <div className="px-3 pt-2 flex gap-1.5 flex-wrap border-t border-sprout-100 max-h-28 overflow-y-auto nice-scroll">
               {step >= 0 ? (
                 <>
+                  {/* 나이 단계: 성함(선택)+정확한 나이 직접 입력 — 연령대 대표값 대신 실제 나이로(서류 자동입력에도 사용) */}
+                  {GUIDE_STEPS[step].id === 'age' && (
+                    <div className="w-full flex gap-1.5 items-center mb-1">
+                      <input value={guideName} onChange={(e) => setGuideName(e.target.value)} placeholder="성함(선택)" aria-label="성함"
+                        className="flex-1 min-w-0 rounded-lg border border-sprout-100 px-2 py-1 text-xs focus-ring" />
+                      <input value={guideAge} onChange={(e) => setGuideAge(e.target.value.replace(/[^0-9]/g, ''))} placeholder="나이"
+                        inputMode="numeric" aria-label="정확한 나이" onKeyDown={(e) => { if (e.key === 'Enter') submitNameAge() }}
+                        className="w-12 rounded-lg border border-sprout-100 px-2 py-1 text-xs focus-ring" />
+                      <button onClick={submitNameAge} disabled={!guideAge} className="chip bg-sprout-600 text-white font-bold disabled:opacity-40">확인</button>
+                      <span className="text-[10px] text-muted-foreground self-center">또는 아래 선택</span>
+                    </div>
+                  )}
                   {GUIDE_STEPS[step].options.map((o) => {
                     const sel = multiSel.some((x) => x.v === o.value)
                     return GUIDE_STEPS[step].multi ? (

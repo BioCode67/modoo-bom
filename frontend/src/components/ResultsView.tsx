@@ -172,25 +172,28 @@ export function ResultsView({ result, profile, onReset, helperMode = false }: { 
                 ))}
               </div>
             )}
-            {/* 에이전트가 대신 해줄 다음 행동을 앞세운다 — '목록을 준' 게 아니라 '함께 진행하는' 느낌 */}
+            {/* 에이전트가 대신 해줄 다음 행동을 앞세운다 — '목록을 준' 게 아니라 '함께 진행하는' 느낌.
+                하나씩 담을 필요 없이 '한 번에 담고, 원치 않는 건 빼는' 흐름을 기본으로. */}
             <div className="mt-3 flex flex-wrap gap-2">
               <button
                 onClick={() => {
-                  // 추천(정밀 POL-) 중 아직 안 담은 것을 한 번에 담아 나의 복지로 — "제가 다 챙겨둘게요"
+                  // 추천(정밀 POL-)을 한 번에 전부 담고 바로 '나의 복지'로 — 거기서 원치 않는 건 빼고 신청 준비
                   primary.forEach((p) => { if (!isSaved(p.id)) toggleSaved({ id: p.id, name: p.name, category: p.category }) })
                   setSavedAll(true)
+                  setTimeout(() => setView('my'), 500)
                 }}
                 className="inline-flex items-center gap-1.5 rounded-full bg-sprout-500 px-3.5 py-2 text-xs font-bold text-white hover:bg-sprout-600 transition-colors"
               >
-                {savedAll ? <><Check className="h-3.5 w-3.5" /> 나의 복지에 담았어요</> : <><Heart className="h-3.5 w-3.5" /> 추천 {primary.length}개 전부 담아두기</>}
+                {savedAll ? <><Check className="h-3.5 w-3.5" /> 담았어요 — 나의 복지로 이동 중…</> : <><Heart className="h-3.5 w-3.5" /> 추천 {primary.length}개 한 번에 담고 신청 준비</>}
               </button>
               <button
                 onClick={() => setView('my')}
                 className="inline-flex items-center gap-1.5 rounded-full border-2 border-sprout-200 bg-white px-3.5 py-2 text-xs font-bold text-sprout-700 hover:border-sprout-300 transition-colors"
               >
-                <FileText className="h-3.5 w-3.5" /> 필요한 서류부터 챙기기 <ArrowRight className="h-3.5 w-3.5" />
+                <FileText className="h-3.5 w-3.5" /> 나의 복지 열기 <ArrowRight className="h-3.5 w-3.5" />
               </button>
             </div>
+            <p className="mt-1.5 text-[11px] text-muted-foreground">💡 하나씩 담을 필요 없어요 — 한 번에 담고, 원치 않는 복지는 ‘나의 복지’에서 빼시면 돼요.</p>
           </div>
         </motion.div>
       )}

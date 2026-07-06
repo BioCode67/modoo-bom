@@ -7,7 +7,7 @@ export interface GuideStep { id: 'age' | 'situations' | 'income'; question: stri
 export const GUIDE_STEPS: GuideStep[] = [
   {
     id: 'age',
-    question: '어떤 분의 복지를 찾고 계세요? 연령대를 골라주세요. 👵🧑👶',
+    question: '어떤 분의 복지를 찾고 계세요? 아래에 성함과 정확한 나이를 입력하시면 더 정밀해요(나중에 서류 발급·신청 자동입력에도 쓰여요). 대략만 고르셔도 돼요. 👵🧑👶',
     options: [
       { label: '영유아 (0~6세)', value: '3' },
       { label: '아동·청소년 (7~18세)', value: '14' },
@@ -40,13 +40,13 @@ export const GUIDE_STEPS: GuideStep[] = [
   },
 ]
 
-export interface GuideAnswers { age?: number; situations: string[]; income?: number }
+export interface GuideAnswers { name?: string; age?: number; situations: string[]; income?: number }
 
 export function buildProfile(a: GuideAnswers): UserProfile {
   const s = new Set(a.situations)
   const age = a.age ?? 30
   return {
-    name: '', age, gender: 'other', region: '',
+    name: (a.name || '').trim(), age, gender: 'other', region: '',
     household_type: s.has('singleparent') ? '한부모가족' : '',
     income_percentile: a.income ?? 80,
     disability: s.has('disability'),
