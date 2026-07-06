@@ -225,14 +225,14 @@ async def _login_on_www_gov(page, task, user_info: dict = None) -> bool:
             ss,
         )
 
-    # 로그인 완료 대기 (최대 5분)
+    # 로그인 완료 대기 (최대 8분 = timeout_sec 480)
     login_ok = await wait_for_login(
         page, task, timeout_sec=480, login_url=login_page_url
     )
 
     if not login_ok:
         ss = await take_screenshot(page)
-        task.update("error", "로그인 대기 시간 초과 (5분). 다시 시도해주세요.", ss)
+        task.update("error", "로그인 대기 시간 초과 (8분). 다시 시도해주세요.", ss)
         return False
 
     ss = await take_screenshot(page)

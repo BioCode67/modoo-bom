@@ -4,6 +4,7 @@ import type { Policy } from '@/data/policies'
 import type { EligiblePolicy } from '@/lib/welfare-engine'
 import { useBackend } from '@/lib/useBackend'
 import { isApplyAutomatable, applyLink } from '@/lib/officialLinks'
+import { bestApplyUrl } from '@/lib/quickApply'
 import { API_BASE } from '@/lib/backend'
 import { detectExtension, applyViaExtension, onExtensionStatus, sameDocName } from '@/lib/extension'
 import { RpaInfoForm } from '@/components/RpaInfoForm'
@@ -50,10 +51,10 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
       <div className="rounded-2xl border-2 border-dashed border-sprout-200 bg-sprout-50/50 p-4">
         <p className="text-sm font-bold flex items-center gap-1.5"><Bot className="h-4 w-4 text-sprout-500" /> 에이전트 자동 신청</p>
         <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-          크롬 확장(또는 데스크톱 앱)을 설치하면 에이전트가 복지로 로그인·이동·양식 작성까지 대신 해드려요.
-          지금은 아래에서 직접 신청하실 수 있어요. <b>본인인증·최종 제출은 본인이 직접</b> 하셔야 해요.
+          설치 없이 아래 버튼으로 <b>공식 신청 페이지에 바로</b> 가세요 — 위 신청 키트의 내 정보 복사와 함께 쓰면 가장 빨라요.
+          <b> 본인인증·최종 제출은 본인이 직접</b> 하셔야 해요. (파워유저·시연용: 크롬 확장을 설치하면 로그인·이동·양식 작성까지 에이전트가 대신해요)
         </p>
-        <a href={applyLink(policy.application).url} target="_blank" rel="noopener noreferrer" className="btn-secondary !py-2 mt-2 text-xs">
+        <a href={bestApplyUrl(policy.application, policy.name)} target="_blank" rel="noopener noreferrer" className="btn-secondary !py-2 mt-2 text-xs">
           <ExternalLink className="h-3.5 w-3.5" /> {applyLink(policy.application).label}
         </a>
       </div>
@@ -116,7 +117,7 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
               진행이 잠시 멈춘 듯해요 — 확장이 연 <b>복지로 탭</b>을 확인해 주세요. 본인인증·'신청하기'처럼
               <b> 직접 눌러야 하는 단계</b>일 수 있어요(그 탭 화면의 안내를 따라주세요).
               <span className="block mt-1">
-                <a href={applyLink(policy.application).url} target="_blank" rel="noopener noreferrer" className="underline font-semibold">공식 페이지에서 직접 신청</a>
+                <a href={bestApplyUrl(policy.application, policy.name)} target="_blank" rel="noopener noreferrer" className="underline font-semibold">공식 페이지에서 직접 신청</a>
                 {' · '}<button onClick={() => setRun(null)} className="underline font-semibold">처음부터 다시</button>
               </span>
             </div>

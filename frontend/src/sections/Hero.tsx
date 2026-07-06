@@ -7,7 +7,7 @@ import { parseProfileFromText } from '@/lib/parseQuery'
 
 const STATS = [
   { value: '5,000+', label: '정부·지자체·민간 복지' }, // 공공데이터 + 민간재단 큐레이션(PRV)까지
-  { value: '13종', label: '서류 자동발급' }, // extension/background.js DOCS 실측(2026-07)
+  { value: '13종', label: '서류 발급 바로 연결' }, // 배포(무설치)에선 딥링크 직결 — '자동발급'은 확장/에이전트 연결 시에만 사실이라 과장 금지
   { value: '무료', label: '평생 이용' },
 ]
 

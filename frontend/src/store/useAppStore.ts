@@ -54,6 +54,11 @@ interface AppState {
   rpaInfo: { name: string; birth_date: string; phone: string; carrier: string }
   setRpaInfo: (patch: Partial<{ name: string; birth_date: string; phone: string; carrier: string }>) => void
 
+  // 서류 발급 완료 기억(정규화된 서류명 → 완료 시각) — 새 탭에서 발급하고 돌아와도 진행상황 유지(persist, PII 아님)
+  docDone: Record<string, number>
+  toggleDocDone: (doc: string) => void
+  isDocDone: (doc: string) => boolean
+
   // 최근 프로필 + 분석 결과 캐시 (오랜만에 들어와도 바로 보이게)
   profile: UserProfile | null
   result: AnalysisResult | null
@@ -113,6 +118,18 @@ export const useAppStore = create<AppState>()(
       rpaInfo: { name: '', birth_date: '', phone: '', carrier: '' },
       setRpaInfo: (patch) => set((s) => ({ rpaInfo: { ...s.rpaInfo, ...patch } })),
 
+      docDone: {},
+      toggleDocDone: (doc) =>
+        set((s) => {
+          // 표기 변형('주민등록 등본'/'주민등록등본')이 별개 키가 되지 않도록 공백 제거로 정규화
+          const key = doc.replace(/\s/g, '')
+          const next = { ...s.docDone }
+          if (next[key]) delete next[key]
+          else next[key] = Date.now()
+          return { docDone: next }
+        }),
+      isDocDone: (doc) => !!get().docDone[doc.replace(/\s/g, '')],
+
       profile: null,
       result: null,
       setAnalysis: (profile, result) => set({ profile, result }),
@@ -168,7 +185,7 @@ export const useAppStore = create<AppState>()(
       //   ⚠️ profile.name만 비우면 부족하다 — result.profile_summary 문장 안에 '${name}님(...)'으로 실명이 박혀
       //   result 통째로 저장하면 그대로 새어나간다. summary의 이름 접두를 '회원님'으로 치환해 실명을 제거한다.
       partialize: (s) => ({
-        tracked: s.tracked, elderly: s.elderly, highContrast: s.highContrast, onboarded: s.onboarded, uiLang: s.uiLang,
+        tracked: s.tracked, docDone: s.docDone, elderly: s.elderly, highContrast: s.highContrast, onboarded: s.onboarded, uiLang: s.uiLang,
         profile: s.profile ? { ...s.profile, name: '' } : null,
         result: s.result ? { ...s.result, profile_summary: stripNameFromSummary(s.result.profile_summary) } : null,
       }),

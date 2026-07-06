@@ -51,6 +51,8 @@ APPLY_BUTTON_SELECTORS = [
     "input[value='신청하기']",
 ]
 
+# ⚠️ 의도적 미사용 — 최종 제출은 비가역·법적 행위라 에이전트가 누르지 않는다(본인 몫, human-in-the-loop).
+#    셀렉터는 향후 '제출 버튼 위치 하이라이트' 안내용으로만 보존.
 SUBMIT_BUTTON_SELECTORS = [
     "button:has-text('신청')",
     "button:has-text('제출')",

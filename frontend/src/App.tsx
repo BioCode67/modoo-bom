@@ -9,6 +9,7 @@ const Explore = lazy(() => import('@/sections/Explore').then((m) => ({ default: 
 const My = lazy(() => import('@/sections/My').then((m) => ({ default: m.My })))
 import { ChatWidget } from '@/components/ChatWidget'
 import { ScrollTop } from '@/components/ScrollTop'
+import { ReturnConfirm } from '@/components/ReturnConfirm'
 import { PrintSummary } from '@/components/PrintSummary'
 import { Onboarding } from '@/components/Onboarding'
 import { loadExternalCatalog } from '@/data/catalog'
@@ -102,6 +103,7 @@ export default function App() {
 
       <div className="no-print"><ChatWidget /></div>
       <div className="no-print"><ScrollTop /></div>
+      <div className="no-print"><ReturnConfirm /></div>
       <div className="no-print"><Onboarding /></div>
       <PrintSummary />
     </div>

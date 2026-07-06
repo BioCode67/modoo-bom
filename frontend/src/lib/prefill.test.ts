@@ -48,4 +48,12 @@ describe('buildPrefill', () => {
     const txt = prefillText([{ label: '이름', value: '김복순' }, { label: '나이', value: '만 72세' }])
     expect(txt).toBe('이름: 김복순\n나이: 만 72세')
   })
+
+  it('정부 폼 대체 형식(alt) — 생년월일 YYYYMMDD·휴대폰 하이픈 제거', () => {
+    const f = buildPrefill(null, { name: '김복순', birth_date: '1953-11-01', phone: '010-1234-5678' })
+    const byLabel = Object.fromEntries(f.map((x) => [x.label, x]))
+    expect(byLabel['생년월일'].alt).toBe('19531101')
+    expect(byLabel['휴대폰'].alt).toBe('01012345678')
+    expect(byLabel['이름'].alt).toBeUndefined() // 변형이 없는 값엔 alt 없음
+  })
 })

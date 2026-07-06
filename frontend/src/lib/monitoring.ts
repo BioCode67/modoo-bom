@@ -42,10 +42,12 @@ function isAnnualRenewal(renewal: string): boolean {
   return /매년|연\s*1회|1년|재확인/.test(renewal || '')
 }
 
-export function monitorItem(item: TrackedItem, policy: Policy | undefined): ItemMonitor {
+export function monitorItem(item: TrackedItem, policy: Policy | undefined, globalDocDone: Record<string, number> = {}): ItemMonitor {
   const required = policy?.required_docs ?? []
-  const docDone = required.filter((d) => item.checkedDocs.includes(d)).length
-  const docMissing = required.filter((d) => !item.checkedDocs.includes(d))
+  // 서류는 정책 단위 체크(checkedDocs) 또는 서류 도우미의 '발급 완료' 기억(docDone, 공백 제거 정규명)이면 준비된 것
+  const prepared = (d: string) => item.checkedDocs.includes(d) || !!globalDocDone[d.replace(/\s/g, '')]
+  const docDone = required.filter(prepared).length
+  const docMissing = required.filter((d) => !prepared(d))
   const daysApplied = item.status === 'applied' || item.status === 'done' ? daysSince(item.appliedAt) : null
   const sinceChecked = daysSince(item.lastChecked)
   const reCheckDue = item.status === 'applied' && (sinceChecked === null || sinceChecked >= 7)
@@ -102,11 +104,11 @@ export interface FeedEntry { item: TrackedItem; policy: Policy | undefined; aler
 const LEVEL_RANK: Record<Alert['level'], number> = { high: 0, medium: 1, info: 2 }
 
 /** 전체 추적 항목에서 '오늘의 할 일/알림'을 우선순위로 모음 */
-export function buildActionFeed(tracked: TrackedItem[], policyMap: Record<string, Policy>): FeedEntry[] {
+export function buildActionFeed(tracked: TrackedItem[], policyMap: Record<string, Policy>, globalDocDone: Record<string, number> = {}): FeedEntry[] {
   const feed: FeedEntry[] = []
   for (const item of tracked) {
     const policy = policyMap[item.policyId]
-    const monitor = monitorItem(item, policy)
+    const monitor = monitorItem(item, policy, globalDocDone)
     for (const alert of monitor.alerts) feed.push({ item, policy, alert, monitor })
   }
   feed.sort((a, b) => LEVEL_RANK[a.alert.level] - LEVEL_RANK[b.alert.level])

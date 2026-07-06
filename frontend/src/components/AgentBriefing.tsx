@@ -21,10 +21,10 @@ const KIND_META: Record<string, { icon: typeof AlarmClock; word: string }> = {
  * 모두 브라우저 안에서 계산(서버 미전송).
  */
 export function AgentBriefing({ onOpen }: { onOpen: (p: Policy | EligiblePolicy) => void }) {
-  const { tracked, profile } = useAppStore()
+  const { tracked, profile, docDone } = useAppStore()
   const map = getPolicyMap()
 
-  const feed = useMemo(() => buildActionFeed(tracked, map), [tracked, map])
+  const feed = useMemo(() => buildActionFeed(tracked, map, docDone), [tracked, map, docDone])
   const nextEvent = useMemo(() => (profile ? predictTimeline(profile)[0] : undefined), [profile])
 
   const urgent = feed.filter((f) => f.alert.level === 'high')

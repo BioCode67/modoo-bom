@@ -30,10 +30,11 @@ function line(p: Policy, note?: string): string {
 }
 
 /** 챗을 열 때 현재 상태를 먼저 브리핑(능동성) — 급한 마감·서류가 있으면 그것부터 짚어준다 */
-export function greetingReply(profile: UserProfile | null, tracked: TrackedItem[]): AgentReply {
+export function greetingReply(profile: UserProfile | null, tracked: TrackedItem[], docDone: Record<string, number> = {}): AgentReply {
   const count = tracked.length
   // 능동적 개입: 담아둔 복지 중 지금 급한(마감·신청준비완료·갱신임박) 항목을 먼저 보고
-  const urgent = buildActionFeed(tracked, getPolicyMap()).filter((f) => f.alert.level === 'high')
+  // (docDone — 서류 도우미 '발급 완료' 기억까지 합산해야 '신청 준비 완료' 승격이 다른 화면과 일치)
+  const urgent = buildActionFeed(tracked, getPolicyMap(), docDone).filter((f) => f.alert.level === 'high')
   if (urgent.length) {
     const name = profile?.name || '회원'
     const top = urgent.slice(0, 2).map((f) => `• ${f.policy?.name ?? '복지'} — ${f.alert.text}`).join('\n')

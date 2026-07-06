@@ -17,13 +17,15 @@ export const STATUS_META: Record<AppStatus, { label: string; cls: string; emoji:
 const STATUS_ORDER: AppStatus[] = ['idle', 'tracking', 'applied', 'done']
 
 export function TrackedCard({ item, policy, onOpen }: { item: TrackedItem; policy: Policy | undefined; onOpen: () => void }) {
-  const { setStatus, toggleDoc, removeTracked, markChecked } = useAppStore()
+  const { setStatus, toggleDoc, removeTracked, markChecked, docDone: globalDocDone } = useAppStore()
   const [open, setOpen] = useState(false)
   const meta = categoryMeta(item.category)
   const monthly = policy ? parseMonthly(policy.benefit) : 0
   const docs = policy?.required_docs ?? []
-  const doneDocs = docs.filter((d) => item.checkedDocs.includes(d)).length
-  const mon = monitorItem(item, policy)
+  // 서류 도우미의 '발급 완료' 기억(docDone)도 준비된 것으로 집계 — monitoring 산출(mon.nextAction)과 배지가 어긋나지 않게
+  const isPrepared = (d: string) => item.checkedDocs.includes(d) || !!globalDocDone[d.replace(/\s/g, '')]
+  const doneDocs = docs.filter(isPrepared).length
+  const mon = monitorItem(item, policy, globalDocDone)
 
   return (
     <motion.div layout initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} className="card-cute p-4">
@@ -90,12 +92,14 @@ export function TrackedCard({ item, policy, onOpen }: { item: TrackedItem; polic
       {open && docs.length > 0 && (
         <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} className="mt-3 space-y-1.5 overflow-hidden dotted-divider pt-3">
           {docs.map((d) => {
-            const checked = item.checkedDocs.includes(d)
+            const checked = isPrepared(d)
+            const viaIssue = !item.checkedDocs.includes(d) && checked // 서류 도우미 발급 완료로만 준비됨
             return (
               <label key={d} className="flex items-center gap-2.5 text-sm cursor-pointer select-none">
                 <input type="checkbox" checked={checked} onChange={() => toggleDoc(item.policyId, d)} className="h-4 w-4 accent-sprout-500 rounded" />
                 <FileText className="h-3.5 w-3.5 text-sky2-500 shrink-0" />
                 <span className={cn(checked && 'line-through text-muted-foreground')}>{d}</span>
+                {viaIssue && <span className="chip-sprout !py-0 !px-1.5 text-[9px] shrink-0">발급됨</span>}
               </label>
             )
           })}

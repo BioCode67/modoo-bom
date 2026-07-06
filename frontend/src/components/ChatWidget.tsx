@@ -28,6 +28,7 @@ export function ChatWidget() {
   const profile = useAppStore((s) => s.profile)
   const result = useAppStore((s) => s.result)
   const tracked = useAppStore((s) => s.tracked)
+  const docDone = useAppStore((s) => s.docDone)
   const toggleSaved = useAppStore((s) => s.toggleSaved)
   const { ready, caps } = useBackend()
   const aiChat = ready === true && !!caps?.ai // 클라우드/로컬 백엔드의 진짜 LLM(Claude) 사용 가능
@@ -64,10 +65,10 @@ export function ChatWidget() {
     if (!open) return
     setMsgs((m) => {
       if (m.some((x) => x.role === 'user')) return m
-      const g = greetingReply(profile, tracked)
+      const g = greetingReply(profile, tracked, docDone)
       return [{ role: 'bot', text: g.text, cta: g.cta }]
     })
-  }, [open, profile, tracked])
+  }, [open, profile, tracked, docDone])
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [msgs, open, step])
 

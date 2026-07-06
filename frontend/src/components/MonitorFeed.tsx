@@ -4,8 +4,9 @@ import { Bell, BellRing, FileText, Rocket, RefreshCw, CalendarClock, ExternalLin
 import { useAppStore } from '@/store/useAppStore'
 import { getPolicyMap } from '@/data/catalog'
 import { buildActionFeed, type Alert } from '@/lib/monitoring'
-import { buildPrefill, prefillText } from '@/lib/prefill'
+import { buildPrefill } from '@/lib/prefill'
 import { bestApplyUrl } from '@/lib/quickApply'
+import { setPendingReturn } from '@/lib/returnPrompt'
 import { notifySupported, notifyPermission, enableNotify, maybeNotifyDue } from '@/lib/notify'
 import { cn } from '@/lib/utils'
 
@@ -19,13 +20,14 @@ const LEVEL_CLS: Record<Alert['level'], string> = {
 }
 
 export function MonitorFeed({ onOpenItem }: { onOpenItem: (policyId: string) => void }) {
-  const { tracked, markChecked, setStatus, profile, rpaInfo } = useAppStore()
-  const feed = buildActionFeed(tracked, getPolicyMap())
-  // '신청' 클릭 시 내 정보를 클립보드에 복사(공식 신청서에 바로 붙여넣기) — 드로어와 동일한 원터치 경험
+  const { tracked, markChecked, setStatus, profile, rpaInfo, docDone } = useAppStore()
+  const feed = buildActionFeed(tracked, getPolicyMap(), docDone)
+  // '신청' 클릭 시 이름을 클립보드에 복사(공식 신청서 첫 칸에 바로 붙여넣기) — 드로어와 동일한 원터치 경험.
+  // 정부 폼은 필드별 input이라 '라벨: 값' 블롭은 붙여넣기 불가 → 이름 값만(없으면 복사 안 함).
   const copyPrefill = async () => {
     try {
-      const fields = buildPrefill(profile, rpaInfo)
-      if (fields.length) await navigator.clipboard.writeText(prefillText(fields))
+      const name = buildPrefill(profile, rpaInfo).find((f) => f.label === '이름')
+      if (name) await navigator.clipboard.writeText(name.value)
     } catch { /* 무시 */ }
   }
 
@@ -86,8 +88,9 @@ export function MonitorFeed({ onOpenItem }: { onOpenItem: (policyId: string) => 
                 </div>
                 <div className="shrink-0 self-center">
                   {alert.kind === 'submit' && (
+                    /* 클릭=신청완료 날조 금지 — 이동만 기록하고, '신청 완료'는 복귀 확인 배너에서 사용자가 직접 */
                     <a href={bestApplyUrl(policy?.application || '', policy?.name)} target="_blank" rel="noopener noreferrer"
-                      onClick={() => { setStatus(item.policyId, 'applied'); copyPrefill() }}
+                      onClick={() => { setStatus(item.policyId, 'tracking'); setPendingReturn({ kind: 'apply', policyId: item.policyId, name: item.name }); copyPrefill() }}
                       className="btn-primary !px-3 !py-1.5 text-xs"><Rocket className="h-3.5 w-3.5" /> 신청</a>
                   )}
                   {alert.kind === 'docs' && (

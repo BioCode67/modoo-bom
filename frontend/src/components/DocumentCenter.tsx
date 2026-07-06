@@ -1,18 +1,20 @@
 import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { FileText, ExternalLink, Bot, Loader2, CheckCircle2, AlertCircle } from 'lucide-react'
+import { FileText, ExternalLink, Bot, Loader2, CheckCircle2, AlertCircle, Check, Undo2 } from 'lucide-react'
 import { getPolicyMap } from '@/data/catalog'
 import { useAppStore } from '@/store/useAppStore'
-import { docLink, isRpaSupported, isCertIssuable, CERT_WALLET } from '@/lib/officialLinks'
+import { docLink, isRpaSupported, isCertIssuable, certKind, CERT_WALLET } from '@/lib/officialLinks'
 import { API_BASE } from '@/lib/backend'
 import { useBackend } from '@/lib/useBackend'
 import { detectExtension, issueViaExtension, issueManyViaExtension, getExtensionTrace, onExtensionStatus, sameDocName } from '@/lib/extension'
+import { setPendingReturn } from '@/lib/returnPrompt'
 import { RpaInfoForm } from '@/components/RpaInfoForm'
+import { cn } from '@/lib/utils'
 
 type RpaState = { status: string; step: string; at?: number } | null
 
 export function DocumentCenter() {
-  const { tracked, profile, rpaInfo } = useAppStore()
+  const { tracked, profile, rpaInfo, toggleDocDone, isDocDone } = useAppStore()
   const { ready, caps } = useBackend()
   const localAgent = ready === true && !!caps?.rpa   // RPA 가능한 로컬 에이전트
   const [ext, setExt] = useState(false)              // 크롬 확장(브라우저 내 자동화)
@@ -56,7 +58,8 @@ export function DocumentCenter() {
   }, [tracked])
 
   if (docNeeds.length === 0) return null
-  const docs = docNeeds.map(([d]) => d)
+  // 발급 완료로 표시한 서류는 뒤로(진행 기억 — 남은 서류가 먼저 보이게, 정렬은 안정적으로 유지)
+  const docs = [...docNeeds.map(([d]) => d)].sort((a, b) => Number(isDocDone(a)) - Number(isDocDone(b)))
   const needText = (doc: string) => {
     const ns = docNeeds.find(([d]) => d === doc)?.[1] ?? []
     return ns.length > 1 ? `${ns[0]} 외 ${ns.length - 1}곳에 필요` : `${ns[0]}에 필요`
@@ -81,7 +84,7 @@ export function DocumentCenter() {
       return
     }
     if (localAgent && !localOk) {
-      setRpa((s) => ({ ...s, [doc]: { status: 'error', step: '이 서류는 크롬 확장에서만 자동발급돼요 — 확장을 설치하거나 공식 사이트에서 발급하세요.', at: Date.now() } }))
+      setRpa((s) => ({ ...s, [doc]: { status: 'error', step: '이 서류는 로컬 에이전트가 자동발급을 지원하지 않아요 — 옆의 발급 버튼으로 공식 사이트에서 직접 발급하세요.', at: Date.now() } }))
       return
     }
     try {
@@ -106,8 +109,18 @@ export function DocumentCenter() {
   }
 
   // 🚀 연쇄 자동발급 — 지원 서류 전부를 한 흐름으로(정부24는 한 번 로그인으로 이어짐)
-  const rpaDocs = docs.filter((d) => isRpaSupported(d)) // 연쇄 발급은 확장 전용(ext && … 조건으로만 노출)
-  const certDocs = docs.filter((d) => isCertIssuable(d)) // 무설치 전자발급(전자증명서) 가능 서류
+  // 이미 '발급 완료'로 표시한 서류는 재발급 대상에서 제외(연쇄 발급은 확장 전용 — ext && … 조건으로만 노출)
+  const rpaDocs = docs.filter((d) => isRpaSupported(d) && !isDocDone(d))
+  const certAll = docs.filter((d) => isCertIssuable(d)) // 무설치 전자발급(전자증명서) 가능 서류
+  const certDocs = certAll.filter((d) => !isDocDone(d)) // 그중 아직 발급 안 한 서류 — 배너 CTA가 순서대로 안내
+
+  // 무설치 전자발급 시작 — 새 탭은 <a>가 사용자 제스처 안에서 직접 열고, 여기선
+  // ① 폼 첫 칸에 붙여넣을 이름을 클립보드에 준비 ② 복귀 시 '발급하셨나요?' 확인 대기만 건다
+  const openIssue = (doc: string) => {
+    setPendingReturn({ kind: 'doc', doc })
+    const nm = (rpaInfo.name || profile?.name || '').trim()
+    if (nm) navigator.clipboard?.writeText(nm).catch(() => { /* 미지원 환경 무시 */ })
+  }
   const startAll = async () => {
     if (!rpaInfo.name?.trim() || !rpaInfo.birth_date?.trim() || !rpaInfo.phone?.trim()) {
       setRpa((s) => ({ ...s, [rpaDocs[0]]: { status: 'error', step: '아래 "자동입력 추가정보"에 실명·생년월일·휴대폰을 먼저 입력해 주세요.', at: Date.now() } }))
@@ -150,23 +163,40 @@ export function DocumentCenter() {
         {backend && <span className="block mt-0.5 text-xs">🔒 카카오 본인인증은 보안을 위해 본인이 직접 진행해요.</span>}
       </p>
 
-      {/* ⭐ 무설치 전자발급(전자증명서) — 권장 기본 경로. 확장·서버 없이 정부 공식 유통망으로 발급·제출. */}
+      {/* ⭐ 무설치 전자발급(전자증명서) — 권장 기본 경로. 확장·서버 없이 정부 공식 유통망으로 발급·제출.
+          CTA는 남은 첫 서류의 민원 딥링크로 직결 — 발급 후 돌아와 완료 표시하면 다음 서류를 이어서 안내
+          (정부24 로그인 세션이 유지되므로 확장의 '한 번 인증으로 이어서'를 무설치로 재현). */}
       {!ext && certDocs.length > 0 && (
         <div className="mt-3 rounded-2xl border-2 border-sprout-200 bg-gradient-to-br from-sprout-50 to-emerald-50 p-3.5">
           <p className="text-sm font-extrabold flex items-center gap-1.5">📄 설치 없이 <span className="gradient-text">전자증명서</span>로 발급하기 <span className="chip-sprout !py-0.5 text-[10px]">권장</span></p>
           <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-            아래 <b>{certDocs.length}종</b>은 프로그램 설치 없이 정부24에서 <b>전자증명서(전자문서)</b>로 바로 발급돼요.
-            발급한 서류는 <b>전자문서지갑</b>에 담아 복지로·주민센터에 <b>종이 없이 전자제출</b>할 수 있어요(정부 공식 방식).
+            남은 <b>{certDocs.length}종</b>{certAll.length > certDocs.length && <> (총 {certAll.length}종 중 {certAll.length - certDocs.length}종 발급 완료)</>}은
+            프로그램 설치 없이 정부24·건보공단 등 <b>공식 사이트에서 전자문서로 바로</b> 발급돼요.
+            정부24 발급 화면이라면 <b>'수령방법'에서 [전자문서지갑]을 선택</b> — 복지로·주민센터에 <b>종이 없이 전자제출</b>까지 돼요(정부 공식 방식).
             <b> 본인인증만 직접</b> 하시면 됩니다 · 🔒 개인정보는 서버로 안 나가요.
           </p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            <a href={CERT_WALLET.url} target="_blank" rel="noopener noreferrer" className="btn-secondary !px-3 !py-1.5 text-xs">
-              <ExternalLink className="h-3.5 w-3.5" /> {CERT_WALLET.label} 알아보기
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <a
+              href={docLink(certDocs[0]).url} target="_blank" rel="noopener noreferrer"
+              onClick={() => openIssue(certDocs[0])}
+              className="btn-primary !px-3 !py-2 text-xs"
+            >
+              <ExternalLink className="h-3.5 w-3.5" /> 지금 「{certDocs[0]}」 전자발급 시작
+            </a>
+            {certDocs.length > 1 && (
+              <span className="text-[11px] text-muted-foreground">
+                발급 후 돌아오면 다음 서류를 이어서 안내해요(같은 사이트 서류는 한 번 로그인으로 이어져요)
+              </span>
+            )}
+          </div>
+          <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1">
+            <a href={CERT_WALLET.url} target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground/80 hover:underline">
+              전자문서지갑이 뭔가요? →
             </a>
             <a
               href="https://github.com/BioCode67/modoo-bom/tree/main/extension#설치-개발자-모드--데모"
               target="_blank" rel="noopener noreferrer"
-              className="text-xs text-muted-foreground/80 hover:underline self-center"
+              className="text-xs text-muted-foreground/80 hover:underline"
             >
               고급: 크롬 확장으로 자동화도 가능해요 →
             </a>
@@ -200,16 +230,21 @@ export function DocumentCenter() {
           const link = docLink(doc)
           // 확장 있으면 13종, 로컬 백엔드만이면 6종만 '자동' 표시(과대 표시 시 클릭 오류 — 감사 실측)
           const supported = ext ? isRpaSupported(doc) : isRpaSupported(doc, 'local')
-          const cert = isCertIssuable(doc) // 무설치 전자발급(전자증명서) 가능 여부
+          const kind = certKind(doc) // 'wallet'=전자증명서(지갑 유통) · 'online'=온라인 발급 · undefined=오프라인/본인준비
+          const done = isDocDone(doc)
           const st = rpa[doc]
           // 30초 넘게 진행상태가 안 오면(새 탭에서 사용자 조작 대기 등) 웹에서도 정직하게 안내
           const stale = !!(st && !['done', 'completed', 'error'].includes(st.status) && st.at && Date.now() - st.at > 30000 && tick >= 0)
           return (
-            <div key={doc} className="card-cute p-4 flex items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-sky2-100 text-sky2-600"><FileText className="h-5 w-5" /></div>
+            <div key={doc} className={cn('card-cute p-4 flex items-center gap-3', done && 'opacity-75')}>
+              <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl', done ? 'bg-success-50 text-success-500' : 'bg-sky2-100 text-sky2-600')}>
+                {done ? <CheckCircle2 className="h-5 w-5" /> : <FileText className="h-5 w-5" />}
+              </div>
               <div className="flex-1 min-w-0">
-                <p className="font-bold text-sm truncate">{doc}</p>
-                {st ? (
+                <p className={cn('font-bold text-sm truncate', done && 'line-through decoration-success-500/60')}>{doc}</p>
+                {done ? (
+                  <p className="text-xs text-success-600 font-semibold">발급 완료로 표시했어요</p>
+                ) : st ? (
                   <>
                   {/* 자동발급 진행/완료/오류를 스크린리더가 즉시 읽도록 라이브 영역으로 */}
                   <p className="text-xs flex items-center gap-1 mt-0.5" role="status" aria-live="polite">
@@ -229,22 +264,40 @@ export function DocumentCenter() {
                   <>
                     <p className="text-xs text-sprout-600 font-semibold truncate">{needText(doc)}</p>
                     <p className="text-[11px] text-muted-foreground truncate flex items-center gap-1">
-                      {cert && <span className="chip-sprout !py-0 !px-1.5 text-[9px] shrink-0">무설치 전자발급</span>}
+                      {kind === 'wallet' && <span className="chip-sprout !py-0 !px-1.5 text-[9px] shrink-0">무설치 전자발급</span>}
+                      {kind === 'online' && <span className="chip-sky !py-0 !px-1.5 text-[9px] shrink-0">온라인 발급</span>}
                       <span className="truncate">{link.label}</span>
                     </p>
                   </>
                 )}
               </div>
-              <div className="flex shrink-0 gap-1.5">
-                {backend && supported && (
+              <div className="flex shrink-0 gap-1.5 items-center">
+                {!done && backend && supported && (
                   <button onClick={() => startRpa(doc)} disabled={st?.status === 'running'} className="btn-primary !px-3 !py-2 text-xs">
                     <Bot className="h-4 w-4" /> 자동
                   </button>
                 )}
-                {/* 전자증명서 발급 가능한 서류는 '전자발급'으로 강조(무설치 기본 경로) */}
-                <a href={link.url} target="_blank" rel="noopener noreferrer" className={cert && !backend ? 'btn-primary !px-3 !py-2 text-xs' : 'btn-secondary !px-3 !py-2 text-xs'}>
-                  <ExternalLink className="h-4 w-4" /> {cert ? '전자발급' : '발급'}
-                </a>
+                {/* 전자증명서 발급 가능한 서류는 '전자발급'으로 강조(무설치 기본 경로) —
+                    클릭 시 이름 클립보드 준비 + 복귀 확인 대기(발급 완료를 앱이 기억하게) */}
+                {!done && (
+                  <a
+                    href={link.url} target="_blank" rel="noopener noreferrer"
+                    onClick={kind ? () => openIssue(doc) : undefined}
+                    className={kind === 'wallet' && !backend ? 'btn-primary !px-3 !py-2 text-xs' : 'btn-secondary !px-3 !py-2 text-xs'}
+                  >
+                    <ExternalLink className="h-4 w-4" /> {kind === 'wallet' ? '전자발급' : '발급'}
+                  </a>
+                )}
+                <button
+                  onClick={() => toggleDocDone(doc)}
+                  aria-pressed={done}
+                  aria-label={done ? `${doc} 발급 완료 표시 취소` : `${doc} 발급 완료로 표시`}
+                  title={done ? '완료 표시 취소' : '발급 완료로 표시'}
+                  className={cn('rounded-xl border-2 p-2 transition-colors',
+                    done ? 'border-success-500/40 bg-success-50 text-success-600 hover:bg-success-50/60' : 'border-sprout-100 bg-white text-muted-foreground hover:border-sprout-300 hover:text-sprout-600')}
+                >
+                  {done ? <Undo2 className="h-4 w-4" /> : <Check className="h-4 w-4" />}
+                </button>
               </div>
             </div>
           )

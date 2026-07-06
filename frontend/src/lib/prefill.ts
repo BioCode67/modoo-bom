@@ -4,7 +4,12 @@ import { disabilityLabel, type UserProfile } from './welfare-engine'
  * 공식 신청서 '미리채움' — 프로필+연락처에서 신청서에 붙여넣을 비민감 항목을 만든다.
  * ⚠️ 주민등록번호 등 민감 고유식별정보는 절대 포함하지 않는다(앱이 저장하지도 않음).
  */
-export interface PrefillField { label: string; value: string }
+export interface PrefillField {
+  label: string
+  value: string
+  /** 정부 폼이 자주 요구하는 대체 형식(예: 생년월일 YYYYMMDD·휴대폰 하이픈 없이) — 있으면 보조 복사 버튼 노출 */
+  alt?: string
+}
 export interface RpaInfo { name?: string; birth_date?: string; phone?: string; carrier?: string }
 
 const CARRIER_LABEL: Record<string, string> = {
@@ -25,14 +30,17 @@ function fmtPhone(p?: string): string {
 /** 비민감 신청 정보 목록 생성(값 있는 항목만). */
 export function buildPrefill(profile: UserProfile | null, rpa?: RpaInfo): PrefillField[] {
   const f: PrefillField[] = []
-  const push = (label: string, value: string | undefined | null) => {
-    if (value && String(value).trim()) f.push({ label, value: String(value).trim() })
+  const push = (label: string, value: string | undefined | null, alt?: string) => {
+    if (value && String(value).trim()) f.push({ label, value: String(value).trim(), ...(alt ? { alt } : {}) })
   }
 
   push('이름', rpa?.name || profile?.name)
-  push('생년월일', fmtBirth(rpa?.birth_date))
+  // 정부 폼은 YYYYMMDD·하이픈 없는 번호를 요구하는 곳이 흔하다 — 대체 형식을 함께 준비
+  const birth = fmtBirth(rpa?.birth_date)
+  push('생년월일', birth, birth.replace(/-/g, '') !== birth ? birth.replace(/-/g, '') : undefined)
   if (profile && profile.age > 0) push('나이', `만 ${profile.age}세`)
-  push('휴대폰', fmtPhone(rpa?.phone))
+  const phone = fmtPhone(rpa?.phone)
+  push('휴대폰', phone, phone.replace(/-/g, '') !== phone ? phone.replace(/-/g, '') : undefined)
   if (rpa?.carrier) push('통신사', CARRIER_LABEL[rpa.carrier] || rpa.carrier)
   push('거주지', profile?.region)
   push('가구 형태', profile?.household_type)

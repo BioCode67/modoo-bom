@@ -18,7 +18,8 @@
     "e2e:ext": "../backend/venv/Scripts/python.exe e2e/ext-flow.py",
     "e2e:ext:headed": "cross-env EXT_HEADED=1 ../backend/venv/Scripts/python.exe e2e/ext-flow.py",
     "embed": "node --experimental-strip-types scripts/embed-policies.mts",
-    "verify:semantic": "node scripts/verify-semantic.mjs"
+    "verify:semantic": "node scripts/verify-semantic.mjs",
+    "check:links": "node scripts/check-links.mjs"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.2.0",

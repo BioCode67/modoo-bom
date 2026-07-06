@@ -18,7 +18,8 @@ import { TermText } from '@/components/TermText'
 import { VisitKit } from '@/components/VisitKit'
 import { t as tr, RTL } from '@/lib/i18nLite'
 import { ApplyKit } from '@/components/ApplyKit'
-import { oneTapApply } from '@/lib/quickApply'
+import { oneTapApply, bestApplyUrl } from '@/lib/quickApply'
+import { setPendingReturn } from '@/lib/returnPrompt'
 import { useAppStore } from '@/store/useAppStore'
 import { buildPrefill } from '@/lib/prefill'
 import { buildEvents, downloadICS, futureEvents } from '@/lib/calendar'
@@ -141,7 +142,8 @@ function DrawerBody({
   // 이 정책이 실제 '내 분석 결과'에서 나온 것인지 — 신청 흐름 1단계의 '자동 선별 완료' 표기 정직성 근거.
   const matched = !!analysisResult?.eligible_policies.some((e) => e.id === policy.id)
   const [visitKit, setVisitKit] = useState(false)
-  const [applied, setApplied] = useState<false | 'copied' | 'opened'>(false)
+  const [applied, setApplied] = useState<false | 'copied' | 'opened' | 'blocked'>(false)
+  const [blockedUrl, setBlockedUrl] = useState('')
   const related = onOpen
     ? getCatalog().filter((p) => p.category === policy.category && p.id !== policy.id)
         .sort((a, b) => parseMonthly(b.benefit) - parseMonthly(a.benefit)).slice(0, 3)
@@ -168,14 +170,18 @@ function DrawerBody({
   )
 
   // 원터치 신청 이동 — 설치 없이(어느 브라우저·폰에서든) 가장 매끄러운 안전한 신청 경로:
-  //  ① 내 정보(이름·생년월일·연락처)를 클립보드에 자동 복사 → ② 공식 신청 페이지를 새 탭으로 열기
+  //  ① 내 정보(이름)를 클립보드에 자동 복사 → ② 공식 신청 페이지를 새 탭으로 열기
   //  → ③ 사용자는 정부 공식 사이트에서 간편인증(카카오 등)만 하고 붙여넣어 제출. (인증·제출은 안전상 본인 몫)
   const startApply = async () => {
     if (!saved) ctx.toggleSaved({ id: policy.id, name: policy.name, category: policy.category })
-    ctx.setStatus(policy.id, 'tracking')
-    const copied = await oneTapApply(policy.application, policy.name, profile, rpaInfo) // 정보 복사 + 공식 신청 페이지 열기
-    setApplied(copied ? 'copied' : 'opened')
-    setTimeout(() => setApplied(false), 4000)
+    // 이미 '신청 완료/수급 중'인 정책을 다시 열람(갱신 여정)해도 상태를 'tracking'으로 강등하지 않는다
+    const cur = trackedList.find((t) => t.policyId === policy.id)?.status
+    if (!cur || cur === 'idle') ctx.setStatus(policy.id, 'tracking')
+    const r = await oneTapApply(policy.application, policy.name, profile, rpaInfo) // 정보 복사 + 공식 신청 페이지 열기
+    if (r.opened) setPendingReturn({ kind: 'apply', policyId: policy.id, name: policy.name }) // 복귀 시 '신청하셨나요?' 확인
+    // 팝업 차단이면 '이동했어요'라고 거짓 안내하지 않는다 — 직접 이동 링크를 배너로 제공
+    setBlockedUrl(r.url)
+    setApplied(r.opened ? (r.copied ? 'copied' : 'opened') : 'blocked')
   }
 
   return (
@@ -238,7 +244,7 @@ function DrawerBody({
             return (
               <Section title={`📋 ${tr(uiLang,'serviceInfo')}`}>
                 <TermText text={policy.benefit} className="text-sm text-foreground/80 leading-relaxed block" />
-                <a href={applyLink(policy.application).url} target="_blank" rel="noopener noreferrer"
+                <a href={bestApplyUrl(policy.application, policy.name)} target="_blank" rel="noopener noreferrer"
                   className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-sprout-600 hover:underline">
                   복지로에서 자세한 자격·금액 확인 <ExternalLink className="h-3.5 w-3.5" />
                 </a>
@@ -282,7 +288,7 @@ function DrawerBody({
             <ApplyFlow automatable={isApplyAutomatable(policy.name)} hasBackend={hasBackend} hasPrefill={buildPrefill(profile, rpaInfo).length > 0} matched={matched} />
           </div>
           <a
-            href={applyLink(policy.application).url}
+            href={bestApplyUrl(policy.application, policy.name)}
             target="_blank"
             rel="noopener noreferrer"
             className="btn-primary w-full justify-center"
@@ -426,10 +432,22 @@ function DrawerBody({
         )}
       </div>
 
-      {/* 원터치 신청 후 안내 — 설치 없이 안전하게 */}
+      {/* 원터치 신청 후 안내 — 설치 없이 안전하게. 자동 소멸시키지 않는다(안내가 가장 필요한 순간은
+          정부 탭에서 돌아온 때). 팝업 차단이면 '이동했어요' 대신 직접 이동 링크를 정직하게 제공. */}
       {applied && (
-        <div className="sticky bottom-[76px] mx-4 mb-2 rounded-2xl bg-sprout-50 border border-sprout-200 px-4 py-2.5 text-xs text-sprout-800" role="status" aria-live="polite">
-          {applied === 'copied' ? '✅ 내 정보를 복사했어요. ' : '✅ 공식 신청 페이지를 열었어요. '}열린 공식 사이트에서 <b>간편인증(카카오 등)</b> 후 {applied === 'copied' ? '붙여넣어 ' : ''}제출하면 끝이에요. 🔒 인증은 정부 사이트에서만 — 안전해요.
+        <div className={cn('sticky bottom-[76px] mx-4 mb-2 rounded-2xl border px-4 py-2.5 text-xs flex items-start gap-2',
+          applied === 'blocked' ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-sprout-50 border-sprout-200 text-sprout-800')}
+          role="status" aria-live="polite">
+          <span className="flex-1">
+            {applied === 'blocked' ? (
+              <>⚠️ 팝업이 차단돼 새 탭을 못 열었어요 — <a href={blockedUrl} target="_blank" rel="noopener noreferrer"
+                onClick={() => setPendingReturn({ kind: 'apply', policyId: policy.id, name: policy.name })}
+                className="underline font-bold">여기를 눌러 공식 신청 페이지로 이동</a>하세요.</>
+            ) : (
+              <>{applied === 'copied' ? '✅ 이름을 복사했어요. ' : '✅ 공식 신청 페이지를 열었어요. '}열린 공식 사이트에서 <b>간편인증(카카오 등)</b> 후 {applied === 'copied' ? '첫 칸에 붙여넣고(나머지는 아래 신청 키트에서 항목별 복사) ' : ''}제출하면 끝이에요. 🔒 인증은 정부 사이트에서만 — 안전해요.</>
+            )}
+          </span>
+          <button onClick={() => setApplied(false)} aria-label="안내 닫기" className="shrink-0 font-bold opacity-60 hover:opacity-100">✕</button>
         </div>
       )}
       {/* 하단 고정 액션 */}
@@ -441,10 +459,10 @@ function DrawerBody({
           <Heart className={cn('h-4 w-4', saved && 'fill-current')} /> {saved ? tr(uiLang, 'saved') : tr(uiLang, 'save')}
         </button>
         <button onClick={startApply} className="btn-primary flex-1">
-          <Rocket className="h-4 w-4" /> {applied ? '공식 사이트로 이동했어요 →' : (uiLang === 'ko' ? '내 정보 복사 + 공식 신청 이동' : tr(uiLang, 'goApply'))}
+          <Rocket className="h-4 w-4" /> {uiLang === 'ko' ? '내 정보 복사 + 공식 신청 이동' : tr(uiLang, 'goApply')}
         </button>
         <a
-          href={applyLink(policy.application).url}
+          href={bestApplyUrl(policy.application, policy.name)}
           target="_blank"
           rel="noopener noreferrer"
           className="btn-warm !px-4"

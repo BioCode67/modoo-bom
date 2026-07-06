@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { applyLink, docLink, isRpaSupported, isApplyAutomatable, isCertIssuable, CERT_WALLET } from './officialLinks'
+import { applyLink, docLink, isRpaSupported, isApplyAutomatable, isCertIssuable, certKind, CERT_WALLET } from './officialLinks'
 
 describe('applyLink', () => {
   it('복지로 상세 딥링크(application이 URL)면 그 URL 그대로 연결', () => {
@@ -23,10 +23,14 @@ describe('applyLink', () => {
 })
 
 describe('docLink', () => {
-  it('주민등록등본 → 정부24 + RPA 지원', () => {
+  it('주민등록등본 → 정부24 민원 딥링크(실측 13100000015) + RPA 지원 — 일반 홈 착지 금지', () => {
     const r = docLink('주민등록등본')
-    expect(r.url).toContain('gov.kr')
+    expect(r.url).toContain('CappBizCD=13100000015')
     expect(r.rpa).toBe(true)
+    expect(docLink('주민등록초본').url).toContain('CappBizCD=13100000015') // 등·초본 동일 민원
+  })
+  it('가족관계증명서 → 정부24 민원 딥링크(실측 97400000004) — efamily 홈 착지 대체', () => {
+    expect(docLink('가족관계증명서').url).toContain('CappBizCD=97400000004')
   })
   it('건강보험 자격득실 → 건보 + RPA', () => {
     expect(docLink('건강보험 자격득실확인서').url).toContain('nhis')
@@ -107,6 +111,21 @@ describe('isCertIssuable — 무설치 전자발급(전자증명서) 가능 서�
     expect(isCertIssuable('근로계약서')).toBe(false)
     expect(isCertIssuable('임대차계약서')).toBe(false)
     expect(isCertIssuable('희귀서류명')).toBe(false) // 검색 폴백은 발급 확정 아님
+  })
+  it('거짓양성 회귀 방지 — 본인 준비물·사업주 제출 서류에 전자발급 배지 금지(감사 실측)', () => {
+    expect(isCertIssuable('가족사진')).toBe(false) // 본인 준비물(과거 portal/main 정규식이 true로 오판)
+    expect(isCertIssuable('출생 관련 서류')).toBe(false)
+    expect(isCertIssuable('이직확인서')).toBe(false) // 사업주가 고용센터에 제출 — 본인 발급 불가
+    expect(docLink('이직확인서').label).toContain('회사가 고용센터에 제출')
+    expect(docLink('이직확인서').rpa).toBeFalsy()
+  })
+  it('certKind — 전자문서지갑(wallet)과 단순 온라인 발급(online)을 구분', () => {
+    expect(certKind('주민등록등본')).toBe('wallet')
+    expect(certKind('건물 등기부등본')).toBe('online') // 인터넷등기소 — 온라인 발급 가능하나 지갑 유통 아님
+    expect(certKind('장기요양인정서')).toBe('online')
+    expect(certKind('진단서')).toBeUndefined()
+    // 피보험자격 이력은 본인 발급 가능(true 유지), 취업경험 확인도 고용24
+    expect(isCertIssuable('고용보험 피보험자격 이력내역서')).toBe(true)
   })
   it('전자문서지갑 안내 링크 제공', () => {
     expect(CERT_WALLET.url).toContain('dpaper.kr')
