@@ -186,7 +186,7 @@ export function ChatWidget() {
             <div className="flex items-center gap-2.5 bg-gradient-to-r from-sprout-500 to-emerald-500 px-4 py-3 text-white">
               <SproutLogo withFace className="h-8 w-8 bg-white/20 rounded-full p-0.5" />
               <div>
-                <p className="font-bold leading-tight">복지 도우미</p>
+                <p className="font-bold leading-tight">새싹이 · 복지 에이전트</p>
                 <p className="text-[11px] text-white/80">{aiChat ? '물어보면 바로 찾아드려요 · 내 정보는 기기 안에서' : profile ? `${profile.name || '회원'}님 맞춤 · 담기까지 도와드려요` : '무엇이든 물어보세요'}</p>
               </div>
             </div>
