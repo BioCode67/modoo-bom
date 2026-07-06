@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils'
 
 type By = 'auto' | 'guide' | 'you'
 const BADGE_STYLE: Record<By, { chip: string; dot: string }> = {
-  auto: { chip: 'bg-sprout-50 text-sprout-700', dot: 'bg-sprout-500 text-white' },
+  auto: { chip: 'bg-sprout-50 text-sprout-700', dot: 'bg-sprout-700 text-white' },
   guide: { chip: 'bg-sky2-50 text-sky2-700', dot: 'bg-sky2-500 text-white' },
   you: { chip: 'bg-amber-50 text-amber-700', dot: 'bg-amber-100 text-amber-700 ring-2 ring-amber-200' },
 }

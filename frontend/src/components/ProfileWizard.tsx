@@ -77,7 +77,7 @@ export function ProfileWizard({ onSubmit }: { onSubmit: (p: UserProfile) => void
         {STEPS.map((s, i) => (
           <div key={s} className="flex items-center gap-2 flex-1">
             <div className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold transition-colors',
-              i < step ? 'bg-sprout-500 text-white' : i === step ? 'bg-sprout-500 text-white ring-4 ring-sprout-100' : 'bg-muted text-muted-foreground')}>
+              i < step ? 'bg-sprout-700 text-white' : i === step ? 'bg-sprout-700 text-white ring-4 ring-sprout-100' : 'bg-muted text-muted-foreground')}>
               {i < step ? <Check className="h-4 w-4" /> : i + 1}
             </div>
             <span className={cn('text-xs font-semibold hidden sm:block', i === step ? 'text-foreground' : 'text-muted-foreground')}>{s}</span>

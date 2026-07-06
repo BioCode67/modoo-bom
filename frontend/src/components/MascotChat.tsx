@@ -253,7 +253,7 @@ export function MascotChat({ onSubmit }: { onSubmit: (p: UserProfile) => void })
                             return base.includes(s.id) ? base.filter((x) => x !== s.id) : [...base, s.id]
                           })}
                           className={cn('flex items-center gap-2 rounded-2xl border-2 px-3 py-2.5 text-sm font-semibold text-left transition-all active:scale-95',
-                            on ? 'bg-sprout-500 border-sprout-500 text-white shadow-soft' : 'bg-white border-sprout-100 hover:border-sprout-300')}
+                            on ? 'bg-sprout-700 border-sprout-700 text-white shadow-soft' : 'bg-white border-sprout-100 hover:border-sprout-300')}
                         >
                           <span className="text-lg">{s.emoji}</span> <span className="min-w-0">{s.label}</span>
                         </button>
@@ -286,7 +286,7 @@ export function MascotChat({ onSubmit }: { onSubmit: (p: UserProfile) => void })
                           aria-pressed={on}
                           onClick={() => setAges((cur) => cur.includes(c.age) ? cur.filter((x) => x !== c.age) : [...cur, c.age])}
                           className={cn('flex items-center gap-2 rounded-2xl border-2 px-3 py-2.5 text-sm font-semibold text-left transition-all active:scale-95',
-                            on ? 'bg-sprout-500 border-sprout-500 text-white shadow-soft' : 'bg-white border-sprout-100 hover:border-sprout-300')}
+                            on ? 'bg-sprout-700 border-sprout-700 text-white shadow-soft' : 'bg-white border-sprout-100 hover:border-sprout-300')}
                         >
                           <span className="text-lg">{c.emoji}</span> {c.label}
                         </button>
@@ -350,7 +350,7 @@ function Bubble({ role, text }: { role: 'bot' | 'user'; text: string }) {
     <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className={cn('flex items-end gap-2', bot ? 'justify-start' : 'justify-end')}>
       {bot && <SproutLogo withFace className="h-7 w-7 shrink-0 mb-0.5" />}
       <div className={cn('max-w-[80%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-line',
-        bot ? 'bg-white border border-sprout-100 rounded-bl-sm text-foreground' : 'bg-sprout-500 text-white rounded-br-sm font-semibold')}>
+        bot ? 'bg-white border border-sprout-100 rounded-bl-sm text-foreground' : 'bg-sprout-700 text-white rounded-br-sm font-semibold')}>
         {text}
       </div>
     </motion.div>

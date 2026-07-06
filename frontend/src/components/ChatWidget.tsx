@@ -192,7 +192,7 @@ export function ChatWidget() {
         aria-label={open ? '복지 도우미 챗봇 닫기' : '복지 도우미 챗봇 열기'}
         aria-expanded={open}
         className={cn(
-          'fixed bottom-20 md:bottom-6 right-4 sm:right-6 z-40 h-14 w-14 items-center justify-center rounded-full bg-sprout-500 text-white shadow-cute hover:bg-sprout-600 hover:scale-105 active:scale-95 transition-all',
+          'fixed bottom-20 md:bottom-6 right-4 sm:right-6 z-40 h-14 w-14 items-center justify-center rounded-full bg-sprout-700 text-white shadow-cute hover:bg-sprout-600 hover:scale-105 active:scale-95 transition-all',
           // 모바일 홈 최상단에서 히어로 CTA와 겹치므로 모바일 홈에서만 숨김(데스크톱 홈·다른 뷰는 유지)
           view === 'home' ? 'hidden md:flex' : 'flex',
         )}
@@ -222,7 +222,7 @@ export function ChatWidget() {
             <div className="flex-1 overflow-y-auto nice-scroll p-3 space-y-2.5 bg-sprout-50/30" role="log" aria-live="polite" aria-label="대화 내용">
               {msgs.map((m, i) => (
                 <div key={i} className={m.role === 'user' ? 'flex justify-end' : 'flex flex-col items-start gap-1.5'}>
-                  <div className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm whitespace-pre-line leading-relaxed ${m.role === 'user' ? 'bg-sprout-500 text-white rounded-br-sm self-end' : 'bg-white border border-sprout-100 rounded-bl-sm'}`}>
+                  <div className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm whitespace-pre-line leading-relaxed ${m.role === 'user' ? 'bg-sprout-700 text-white rounded-br-sm self-end' : 'bg-white border border-sprout-100 rounded-bl-sm'}`}>
                     {m.text}
                   </div>
                   {m.role === 'bot' && m.ai && (
@@ -237,7 +237,7 @@ export function ChatWidget() {
                             key={p.id}
                             onClick={() => toggleSaved(p)}
                             aria-pressed={on}
-                            className={cn('chip text-xs transition-colors', on ? 'bg-sprout-500 text-white' : 'bg-white border border-sprout-200 text-sprout-700 hover:bg-sprout-50')}
+                            className={cn('chip text-xs transition-colors', on ? 'bg-sprout-700 text-white' : 'bg-white border border-sprout-200 text-sprout-700 hover:bg-sprout-50')}
                           >
                             {on ? <Check className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
                             {p.name.length > 11 ? p.name.slice(0, 11) + '…' : p.name}
@@ -275,7 +275,7 @@ export function ChatWidget() {
                     const sel = multiSel.some((x) => x.v === o.value)
                     return GUIDE_STEPS[step].multi ? (
                       <button key={o.value} onClick={() => setMultiSel((s) => (sel ? s.filter((x) => x.v !== o.value) : [...s, { v: o.value, l: o.label }]))}
-                        aria-pressed={sel} className={cn('chip transition-colors', sel ? 'bg-sprout-500 text-white' : 'bg-muted hover:bg-sprout-100')}>{o.label}</button>
+                        aria-pressed={sel} className={cn('chip transition-colors', sel ? 'bg-sprout-700 text-white' : 'bg-muted hover:bg-sprout-100')}>{o.label}</button>
                     ) : (
                       <button key={o.value} onClick={() => pickSingle({ value: o.value, label: o.label })} className="chip bg-muted hover:bg-sprout-100 transition-colors">{o.label}</button>
                     )

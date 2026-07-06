@@ -100,7 +100,7 @@ export function My() {
                 key={f.key}
                 onClick={() => setFilter(f.key)}
                 className={cn('shrink-0 rounded-full px-4 py-2 text-sm font-semibold border-2 transition-all',
-                  filter === f.key ? 'bg-sprout-500 border-sprout-500 text-white' : 'bg-white border-sprout-100 text-muted-foreground hover:border-sprout-200')}
+                  filter === f.key ? 'bg-sprout-700 border-sprout-700 text-white' : 'bg-white border-sprout-100 text-muted-foreground hover:border-sprout-200')}
               >
                 {f.key !== 'all' && STATUS_META[f.key].emoji} {f.label} {count > 0 && <span className="opacity-70">{count}</span>}
               </button>

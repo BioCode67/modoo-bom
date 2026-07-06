@@ -47,7 +47,7 @@ export function ApplyKit() {
                 onClick={() => setRpaInfo({ carrier: rpaInfo.carrier === c.v ? '' : c.v })}
                 aria-pressed={rpaInfo.carrier === c.v}
                 className={cn('rounded-lg border-2 px-2.5 py-1 text-xs font-semibold transition-colors',
-                  rpaInfo.carrier === c.v ? 'bg-sprout-500 border-sprout-500 text-white' : 'bg-white border-sprout-100 text-muted-foreground hover:border-sprout-200')}
+                  rpaInfo.carrier === c.v ? 'bg-sprout-700 border-sprout-700 text-white' : 'bg-white border-sprout-100 text-muted-foreground hover:border-sprout-200')}
               >{c.l}</button>
             ))}
           </div>

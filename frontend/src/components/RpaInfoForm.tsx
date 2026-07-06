@@ -60,7 +60,7 @@ export function RpaInfoForm() {
             key={c}
             onClick={() => setRpaInfo({ carrier: rpaInfo.carrier === c ? '' : c })}
             className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold border transition-colors ${
-              rpaInfo.carrier === c ? 'bg-sprout-500 border-sprout-500 text-white' : 'bg-white border-sprout-100 text-muted-foreground hover:border-sprout-200'
+              rpaInfo.carrier === c ? 'bg-sprout-700 border-sprout-700 text-white' : 'bg-white border-sprout-100 text-muted-foreground hover:border-sprout-200'
             }`}
           >
             {c}

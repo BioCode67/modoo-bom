@@ -183,7 +183,7 @@ export function ResultsView({ result, profile, onReset, helperMode = false }: { 
                   setSavedAll(true)
                   setTimeout(() => setView('my'), 500)
                 }}
-                className="inline-flex items-center gap-1.5 rounded-full bg-sprout-500 px-3.5 py-2 text-xs font-bold text-white hover:bg-sprout-600 transition-colors"
+                className="inline-flex items-center gap-1.5 rounded-full bg-sprout-700 px-3.5 py-2 text-xs font-bold text-white hover:bg-sprout-800 transition-colors"
               >
                 {savedAll ? <><Check className="h-3.5 w-3.5" /> 담았어요 — 나의 복지로 이동 중…</> : <><Heart className="h-3.5 w-3.5" /> 추천 {primary.length}개 한 번에 담고 신청 준비</>}
               </button>
@@ -316,10 +316,10 @@ export function ResultsView({ result, profile, onReset, helperMode = false }: { 
 
 function StatBox({ icon, value, label, highlight }: { icon: React.ReactNode; value: string; label: string; highlight?: boolean }) {
   return (
-    <div className={`rounded-2xl px-3 py-3 text-center ${highlight ? 'bg-sprout-500 text-white' : 'bg-white border border-sprout-100'}`}>
+    <div className={`rounded-2xl px-3 py-3 text-center ${highlight ? 'bg-sprout-700 text-white' : 'bg-white border border-sprout-100'}`}>
       <div className={`flex items-center justify-center gap-1 ${highlight ? 'text-white/90' : 'text-sprout-500'}`}>{icon}</div>
       <p className={`text-base font-extrabold mt-0.5 ${highlight ? 'text-white' : 'text-foreground'}`}>{value}</p>
-      <p className={`text-[11px] font-semibold ${highlight ? 'text-white/80' : 'text-muted-foreground'}`}>{label}</p>
+      <p className={`text-[11px] font-semibold ${highlight ? 'text-white/90' : 'text-muted-foreground'}`}>{label}</p>
     </div>
   )
 }

@@ -286,7 +286,7 @@ function DrawerBody({
             <ol className="space-y-2">
               {guide.steps.map((s, i) => (
                 <li key={i} className="flex gap-2.5 text-sm">
-                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-sprout-500 text-white text-[11px] font-bold">{i + 1}</span>
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-sprout-700 text-white text-[11px] font-bold">{i + 1}</span>
                   <span className="text-foreground/80">{s.replace(/^\d+단계:\s*/, '')}</span>
                 </li>
               ))}

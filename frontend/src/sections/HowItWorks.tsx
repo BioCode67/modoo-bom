@@ -27,7 +27,7 @@ export function HowItWorks() {
               transition={{ duration: 0.45, delay: i * 0.1 }}
               className="card-cute card-hover p-6 text-center relative"
             >
-              <span className="absolute -top-3 -left-2 flex h-8 w-8 items-center justify-center rounded-full bg-sprout-500 text-white text-sm font-extrabold shadow-soft">
+              <span className="absolute -top-3 -left-2 flex h-8 w-8 items-center justify-center rounded-full bg-sprout-700 text-white text-sm font-extrabold shadow-soft">
                 {i + 1}
               </span>
               <div className={`mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl ${s.color} text-3xl`}>

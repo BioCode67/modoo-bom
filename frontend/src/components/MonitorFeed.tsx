@@ -54,7 +54,7 @@ export function MonitorFeed({ onOpenItem }: { onOpenItem: (policyId: string) => 
   return (
     <motion.section initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="card-cute p-5 sm:p-6 bg-gradient-to-br from-sprout-50 via-white to-sky2-50">
       <div className="flex items-center gap-2">
-        <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-sprout-500 text-white"><Bell className="h-5 w-5" /></div>
+        <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-sprout-700 text-white"><Bell className="h-5 w-5" /></div>
         <div>
           <h2 className="font-extrabold text-lg leading-tight">새싹이가 챙길 일</h2>
           <p className="text-xs text-muted-foreground">신청 준비부터 사후 점검까지 제가 챙겨드릴게요</p>

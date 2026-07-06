@@ -86,7 +86,7 @@ function ModeTab({ active, onClick, icon, children }: { active: boolean; onClick
       onClick={onClick}
       aria-pressed={active}
       className={active
-        ? 'inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold bg-sprout-500 text-white shadow-soft transition-all'
+        ? 'inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold bg-sprout-700 text-white shadow-soft transition-all'
         : 'inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold bg-white border-2 border-sprout-100 text-muted-foreground hover:border-sprout-300 hover:text-foreground transition-all'}
     >
       {icon}{children}

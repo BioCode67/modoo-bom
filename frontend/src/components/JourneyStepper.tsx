@@ -78,7 +78,7 @@ export function JourneyStepper({ context = 'my' }: { context?: 'my' | 'result' }
                 className="flex flex-col items-center gap-1 shrink-0 group"
               >
                 <span className={cn('flex h-9 w-9 items-center justify-center rounded-full border-2 transition-all',
-                  isDone ? 'bg-sprout-500 border-sprout-500 text-white'
+                  isDone ? 'bg-sprout-700 border-sprout-700 text-white'
                     : isCurrent ? 'bg-white border-sprout-500 text-sprout-700 ring-4 ring-sprout-100'
                     : 'bg-white border-muted text-muted-foreground')}>
                   {isDone ? <Check className="h-4 w-4" /> : <Icon className="h-4 w-4" />}

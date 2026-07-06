@@ -72,7 +72,7 @@ export function HouseholdAnalyzer({ onOpen }: { onOpen: (p: Policy | EligiblePol
       <div className="mt-3 card-cute p-4 flex flex-wrap items-center gap-x-4 gap-y-2">
         <span className="text-xs font-bold text-muted-foreground">가구 소득(중위)</span>
         {[25, 50, 80, 120].map((v) => (
-          <button key={v} onClick={() => setIncome(v)} className={cn('rounded-lg px-2.5 py-1 text-xs font-semibold border', income === v ? 'bg-sprout-500 border-sprout-500 text-white' : 'bg-white border-sprout-100')}>{v}%</button>
+          <button key={v} onClick={() => setIncome(v)} className={cn('rounded-lg px-2.5 py-1 text-xs font-semibold border', income === v ? 'bg-sprout-700 border-sprout-700 text-white' : 'bg-white border-sprout-100')}>{v}%</button>
         ))}
         <span className="ml-2 text-xs font-bold text-muted-foreground">가구 형태</span>
         <select value={household} onChange={(e) => setHousehold(e.target.value)} className="rounded-lg border border-sprout-100 px-2 py-1 text-xs">
@@ -100,7 +100,7 @@ export function HouseholdAnalyzer({ onOpen }: { onOpen: (p: Policy | EligiblePol
                   <input type="number" min={0} max={120} value={m.age} onChange={(e) => update(m.id, { age: +e.target.value })} className="w-16 rounded-lg border border-sprout-100 px-2 py-1 text-sm" />세
                 </label>
                 {(['disability', 'is_pregnant', 'unemployed'] as const).map((k) => (
-                  <button key={k} onClick={() => update(m.id, { [k]: !m[k] })} className={cn('rounded-lg px-2.5 py-1 text-[11px] font-semibold border', m[k] ? 'bg-sprout-500 border-sprout-500 text-white' : 'bg-white border-sprout-100 text-muted-foreground')}>
+                  <button key={k} onClick={() => update(m.id, { [k]: !m[k] })} className={cn('rounded-lg px-2.5 py-1 text-[11px] font-semibold border', m[k] ? 'bg-sprout-700 border-sprout-700 text-white' : 'bg-white border-sprout-100 text-muted-foreground')}>
                     {k === 'disability' ? '장애' : k === 'is_pregnant' ? '임신' : '미취업'}
                   </button>
                 ))}
