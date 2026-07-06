@@ -46,7 +46,7 @@ start "" cmd /c "timeout /t 3 >nul & start http://localhost:8000/"
 
 rem 경량 로컬 에이전트(local_server) — 즉시 기동(chromadb 시딩 없음) + RPA 서류발급/신청.
 pushd backend
-"%PY%" -m uvicorn local_server:app --host 127.0.0.1 --port 8000
+"%PY%" -m uvicorn local_server:app --host 127.0.0.1 --port 8000 --log-level warning --no-access-log
 popd
 
 endlocal

@@ -18,6 +18,9 @@
 import os
 import sys
 import hmac
+import socket
+import webbrowser
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 # Windows 콘솔(cp949)에서 이모지 로그가 UnicodeEncodeError 를 내지 않도록 UTF-8 강제(긴 RPA 대기 중 크래시 차단).
@@ -38,7 +41,38 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import Response as _Response
 from pydantic import BaseModel
 
-app = FastAPI(title="ModooBom Local Agent", version="0.3.0")
+def _detect_browser() -> str:
+    """서류 자동발급에 쓸 브라우저를 사람이 읽는 이름으로(안내용). 실제 선택은 launch_browser 폴백."""
+    if sys.platform == "win32":
+        for p in (
+            os.path.expandvars(r"%ProgramFiles%\Google\Chrome\Application\chrome.exe"),
+            os.path.expandvars(r"%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe"),
+            os.path.expandvars(r"%LocalAppData%\Google\Chrome\Application\chrome.exe"),
+        ):
+            if os.path.exists(p):
+                return "Chrome"
+        return "Microsoft Edge"  # Windows 10/11 선탑재
+    return "Chrome/Chromium"
+
+
+def _print_banner():
+    port = os.getenv("PORT", "8000")
+    line = "═" * 52
+    print("\n" + line)
+    print("  🌱 모두봄 로컬 에이전트 실행 중")
+    print(f"  ▶ 브라우저에서 열기 :  http://localhost:{port}/")
+    print(f"  ▶ 자동발급 브라우저 :  {_detect_browser()}")
+    print("  ▶ 종료              :  이 창을 닫거나 Ctrl+C")
+    print(line + "\n", flush=True)
+
+
+@asynccontextmanager
+async def _lifespan(_app):
+    _print_banner()
+    yield
+
+
+app = FastAPI(title="ModooBom Local Agent", version="0.3.0", lifespan=_lifespan)
 
 # 동일 출처가 기본이지만, 배포 웹(github.io)→로컬 에이전트 '브릿지'도 허용(사용자가 LNA 허용 시).
 _ALLOWED_ORIGINS = [
@@ -226,14 +260,35 @@ if _APP_DIR is not None:
     app.mount("/", StaticFiles(directory=str(_APP_DIR), html=True), name="local-app")
 
 
+def _port_in_use(host: str, port: int) -> bool:
+    """이미 로컬 에이전트가 떠 있는지(중복 실행 방지·친절 안내용)."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.settimeout(0.4)
+        try:
+            return s.connect_ex((host if host != "0.0.0.0" else "127.0.0.1", port)) == 0
+        except OSError:
+            return False
+
+
 def main():
     import uvicorn
     host = os.getenv("HOST", "127.0.0.1")  # 루프백 기본 — 개인정보 다루는 로컬 에이전트를 LAN에 노출 안 함
     port = int(os.getenv("PORT", "8000"))
     os.environ.setdefault("RPA_ENABLED", "1")  # 로컬 설치본은 RPA 활성 기본
-    print(f"[모두봄] 로컬 에이전트 시작 → http://{host}:{port}/  (서류 자동발급 준비됨)")
-    uvicorn.run(app, host=host, port=port)
+    url = f"http://localhost:{port}/"
+
+    # 이미 실행 중이면(더블클릭 두 번 등) 새로 띄우지 않고 기존 창을 브라우저로 연다 → 포트 충돌 스택트레이스 방지.
+    if _port_in_use(host, port):
+        print(f"[모두봄] 이미 실행 중이에요. 브라우저에서 {url} 을 여세요.")
+        try:
+            webbrowser.open(url)
+        except Exception:
+            pass
+        return
+
+    # 접속 소음 줄이고(warning) 배너는 lifespan에서 출력.
+    uvicorn.run(app, host=host, port=port, log_level="warning", access_log=False)
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     main()
