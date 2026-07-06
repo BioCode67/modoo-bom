@@ -5,7 +5,8 @@
 `AI_PROVIDER` 환경변수로 강제 지정 가능(gemini|groq|anthropic).
 
 무료 티어 메모:
-  - Gemini: aistudio.google.com 에서 무료 키 발급, 넉넉한 무료 쿼터. 기본 모델 gemini-2.0-flash.
+  - Gemini: aistudio.google.com 에서 무료 키 발급, 넉넉한 무료 쿼터. 기본 모델 gemini-2.5-flash
+    (2.0-flash는 일부 신규 프로젝트에서 무료 할당량 0 → 2.5-flash로 기본값 상향). GEMINI_MODEL로 변경 가능.
   - Groq: console.groq.com 무료 키, 매우 빠름. 기본 모델 llama-3.3-70b-versatile.
 개인정보는 프롬프트에 최소한만 담고 서버에 저장/로깅하지 않는다(호출 후 폐기).
 """
@@ -48,7 +49,7 @@ def provider_label() -> str:
     if not p:
         return "rule-based(폴백)"
     model = {
-        "gemini": os.getenv("GEMINI_MODEL", "gemini-2.0-flash"),
+        "gemini": os.getenv("GEMINI_MODEL", "gemini-2.5-flash"),
         "groq": os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"),
         "anthropic": os.getenv("CLAUDE_MODEL", "claude-sonnet-4-6"),
     }[p]
@@ -68,7 +69,7 @@ def get_chat_llm(temperature: float = 0.0, max_tokens: int = 1024):
         if provider == "gemini":
             from langchain_google_genai import ChatGoogleGenerativeAI
             return ChatGoogleGenerativeAI(
-                model=os.getenv("GEMINI_MODEL", "gemini-2.0-flash"),
+                model=os.getenv("GEMINI_MODEL", "gemini-2.5-flash"),
                 temperature=temperature,
                 max_output_tokens=max_tokens,
                 google_api_key=os.getenv("GEMINI_API_KEY"),
