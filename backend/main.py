@@ -130,6 +130,22 @@ async def ws_chat(ws: WebSocket):
     await chat_websocket_endpoint(ws)
 
 
+# ── 로컬 데스크탑 앱: 프론트를 백엔드가 '동일 출처'로 직접 서빙 ──
+# frontend/dist-app(로컬 전용 빌드: `npm run build:app`, base='/', VITE_API_BASE=''(동일출처))가
+# 있으면 '/'에 마운트한다. 사용자가 http://localhost:8000/ 을 열면 추천·서류발급·신청이 모두
+# 동일 출처에서 돌아, 브라우저의 CORS·PNA·LNA(로컬네트워크 접근) 권한 프롬프트가 아예 없다 →
+# 자동 서류발급이 프롬프트 없이 매끄럽게 동작(배포 HTTPS→localhost 브릿지의 근본 제약 회피).
+# (클라우드에는 이 디렉터리가 없어 마운트 스킵. API/WS 라우트가 먼저 등록돼 항상 우선함.)
+from pathlib import Path as _Path
+
+_APP_DIR = _Path(__file__).resolve().parent.parent / "frontend" / "dist-app"
+if _APP_DIR.is_dir():
+    from fastapi.staticfiles import StaticFiles
+
+    app.mount("/", StaticFiles(directory=str(_APP_DIR), html=True), name="local-app")
+    log.info("로컬 데스크탑 앱 서빙 활성: %s → http://127.0.0.1:%s/", _APP_DIR, os.getenv("PORT", "8000"))
+
+
 if __name__ == "__main__":
     import uvicorn
     # 로컬 실행 기본은 127.0.0.1(루프백) — 개인정보를 다루는 로컬 RPA 에이전트가 LAN에 노출되지 않게.

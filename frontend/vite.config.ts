@@ -5,10 +5,15 @@ import path from 'path'
 
 // GitHub Pages(project site)는 /modoo-bom/ 하위에 서빙되므로 빌드 시 base를 맞춘다.
 // 개발 서버는 루트('/')를 사용.
-export default defineConfig(({ command }) => ({
-  base: command === 'build' ? '/modoo-bom/' : '/',
+// 로컬 데스크탑 앱 빌드(--mode app): 백엔드가 localhost:8000에서 프론트까지 직접 서빙 →
+//   동일 출처라 base='/', API는 동일출처('') 사용. PWA(SW)는 로컬 API 가로채기 방지 위해 제외.
+export default defineConfig(({ command, mode }) => {
+  const isApp = mode === 'app'
+  return {
+  base: isApp ? '/' : command === 'build' ? '/modoo-bom/' : '/',
   plugins: [
     react(),
+    ...(isApp ? [] : [
     VitePWA({
       registerType: 'autoUpdate',
       injectRegister: 'script-defer', // registerSW를 defer로 — 렌더차단 제거
@@ -69,6 +74,7 @@ export default defineConfig(({ command }) => ({
         ],
       },
     }),
+    ]),
   ],
   resolve: {
     alias: {
@@ -80,6 +86,7 @@ export default defineConfig(({ command }) => ({
     exclude: ['@huggingface/transformers'],
   },
   build: {
+    outDir: isApp ? 'dist-app' : 'dist',
     target: 'es2020',
     cssCodeSplit: true,
     rollupOptions: {
@@ -101,4 +108,5 @@ export default defineConfig(({ command }) => ({
       '/ws': { target: 'ws://localhost:8000', ws: true },
     },
   },
-}))
+  }
+})
