@@ -41,9 +41,13 @@ export function JourneyStepper({ context = 'my' }: { context?: 'my' | 'result' }
   // 담은 복지 중 필요 서류가 하나라도 있는지 — 없으면(공공데이터만 담은 경우) 서류 단계를 건너뛴다.
   const needsDocs = isResult ? true : tracked.some((t) => (map[t.policyId]?.required_docs?.length ?? 0) > 0)
   const j = computeJourney(tracked, docDone, isResult, needsDocs)
-  const next = isResult
+  let next = isResult
     ? { title: '복지 찾기 완료! 🎉', body: '이제 마음에 드는 복지를 담고, 서류 발급·신청·관리를 이어서 진행해요.', cta: '나의 복지에서 이어가기' }
     : NEXT[j.current]
+  // 서류가 필요 없어 건너뛴 경우 — '서류가 준비됐어요'는 부정확. 에이전트가 상황을 파악했음을 정직히 안내.
+  if (!isResult && j.current === 'apply' && !needsDocs) {
+    next = { ...next, body: '담아둔 복지는 따로 준비할 서류가 없어요. 바로 신청하고, 각 복지 카드에서 상태를 ‘신청 완료’로 바꿔주세요.' }
+  }
 
   const go = (stage: JourneyStage) => {
     if (stage === 'find') { setView('analyze'); return }
