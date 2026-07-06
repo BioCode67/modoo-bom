@@ -54,13 +54,15 @@ export function AgentSummary() {
         {active ? (
           <span className="chip-sprout"><CheckCircle2 className="h-3.5 w-3.5" /> 활성화됨</span>
         ) : (
-          <span className="chip-sky">확장 설치하면 켜져요</span>
+          <span className="chip-sprout">설치 없이 발급 가능</span>
         )}
       </div>
 
       <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">
         담은 복지를 기준으로, 에이전트가 <b>대신 해드릴 수 있는 일</b>이에요.
-        {active ? ' 지금 바로 실행할 수 있어요.' : ' 크롬 확장을 설치하면 이 브라우저에서 실행돼요.'}
+        {active
+          ? ' 지금 바로 실행할 수 있어요.'
+          : ' 지금 이 화면에서 설치 없이, 아래 ‘서류 준비 도우미’의 전자증명서 발급·공식 신청 링크로 바로 진행하실 수 있어요. 로그인·클릭·양식까지 대신하는 완전 자동은 데모용 에이전트를 연결하면 켜져요.'}
         <span className="block mt-0.5 text-xs">🔒 개인정보는 서버로 전송되지 않고, 본인인증·최종 제출은 본인이 직접 합니다.</span>
       </p>
 
@@ -82,13 +84,18 @@ export function AgentSummary() {
       </div>
 
       {!active && (
-        <a
-          href="https://github.com/BioCode67/modoo-bom/tree/main/extension#설치-개발자-모드--데모"
-          target="_blank" rel="noopener noreferrer"
-          className="btn-primary !py-2 mt-3 text-xs"
-        >
-          <ExternalLink className="h-3.5 w-3.5" /> 확장 설치하고 자동화 켜기
-        </a>
+        <div className="mt-3 flex flex-col gap-1">
+          <p className="text-xs text-muted-foreground">
+            👇 아래 <b>서류 준비 도우미</b>에서 <b>설치 없이 전자증명서로 바로 발급</b>하거나 공식 신청으로 이동하세요.
+          </p>
+          <a
+            href="https://github.com/BioCode67/modoo-bom/tree/main/extension#설치-개발자-모드--데모"
+            target="_blank" rel="noopener noreferrer"
+            className="text-[11px] text-muted-foreground/70 hover:underline inline-flex items-center gap-1 self-start"
+          >
+            <ExternalLink className="h-3 w-3" /> 시연·파워유저: 에이전트(로컬) 연결하면 완전 자동으로 실행돼요 →
+          </a>
+        </div>
       )}
     </motion.section>
   )
