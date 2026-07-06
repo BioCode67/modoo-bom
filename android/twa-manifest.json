@@ -1,0 +1,48 @@
+{
+  "packageId": "io.github.biocode67.modoobom",
+  "host": "biocode67.github.io",
+  "name": "모두봄 — 내 복지 혜택 찾기",
+  "launcherName": "모두봄",
+  "display": "standalone",
+  "themeColor": "#22C55E",
+  "themeColorDark": "#22C55E",
+  "navigationColor": "#22C55E",
+  "navigationColorDark": "#22C55E",
+  "navigationDividerColor": "#22C55E",
+  "navigationDividerColorDark": "#22C55E",
+  "backgroundColor": "#FFFAF3",
+  "enableNotifications": true,
+  "startUrl": "/modoo-bom/?utm_source=play_store",
+  "iconUrl": "https://biocode67.github.io/modoo-bom/pwa-512x512.png",
+  "maskableIconUrl": "https://biocode67.github.io/modoo-bom/pwa-512x512.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "./keystore/modoobom-release.keystore",
+    "alias": "modoobom"
+  },
+  "appVersionName": "1.0.0",
+  "appVersionCode": 1,
+  "shortcuts": [],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://biocode67.github.io/modoo-bom/manifest.webmanifest",
+  "fallbackType": "customtabs",
+  "features": {},
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://biocode67.github.io/modoo-bom/",
+  "minSdkVersion": 21,
+  "orientation": "portrait",
+  "fingerprints": [
+    {
+      "name": "release",
+      "value": "6A:8F:E9:F8:CC:60:E9:BC:22:39:17:50:2F:5A:83:B8:74:B1:EE:98:B5:2D:01:29:1D:66:AF:95:6D:3F:88:04"
+    }
+  ],
+  "additionalTrustedOrigins": [],
+  "retainedBundles": [],
+  "appVersion": "1.0.0"
+}

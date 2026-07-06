@@ -1,0 +1,7 @@
+{
+  "name": "modoobom-android",
+  "private": true,
+  "devDependencies": {
+    "@bubblewrap/cli": "^1.24.1"
+  }
+}
