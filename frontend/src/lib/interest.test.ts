@@ -35,4 +35,14 @@ describe('interestDigest', () => {
   it('구독이 없으면 빈 결과', () => {
     expect(interestDigest([], pols, new Set())).toHaveLength(0)
   })
+
+  it('빈 카테고리 정책은 어느 분야에도 오매칭되지 않음(sub.includes("") 함정 방지)', () => {
+    const withBlank = [...pols, P('BLANK', '분류없는복지', '')]
+    const d = interestDigest(['노인', '청년'], withBlank, new Set())
+    const 노인 = d.find((x) => x.category === '노인')!
+    const 청년 = d.find((x) => x.category === '청년')!
+    expect(노인.total).toBe(2)  // 기초연금·노인일자리만 — 빈 카테고리 정책 미포함
+    expect(청년.total).toBe(1)  // 청년월세만
+    expect(노인.examples.some((e) => e.id === 'BLANK')).toBe(false)
+  })
 })

@@ -38,6 +38,10 @@ export function categoryMeta(category: string): { emoji: string; cls: string } {
 export function parseMonthly(benefit: string): number {
   const won = benefit.match(/월\s*(?:최대\s*)?([0-9,]+)\s*원/)
   if (won) return parseInt(won[1].replace(/,/g, ''), 10)
+  // 범위 표기(예: "월 4만~18.7만원", "월 10~30만원")는 상한을 채택 — 단일 만원 매칭이 하한만
+  // 잡거나 0이 되어 배지가 과소표시되던 것을 방지(현금성 판정 후에만 배지로 쓰임).
+  const range = benefit.match(/월\s*(?:최대\s*)?[0-9]+(?:\.[0-9]+)?\s*만?\s*원?\s*[~〜\-–—]\s*([0-9]+(?:\.[0-9]+)?)\s*만\s*원/)
+  if (range) return Math.round(parseFloat(range[1]) * 10000)
   const man = benefit.match(/월\s*(?:최대\s*)?([0-9]+(?:\.[0-9]+)?)\s*만\s*원/)
   if (man) return Math.round(parseFloat(man[1]) * 10000)
   return 0

@@ -18,7 +18,11 @@ export function InterestSubscribe({ onOpenPolicy }: { onOpenPolicy: (id: string)
   const countByCat = useMemo(() => {
     const m: Record<string, number> = {}
     for (const c of INTEREST_CATEGORIES) {
-      m[c.key] = eligible.filter((p) => (p.category || '').includes(c.key) || c.key.includes(p.category || '')).length
+      // 빈 카테고리(pc==='')는 c.key.includes('')가 항상 true라 모든 분야에 잡히므로 제외.
+      m[c.key] = eligible.filter((p) => {
+        const pc = p.category || ''
+        return !!pc && (pc.includes(c.key) || c.key.includes(pc))
+      }).length
     }
     return m
   }, [eligible])

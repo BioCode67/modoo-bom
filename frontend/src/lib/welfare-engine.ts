@@ -413,7 +413,7 @@ export function demographicMismatch(name: string, doc: string, p: UserProfile): 
   if (/농어촌|농업인|어업인|농촌|귀농|귀어|농가|어가/.test(name) &&
       ['서울', '부산', '대구', '인천', '광주', '대전', '울산', '세종'].some((m) => (p.region || '').includes(m))) return true
   // 다문화·결혼이민 전용인데 아님
-  if (/다문화|결혼이민|이주여성|이주민/.test(name) && !p.household_type.includes('다문화')) return true
+  if (/다문화|결혼이민|이주여성|이주민/.test(name) && !(p.household_type || '').includes('다문화')) return true
   // 여성 생물학·여성 전용 급여인데 명백히 남성 — 남성에게 '생리용품·여성청소년·경력단절여성' 등 방지.
   // 보수적: gender==='male'일 때만(‘other’/미지정은 배제하지 않아 트랜스·논바이너리 포용).
   if (p.gender === 'male' &&
@@ -484,10 +484,10 @@ export function matchFacts(policy: Policy, p: UserProfile): string[] {
   if (p.income_percentile > 0 && p.income_percentile <= 60 && /저소득|기초생활|차상위|수급|하위|중위소득/.test(doc))
     f.push(`소득 하위 ${p.income_percentile}% · 소득 조건 부합`)
   if (p.disability && /장애/.test(doc)) f.push('등록 장애인 · 대상')
-  if ((p.is_pregnant || p.children_ages.some((a) => a <= 1)) && /임신|임산부|출산|산모|영아|난임/.test(doc)) f.push('임신·출산 가구')
+  if ((p.is_pregnant || (p.children_ages || []).some((a) => a <= 1)) && /임신|임산부|출산|산모|영아|난임/.test(doc)) f.push('임신·출산 가구')
   else if (p.has_children && /아동|영유아|보육|어린이|유아|육아|자녀|양육/.test(doc)) f.push('자녀 양육 가구')
   if (/한부모|조손/.test(p.household_type) && /한부모|모자|부자가정|조손/.test(doc)) f.push('한부모·조손 가구')
-  if (p.household_type.includes('다문화') && /다문화|결혼이민|외국인주민/.test(doc)) f.push('다문화 가구')
+  if ((p.household_type || '').includes('다문화') && /다문화|결혼이민|외국인주민/.test(doc)) f.push('다문화 가구')
   if (p.employment_status === 'unemployed' && /실업|실직|구직|일자리|재취업|고용/.test(doc)) f.push('구직 중')
   return f
 }
@@ -508,13 +508,13 @@ const TEXT_SIGNALS: { id: string; match: (p: UserProfile) => boolean; kw: RegExp
   { id: 'senior', match: (p) => p.age >= 65, kw: /노인|어르신|고령|경로|장기요양/, reason: '어르신 대상' },
   { id: 'youth', match: (p) => p.age >= 19 && p.age <= 34, kw: /청년|대학생|구직|취업준비/, reason: '청년 대상' },
   { id: 'child', match: (p) => p.has_children, kw: /아동|영유아|보육|어린이|유아|육아|자녀/, reason: '자녀 양육 가구' },
-  { id: 'teen', match: (p) => p.children_ages.some((a) => a >= 7 && a <= 18), kw: /청소년|학생|교육|학습|방과후/, reason: '학령기 자녀' },
-  { id: 'birth', match: (p) => p.is_pregnant || p.children_ages.some((a) => a <= 1), kw: /임신|임산부|출산|산모|영아|난임/, reason: '임신·출산 가구' },
+  { id: 'teen', match: (p) => (p.children_ages || []).some((a) => a >= 7 && a <= 18), kw: /청소년|학생|교육|학습|방과후/, reason: '학령기 자녀' },
+  { id: 'birth', match: (p) => p.is_pregnant || (p.children_ages || []).some((a) => a <= 1), kw: /임신|임산부|출산|산모|영아|난임/, reason: '임신·출산 가구' },
   { id: 'disability', match: (p) => p.disability, kw: /장애/, reason: '등록 장애인' },
   { id: 'lowincome', match: (p) => p.income_percentile <= 50, kw: /저소득|기초생활|차상위|수급|긴급복지/, reason: '저소득 가구' },
   { id: 'single', match: (p) => /한부모|조손/.test(p.household_type), kw: /한부모|모자|부자가정|조손/, reason: '한부모·조손 가구' },
   { id: 'jobless', match: (p) => p.employment_status === 'unemployed', kw: /실업|실직|구직|일자리|재취업|고용/, reason: '구직 중' },
-  { id: 'multi', match: (p) => p.household_type.includes('다문화'), kw: /다문화|결혼이민|외국인주민|북한이탈/, reason: '다문화 가구' },
+  { id: 'multi', match: (p) => (p.household_type || '').includes('다문화'), kw: /다문화|결혼이민|외국인주민|북한이탈/, reason: '다문화 가구' },
   // 상태 기반 대상군(사각지대) — 프로필 필드가 없어 life_events 신호로 매칭. 자격 단정 없이 '관련 복지'(저신뢰)로만.
   { id: 'defector', match: (p) => (p.life_events || []).includes('북한이탈'), kw: /북한이탈|탈북|새터민/, reason: '북한이탈주민 대상' },
   { id: 'veteran', match: (p) => (p.life_events || []).includes('보훈'), kw: /국가유공|보훈|유공자|참전|고엽제|독립유공|상이군경/, reason: '국가유공·보훈 대상' },
@@ -550,10 +550,13 @@ function isSummaryPolicy(policy: Policy): boolean {
 const PRIORITY_RANK: Record<'high' | 'medium' | 'low', number> = { high: 3, medium: 2, low: 1 }
 
 // 전체 적격 정책 리스트 — priority(high>medium>low) → confidence desc 정렬
-// 시·도 정규화 — 지자체 정책의 지역과 사용자 지역을 비교하기 위함(별칭 포함)
+// 시·도 정규화 — 지자체 정책의 지역과 사용자 지역을 비교하기 위함(별칭 포함).
+// ⚠️ 순서 중요: 자유서술 폴백(아래 sidoOf 마지막 줄)이 이 순서로 첫 매칭을 채택하므로,
+//    메트로 이름을 부분문자열로 품는 '도(道)'를 먼저 둔다. 예) "경기도 광주시"는 '광주'(메트로)가
+//    아니라 '경기'로 잡혀야 한다(안 그러면 광주광역시로 오태깅). 도 이름끼리는 서로를 품지 않아 안전.
 const SIDO: [string, string][] = [
-  ['서울', '서울'], ['부산', '부산'], ['대구', '대구'], ['인천', '인천'], ['광주', '광주'], ['대전', '대전'], ['울산', '울산'], ['세종', '세종'],
   ['경기', '경기'], ['강원', '강원'], ['충북', '충청북'], ['충남', '충청남'], ['전북', '전라북'], ['전남', '전라남'], ['경북', '경상북'], ['경남', '경상남'], ['제주', '제주'],
+  ['서울', '서울'], ['부산', '부산'], ['대구', '대구'], ['인천', '인천'], ['광주', '광주'], ['대전', '대전'], ['울산', '울산'], ['세종', '세종'],
 ]
 export function sidoOf(text: string): string {
   const t = text || ''
@@ -597,8 +600,8 @@ export function situationRelevance(policy: Policy, p: UserProfile): number {
   let s = 0
   if (p.disability && /장애/.test(t)) s += 5
   if (infant && /임신|임산부|출산|출생|산모|영아|신생아|난임|모유|부모급여|첫만남|아동수당/.test(t)) s += 5
-  if (p.household_type.includes('한부모') && /한부모|모자|부자가정|조손|양육/.test(t)) s += 4
-  if (p.household_type.includes('다문화') && /다문화|결혼이민|이주|외국인/.test(t)) s += 4
+  if ((p.household_type || '').includes('한부모') && /한부모|모자|부자가정|조손|양육/.test(t)) s += 4
+  if ((p.household_type || '').includes('다문화') && /다문화|결혼이민|이주|외국인/.test(t)) s += 4
   if (p.age >= 65 && /노인|어르신|경로|기초연금|장기요양|치매|틀니/.test(t)) s += 4
   if (p.has_children && /아동|보육|육아|어린이|자녀|양육|유아|급식|돌봄|부모급여|다자녀|출산|출생|첫만남/.test(t)) s += 3
   if (p.employment_status === 'unemployed' && /실업|구직|취업|재취업|일자리|자활/.test(t)) s += 3

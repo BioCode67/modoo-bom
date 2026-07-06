@@ -21,6 +21,13 @@ describe('parseMonthly', () => {
     expect(parseMonthly('치료비 전액 지원')).toBe(0)
     expect(parseMonthly('연 13만원 문화 바우처')).toBe(0) // 월이 아닌 연 단위
   })
+  it('범위 표기는 상한(최댓값) 채택 — 배지 과소표시 방지', () => {
+    expect(parseMonthly('월 4만~18.7만원')).toBe(187000)
+    expect(parseMonthly('월 10~30만원')).toBe(300000)
+    expect(parseMonthly('월 14만원~22만원')).toBe(220000)
+    // 범위가 아닌 단일 표기는 그대로
+    expect(parseMonthly('월 30만원 (2024년 기준)')).toBe(300000)
+  })
 })
 
 describe('isCashBenefit / sumCashMonthly', () => {
