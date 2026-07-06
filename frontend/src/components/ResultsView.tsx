@@ -123,10 +123,11 @@ export function ResultsView({ result, profile, onReset, helperMode = false }: { 
           )}
 
           <div className="mt-5 flex flex-wrap gap-2">
+            {/* 주요 다음 행동(담기·서류)은 위 새싹이 카드가 제안하므로, 헤더는 보조 도구만 담백하게 둔다 */}
             <button onClick={onReset} className="btn-secondary !py-2.5"><RotateCcw className="h-4 w-4" /> {helperMode ? '도우미 종료' : '다시 분석'}</button>
             {/* 도우미 모드에선 '나의 복지'(내 데이터)로의 이동을 감춰 세션을 격리 — 남의 결과를 내 목록과 섞지 않는다 */}
             {!helperMode && (
-              <button onClick={() => setView('my')} className="btn-primary !py-2.5"><Heart className="h-4 w-4" /> 나의 복지에서 관리</button>
+              <button onClick={() => setView('my')} className="btn-secondary !py-2.5"><Heart className="h-4 w-4" /> 나의 복지에서 관리</button>
             )}
             <button onClick={() => window.print()} className="btn-secondary !py-2.5"><Printer className="h-4 w-4" /> 인쇄·저장</button>
             {tts.supported && (
