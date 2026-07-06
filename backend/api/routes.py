@@ -36,12 +36,13 @@ class DocRequest(BaseModel):
 
 
 @router.get("/health")
-async def health():
+async def health(debug: int = 0):
     """서버 상태 + 환경 정보 + capabilities(프론트 게이팅용) 반환.
 
     capabilities.ai  — AI provider 사용 가능(분석/추천/챗봇 활성)
     capabilities.rpa — 이 백엔드에서 실제 RPA 실행 가능(로컬 에이전트일 때만 true)
     프론트는 rpa=true일 때만 '자동발급/자동신청' 버튼을 노출한다(클라우드 오표시 방지).
+    ?debug=1 이면 LLM 클라이언트가 실제로 빌드되는지 진단(패키지/버전 문제 확인용).
     """
     from rag.search import rag_light, backend_label
     from rpa.config import rpa_enabled
@@ -78,7 +79,7 @@ async def health():
     _seeded = doc_count >= max(60, int(_expected * 0.8)) if _expected else doc_count >= 60
 
     ai_ok = active_provider() is not None
-    return {
+    result = {
         "status": "ok",
         "service": "ModooBom API",
         "version": "0.3.0",
@@ -96,6 +97,23 @@ async def health():
             "seeded": _seeded,
         },
     }
+    if debug:
+        # LLM 클라이언트가 실제로 빌드되는지 + 핵심 패키지 버전(배포 진단용).
+        info: dict = {}
+        try:
+            from agents.llm import get_chat_llm
+            llm = get_chat_llm()
+            info["llm_build"] = type(llm).__name__ if llm else None
+        except Exception as e:  # noqa: BLE001
+            info["llm_build_error"] = f"{type(e).__name__}: {e}"
+        for pkg in ("langchain_core", "langchain_google_genai", "langchain_groq", "langchain_anthropic"):
+            try:
+                mod = __import__(pkg)
+                info[pkg] = getattr(mod, "__version__", "?")
+            except Exception as e:  # noqa: BLE001
+                info[pkg] = f"import-fail: {type(e).__name__}"
+        result["llm_debug"] = info
+    return result
 
 
 @router.get("/health/ready")
