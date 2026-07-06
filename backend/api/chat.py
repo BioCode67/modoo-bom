@@ -9,6 +9,15 @@ from agents.mock_responses import is_mock_mode
 
 # ── 정책 검색 유틸 ──────────────────────────────────────────────────────────
 
+def _related_policies(policies: list[dict], k: int = 3) -> list[dict]:
+    """답변에 함께 보낼 관련 정책 요약(상위 k). 검색백엔드(BM25 등) 결과에 일부 키가
+    없어도 .get()으로 안전 — 직접 인덱싱하면 KeyError가 이미 생성한 답변까지 버리게 된다."""
+    return [
+        {"id": p.get("id"), "name": p.get("name"), "category": p.get("category")}
+        for p in (policies or [])[:k]
+    ]
+
+
 def _search_policies_for_chat(query: str, n: int = 5) -> list[dict]:
     """키워드 기반 정책 검색 (ChromaDB 없이도 동작)"""
     try:
@@ -106,7 +115,13 @@ async def chat_websocket_endpoint(ws: WebSocket):
     try:
         while True:
             raw = await ws.receive_text()
-            data = json.loads(raw)
+            try:
+                data = json.loads(raw)
+            except json.JSONDecodeError:
+                # 프레임 하나가 깨져도 세션은 유지(재연결 불필요) — 안내 후 다음 메시지 대기.
+                await ws.send_text(json.dumps(
+                    {"type": "error", "message": "잘못된 JSON 형식"}, ensure_ascii=False))
+                continue
 
             if data.get("type") != "question":
                 await ws.send_text(json.dumps(
@@ -145,10 +160,7 @@ async def chat_websocket_endpoint(ws: WebSocket):
                 {
                     "type": "answer",
                     "answer": answer,
-                    "related_policies": [
-                        {"id": p["id"], "name": p["name"], "category": p["category"]}
-                        for p in policies[:3]
-                    ],
+                    "related_policies": _related_policies(policies),
                 },
                 ensure_ascii=False,
             ))

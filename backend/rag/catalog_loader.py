@@ -21,7 +21,12 @@ CATALOG_URL = os.getenv("CATALOG_URL", "https://biocode67.github.io/modoo-bom/po
 
 
 def _parse(data) -> list[dict]:
-    return data if isinstance(data, list) else data.get("policies", [])
+    # 최상위가 리스트도 dict도 아니면(손상 파일 등) 빈 목록 → 시드 폴백이 동작(AttributeError 방지).
+    if isinstance(data, list):
+        return data
+    if isinstance(data, dict):
+        return data.get("policies", [])
+    return []
 
 
 def _from_seed() -> list[dict]:

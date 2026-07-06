@@ -42,8 +42,9 @@ def start_journey(doc_names, service_names, user_name, user_info, profile) -> st
     docs = [d for d in (doc_names or []) if d in SUPPORTED_DOC_NAMES]
     svcs = [s for s in (service_names or []) if s in SUPPORTED_SERVICE_NAMES]
     jid = _new_journey(docs, svcs, user_name)
-    loop = asyncio.get_event_loop()
-    loop.create_task(_run_journey(jid, user_info or {}, profile or {}))
+    # 강한 참조 보관(_spawn_bg)로 GC가 실행 중 여정을 취소하지 못하게 한다.
+    from rpa.manager import _spawn_bg
+    _spawn_bg(_run_journey(jid, user_info or {}, profile or {}))
     return jid
 
 

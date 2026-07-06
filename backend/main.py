@@ -26,6 +26,14 @@ log = get_logger("modoobom")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # 카탈로그를 먼저 예열(원격 fetch가 있는 백엔드 전용 배포 대비). 이 캐시(lru_cache)가 채워지면
+    # 이후 /health·/search·챗 요청 경로에서 블로킹 urlopen이 이벤트 루프를 멈추는 일이 없다.
+    # RAG 시딩과 분리해, ChromaDB 시딩이 실패해도 카탈로그는 확실히 예열되게 한다.
+    try:
+        from rag.catalog_loader import load_catalog
+        load_catalog()
+    except Exception as e:
+        log.warning("카탈로그 예열 스킵: %s", e)
     # 서버 시작 시 RAG 초기화. 경량 모드(RAG_LIGHT/클라우드)면 BM25 인메모리 색인,
     # 아니면 ChromaDB + sentence-transformers 임베딩 시딩. (저메모리 배포 OOM 방지)
     try:

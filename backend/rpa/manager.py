@@ -18,6 +18,10 @@ from typing import Optional
 
 # task_id → RPATask(실행 중) 또는 dict(완료) 저장소
 _rpa_tasks: dict = {}
+# 백그라운드 asyncio.Task 강한 참조 보관소. create_task 반환값을 버리면
+# 이벤트 루프가 약참조만 쥐고 있어 GC가 실행 중 RPA를 조용히 취소할 수 있다(문서화된 함정).
+# 완료 시 콜백으로 자동 제거.
+_bg_tasks: set = set()
 
 # ── 다중 사용자 안전 파라미터(환경변수로 조정) ──
 _MAX_CONCURRENT = max(1, int(os.getenv("RPA_MAX_CONCURRENT", "2")))   # 동시에 띄우는 브라우저 수
@@ -36,6 +40,14 @@ def _get_sem() -> asyncio.Semaphore:
     if _sem is None:
         _sem = asyncio.Semaphore(_MAX_CONCURRENT)
     return _sem
+
+
+def _spawn_bg(coro) -> asyncio.Task:
+    """백그라운드 태스크를 강한 참조로 붙들어 GC의 조용한 취소를 막고, 완료 시 자동 정리."""
+    task = asyncio.ensure_future(coro)
+    _bg_tasks.add(task)
+    task.add_done_callback(_bg_tasks.discard)
+    return task
 
 
 def can_accept() -> bool:
@@ -175,8 +187,7 @@ def start_apply_task(service_name: str, user_name: str, profile: dict) -> str:
         from rpa.apply_rpa import run_apply_rpa
         await run_apply_rpa(task, service_name, profile)
 
-    loop = asyncio.get_event_loop()
-    loop.create_task(_guarded_run(task, run_coro))
+    _spawn_bg(_guarded_run(task, run_coro))
     return task_id
 
 
@@ -202,6 +213,5 @@ def start_rpa_task(doc_name: str, user_name: str, user_info: dict = None) -> str
             from rpa.work24_rpa import run_work24_rpa
             await run_work24_rpa(task)
 
-    loop = asyncio.get_event_loop()
-    loop.create_task(_guarded_run(task, run_coro))
+    _spawn_bg(_guarded_run(task, run_coro))
     return task_id

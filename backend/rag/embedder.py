@@ -74,7 +74,9 @@ def search_policies(query: str, n_results: int = 5) -> list:
     """쿼리와 유사한 복지 정책 검색 (캐시 포함)"""
     cache_key = hashlib.md5(f"{query}:{n_results}".encode()).hexdigest()
     if cache_key in _search_cache:
-        return _search_cache[cache_key]
+        # 캐시된 리스트를 그대로 주면 호출부의 정렬·보강(내부 dict 수정)이 캐시를 오염시킨다.
+        # 얕은 사본(새 리스트 + 새 dict 껍데기)으로 반환해 캐시 원본을 보호.
+        return [dict(p) for p in _search_cache[cache_key]]
 
     collection = get_collection(COLLECTION_NAME)
     query_vector = _embed_fn([query])[0]
@@ -107,4 +109,4 @@ def search_policies(query: str, n_results: int = 5) -> list:
         oldest = next(iter(_search_cache))
         del _search_cache[oldest]
     _search_cache[cache_key] = policies
-    return policies
+    return [dict(p) for p in policies]  # 최초 호출자도 캐시 원본이 아닌 사본을 받게

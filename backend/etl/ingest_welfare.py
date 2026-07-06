@@ -440,7 +440,10 @@ def _first_list(obj):
     return []
 
 
-def _pick(d: dict, *keys) -> str:
+# 주의: CSV용 _pick(공백무시 퍼지매칭, 위쪽)과 이름이 겹치지 않게 별도 명명.
+# (동일 이름이면 모듈 로드 시 나중 정의가 CSV용을 섀도잉해 헤더 공백/BOM 매칭이 깨진다.)
+def _ypick(d: dict, *keys) -> str:
+    """JSON 응답용 값 선택 — 정확 키 조회, 빈값/'null'/'-'는 건너뜀."""
     for k in keys:
         v = d.get(k)
         if v not in (None, "", "null", "-"):
@@ -474,23 +477,23 @@ def ingest_youth(api_key: str, max_pages: int = 60, rows: int = 100) -> list[dic
             for it in items:
                 if not isinstance(it, dict):
                     continue
-                name = _pick(it, "plcyNm", "polyBizSjnm", "polyBizSjNm")
+                name = _ypick(it, "plcyNm", "polyBizSjnm", "polyBizSjNm")
                 if not name:
                     continue
-                explain = _pick(it, "plcyExplnCn", "polyItcnCn")
-                support = _pick(it, "plcySprtCn", "sporCn")
-                amin, amax = _pick(it, "sprtTrgtMinAge"), _pick(it, "sprtTrgtMaxAge")
-                age = f"만 {amin}~{amax}세" if (amin or amax) else _pick(it, "ageInfo")
-                target = _pick(it, "sprtTrgtDtlCn", "empmSttsCn", "majrRqisCn")
-                apply_url = _pick(it, "aplyUrlAddr", "rqutUrla", "refUrlAddr1")
-                apply_how = _pick(it, "plcyAplyMthdCn", "rqutProcCn")
-                dept = _pick(it, "sprvsnInstCdNm", "rgtrInstCdNm", "cnsgNmor")
-                pno = _pick(it, "plcyNo", "bizId")
+                explain = _ypick(it, "plcyExplnCn", "polyItcnCn")
+                support = _ypick(it, "plcySprtCn", "sporCn")
+                amin, amax = _ypick(it, "sprtTrgtMinAge"), _ypick(it, "sprtTrgtMaxAge")
+                age = f"만 {amin}~{amax}세" if (amin or amax) else _ypick(it, "ageInfo")
+                target = _ypick(it, "sprtTrgtDtlCn", "empmSttsCn", "majrRqisCn")
+                apply_url = _ypick(it, "aplyUrlAddr", "rqutUrla", "refUrlAddr1")
+                apply_how = _ypick(it, "plcyAplyMthdCn", "rqutProcCn")
+                dept = _ypick(it, "sprvsnInstCdNm", "rgtrInstCdNm", "cnsgNmor")
+                pno = _ypick(it, "plcyNo", "bizId")
                 out.append(make_policy(
                     sid=f"YTH{pno}" if pno else "",
                     name=name, summary=explain,
                     target=f"{age} {target}".strip(),
-                    eligibility=_pick(it, "addAplyQlfcCndCn") or target or explain,
+                    eligibility=_ypick(it, "addAplyQlfcCndCn") or target or explain,
                     benefit=support or explain,
                     application=apply_how or apply_url,
                     department=dept or "온통청년(한국고용정보원)",
