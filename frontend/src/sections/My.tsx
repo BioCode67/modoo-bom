@@ -87,6 +87,11 @@ export function My() {
           <SummaryCard icon={<Wallet className="h-5 w-5" />} value={totalMonthly > 0 ? formatWon(totalMonthly) : '-'} sub={totalMonthly > 0 ? `연 최대 ${formatWon(totalMonthly * 12)}` : undefined} label="월 최대 현금지원" highlight />
           <SummaryCard icon={<span className="text-lg">📮</span>} value={`${applied}개`} label="신청 진행" />
         </div>
+        {totalMonthly > 0 && (
+          <p className="mt-2 text-[11px] text-muted-foreground">
+            ※ ‘월 최대 현금지원’은 담은 복지 중 <b>현금으로 받는 지원</b>만 더한 <b>이론상 최대치</b>예요. 중복으로 받을 수 없는 경우·가구원수·실제 자격에 따라 받는 금액은 달라질 수 있어요.
+          </p>
+        )}
       </motion.div>
 
       {/* ② 신청 — 담은 복지 목록(각 카드에서 상태·서류·다음 할 일 관리) */}

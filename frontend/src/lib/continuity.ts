@@ -66,7 +66,7 @@ export function diffProfiles(prev: UserProfile, curr: UserProfile): ProfileChang
   if (prev.household_type !== curr.household_type && curr.household_type)
     out.push({ label: '가구유형', from: prev.household_type || '-', to: curr.household_type, kind: 'change' })
   if (prev.employment_status !== curr.employment_status)
-    out.push({ label: '고용상태', from: EMP[prev.employment_status] || prev.employment_status || '-', to: EMP[curr.employment_status] || curr.employment_status, kind: 'change' })
+    out.push({ label: '고용상태', from: EMP[prev.employment_status] || prev.employment_status || '-', to: EMP[curr.employment_status] || curr.employment_status || '-', kind: 'change' })
   if (prev.is_pregnant !== curr.is_pregnant)
     out.push({ label: '임신', from: prev.is_pregnant ? '있음' : '없음', to: curr.is_pregnant ? '있음' : '없음', kind: 'change' })
   if (prev.has_children !== curr.has_children || (prev.children_ages || []).join(',') !== (curr.children_ages || []).join(','))

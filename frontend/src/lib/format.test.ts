@@ -83,3 +83,17 @@ describe('categoryMeta', () => {
     expect(categoryMeta('').emoji).toBe('🌼')
   })
 })
+
+describe('isCashBenefit 감사 수정 회귀 — 현물·자산형성 과장 방지(2026-07)', () => {
+  it('현물(꾸러미·농산물)은 현금성 아님', () => {
+    expect(isCashBenefit('월 48,000원 상당 친환경 농산물 꾸러미')).toBe(false)
+    expect(isCashBenefit('분유·기저귀 지원', '영아 물품 지원')).toBe(false)
+  })
+  it('자산형성(적금·저축계좌·기여금)은 매월 가처분 현금 아님 → 제외', () => {
+    expect(isCashBenefit('정부기여금 월 6만원', '청년미래적금')).toBe(false)
+    expect(isCashBenefit('월 10만원 저축 시 매칭', '청년내일저축계좌')).toBe(false)
+  })
+  it('진짜 현금 지원은 그대로 현금성', () => {
+    expect(isCashBenefit('월 30만원 현금 지급', '기초연금')).toBe(true)
+  })
+})

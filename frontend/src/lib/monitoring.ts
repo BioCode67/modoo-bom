@@ -50,7 +50,8 @@ export function monitorItem(item: TrackedItem, policy: Policy | undefined, globa
   const docMissing = required.filter((d) => !prepared(d))
   const daysApplied = item.status === 'applied' || item.status === 'done' ? daysSince(item.appliedAt) : null
   const sinceChecked = daysSince(item.lastChecked)
-  const reCheckDue = item.status === 'applied' && (sinceChecked === null || sinceChecked >= 7)
+  // 신청 직후 당일부터 '점검할 때'라고 재촉하지 않도록 — 신청 후 최소 7일 지난 뒤 첫 재점검을 권한다(심사 보통 2~4주).
+  const reCheckDue = item.status === 'applied' && (daysApplied ?? 0) >= 7 && (sinceChecked === null || sinceChecked >= 7)
 
   const alerts: Alert[] = []
   let nextAction = ''

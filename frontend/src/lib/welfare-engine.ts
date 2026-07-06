@@ -200,7 +200,9 @@ function checkPolicyDoc(doc: string, name: string, p: UserProfile): CheckResult 
 
   // ── 장애인 계열 ──
   if (doc.includes('중증장애인')) {
-    if (p.disability && ['1급', '2급', '1', '2'].includes(p.disability_grade))
+    // 지적·자폐성 장애는 한국 법상 항상 '심한 장애(중증)'로 등록되므로 중증에 포함(1·2급만 보면 발달장애인이 오배제됨).
+    const severe = p.disability && (['1급', '2급', '1', '2', '지적', '자폐'].some((g) => (p.disability_grade || '').includes(g)) || /중증|심한/.test(p.disability_grade || ''))
+    if (severe)
       return { eligible: true, reason: `등록 중증장애인(${p.disability_grade}) 조건 충족`, priority: 'high', confidence: 0.93 }
     return NO
   }
@@ -228,8 +230,15 @@ function checkPolicyDoc(doc: string, name: string, p: UserProfile): CheckResult 
       return { eligible: true, reason: '영아(만 0~1세) 자녀 보유', priority: 'high', confidence: 0.96 }
     return NO
   }
-  if (anyIn(doc, ['만 0~5세', '만 0~2세', '만 24개월'])) {
+  // 영유아 좁은 구간(만 0~2세)만 a<3으로. '만 0~5세'와 한 그룹으로 두면 만 3~5세가 오배제됨(보육료 등).
+  if (anyIn(doc, ['만 0~2세', '만 24개월'])) {
     if (p.has_children && (p.children_ages || []).some((a) => a < 3))
+      return { eligible: true, reason: '영유아(만 0~2세) 자녀 보유', priority: 'high', confidence: 0.96 }
+    return NO
+  }
+  // 만 0~5세(취학 전) — 보육료·유아학비 등. 만 3~5세도 포함해야 하므로 a<6.
+  if (doc.includes('만 0~5세')) {
+    if (p.has_children && (p.children_ages || []).some((a) => a < 6))
       return { eligible: true, reason: '영유아(만 0~5세) 자녀 보유', priority: 'high', confidence: 0.96 }
     return NO
   }
@@ -348,9 +357,15 @@ function checkPolicyDoc(doc: string, name: string, p: UserProfile): CheckResult 
     return { eligible: true, reason: '소득 무관 전국민 지원 서비스', priority: 'medium', confidence: 0.8 }
   }
 
-  // ── 연령 무관 일반 지원 ──
-  if (anyIn(doc, ['만 15~69세', '만 15세 이상'])) {
+  // ── 연령 상·하한 있는 일반 지원(만 15~69세) ──
+  if (doc.includes('만 15~69세')) {
     if (p.age >= 15 && p.age <= 69)
+      return { eligible: true, reason: `만 ${p.age}세로 연령 기준 충족`, priority: 'low', confidence: 0.72 }
+    return NO
+  }
+  // ── 상한 없는 '만 15세 이상' — 69세 상한을 붙이면 70세 이상이 오배제됨(국민내일배움카드 등) ──
+  if (doc.includes('만 15세 이상')) {
+    if (p.age >= 15)
       return { eligible: true, reason: `만 ${p.age}세로 연령 기준 충족`, priority: 'low', confidence: 0.72 }
     return NO
   }

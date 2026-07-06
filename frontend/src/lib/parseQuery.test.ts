@@ -172,3 +172,21 @@ describe('취약계층 대상군(사각지대) 신호', () => {
     expect(ev).not.toContain('북한이탈')
   })
 })
+
+describe('감사 수정 회귀 — 오분류 방지(2026-07)', () => {
+  it('해외 여행/출장 표현을 다문화가족으로 오분류하지 않음', () => {
+    expect(parseProfileFromText('일본 다녀왔어요').household_type).not.toBe('다문화가족')
+    expect(parseProfileFromText('중국 여행 갔다 왔어요').household_type).not.toBe('다문화가족')
+    // 진짜 이주·혼인 맥락은 그대로 다문화로
+    expect(parseProfileFromText('베트남에서 시집왔어요').household_type).toBe('다문화가족')
+    expect(parseProfileFromText('필리핀 출신이에요').household_type).toBe('다문화가족')
+  })
+  it("소득 부정문('적지 않다')을 저소득으로 오분류하지 않음", () => {
+    expect(parseProfileFromText('소득이 적지 않아요').income_percentile).not.toBe(40)
+    expect(parseProfileFromText('벌이가 부족하지 않아요').income_percentile).not.toBe(40)
+    // 긍정형 저소득은 그대로
+    expect(parseProfileFromText('소득이 적어요').income_percentile).toBe(40)
+    // '넉넉하지 않다'는 여전히 저소득(부정의 부정 아님)
+    expect(parseProfileFromText('소득이 넉넉하지 않아요').income_percentile).toBe(40)
+  })
+})

@@ -380,3 +380,25 @@ describe('disabilityLabel — 현행 장애 체계 표시(2019 등급제 폐지)
     expect(disabilityLabel('기타')).toBe('기타')
   })
 })
+
+describe('감사 수정 회귀 — 자격자 오배제 방지(2026-07)', () => {
+  const mk = (eligibility: string, name = '테스트'): Policy => ({
+    id: 'T', name, category: '기타', target: eligibility, benefit: '',
+    eligibility, required_docs: [], application: '', department: '', renewal: '',
+  })
+  it("'만 0~5세' 정책은 만 3~5세 자녀도 포함(a<6) — 보육료 오배제 방지", () => {
+    const p4 = { ...base, has_children: true, children_ages: [4] }
+    expect(checkPolicy(mk('만 0~5세 취학 전 자녀', '보육료 지원'), p4).eligible).toBe(true)
+    // '만 0~2세' 전용은 4세 제외(broaden 과잉 아님)
+    expect(checkPolicy(mk('만 0~2세', '둘째 돌봄'), p4).eligible).toBe(false)
+  })
+  it('중증장애인 정책은 지적·자폐(법상 항상 중증)도 포함, 경증(4급)은 제외', () => {
+    expect(checkPolicy(mk('중증장애인 대상', '장애인연금'), { ...base, disability: true, disability_grade: '지적' }).eligible).toBe(true)
+    expect(checkPolicy(mk('중증장애인 대상', '장애인연금'), { ...base, disability: true, disability_grade: '자폐' }).eligible).toBe(true)
+    expect(checkPolicy(mk('중증장애인 대상', '장애인연금'), { ...base, disability: true, disability_grade: '4급' }).eligible).toBe(false)
+  })
+  it("'만 15세 이상'(상한 없음)은 70세 이상도 포함, '만 15~69세'는 72세 제외", () => {
+    expect(checkPolicy(mk('만 15세 이상 국민', '국민내일배움카드'), { ...base, age: 72 }).eligible).toBe(true)
+    expect(checkPolicy(mk('만 15~69세', '일반 훈련'), { ...base, age: 72 }).eligible).toBe(false)
+  })
+})

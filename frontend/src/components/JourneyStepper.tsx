@@ -52,7 +52,8 @@ export function JourneyStepper({ context = 'my' }: { context?: 'my' | 'result' }
   const go = (stage: JourneyStage) => {
     if (stage === 'find') { setView('analyze'); return }
     if (isResult) { setView('my'); return } // 결과 화면엔 서류·목록 섹션이 없으니 나의 복지로 이어준다
-    const anchor = META[stage].anchor
+    // 서류가 필요 없으면 '서류' 노드는 빈 섹션이라 목록(신청)으로 보낸다 — 빈 곳 스크롤 데드엔드 방지
+    const anchor = stage === 'docs' && !needsDocs ? META.apply.anchor : META[stage].anchor
     if (anchor) scrollToAnchor(anchor)
   }
   const goNext = () => (isResult ? setView('my') : go(j.current))

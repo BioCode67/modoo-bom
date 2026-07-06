@@ -9,7 +9,7 @@ import { isUiLang } from '@/lib/i18nLite'
 import { benefitTypeOf, BENEFIT_TYPE_META, type BenefitType } from '@/lib/benefitType'
 import { useAppStore } from '@/store/useAppStore'
 import { IncomeCalculator } from '@/components/IncomeCalculator'
-import { parseMonthly } from '@/lib/format'
+import { parseMonthly, isCashBenefit } from '@/lib/format'
 import { buildAiAnswer } from '@/lib/aiAnswer'
 import { queryConcepts, relevance } from '@/lib/search'
 import { cn } from '@/lib/utils'
@@ -28,7 +28,7 @@ const BUCKETS: { key: string; label: string; emoji: string; match?: string[]; te
   { key: 'child', label: '아동·육아', emoji: '👶', match: ['아동', '영유아', '보육'] },
   { key: 'youth', label: '청년', emoji: '🧑', match: ['청년'] },
   { key: 'disabled', label: '장애인', emoji: '♿', match: ['장애'] },
-  { key: 'birth', label: '임신·출산', emoji: '🤰', match: ['임신', '출산', '모'] },
+  { key: 'birth', label: '임신·출산', emoji: '🤰', match: ['임신', '출산', '산모', '모성', '임산부'] },
   { key: 'lowincome', label: '저소득', emoji: '🤝', match: ['저소득', '생계', '기초'] },
   // 🏠 주거 — 카테고리 '주거' + 정책명의 행복주택·임대주택 등을 함께 모은다(공고가 이름에만 있는 경우 대응)
   { key: 'house', label: '주거·주택', emoji: '🏠', test: (p) => p.category.includes('주거') || /행복주택|임대주택|전세임대|매입임대|청년주택|공공임대|국민임대|주거급여|월세\s*지원|전세\s*지원|주택\s*공고/.test(`${p.name} ${p.benefit}`) },
@@ -191,7 +191,7 @@ export function Explore() {
         const g = guOf(p.target)
         if (g && g !== gungu) return false
       }
-      if (onlyCash && parseMonthly(p.benefit) <= 0) return false
+      if (onlyCash && !isCashBenefit(p.benefit, `${p.name} ${p.category}`)) return false
       if (benefitType && benefitTypeOf(p) !== benefitType) return false
       return true
     }

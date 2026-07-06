@@ -7,7 +7,7 @@ import type { Policy } from '@/data/policies'
 import { getCatalog } from '@/data/catalog'
 import type { EligiblePolicy } from '@/lib/welfare-engine'
 import { generateGuides, matchFacts } from '@/lib/welfare-engine'
-import { categoryMeta, parseMonthly, formatWon, PRIORITY_META } from '@/lib/format'
+import { categoryMeta, parseMonthly, formatWon, isCashBenefit, PRIORITY_META } from '@/lib/format'
 import { deadlineHint } from '@/lib/deadline'
 import { docLink, applyLink, isApplyAutomatable } from '@/lib/officialLinks'
 import { trustInfo } from '@/lib/trust'
@@ -129,7 +129,8 @@ function DrawerBody({
   }
 }) {
   const meta = categoryMeta(policy.category)
-  const monthly = parseMonthly(policy.benefit)
+  // 현금성만 '월 N까지'로 강조 — 바우처·감면·현물·자산형성을 매월 받는 현금처럼 과장하지 않게(카드와 동일 기준)
+  const monthly = isCashBenefit(policy.benefit, `${policy.name} ${policy.category}`) ? parseMonthly(policy.benefit) : 0
   const saved = ctx.isSaved(policy.id)
   const guide = generateGuides([toEligible(policy)])[0]
   const eligible = 'priority' in policy ? (policy as EligiblePolicy) : null

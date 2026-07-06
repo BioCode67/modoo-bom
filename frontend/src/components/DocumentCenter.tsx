@@ -275,8 +275,10 @@ export function DocumentCenter() {
                   )}
                   {stale && (
                     <p className="text-[11px] text-amber-700 mt-0.5">
-                      진행이 잠시 멈춘 듯해요 — 확장이 연 <b>정부 사이트 탭</b>을 확인해 주세요(본인인증 등 직접 눌러야 하는 단계일 수 있어요).
-                      안 되면 <a href={link.url} target="_blank" rel="noopener noreferrer" className="underline font-semibold">공식 사이트에서 직접 발급</a>하세요.
+                      {ext
+                        ? <>진행이 잠시 멈춘 듯해요 — 확장이 연 <b>정부 사이트 탭</b>을 확인해 주세요(본인인증 등 직접 눌러야 하는 단계일 수 있어요). 안 되면 </>
+                        : <>자동발급이 지연되고 있어요. 안 되면 </>}
+                      <a href={link.url} target="_blank" rel="noopener noreferrer" className="underline font-semibold">공식 사이트에서 직접 발급</a>하세요.
                     </p>
                   )}
                   </>

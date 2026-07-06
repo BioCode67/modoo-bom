@@ -113,7 +113,8 @@ export async function semanticSearch(
     const pv = _vecs![i]
     let s = 0
     for (let j = 0; j < pv.length; j++) s += qv[j] * pv[j] // 정규화 벡터 → dot=코사인
-    if (_ids[i].charCodeAt(0) === 80 /* 'P' (POL-) */) s += SEED_BOOST
+    // ⚠️ 'P'로 시작하는 id엔 민간재단(PRV-)도 있으므로 POL-만 부스트 — 심사·선발형(PRV)을 랭킹에서 밀어올리지 않음(정직성)
+    if (_ids[i].startsWith('POL-')) s += SEED_BOOST
     scored.push({ id: _ids[i], score: s })
   }
   scored.sort((a, b) => b.score - a.score)

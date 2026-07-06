@@ -10,7 +10,7 @@ import { predictTimeline } from '@/lib/lifeAgent'
 import { SproutLogo } from '@/ui/SproutLogo'
 
 const KIND_META: Record<string, { icon: typeof AlarmClock; word: string }> = {
-  submit: { icon: AlarmClock, word: '신청 마감' },
+  submit: { icon: AlarmClock, word: '신청하기' }, // 마감일을 계산하지 않으므로 '신청 마감'은 과장 — 신청 권유 의미로
   docs: { icon: FileText, word: '서류 준비' },
   recheck: { icon: RefreshCw, word: '진행 점검' },
   renew: { icon: RefreshCw, word: '갱신 시기' },
