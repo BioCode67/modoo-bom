@@ -122,10 +122,28 @@ async def _get_simplecert_frame(page, timeout_sec: int = 12):
     return None
 
 
+async def _request_auth(ctx) -> bool:
+    """자동입력이 끝난 뒤 '인증 요청'까지 자동으로 누른다 — 사용자는 폰에서 [인증 허용]만.
+    ⚠️ 이 버튼은 사용자 폰으로 인증 푸시를 보낼 뿐, 실제 본인인증 승인은 여전히 사용자가 폰에서 한다
+    (법적 본인확인 단계는 자동화하지 않음). Playwright 클릭은 신뢰된 이벤트라 iframe 안에서도 동작."""
+    for sel in [
+        "#oacx_apply", "button:has-text('인증 요청')", "button:has-text('인증요청')",
+        "a:has-text('인증 요청')", "a:has-text('인증요청')", ".btn-certification", "button.btn_confirm",
+    ]:
+        try:
+            el = ctx.locator(sel).first
+            if await el.count() > 0:
+                await el.click()
+                return True
+        except Exception:
+            continue
+    return False
+
+
 async def _autofill_auth_form(ctx, user_info: dict) -> bool:
     """간편인증 본인인증 폼(iframe oacx 위젯)에 이름·생년월일·휴대폰을 자동 입력하고 전체동의 체크.
     사용자가 정보를 제공한 경우에만 동작하며, 실패해도 조용히 넘어간다(사용자가 직접 입력하면 됨).
-    ※ '인증 요청' 클릭·카카오 승인은 본인이 직접(비가역 본인인증 원칙)."""
+    ※ '인증 요청'은 _request_auth로 자동 클릭. 카카오 승인(폰)은 본인이 직접(비가역 본인인증 원칙)."""
     if not user_info:
         return False
     name = str(user_info.get("user_name") or user_info.get("name") or "").strip()
@@ -193,17 +211,21 @@ async def _login_on_www_gov(page, task, user_info: dict = None) -> bool:
     # ④ 본인인증 정보 입력 폼 감지 및 안내 (iframe 컨텍스트에서 감지)
     form_detected = await detect_auth_form(auth_ctx)
 
-    # 정보가 있으면 이름·생년월일·휴대폰 자동 입력 → 사용자는 '인증 요청' + 폰 승인만
+    # 정보가 있으면 이름·생년월일·휴대폰 자동 입력 + '인증 요청'까지 자동 → 사용자는 폰 승인만
     autofilled = await _autofill_auth_form(auth_ctx, user_info)
+    requested = False
     if autofilled:
+        await asyncio.sleep(0.6)
+        requested = await _request_auth(auth_ctx)  # 인증 요청 자동 클릭(폰 승인만 남김)
         await asyncio.sleep(0.5)
         ss = await take_screenshot(page)
 
     if autofilled:
         task.update(
             "waiting_login",
-            "✅ 이름·생년월일·휴대폰을 자동 입력했어요.\n"
-            "화면에서 '인증 요청'을 누르면, 📱 카카오톡 알림에서 [인증 허용]만 하시면 됩니다.",
+            ("✅ 정보 자동입력 + '인증 요청'까지 완료했어요.\n📱 카카오톡 알림에서 [인증 허용]만 누르시면 됩니다."
+             if requested else
+             "✅ 이름·생년월일·휴대폰을 자동 입력했어요.\n화면에서 '인증 요청'을 누르면, 📱 카카오톡 알림에서 [인증 허용]만 하시면 됩니다."),
             ss,
         )
     elif kakaotalk_clicked and form_detected:
