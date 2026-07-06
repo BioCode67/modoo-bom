@@ -99,7 +99,7 @@ export function ChatWidget() {
     }
     // 하이브리드: 행동·개인화 의도는 로컬 에이전트(정확·즉시), 지식 질문은 진짜 LLM(백엔드 시) — 실패하면 규칙 폴백
     if (aiChat && !isLocalIntent(q)) {
-      setMsgs((m) => [...m, { role: 'bot', text: '🧠 AI가 답변을 만들고 있어요…', pending: true }])
+      setMsgs((m) => [...m, { role: 'bot', text: '관련 복지를 찾아보고 있어요…', pending: true }])
       askCloud(q).then((res) => {
         setMsgs((m) => m.filter((x) => !x.pending))
         if (res && res.answer) {
@@ -187,7 +187,7 @@ export function ChatWidget() {
               <SproutLogo withFace className="h-8 w-8 bg-white/20 rounded-full p-0.5" />
               <div>
                 <p className="font-bold leading-tight">복지 도우미</p>
-                <p className="text-[11px] text-white/80">{aiChat ? '실시간 AI(Claude) 연결됨 · 행동은 기기 안에서' : profile ? `${profile.name || '회원'}님 맞춤 · 담기까지 도와드려요` : '무엇이든 물어보세요'}</p>
+                <p className="text-[11px] text-white/80">{aiChat ? '물어보면 바로 찾아드려요 · 내 정보는 기기 안에서' : profile ? `${profile.name || '회원'}님 맞춤 · 담기까지 도와드려요` : '무엇이든 물어보세요'}</p>
               </div>
             </div>
 
@@ -198,7 +198,7 @@ export function ChatWidget() {
                     {m.text}
                   </div>
                   {m.role === 'bot' && m.ai && (
-                    <span className="text-[10px] text-sky2-600 font-semibold -mt-0.5">🧠 실시간 AI(Claude) 답변</span>
+                    <span className="text-[10px] text-sky2-600 font-semibold -mt-0.5">🌱 복지를 찾아 정리한 답변이에요</span>
                   )}
                   {m.role === 'bot' && (!!m.policies?.length || m.cta) && (
                     <div className="flex flex-wrap gap-1.5 max-w-[95%]">
