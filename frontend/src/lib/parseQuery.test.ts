@@ -138,3 +138,27 @@ describe('파악 보강(2026-07 자연어 신호 확장)', () => {
     expect(p.life_events).not.toContain('질병')
   })
 })
+
+describe('취약계층 대상군(사각지대) 신호', () => {
+  it('북한이탈주민·탈북·새터민 → 북한이탈 신호', () => {
+    expect(parseProfileFromText('북한이탈주민입니다').life_events).toContain('북한이탈')
+    expect(parseProfileFromText('탈북해서 왔어요').life_events).toContain('북한이탈')
+  })
+  it('국가유공자·보훈 → 보훈 신호', () => {
+    expect(parseProfileFromText('국가유공자입니다').life_events).toContain('보훈')
+    expect(parseProfileFromText('보훈 대상자예요').life_events).toContain('보훈')
+  })
+  it('자립준비청년·보호종료 → 자립준비 신호 + 나이 보정', () => {
+    const p = parseProfileFromText('보호종료아동이에요')
+    expect(p.life_events).toContain('자립준비')
+    expect(p.age).toBeLessThanOrEqual(24) // 기본값 30 대신 자립준비 연령대로 보정
+  })
+  it('가정폭력·성폭력 피해 → 가정폭력 신호', () => {
+    expect(parseProfileFromText('가정폭력 피해자예요').life_events).toContain('가정폭력')
+  })
+  it('일반 문장은 대상군 신호를 넣지 않음', () => {
+    const ev = parseProfileFromText('30대 직장인이에요').life_events
+    expect(ev).not.toContain('보훈')
+    expect(ev).not.toContain('북한이탈')
+  })
+})

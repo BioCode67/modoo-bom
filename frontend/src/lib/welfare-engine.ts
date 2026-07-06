@@ -479,6 +479,11 @@ const TEXT_SIGNALS: { id: string; match: (p: UserProfile) => boolean; kw: RegExp
   { id: 'single', match: (p) => /한부모|조손/.test(p.household_type), kw: /한부모|모자|부자가정|조손/, reason: '한부모·조손 가구' },
   { id: 'jobless', match: (p) => p.employment_status === 'unemployed', kw: /실업|실직|구직|일자리|재취업|고용/, reason: '구직 중' },
   { id: 'multi', match: (p) => p.household_type.includes('다문화'), kw: /다문화|결혼이민|외국인주민|북한이탈/, reason: '다문화 가구' },
+  // 상태 기반 대상군(사각지대) — 프로필 필드가 없어 life_events 신호로 매칭. 자격 단정 없이 '관련 복지'(저신뢰)로만.
+  { id: 'defector', match: (p) => (p.life_events || []).includes('북한이탈'), kw: /북한이탈|탈북|새터민/, reason: '북한이탈주민 대상' },
+  { id: 'veteran', match: (p) => (p.life_events || []).includes('보훈'), kw: /국가유공|보훈|유공자|참전|고엽제|독립유공|상이군경/, reason: '국가유공·보훈 대상' },
+  { id: 'aftercare', match: (p) => (p.life_events || []).includes('자립준비'), kw: /자립준비|보호종료|자립수당|자립정착|자립지원/, reason: '자립준비청년 대상' },
+  { id: 'dv', match: (p) => (p.life_events || []).includes('가정폭력'), kw: /가정폭력|성폭력|폭력피해|보호시설|여성긴급|피해자\s*보호/, reason: '폭력 피해 지원' },
 ]
 
 function inferFromText(policy: Policy, p: UserProfile): CheckResult | null {
@@ -556,6 +561,12 @@ export function situationRelevance(policy: Policy, p: UserProfile): number {
   if (p.employment_status === 'unemployed' && /실업|구직|취업|재취업|일자리|자활/.test(t)) s += 3
   if (p.income_percentile <= 32 && /생계|긴급|기초생활|의료급여/.test(t)) s += 3   // 생존 욕구 우선
   else if (p.income_percentile <= 50 && /저소득|차상위|주거급여|교육급여|바우처/.test(t)) s += 2
+  // 상태 기반 대상군(사각지대) — 본인 자격군 전용 정책을 일반 청년·저소득 정책보다 위로(가장 정확한 매칭)
+  const ev = p.life_events || []
+  if (ev.includes('북한이탈') && /북한이탈|탈북|새터민/.test(t)) s += 5
+  if (ev.includes('보훈') && /국가유공|보훈|유공자|참전|고엽제|상이군경/.test(t)) s += 5
+  if (ev.includes('자립준비') && /자립준비|보호종료|자립수당|자립정착/.test(t)) s += 5
+  if (ev.includes('가정폭력') && /가정폭력|성폭력|폭력피해|여성긴급|보호시설/.test(t)) s += 5
   return s
 }
 

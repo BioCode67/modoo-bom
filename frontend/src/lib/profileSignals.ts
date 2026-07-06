@@ -29,6 +29,11 @@ export function profileSignals(profile: UserProfile): string[] {
   // 생애 이벤트 중 앞선 신호와 안 겹치는 것만(질병은 별도 신호가 없어 추가 가치가 큼)
   const ev = profile.life_events || []
   if (ev.includes('질병')) s.push('질병·의료비')
+  // 상태 기반 대상군(사각지대) — 파악한 자격군을 명시해 '관련 복지'의 근거를 투명하게
+  if (ev.includes('북한이탈')) s.push('북한이탈주민')
+  if (ev.includes('보훈')) s.push('국가유공·보훈')
+  if (ev.includes('자립준비')) s.push('자립준비청년')
+  if (ev.includes('가정폭력')) s.push('폭력 피해 지원')
 
   return [...new Set(s)]
 }
