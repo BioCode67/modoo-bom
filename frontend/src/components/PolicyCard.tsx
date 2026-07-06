@@ -86,7 +86,7 @@ export function PolicyCard({
       <p className="mt-3 text-xs text-muted-foreground line-clamp-2 leading-relaxed">{targetText}</p>
 
       {eligible && (policy as EligiblePolicy).reason && (
-        <div className="mt-2 rounded-xl bg-sprout-50 px-3 py-2 text-xs text-sprout-700 line-clamp-2">
+        <div className="mt-2 rounded-xl bg-sprout-50 px-3 py-2 text-xs text-sprout-800 line-clamp-2">
           ✓ {(policy as EligiblePolicy).reason}
         </div>
       )}

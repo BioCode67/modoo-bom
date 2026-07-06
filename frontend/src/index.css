@@ -122,9 +122,9 @@
   .chip-sun    { @apply chip bg-sun-100 text-yellow-700; }
 
   /* 우선순위 배지 */
-  .priority-high   { @apply text-rose-600 bg-rose-50 border border-rose-200; }
-  .priority-medium { @apply text-amber-600 bg-amber-50 border border-amber-200; }
-  .priority-low    { @apply text-sprout-600 bg-sprout-50 border border-sprout-200; }
+  .priority-high   { @apply text-rose-700 bg-rose-50 border border-rose-200; }
+  .priority-medium { @apply text-amber-700 bg-amber-50 border border-amber-200; }
+  .priority-low    { @apply text-sprout-700 bg-sprout-50 border border-sprout-200; }
 
   .page-container { @apply max-w-6xl mx-auto px-4 sm:px-6 lg:px-8; }
   .section-pad { @apply py-16 sm:py-24; }
