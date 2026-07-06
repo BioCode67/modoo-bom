@@ -112,6 +112,12 @@ async def websocket_endpoint(ws: WebSocket):
     if await reject_bad_origin(ws):
         return
     await ws.accept()
+    # 남용 방지: IP별 연결 개설 레이트리밋(analyze는 1연결=1분석이라 연결 제한으로 충분).
+    from api.ws_rate_limit import allow_connection
+    if not allow_connection(ws):
+        await _send(ws, "error", {"message": "요청이 너무 많아요. 잠시 후 다시 시도해 주세요."})
+        await ws.close(code=1013)  # try again later
+        return
     try:
         raw = await ws.receive_text()
         data = json.loads(raw)

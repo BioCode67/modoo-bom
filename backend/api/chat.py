@@ -112,6 +112,13 @@ async def chat_websocket_endpoint(ws: WebSocket):
     if await reject_bad_origin(ws):
         return
     await ws.accept()
+    # 남용 방지: IP별 연결 개설 레이트리밋(무제한 LLM 호출 방지).
+    from api.ws_rate_limit import allow_connection, allow_message
+    if not allow_connection(ws):
+        await ws.send_text(json.dumps(
+            {"type": "error", "message": "요청이 너무 많아요. 잠시 후 다시 시도해 주세요."}, ensure_ascii=False))
+        await ws.close(code=1013)
+        return
     try:
         while True:
             raw = await ws.receive_text()
@@ -132,6 +139,12 @@ async def chat_websocket_endpoint(ws: WebSocket):
 
             question = str(data.get("question", "")).strip()
             if not question:
+                continue
+
+            # 남용 방지: IP별 메시지(LLM 호출) 레이트리밋 — 초과 시 처리 없이 안내 후 다음 대기.
+            if not allow_message(ws):
+                await ws.send_text(json.dumps(
+                    {"type": "error", "message": "질문이 너무 많아요. 잠시 후 다시 시도해 주세요."}, ensure_ascii=False))
                 continue
 
             # 검색 중 표시
