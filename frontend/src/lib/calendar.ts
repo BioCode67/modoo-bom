@@ -73,6 +73,27 @@ function icsStampUTC(ms: number): string {
   return `${d.getUTCFullYear()}${p(d.getUTCMonth() + 1)}${p(d.getUTCDate())}T${p(d.getUTCHours())}${p(d.getUTCMinutes())}${p(d.getUTCSeconds())}Z`
 }
 
+// RFC 5545: 콘텐츠 라인이 75 옥텟(UTF-8 바이트) 초과 시 CRLF+공백으로 접는다.
+// 한글은 3바이트/자라 '필요 서류: …' 같은 긴 note가 한도를 쉽게 넘어 엄격한 파서가 거부/절단할 수 있다.
+// 멀티바이트 문자 경계를 넘어 자르지 않도록 후퇴한다.
+export function foldICS(line: string): string {
+  const enc = new TextEncoder()
+  const bytes = enc.encode(line)
+  if (bytes.length <= 75) return line
+  const dec = new TextDecoder()
+  const parts: string[] = []
+  let start = 0
+  let limit = 75
+  while (start < bytes.length) {
+    let end = Math.min(start + limit, bytes.length)
+    while (end < bytes.length && (bytes[end] & 0xc0) === 0x80) end-- // UTF-8 연속바이트 경계 보존
+    parts.push(dec.decode(bytes.slice(start, end)))
+    start = end
+    limit = 74 // 접힌 줄은 선두 공백 1칸 포함 → 콘텐츠는 74옥텟까지
+  }
+  return parts.join('\r\n ')
+}
+
 /** 이벤트 목록을 .ics(아이캘린더) 문자열로 변환 */
 export function toICS(events: WelfareEvent[]): string {
   const stamp = icsStampUTC(Date.now())
@@ -93,7 +114,7 @@ export function toICS(events: WelfareEvent[]): string {
     )
   }
   lines.push('END:VCALENDAR')
-  return lines.join('\r\n')
+  return lines.map(foldICS).join('\r\n')
 }
 
 /** .ics 파일 다운로드 트리거 */

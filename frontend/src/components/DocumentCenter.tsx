@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { FileText, ExternalLink, Bot, Loader2, CheckCircle2, AlertCircle, Check, Undo2 } from 'lucide-react'
 import { getPolicyMap } from '@/data/catalog'
@@ -21,6 +21,9 @@ export function DocumentCenter() {
   const backend = localAgent || ext                  // 둘 중 하나면 자동발급 노출
   const [rpa, setRpa] = useState<Record<string, RpaState>>({})
   const [diagCopied, setDiagCopied] = useState(false)
+  // 언마운트 후 폴링이 계속 setState/fetch 하지 않도록 하는 가드('나의 복지'를 떠나면 중단)
+  const mountedRef = useRef(true)
+  useEffect(() => () => { mountedRef.current = false }, [])
 
   // 확장 감지 + 진행상태 구독(확장은 서류명별 status를 푸시)
   // ⚠️ 확장은 서류명을 정규화(resolveDoc)해 보내므로 퍼지매칭으로 기존 카드 키에 연결(불일치 시 '시작 중' 멈춤 방지)
@@ -62,6 +65,7 @@ export function DocumentCenter() {
   const docs = [...docNeeds.map(([d]) => d)].sort((a, b) => Number(isDocDone(a)) - Number(isDocDone(b)))
   const needText = (doc: string) => {
     const ns = docNeeds.find(([d]) => d === doc)?.[1] ?? []
+    if (ns.length === 0) return '' // 이름 없는 정책만 있을 때 'undefined에 필요' 렌더 방지
     return ns.length > 1 ? `${ns[0]} 외 ${ns.length - 1}곳에 필요` : `${ns[0]}에 필요`
   }
 
@@ -106,7 +110,9 @@ export function DocumentCenter() {
       const downloadToken = issued.download_token || ''  // 시작자에게만 반환되는 다운로드 인가 토큰
       for (let i = 0; i < 60; i++) {
         await new Promise((r) => setTimeout(r, 1500))
+        if (!mountedRef.current) return // 뷰를 떠나면 폴링 중단(언마운트 후 setState/fetch 방지)
         const st = await fetch(`${getRpaBase()}/api/documents/rpa-status/${task_id}`).then((r) => r.json())
+        if (!mountedRef.current) return
         // 발급 완료 시 result.saved_path가 있으면 문서를 사용자에게 돌려줄 수 있음(다운로드 버튼 노출)
         setRpa((s) => ({ ...s, [doc]: { status: st.status, step: st.current_step || '', at: s[doc]?.at, taskId: task_id, downloadToken, saved: !!(st.result && st.result.saved_path) } }))
         if (st.status === 'done' || st.status === 'error' || st.status === 'completed') break

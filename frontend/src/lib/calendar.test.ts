@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildEvents, toICS, futureEvents, formatEventDate } from './calendar'
+import { buildEvents, toICS, futureEvents, formatEventDate, foldICS } from './calendar'
 import type { Policy } from '@/data/policies'
 import type { TrackedItem } from '@/store/useAppStore'
 
@@ -99,5 +99,29 @@ describe('감사 수정 회귀 — 날짜 정확성', () => {
     const now = new Date()
     const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 9, 0).getTime()
     expect(formatEventDate(tomorrow)).toContain('내일')
+  })
+})
+
+describe('foldICS — RFC 5545 라인 폴딩(2026-07 감사)', () => {
+  const bytes = (s: string) => new TextEncoder().encode(s).length
+  it('75옥텟 이하는 그대로', () => {
+    expect(foldICS('SUMMARY:짧은 제목')).toBe('SUMMARY:짧은 제목')
+  })
+  it('긴 한글 라인은 CRLF+공백으로 접고, 각 물리라인은 75옥텟 이하', () => {
+    const long = 'DESCRIPTION:' + '가나다라마바사아자차카타파하'.repeat(8) // 한글 3바이트 → 300+옥텟
+    const folded = foldICS(long)
+    expect(folded).toContain('\r\n ')
+    for (const phys of folded.split('\r\n')) expect(bytes(phys)).toBeLessThanOrEqual(75)
+  })
+  it('접힌 줄을 이으면 원본과 동일(멀티바이트 손상 없음)', () => {
+    const long = 'DESCRIPTION:' + '한글테스트'.repeat(20)
+    const rejoined = foldICS(long).split('\r\n ').join('')
+    expect(rejoined).toBe(long)
+  })
+  it('toICS 전체 출력의 모든 물리라인이 75옥텟 이하', () => {
+    const longPolicy: Policy = { ...policy, name: '아주 긴 정책명 '.repeat(6),
+      required_docs: ['주민등록등본', '가족관계증명서', '장애인증명서', '건강보험자격득실확인서'] }
+    const ics = toICS(buildEvents([mk({ status: 'tracking' })], { 'POL-001': longPolicy }))
+    for (const phys of ics.split('\r\n')) expect(bytes(phys)).toBeLessThanOrEqual(75)
   })
 })
