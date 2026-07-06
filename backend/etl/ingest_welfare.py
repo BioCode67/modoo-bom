@@ -470,13 +470,20 @@ def enrich_from_detail(policies: list[dict], service_key: str) -> int:
     """GOV-(중앙부처) 정책을 상세 API로 승격. 반환: 승격 성공 건수."""
     import httpx
     targets = [p for p in policies if p["id"].startswith("GOV-WLF")]
-    done = 0
+    done, consec_fail = 0, 0
     with httpx.Client(timeout=30.0) as client:
         for i, p in enumerate(targets, 1):
             serv_id = p["id"].split("GOV-", 1)[1]
             d = fetch_detail(client, service_key, serv_id)
             if not d:
+                consec_fail += 1
+                # 상세 오퍼레이션 미승인(401 등)이면 460건을 재시도로 헛돌지 않고 즉시 중단.
+                if done == 0 and consec_fail >= 8:
+                    print("[etl/enrich] 상세 API가 연속 실패합니다(인증/승인 문제로 추정) → 중단. "
+                          "data.go.kr에서 '중앙부처 복지서비스 상세' 오퍼레이션 활용신청이 필요할 수 있어요.")
+                    break
                 continue
+            consec_fail = 0
             if d["benefit"]:
                 p["benefit"] = d["benefit"][:400]
             if d["target"]:
