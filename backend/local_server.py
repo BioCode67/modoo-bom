@@ -150,6 +150,11 @@ async def health():
 
 
 # ── RPA 서류 발급 ──
+# ⚠️ 유지보수 주의: 아래 RPA/apply 엔드포인트는 api/routes.py 의 동명 핸들러를 '의도적으로 복제'한 것이다.
+#   (routes.py 는 상단에서 chromadb/langchain 을 import 해, 경량 로컬 에이전트가 그대로 재사용하면
+#    무거운 스택이 딸려와 1초 기동·단일 실행파일 번들이 깨진다.) 보안 로직(다운로드 토큰·경로검사 등)을
+#   한쪽만 고치면 드리프트가 생기므로, routes.py 의 RPA 엔드포인트를 바꾸면 여기도 함께 반영할 것.
+#   backend 감사가 안정화되면 chromadb 비의존 공유 라우터(api/rpa_routes.py)로 추출해 중복을 없앨 것.
 @app.get("/api/documents/rpa-supported")
 async def rpa_supported_docs():
     from rpa.manager import SUPPORTED_DOC_NAMES
