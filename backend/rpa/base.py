@@ -38,6 +38,60 @@ def get_launch_options(slow_mo: int = 300) -> dict:
     return opts
 
 
+def _browser_candidates() -> list[str]:
+    """실행을 시도할 브라우저 채널 우선순위. 설치 안 된 채널은 launch 실패로 다음으로 폴백.
+
+    핵심: **Microsoft Edge 는 Windows 10/11 에 항상 선탑재**(Chromium 계열)라, 사용자가 Chrome 을
+    안 깔았어도 msedge 로 폴백되어 거의 모든 윈도우 PC에서 자동발급이 동작한다(별도 번들 불필요).
+    마지막 폴백은 ''(Playwright 번들 Chromium) — `playwright install chromium` 돼 있으면 사용.
+    """
+    forced = os.getenv("RPA_BROWSER_CHANNEL")
+    order: list[str] = []
+    if forced is not None:
+        order.append(forced.strip())  # 명시값(빈 문자열='번들 chromium')을 최우선
+    if sys.platform == "win32":
+        defaults = ["chrome", "msedge", ""]  # 실사용자 크롬 선호 → 없으면 항상 있는 Edge → 번들
+    else:
+        defaults = ["", "chrome"]  # 맥/리눅스는 기존처럼 번들 Chromium 우선(동작 불변) → 없으면 chrome
+    for c in defaults:
+        if c not in order:
+            order.append(c)
+    # 중복 제거(순서 유지)
+    seen, uniq = set(), []
+    for c in order:
+        if c not in seen:
+            seen.add(c); uniq.append(c)
+    return uniq
+
+
+async def launch_browser(pw, slow_mo: int = 300):
+    """가용 브라우저를 우선순위로 시도해 첫 성공을 반환(설치 안 된 채널은 건너뜀).
+
+    Chrome→Edge→번들 Chromium 순 폴백이라, 특정 브라우저 미설치 PC에서도 자동발급이 끊기지 않는다.
+    전부 실패하면 사용자가 조치할 수 있는 명확한 메시지와 함께 예외를 던진다.
+    """
+    base = get_launch_options(slow_mo)
+    base.pop("channel", None)
+    tried, last_err = [], None
+    for ch in _browser_candidates():
+        opts = dict(base)
+        if ch:
+            opts["channel"] = ch
+        try:
+            browser = await pw.chromium.launch(**opts)
+            if ch:
+                os.environ["RPA_ACTIVE_BROWSER"] = ch  # 상태/로그용
+            return browser
+        except Exception as e:  # 미설치·SxS 오류 등 → 다음 후보로
+            last_err = e
+            tried.append(ch or "chromium(번들)")
+    raise RuntimeError(
+        "브라우저를 실행할 수 없습니다. Chrome 또는 Edge를 설치하거나, 터미널에서 "
+        "`playwright install chromium` 을 실행해 주세요. "
+        f"(시도: {', '.join(tried)} · 원인: {last_err})"
+    )
+
+
 # 발급 서류 저장 폴더 (기본: 바탕화면/모두봄서류). 환경변수 MODOOBOM_DOCS_DIR 로 변경.
 DOCS_DIR = pathlib.Path(os.getenv("MODOOBOM_DOCS_DIR") or (pathlib.Path.home() / "Desktop" / "모두봄서류"))
 

@@ -12,7 +12,7 @@
 """
 import asyncio
 import re
-from rpa.base import take_screenshot, make_browser_context_args, get_launch_options, save_document
+from rpa.base import take_screenshot, make_browser_context_args, get_launch_options, launch_browser, save_document
 
 NHIS_CERT_URL  = "https://www.nhis.or.kr/nhis/minwon/jpAea00401.do"
 LOGIN_URL      = "https://www.nhis.or.kr/nhis/etc/personalLoginPage.do"
@@ -439,7 +439,7 @@ async def run_nhis_rpa(task, user_info: dict = None) -> None:
 
     try:
         async with async_playwright() as pw:
-            browser = await pw.chromium.launch(**get_launch_options(slow_mo=100))
+            browser = await launch_browser(pw, slow_mo=100)
             ctx_args = make_browser_context_args()
             ctx_args["no_viewport"] = True
             context = await browser.new_context(**ctx_args)

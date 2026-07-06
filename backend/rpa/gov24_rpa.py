@@ -19,7 +19,7 @@ from rpa.base import (
     take_screenshot, wait_for_login,
     click_first_matching, click_by_text, make_browser_context_args,
     click_kakaotalk_in_anyid, detect_auth_form, AUTH_FORM_USER_GUIDE,
-    LOGIN_PAGE_URL_KEYWORDS, get_launch_options, save_document,
+    LOGIN_PAGE_URL_KEYWORDS, get_launch_options, launch_browser, save_document,
 )
 
 # 정부24 로그인 페이지 — 2026년 plus.gov.kr로 이전(옛 www.gov.kr/portal/login/memberLogin 은 soft-404).
@@ -369,7 +369,7 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None) -> None:
 
     try:
         async with async_playwright() as pw:
-            browser = await pw.chromium.launch(**get_launch_options())
+            browser = await launch_browser(pw)
             context = await browser.new_context(**make_browser_context_args())
             await context.add_init_script(
                 "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
