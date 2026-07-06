@@ -1,0 +1,499 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>모두봄 — 기획서 비주얼 킷</title>
+<!-- 폰트: Pretendard(있으면) → 시스템 한글 폰트 폴백. 인터넷이 없어도 글씨가 깨지지 않습니다. -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css" />
+<style>
+  :root{
+    --cream:#fffaf3; --paper:#ffffff; --ink:#14281d; --muted:#5c6b61; --faint:#8a978d;
+    --line:#e6ede7; --line2:#eef3ef;
+    --sprout:#16a34a; --sprout-deep:#15803d; --sprout-soft:#e8f6ec; --sprout-tint:#f2faf4;
+    --sky:#0284c7; --sky-soft:#e6f3fb;
+    --peach:#ea580c; --peach-soft:#fdeee3;
+    --sun:#d97706; --sun-soft:#fdf3e0;
+    --violet:#7c3aed; --violet-soft:#f0eafd;
+    --rose:#e11d48; --rose-soft:#fdeaef;
+    --radius:20px; --shadow:0 1px 2px rgba(20,40,29,.04), 0 8px 28px -12px rgba(20,40,29,.14);
+    --font:'Pretendard Variable','Pretendard','Apple SD Gothic Neo','Malgun Gothic','맑은 고딕',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{-webkit-text-size-adjust:100%}
+  body{font-family:var(--font);color:var(--ink);background:
+      radial-gradient(1200px 600px at 15% -10%, #fff6ea 0%, transparent 60%),
+      radial-gradient(1000px 700px at 110% 0%, #eefaf0 0%, transparent 55%),
+      var(--cream);
+    line-height:1.6;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+    font-variant-numeric:tabular-nums;padding:40px 20px 80px}
+  .wrap{max-width:1040px;margin:0 auto}
+
+  /* ── 상단 안내 바(인쇄 시 숨김) ── */
+  .toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:28px;
+    background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:14px 18px;box-shadow:var(--shadow)}
+  .toolbar .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:1.05rem}
+  .toolbar .sprout{width:30px;height:30px;border-radius:10px;background:linear-gradient(135deg,#22c55e,#15803d);
+    display:grid;place-items:center;color:#fff;font-size:16px}
+  .toolbar .hint{color:var(--muted);font-size:.83rem;margin-left:auto}
+  .toolbar code{background:var(--sprout-soft);color:var(--sprout-deep);padding:2px 7px;border-radius:6px;font-size:.82em;font-weight:700}
+  .btn{border:0;cursor:pointer;font-family:inherit;font-weight:700;font-size:.86rem;color:#fff;
+    background:var(--sprout-deep);padding:10px 16px;border-radius:11px;box-shadow:var(--shadow)}
+  .btn:hover{background:#166534}
+  .btn:focus-visible{outline:3px solid #86efac;outline-offset:2px}
+
+  /* ── 카드(각 카드 = 슬라이드 1장, 인쇄 시 한 장씩) ── */
+  .card{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);
+    box-shadow:var(--shadow);padding:40px 44px;margin-bottom:26px;position:relative;overflow:hidden}
+  .card::before{content:"";position:absolute;inset:0 0 auto 0;height:5px;
+    background:linear-gradient(90deg,#22c55e,#0ea5e9 45%,#f59e0b 80%,#f97316)}
+  .eyebrow{font-size:.72rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--sprout);margin-bottom:8px}
+  h2.title{font-size:1.72rem;font-weight:800;letter-spacing:-.02em;line-height:1.2;text-wrap:balance}
+  .title .em{color:var(--sprout-deep)}
+  .sub{color:var(--muted);font-size:.95rem;margin-top:6px;max-width:60ch}
+  .cardnum{position:absolute;top:26px;right:32px;font-size:.72rem;font-weight:800;color:var(--faint);letter-spacing:.1em}
+
+  /* ── 핵심 지표 ── */
+  .metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:26px}
+  .metric{border:1px solid var(--line);border-radius:16px;padding:20px 20px 18px;background:var(--sprout-tint);position:relative}
+  .metric .n{font-size:2.5rem;font-weight:800;letter-spacing:-.03em;line-height:1;color:var(--sprout-deep)}
+  .metric .n .u{font-size:1.1rem;font-weight:700;color:var(--muted);margin-left:2px}
+  .metric .k{font-weight:700;margin-top:8px;font-size:.98rem}
+  .metric .d{color:var(--muted);font-size:.82rem;margin-top:2px}
+  .metric.sky{background:var(--sky-soft)} .metric.sky .n{color:#0369a1}
+  .metric.peach{background:var(--peach-soft)} .metric.peach .n{color:#c2410c}
+  .metric.violet{background:var(--violet-soft)} .metric.violet .n{color:#6d28d9}
+  .metric.sun{background:var(--sun-soft)} .metric.sun .n{color:#b45309}
+
+  /* ── 도넛 + 범례 ── */
+  .donut-row{display:flex;align-items:center;gap:44px;margin-top:22px;flex-wrap:wrap}
+  .legend{display:flex;flex-direction:column;gap:12px;min-width:250px;flex:1}
+  .legend .li{display:flex;align-items:center;gap:12px}
+  .legend .sw{width:14px;height:14px;border-radius:5px;flex:none}
+  .legend .lb{font-weight:700;font-size:.96rem}
+  .legend .vv{margin-left:auto;font-weight:800;font-size:1.02rem}
+  .legend .pc{color:var(--muted);font-weight:600;font-size:.82rem;width:44px;text-align:right}
+
+  /* ── 가로 막대 ── */
+  .bars{margin-top:20px;display:flex;flex-direction:column;gap:11px}
+  .bar{display:grid;grid-template-columns:120px 1fr;align-items:center;gap:14px}
+  .bar .bl{font-weight:700;font-size:.92rem;text-align:right;color:var(--ink)}
+  .bar .track{height:26px;background:var(--line2);border-radius:8px;display:flex;align-items:center}
+  .bar .fill{height:100%;border-radius:8px;display:flex;align-items:center;justify-content:flex-end;
+    flex-shrink:0;padding-right:9px;color:#fff;font-weight:800;font-size:.78rem}
+  .bar .bvo{font-weight:800;font-size:.82rem;color:var(--muted);padding-left:9px;white-space:nowrap}
+
+  /* ── 다이어그램(아키텍처·흐름) ── */
+  .diagram{margin-top:24px}
+  .zone{border:1.5px dashed;border-radius:16px;padding:16px 16px 18px;position:relative}
+  .zone .zt{font-weight:800;font-size:.9rem;display:flex;align-items:center;gap:7px;margin-bottom:12px}
+  .zone.front{border-color:#bfe6c8;background:linear-gradient(180deg,#f4fbf6,#ffffff)}
+  .zone.front .zt{color:var(--sprout-deep)}
+  .zone.back{border-color:#d9cef6;background:linear-gradient(180deg,#f8f5ff,#ffffff)}
+  .zone.back .zt{color:#6d28d9}
+  .node{background:#fff;border:1.5px solid var(--line);border-radius:12px;padding:11px 14px;
+    font-weight:700;font-size:.9rem;box-shadow:0 1px 0 rgba(20,40,29,.03)}
+  .node .nd{font-weight:600;font-size:.78rem;color:var(--muted);margin-top:2px}
+  .node.green{border-color:#bbe8c6;background:#f3fbf5}
+  .node.sky{border-color:#bfe3f5;background:#f1f9fd}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  .arch{display:grid;grid-template-columns:1fr 44px 1.35fr;gap:0;align-items:center}
+  .conn{display:grid;place-items:center;color:var(--sprout);font-weight:800}
+  .conn .ln{font-size:.68rem;color:var(--muted);font-weight:700;text-align:center;line-height:1.3}
+
+  /* ── 단계 흐름(스텝) ── */
+  .steps{display:grid;grid-template-columns:repeat(var(--n,4),1fr);gap:0;margin-top:24px;align-items:stretch}
+  .step{position:relative;padding:0 14px;text-align:center}
+  .step:not(:last-child)::after{content:"";position:absolute;top:26px;right:-4px;width:8px;height:8px;
+    border-top:2.5px solid #c7ddcd;border-right:2.5px solid #c7ddcd;transform:rotate(45deg)}
+  .step .dot{width:54px;height:54px;border-radius:16px;margin:0 auto 12px;display:grid;place-items:center;
+    font-size:24px;background:var(--sprout-soft);border:1.5px solid #bbe8c6}
+  .step .sn{font-size:.7rem;font-weight:800;color:var(--sprout);letter-spacing:.1em}
+  .step .st{font-weight:800;font-size:1rem;margin-top:4px}
+  .step .sd{color:var(--muted);font-size:.82rem;margin-top:6px;line-height:1.5}
+  .who{display:inline-block;margin-top:9px;font-size:.68rem;font-weight:800;padding:3px 9px;border-radius:999px}
+  .who.auto{background:var(--sprout-soft);color:var(--sprout-deep)}
+  .who.you{background:var(--sun-soft);color:#b45309}
+  .step.you .dot{background:var(--sun-soft);border-color:#f6d894}
+
+  /* ── 비교표 ── */
+  table{width:100%;border-collapse:collapse;margin-top:22px;font-size:.9rem}
+  th,td{padding:12px 14px;text-align:left;border-bottom:1px solid var(--line)}
+  thead th{font-size:.74rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:800;border-bottom:2px solid var(--line)}
+  tbody th{font-weight:700}
+  td.c{text-align:center;font-weight:700}
+  .yes{color:var(--sprout-deep)} .no{color:#c0392b;opacity:.55} .par{color:var(--sun)}
+  .us{background:var(--sprout-tint)}
+  .us td,.us th{border-color:#d5ecda}
+  tbody tr td:first-child.only{color:var(--sprout-deep);font-weight:800}
+
+  /* ── 발급 8→1 (전/후 패널) ── */
+  .io{display:grid;grid-template-columns:1fr 62px 1fr;gap:14px;align-items:stretch;margin-top:24px}
+  .io .panel{border:1px solid var(--line);border-radius:16px;padding:18px 18px 16px}
+  .io .panel.old{background:#f7f8f7}
+  .io .panel.new{background:var(--sprout-tint);border-color:#d5ecda}
+  .io .ph{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:13px}
+  .io .pl{font-weight:800;font-size:.98rem}
+  .io .pb{font-size:.7rem;font-weight:800;padding:4px 10px;border-radius:999px;white-space:nowrap}
+  .io .old .pb{background:#e7ebe8;color:#5c6b61}
+  .io .new .pb{background:var(--sprout-soft);color:var(--sprout-deep)}
+  .io ul{list-style:none;display:flex;flex-direction:column;gap:8px}
+  .io li{display:flex;align-items:center;gap:9px;font-size:.86rem;font-weight:600}
+  .io .old li{color:var(--muted)}
+  .io .num{width:20px;height:20px;border-radius:7px;background:#e7ebe8;color:#6b776e;font-size:.7rem;
+    font-weight:800;display:grid;place-items:center;flex:none}
+  .io .tag{font-size:.66rem;font-weight:800;padding:2px 7px;border-radius:999px;flex:none;margin-left:auto}
+  .io .tag.a{background:var(--sprout-soft);color:var(--sprout-deep)}
+  .io li.you{color:var(--ink);font-weight:800}
+  .io li.you .num{background:var(--sun);color:#fff}
+  .io li.you .tag{background:var(--sun-soft);color:#b45309}
+  .io .mid{display:grid;place-items:center;text-align:center}
+  .io .mid .big{font-size:1.1rem;font-weight:800;color:var(--sprout-deep);line-height:1.15}
+  .io .mid .big b{font-size:2rem;display:block}
+  .io .mid .ar{color:var(--sprout);font-size:1.3rem;margin:4px 0}
+
+  /* ── LangGraph 10노드 ── */
+  .nodes{display:grid;grid-template-columns:repeat(5,1fr);gap:11px;margin-top:24px}
+  .nnode{border:1px solid var(--line);border-radius:13px;padding:13px 13px 12px;background:#fff;position:relative}
+  .nnode .nn{font-size:.68rem;font-weight:800;color:var(--sprout);letter-spacing:.06em}
+  .nnode .nt{font-weight:800;font-size:.9rem;margin-top:3px;letter-spacing:-.01em}
+  .nnode .ndd{color:var(--muted);font-size:.75rem;margin-top:2px;line-height:1.4}
+  .nnode.loop{border-color:#f6d894;background:var(--sun-soft)}
+  .nnode.loop .nn{color:#b45309}
+  .nnode.orch{border-color:#bbe8c6;background:var(--sprout-tint)}
+
+  .foot{color:var(--faint);font-size:.78rem;margin-top:18px;line-height:1.6}
+  .foot b{color:var(--muted)}
+
+  @media (max-width:720px){
+    .metrics,.grid3,.steps,.nodes{grid-template-columns:1fr 1fr}
+    .arch{grid-template-columns:1fr;gap:10px}.conn{transform:rotate(90deg);height:36px}
+    .io{grid-template-columns:1fr}.io .mid{padding:4px 0}.io .mid .ar{transform:rotate(90deg)}
+    .card{padding:28px 20px}
+  }
+
+  /* ── 인쇄/PDF: 카드 1장씩, 배경 유지 ── */
+  @media print{
+    @page{size:A4 landscape;margin:12mm}
+    body{background:#fff;padding:0}
+    .toolbar{display:none}
+    .card{box-shadow:none;border:1px solid var(--line);break-inside:avoid;page-break-inside:avoid;margin:0 0 8mm}
+    *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ════════ 편집·인쇄 안내 (인쇄 시 자동 숨김) ════════ -->
+  <div class="toolbar">
+    <span class="brand"><span class="sprout">🌱</span> 모두봄 · 기획서 비주얼 킷</span>
+    <span class="hint">숫자·글자는 아래 <code>DATA</code> 한 곳만 고치면 전부 자동 반영돼요 · 저장(PDF)은 이 버튼 →</span>
+    <button class="btn" onclick="window.print()">🖨️ 인쇄 · PDF로 저장</button>
+  </div>
+
+  <!-- 카드들이 여기에 렌더됩니다 -->
+  <div id="app"></div>
+
+  <p style="text-align:center;color:var(--faint);font-size:.78rem;margin-top:24px" class="toolbar-note">
+    캡처 팁: 카드 하나만 필요하면 그 카드만 화면에 꽉 채워 스크린샷 · 전체는 위 버튼으로 PDF 저장(카드마다 한 장).
+  </p>
+</div>
+
+<script>
+/* ══════════════════════════════════════════════════════════════════════
+   ⬇️⬇️⬇️  여기 숫자·글자만 고치세요. 나머지는 자동으로 그려집니다.  ⬇️⬇️⬇️
+   ══════════════════════════════════════════════════════════════════════ */
+const DATA = {
+  live: 'biocode67.github.io/modoo-bom',
+
+  // ① 핵심 지표 타일 (색: sprout/sky/peach/violet/sun)
+  metrics: [
+    { n:'5,250', u:'여 건', k:'전국 복지 실데이터',  d:'큐레이션 190 + 공공데이터 5,061', color:'sprout' },
+    { n:'7',     u:'개 언어', k:'온디바이스 다국어 검색', d:'외국인·다문화 사각지대까지', color:'sky' },
+    { n:'0',     u:'',      k:'서버로 나가는 개인정보', d:'전부 내 기기 안에서 계산',    color:'violet' },
+    { n:'0',     u:'원',    k:'서버 비용 · 회원가입',   d:'정적 배포 + 온디바이스 AI',   color:'sun' },
+    { n:'354',   u:'개',    k:'자동화 품질 테스트',     d:'프론트 320 + 백엔드 34, E2E 11여정', color:'peach' },
+    { n:'3',     u:'단계',   k:'무설치 신청까지',       d:'말하기 → 추천 → 인증만',      color:'sprout' },
+  ],
+
+  // ② 데이터 구성 도넛 (합계는 자동 계산)
+  composition: {
+    title:'복지 카탈로그 구성',
+    sub:'보건복지부 검증 큐레이션 + 한국사회보장정보원 공공데이터 (이름 기준 병합·디듑)',
+    unit:'건',
+    segments:[
+      { label:'큐레이션 시드 (정밀 검증)', value:190,  color:'#16a34a' },
+      { label:'중앙부처 공공데이터',       value:463,  color:'#0ea5e9' },
+      { label:'지자체 공공데이터',         value:4598, color:'#f97316' },
+    ],
+  },
+
+  // ③ 생애·상황별 분포 막대 (건수)
+  categories: {
+    title:'생애·상황별 분포',
+    sub:'공공데이터 5,061건 기준 상위 카테고리',
+    bars:[
+      { label:'아동·영유아', value:1202, color:'#f97316' },
+      { label:'노인',       value:654,  color:'#16a34a' },
+      { label:'저소득',     value:618,  color:'#0ea5e9' },
+      { label:'장애인',     value:518,  color:'#7c3aed' },
+      { label:'보훈',       value:374,  color:'#d97706' },
+      { label:'청년',       value:297,  color:'#e11d48' },
+      { label:'의료',       value:288,  color:'#0d9488' },
+      { label:'교육',       value:199,  color:'#2563eb' },
+    ],
+  },
+
+  // ④ 무설치 신청 흐름 (who: auto=모두봄/AI, you=사용자)
+  applyFlow: [
+    { icon:'💬', n:'STEP 1', t:'말로 말하면', d:'“72세 혼자 사는데 소득이 적어요” 한마디(음성도)면 맞춤 복지를 바로 찾아요', who:'모두봄 AI', kind:'auto' },
+    { icon:'🎯', n:'STEP 2', t:'추천 확인 · [신청] 한 번', d:'내 정보를 자동 복사하고 공식 신청 페이지를 바로 열어줘요 (설치·크롬 불필요)', who:'모두봄', kind:'auto' },
+    { icon:'🔒', n:'STEP 3', t:'인증만 나', d:'정부 공식 사이트에서 카카오 간편인증만. 개인정보·인증은 정부 사이트에만', who:'사용자', kind:'you' },
+  ],
+
+  // ⑤ AI 다국어 의미검색 예시 (입력 언어 → 찾아준 복지)
+  aiSearch: {
+    title:'온디바이스 다국어 AI 의미검색',
+    sub:'브라우저에서 직접 도는 신경망 임베딩(multilingual-e5)으로 “뜻”을 이해 · 서버 전송 0',
+    rows:[
+      { flag:'🇰🇷', q:'“노인인데 돈이 없어요”',            a:'기초연금 · 노인일자리 · 재가서비스' },
+      { flag:'🇬🇧', q:'“I lost my job and need money”',   a:'긴급복지지원 · 국민취업지원 · 자활' },
+      { flag:'🇻🇳', q:'“Tôi là người khuyết tật”',        a:'장애인연금 · 발달재활 · 의료비 지원' },
+      { flag:'🇨🇳', q:'“我收入低，需要生活补助”',           a:'생계급여 · 의료급여 · 에너지바우처' },
+    ],
+  },
+
+  // ⑥ 발급 자동화: 기존 수동 단계 → 모두봄(본인은 폰 승인만)
+  issue: {
+    title:'서류 발급, <span class="em">8단계 → 본인은 1단계</span>',
+    sub:'정부24 주민등록등본 기준 — 접속·로그인·정보입력·발급양식·PDF 저장을 에이전트가 대신, 본인은 폰 승인만.',
+    before:{ label:'기존 · 직접', badge:'수동 8단계',
+      steps:['사이트 접속','로그인','간편인증 선택','카카오 인증','메뉴 탐색','발급 신청서 작성','본인 확인','PDF 저장'] },
+    after:{ label:'모두봄 · 자동', badge:'본인 1단계',
+      auto:['접속·로그인 자동','인증 화면까지 이동','신청 정보 자동 입력','발급·PDF 저장 자동'],
+      you:'카카오 폰 승인 (본인·법적 강제)' },
+  },
+
+  // ⑦ LangGraph 10노드 에이전트 (loop: 재판별 루프 강조, orch: 오케스트레이터)
+  nodes: {
+    title:'LangGraph 10노드 <span class="em">AI Agent</span>',
+    sub:'프로필 한 번 입력 → 검색·자격판정·가이드·발급·포트폴리오까지 그래프가 자동 수행 (③↔④ 재판별 루프).',
+    list:[
+      {n:'01',t:'프로필 분석',d:'검색 키워드 추출'},
+      {n:'02',t:'정책 검색',d:'RAG 의미 매칭'},
+      {n:'03',t:'자격 판별',d:'규칙 · LLM'},
+      {n:'04',t:'재판별 루프',d:'③으로 되돌림',loop:true},
+      {n:'05',t:'가이드 생성',d:'신청 절차·서류'},
+      {n:'06',t:'서류 취득',d:'정부24 연동'},
+      {n:'07',t:'포트폴리오',d:'혜택 요약'},
+      {n:'08',t:'알림',d:'생애이벤트 감지'},
+      {n:'09',t:'결과 추적',d:'진행 안내'},
+      {n:'10',t:'오케스트레이터',d:'최종 종합 안내',orch:true},
+    ],
+  },
+
+  // ⑧ 경쟁 비교 (✓ / △ / ✗ / 텍스트)
+  compare: {
+    cols:['복지로·보조금24(정부)','웰로(상용)','모두봄'],
+    rows:[
+      { k:'회원가입 없이 즉시',   v:['✗','✗','✓'] },
+      { k:'온디바이스 다국어 AI', v:['✗','✗','✓ 유일'] },
+      { k:'개인정보 서버 미전송', v:['정부보관','수집형','✓'] },
+      { k:'실제 서류 자동발급',   v:['✗','✗','✓ 유일'] },
+      { k:'민간재단 큐레이션',    v:['✗','△','✓ 21건'] },
+      { k:'무설치 원터치 신청',   v:['링크안내','링크안내','✓'] },
+    ],
+  },
+};
+/* ══════════════ (여기부터는 자동 그리기 — 건드리지 않아도 됩니다) ══════════════ */
+
+const $ = (h)=>{const t=document.createElement('template');t.innerHTML=h.trim();return t.content.firstElementChild};
+const won = (n)=>n.toLocaleString('ko-KR');
+const app = document.getElementById('app');
+const TOTAL = 8;                                   // 카드 개수(카드 추가/삭제 시 이 숫자만 맞추세요)
+let CN = 0; const num = ()=>String(++CN).padStart(2,'0');
+
+function cardShell(eyebrow, title, sub){
+  return `<div class="cardnum">${num()} / ${TOTAL}</div>
+    <div class="eyebrow">${eyebrow}</div>
+    <h2 class="title">${title}</h2>${sub?`<p class="sub">${sub}</p>`:''}`;
+}
+
+/* ① 핵심 지표 */
+function renderMetrics(){
+  const tiles = DATA.metrics.map(m=>`
+    <div class="metric ${m.color}">
+      <div class="n">${m.n}<span class="u">${m.u||''}</span></div>
+      <div class="k">${m.k}</div><div class="d">${m.d}</div>
+    </div>`).join('');
+  app.append($(`<div class="card">
+    ${cardShell('KEY METRICS','한눈에 보는 <span class="em">모두봄</span>','몰라서 못 받는 복지 — 설치 없이, 어떤 언어로 물어도, 개인정보는 기기 밖으로 안 나가게.')}
+    <div class="metrics">${tiles}</div>
+    <p class="foot">라이브 · <b>${DATA.live}</b> · 수치는 코드/데이터 실측 기준. 가짜 데이터 미생성 원칙.</p>
+  </div>`));
+}
+
+/* ② 도넛 */
+function polar(cx,cy,r,deg){const a=(deg-90)*Math.PI/180;return[cx+r*Math.cos(a),cy+r*Math.sin(a)]}
+function arc(cx,cy,r,a0,a1){const[x0,y0]=polar(cx,cy,r,a1),[x1,y1]=polar(cx,cy,r,a0);
+  const big=a1-a0>180?1:0;return`M${x0} ${y0}A${r} ${r} 0 ${big} 0 ${x1} ${y1}`}
+function renderDonut(){
+  const c=DATA.composition, total=c.segments.reduce((s,x)=>s+x.value,0);
+  const cx=150,cy=150,r=112,th=34; let a=0;
+  const paths=c.segments.map(s=>{const sweep=s.value/total*360,a0=a,a1=a+sweep;a=a1;
+    return `<path d="${arc(cx,cy,r,a0+1.2,a1-1.2)}" stroke="${s.color}" stroke-width="${th}" fill="none" stroke-linecap="round"/>`}).join('');
+  const legend=c.segments.map(s=>`<div class="li">
+      <span class="sw" style="background:${s.color}"></span>
+      <span class="lb">${s.label}</span>
+      <span class="pc">${Math.round(s.value/total*100)}%</span>
+      <span class="vv">${won(s.value)}</span></div>`).join('');
+  app.append($(`<div class="card">
+    ${cardShell('DATA · 실데이터', c.title, c.sub)}
+    <div class="donut-row">
+      <svg width="300" height="300" viewBox="0 0 300 300" style="flex:none" role="img" aria-label="데이터 구성 도넛 차트">
+        ${paths}
+        <text x="150" y="140" text-anchor="middle" font-size="15" font-weight="700" fill="#5c6b61">총 수록</text>
+        <text x="150" y="176" text-anchor="middle" font-size="34" font-weight="800" fill="#15803d" letter-spacing="-1">${won(total)}</text>
+        <text x="150" y="198" text-anchor="middle" font-size="14" font-weight="700" fill="#8a978d">건</text>
+      </svg>
+      <div class="legend">${legend}
+        <p class="foot">병합·디듑 후 실제 노출 약 5,180건 · 지자체는 지역별 동명 사업을 별개로 보존.</p>
+      </div>
+    </div>
+  </div>`));
+}
+
+/* ③ 카테고리 막대 */
+function renderBars(){
+  const c=DATA.categories, max=Math.max(...c.bars.map(b=>b.value));
+  const bars=c.bars.map(b=>{const w=Math.max(b.value/max*100,4); const inside=b.value>=max*.14;
+    return `<div class="bar">
+      <div class="bl">${b.label}</div>
+      <div class="track"><div class="fill" style="width:${w}%;background:${b.color}">${inside?won(b.value):''}</div>${inside?'':`<span class="bvo">${won(b.value)}</span>`}</div></div>`}).join('');
+  app.append($(`<div class="card">
+    ${cardShell('DATA · 커버리지', c.title, c.sub)}
+    <div class="bars">${bars}</div>
+    <p class="foot">생애주기·상황 전 영역 커버 — 사이트마다 흩어진 복지를 한 곳으로.</p>
+  </div>`));
+}
+
+/* ④ 아키텍처 + ⑤ 무설치 흐름 (한 카드) */
+function renderArchFlow(){
+  const steps=DATA.applyFlow.map(s=>`
+    <div class="step ${s.kind==='you'?'you':''}">
+      <div class="dot">${s.icon}</div>
+      <div class="sn">${s.n}</div><div class="st">${s.t}</div>
+      <div class="sd">${s.d}</div>
+      <span class="who ${s.kind}">${s.who}</span>
+    </div>`).join('');
+  app.append($(`<div class="card">
+    ${cardShell('ARCHITECTURE', '이중 구조 + <span class="em">무설치 신청</span> 흐름','배포(정적)에선 서버 없이 완전 동작 · 원하면 로컬 에이전트로 완전 자동.')}
+    <div class="diagram">
+      <div class="arch">
+        <div class="zone front">
+          <div class="zt">🌐 브라우저 — 정적 배포 · 서버 불필요</div>
+          <div class="grid2">
+            <div class="node green">온디바이스 AI 의미검색<div class="nd">multilingual-e5 · transformers.js · 서버 전송 0</div></div>
+            <div class="node sky">클라이언트 복지 엔진<div class="nd">약 5,250건 카탈로그 · 자격판정</div></div>
+          </div>
+        </div>
+        <div class="conn"><div>⇄<div class="ln">감지 시<br>연동</div></div></div>
+        <div class="zone back">
+          <div class="zt">💻 로컬 에이전트 — 선택(완전 자동)</div>
+          <div class="grid2">
+            <div class="node">LangGraph 10노드 Agent<div class="nd">Claude / 규칙 폴백</div></div>
+            <div class="node">Playwright RPA<div class="nd">정부24 실제 자동화</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="steps" style="--n:3">${steps}</div>
+    <p class="foot">확장·크롬 설치는 <b>선택</b>일 뿐 — 대부분은 위 3단계(무설치)로 신청까지. 인증·최종제출만 본인(안전·합법).</p>
+  </div>`));
+}
+
+/* ⑤b AI 검색 카드 */
+function renderAI(){
+  const s=DATA.aiSearch;
+  const rows=s.rows.map(r=>`
+    <tr><td style="font-size:1.3rem;width:44px">${r.flag}</td>
+      <td style="font-weight:700">${r.q}</td>
+      <td style="color:var(--sprout-deep);font-weight:700">${r.a}</td></tr>`).join('');
+  app.append($(`<div class="card">
+    ${cardShell('AI · 헤드라인', s.title, s.sub)}
+    <table><thead><tr><th></th><th>입력 (어떤 언어든)</th><th>AI가 찾아준 복지</th></tr></thead>
+      <tbody>${rows}</tbody></table>
+    <p class="foot">검색이 아니라 <b>뜻</b>으로 매칭 — 한국어를 몰라도, 회원가입 없이. 정책 벡터는 빌드 시 사전계산, 질의만 기기 안에서 임베딩.</p>
+  </div>`));
+}
+
+/* ⑥ 발급 자동화 8→1 */
+function renderIssue(){
+  const c=DATA.issue;
+  const before=c.before.steps.map((s,i)=>`<li><span class="num">${i+1}</span>${s}</li>`).join('');
+  const after=c.after.auto.map(s=>`<li><span class="num">✓</span>${s}<span class="tag a">자동</span></li>`).join('')
+    + `<li class="you"><span class="num">👤</span>${c.after.you}<span class="tag">본인</span></li>`;
+  app.append($(`<div class="card">
+    ${cardShell('AUTOMATION', c.title, c.sub)}
+    <div class="io">
+      <div class="panel old">
+        <div class="ph"><span class="pl">${c.before.label}</span><span class="pb">${c.before.badge}</span></div>
+        <ul>${before}</ul>
+      </div>
+      <div class="mid"><div class="big"><b>8</b>단계</div><div class="ar">↓</div><div class="big"><b>1</b>단계</div></div>
+      <div class="panel new">
+        <div class="ph"><span class="pl">${c.after.label}</span><span class="pb">${c.after.badge}</span></div>
+        <ul>${after}</ul>
+      </div>
+    </div>
+    <p class="foot">완전 무인 대리인증은 <b>설계상 배제</b> — 본인인증은 명의도용 방지를 위한 법적 강제. 진짜 크롬 + CDP로 정부24 안티봇(Mbuster) 통과(실측).</p>
+  </div>`));
+}
+
+/* ⑦ LangGraph 10노드 */
+function renderNodes(){
+  const c=DATA.nodes;
+  const cells=c.list.map(n=>`<div class="nnode ${n.loop?'loop':''}${n.orch?'orch':''}">
+      <div class="nn">${n.n}</div><div class="nt">${n.t}</div><div class="ndd">${n.d}</div></div>`).join('');
+  app.append($(`<div class="card">
+    ${cardShell('AI AGENT', c.title, c.sub)}
+    <div class="nodes">${cells}</div>
+    <p class="foot"><b>③ 자격 판별 ↔ ④ 재판별 루프</b>(최대 2회)로 정확도를 끌어올린 뒤 가이드·발급으로 진행 · Mock 모드에선 규칙 기반으로 동일하게 동작.</p>
+  </div>`));
+}
+
+/* ⑧ 경쟁 비교표 */
+function renderCompare(){
+  const c=DATA.compare;
+  const cell=(v)=>{
+    if(v==='✓'||v.startsWith('✓')) return `<td class="c yes">${v}</td>`;
+    if(v==='✗') return `<td class="c no">✗</td>`;
+    if(v==='△') return `<td class="c par">△</td>`;
+    return `<td class="c" style="color:var(--muted);font-weight:600">${v}</td>`;
+  };
+  const rows=c.rows.map(r=>`<tr><th>${r.k}</th>${r.v.map((v,i)=>i===r.v.length-1?cell(v).replace('<td','<td data-us'):cell(v)).join('')}</tr>`).join('');
+  app.append($(`<div class="card">
+    ${cardShell('POSITIONING', '경쟁 서비스가 비운 자리를 <span class="em">정면으로</span>','로그인 벽 · 한국어 편중 · “조회”에서 끝 — 이 공백이 곧 모두봄의 강점.')}
+    <table>
+      <thead><tr><th>기능</th>${c.cols.map((x,i)=>`<th class="c" ${i===c.cols.length-1?'style="color:#15803d"':''}>${x}</th>`).join('')}</tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <style>tbody td[data-us]{background:var(--sprout-tint);border-color:#d5ecda}</style>
+    <p class="foot">유일 강점: <b>무가입 즉시성 · 온디바이스 다국어 · 프라이버시 · 실제 RPA</b> — 이 조합은 기존에 없다.</p>
+  </div>`));
+}
+
+/* 순서 = 기획서 흐름: 개요 → 데이터 → AI → 구조 → 에이전트 → 자동화 → 포지셔닝 */
+renderMetrics();   // 01 핵심지표      → infographic-핵심지표.png
+renderDonut();     // 02 데이터 구성    → chart1-출처구성.png
+renderBars();      // 03 카테고리 분포  → chart2-카테고리분포.png
+renderAI();        // 04 AI 다국어검색  → diagram2-AI검색흐름.png
+renderArchFlow();  // 05 아키텍처+무설치 → diagram1-아키텍처.png
+renderNodes();     // 06 LangGraph 10노드 → diagram5-LangGraph10노드.png
+renderIssue();     // 07 발급 8→1      → chart3-발급자동화.png / diagram3-발급자동화.png
+renderCompare();   // 08 경쟁 비교      → chart4-경쟁비교.png(포지셔닝)
+</script>
+</body>
+</html>
