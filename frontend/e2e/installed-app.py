@@ -64,12 +64,15 @@ def main() -> int:
         caps = json.loads(health)["capabilities"]
         _, root = get(port, "/")
         _, supported = get(port, "/api/documents/rpa-supported")
+        n_docs = len(json.loads(supported).get("supported", []))
 
         checks = [
             ("health mode=local-agent", json.loads(health)["mode"] == "local-agent"),
             ("capabilities.rpa=true", caps["rpa"] is True),
             ("동일출처 프론트 서빙(/)", "<!doctype html" in root.lower() or "<html" in root.lower()),
             ("RPA 지원목록 노출", "주민등록등본" in supported),
+            # 번들에 rpa 모듈이 온전히 포함됐는지 — 지원 서류가 6종 미만이면 RPA 모듈 누락 의심(패키징 회귀).
+            (f"RPA 지원 서류 충분({n_docs}종)", n_docs >= 6),
         ]
         ok = all(v for _, v in checks)
         for name, v in checks:
