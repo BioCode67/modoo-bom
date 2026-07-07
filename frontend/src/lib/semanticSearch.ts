@@ -69,6 +69,14 @@ async function ensureModel(onProgress?: SemanticProgress): Promise<void> {
     onProgress?.({ stage: 'AI 모델 다운로드', pct: 0 })
     const { pipeline, env } = await import('@huggingface/transformers')
     env.allowLocalModels = false // HuggingFace CDN에서 로드
+    // ⚠️ onnxruntime-web 안정화(간헐 'no available backend found' 수정):
+    //   멀티스레드 WASM은 SharedArrayBuffer=cross-origin isolation(COOP/COEP 헤더)이 필요한데
+    //   gh-pages는 그 헤더를 못 보낸다 → 스레드 백엔드가 간헐적으로 초기화 실패(특히 한국어 외 질의).
+    //   단일 스레드 + 프록시(blob 워커) 비활성으로 강제 → 어느 언어·연속 질의에도 안정. 질의는 짧아 충분히 빠름.
+    try {
+      const wasm = env.backends?.onnx?.wasm
+      if (wasm) { wasm.numThreads = 1; wasm.proxy = false }
+    } catch { /* env 구조가 바뀌어도 치명적 아님 */ }
     _extractor = await pipeline('feature-extraction', _model || 'Xenova/multilingual-e5-small', {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       progress_callback: (p: any) => {
