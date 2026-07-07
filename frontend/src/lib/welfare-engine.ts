@@ -192,10 +192,11 @@ function checkPolicyDoc(doc: string, name: string, p: UserProfile): CheckResult 
       return { eligible: true, reason: `만 ${p.age}세로 청년 연령 기준 충족`, priority: 'high', confidence: 0.9 }
     return NO
   }
-  // 가족돌봄청년(영케어러) 등 만 13~34세 — 어떤 연령 룰과도 안 맞아 dead data였던 표기를 매칭
+  // 가족돌봄청년(영케어러) 등 만 13~34세 — 연령은 맞지만 '아픈 가족을 돌본다'는 조건은 프로필로 확인 불가.
+  //   그래서 연령만으로 강력추천하지 않고 저신뢰(low)로만 노출 — 모든 청년에게 남발되던 과노출 방지(정직성).
   if (doc.includes('만 13~34세') || doc.includes('13~34세')) {
     if (p.age >= 13 && p.age <= 34)
-      return { eligible: true, reason: `만 ${p.age}세로 대상 연령(13~34세) 충족`, priority: 'high', confidence: 0.88 }
+      return { eligible: true, reason: `만 ${p.age}세 대상 연령 — 단, 아픈 가족을 돌보는 경우에 해당해요`, priority: 'low', confidence: 0.5 }
     return NO
   }
   if (anyIn(doc, ['만 9~24세', '9~24세'])) {
@@ -220,6 +221,21 @@ function checkPolicyDoc(doc: string, name: string, p: UserProfile): CheckResult 
   if (doc.includes('등록 장애인') || (doc.includes('장애인') && name.includes('장애'))) {
     if (p.disability)
       return { eligible: true, reason: `등록 장애인(${p.disability_grade}) 조건 충족`, priority: 'high', confidence: 0.92 }
+    return NO
+  }
+
+  // ── 다문화 계열 ── (아동 분기보다 먼저: eligibility의 '또는 만 12세 이하 자녀'가 하드 자녀요건으로 오인돼
+  //   임신 중·무자녀 다문화가족이 배제되던 문제. 가구유형으로 먼저 매칭한다.)
+  if (anyIn(doc, ['다문화가족', '결혼이민자', '귀화자'])) {
+    if (p.household_type === '다문화가족')
+      return { eligible: true, reason: '다문화가족 확인', priority: 'medium', confidence: 0.9 }
+    return NO
+  }
+  // ── 국가장학금·학자금 지원 ── ('대학생·소득분위 N구간'은 엔진 토큰이 없어 dead였던 대표 복지 — 재학생 매칭 ──
+  //   학생임이 명시됐거나 명백한 대학 연령대(18~24세·직업 미상)만 — 29세 임신부·실직자 등에 오노출 방지.
+  if (/국가장학금|학자금\s*지원|국가근로장학|등록금\s*지원/.test(doc)) {
+    if (p.employment_status === 'student' || (p.age >= 18 && p.age <= 24 && p.employment_status === ''))
+      return { eligible: true, reason: '대학 재학생 대상 (소득분위·성적 기준은 신청 시 확인)', priority: 'high', confidence: 0.85 }
     return NO
   }
 
@@ -288,13 +304,17 @@ function checkPolicyDoc(doc: string, name: string, p: UserProfile): CheckResult 
   // ── 저소득·기초생활 계열 (2026 정밀 선정기준: 생계32·의료40·주거48·교육/차상위50, medianIncome.ts) ──
   // 여러 급여를 동시에 언급하는 포괄형 정책은 가장 넓은 기준이 적용되도록 넓은 순서로 검사.
   if (anyIn(doc, ['교육급여', '차상위', '중위소득 50%'])) {
+    // 교육급여는 초·중·고 재학생(자녀) 대상 — 학령기(만 6~18세) 자녀가 없으면 대상 아님(무자녀에게 과노출 방지)
+    if (name.includes('교육급여') && !(p.has_children && (p.children_ages || []).some((a) => a >= 6 && a <= 18)))
+      return NO
     if (p.income_percentile <= 50)
       return { eligible: true, reason: `소득 중위소득 ${p.income_percentile}%로 교육급여·차상위 기준 충족`, priority: 'medium', confidence: 0.84 }
     return NO
   }
   if (anyIn(doc, ['주거급여', '중위소득 48%'])) {
+    // 주거급여는 기초생활 4대 급여 중 하나인 대표 소득보장 — 자격 시 강력추천(부수 서비스에 묻히지 않게 high)
     if (p.income_percentile <= 48)
-      return { eligible: true, reason: `소득 중위소득 ${p.income_percentile}%로 주거급여 기준 충족`, priority: 'medium', confidence: 0.85 }
+      return { eligible: true, reason: `소득 중위소득 ${p.income_percentile}%로 주거급여 기준 충족`, priority: 'high', confidence: 0.86 }
     return NO
   }
   if (anyIn(doc, ['의료급여', '중위소득 40%'])) {
@@ -351,13 +371,6 @@ function checkPolicyDoc(doc: string, name: string, p: UserProfile): CheckResult 
     return NO
   }
 
-  // ── 다문화 계열 ──
-  if (anyIn(doc, ['다문화가족', '결혼이민자', '귀화자'])) {
-    if (p.household_type === '다문화가족')
-      return { eligible: true, reason: '다문화가족 확인', priority: 'medium', confidence: 0.9 }
-    return NO
-  }
-
   // ── 소득 무관 보편 서비스 ──
   if (doc.includes('소득무관') || doc.includes('소득·재산 무관')) {
     return { eligible: true, reason: '소득 무관 전국민 지원 서비스', priority: 'medium', confidence: 0.8 }
@@ -404,6 +417,9 @@ export function demographicMismatch(name: string, doc: string, p: UserProfile): 
   if (/유아학비|유치원|누리과정/.test(name) && ages.length > 0 && !ages.some((a) => a >= 3 && a <= 5)) return true
   // 미취업 전용(일경험·구직지원)인데 이미 직업(재직·자영·은퇴)이 있으면 제외 — 연령만 맞아 강력추천되던 오류 차단.
   if (/미취업|일경험|구직/.test(name) && ['employed', 'self', 'retired'].includes(p.employment_status)) return true
+  // 재직·근로소득 전제 정책(내일채움공제·내일저축·미래적금·희망저축 등)인데 실직·학생이면 제외.
+  //   (근로소득 있는 재직자만 가입 — 감사: 실직 청년에게 '청년 내일채움공제'가 1위로 오노출되던 문제)
+  if (/내일채움공제|내일저축계좌|미래적금|희망저축|자산형성/.test(name) && ['unemployed', 'student'].includes(p.employment_status)) return true
   // 재학생 전용(학자금대출 등)인데 학생이 아님이 명시되면 제외(무직·재직 등 학생 아닌 경우).
   if (/학자금대출|재학생/.test(name) && p.employment_status !== '' && p.employment_status !== 'student') return true
   // 청소년·학령기 전용인데 본인이 청소년도 아니고 학령기 자녀도 없음
@@ -608,8 +624,24 @@ const MAX_INFERRED = 120
  */
 export function situationRelevance(policy: Policy, p: UserProfile): number {
   const t = `${policy.name} ${policy.category}`
+  const nm = policy.name || ''
   const infant = p.is_pregnant || (p.children_ages || []).some((a) => a <= 1)
+  const schoolAge = (p.children_ages || []).some((a) => a >= 6 && a <= 18)
   let s = 0
+  // ── 대표 핵심 복지(생존·소득보장) — 자격이 되면 부수 서비스보다 항상 최상단 ──
+  //   (감사: 생계급여가 노인돌봄·틀니 등 category +4 서비스에 밀려 14위로 묻히던 문제. 대표 급여를 위로.)
+  if (/생계급여/.test(nm) && p.income_percentile <= 32) s += 9
+  else if (/의료급여/.test(nm) && p.income_percentile <= 40) s += 8
+  else if (/주거급여/.test(nm) && p.income_percentile <= 48) s += 8
+  else if (/교육급여/.test(nm) && p.income_percentile <= 50 && schoolAge) s += 8
+  if (/기초연금/.test(nm) && p.age >= 65) s += 9
+  if (/장애인연금/.test(nm) && p.disability) s += 9
+  if (/긴급복지|긴급생계|긴급지원/.test(nm)) s += 7
+  if (/아동수당/.test(nm) && p.has_children) s += 7
+  if (/부모급여/.test(nm) && infant) s += 7
+  if (/첫만남/.test(nm) && (infant || p.is_pregnant)) s += 6
+  if (/근로장려금|자녀장려금/.test(nm)) s += 5
+  if (/국가장학금|학자금\s*지원/.test(nm) && (p.employment_status === 'student' || (p.age >= 18 && p.age <= 29))) s += 8
   if (p.disability && /장애/.test(t)) s += 5
   if (infant && /임신|임산부|출산|출생|산모|영아|신생아|난임|모유|부모급여|첫만남|아동수당/.test(t)) s += 5
   if ((p.household_type || '').includes('한부모') && /한부모|모자|부자가정|조손|양육/.test(t)) s += 4

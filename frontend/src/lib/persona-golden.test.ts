@@ -36,12 +36,13 @@ describe('페르소나 골든 — 결과 품질 고정', () => {
     expect(names(pol)).not.toMatch(/청년|어린이집|영유아|보육료/)
   })
 
-  it('🧑 위기 청년(26세·실직·중위45%): 내일저축·구직 지원 + 노인 정책 누수 0', () => {
+  it('🧑 위기 청년(26세·실직·중위45%): 구직·실업 지원 중심 + 근로소득 전용/노인 누수 0', () => {
     const r = runAnalysis({ ...base, age: 26, income_percentile: 45, employment_status: 'unemployed', life_events: ['실직'] })
     const pol = r.eligible_policies.filter((p) => p.id.startsWith('POL-'))
-    expect(ids(pol).has('POL-006')).toBe(true) // 청년 내일저축계좌
+    // 내일저축계좌(POL-006)는 근로소득 있는 재직자만 가입 → 실직자에겐 추천하지 않는다(정직성, 감사 반영)
+    expect(ids(pol).has('POL-006')).toBe(false)
     expect(names(pol)).toMatch(/실업|구직|취업/) // 고용 위기 대응 포함
-    expect(pol.filter((p) => p.priority === 'high').length).toBeGreaterThanOrEqual(5)
+    expect(pol.filter((p) => p.priority === 'high').length).toBeGreaterThanOrEqual(3)
     expect(r.eligible_policies.some((p) => p.id.startsWith('PRV-'))).toBe(true) // 장학·위기 민간
     expect(names(pol)).not.toMatch(/기초연금|노인일자리|틀니/)
   })
@@ -110,5 +111,37 @@ describe('페르소나 골든 — 결과 품질 고정', () => {
         expect(x.confidence).toBeLessThanOrEqual(0.68)
       }
     }
+  })
+})
+
+describe('추천 품질 감사 회귀 — 대표 급여 상위·오노출 제거(2026-07)', () => {
+  const P = (o: Partial<UserProfile>): UserProfile => ({ ...base, ...o })
+  const topNames = (prof: UserProfile, n = 6) =>
+    runAnalysis(prof).eligible_policies.filter((p) => p.id.startsWith('POL-')).slice(0, n).map((p) => p.name)
+
+  it('저소득 독거노인(75·28%): 생계급여·기초연금·의료급여가 top6에 (부수 서비스에 안 묻힘)', () => {
+    const t = topNames(P({ age: 75, income_percentile: 28, household_type: '1인가구' }))
+    expect(t.some((x) => /생계급여/.test(x))).toBe(true)
+    expect(t.some((x) => /기초연금/.test(x))).toBe(true)
+    expect(t.some((x) => /의료급여/.test(x))).toBe(true)
+  })
+  it('대학생(21·student): 국가장학금이 top3에', () => {
+    expect(topNames(P({ age: 21, income_percentile: 50, employment_status: 'student' }), 3).some((x) => /국가장학금/.test(x))).toBe(true)
+  })
+  it('국가장학금은 비학생 성인(29·임신)에게 오노출 안 됨', () => {
+    const all = runAnalysis(P({ age: 29, income_percentile: 40, household_type: '다문화가족', is_pregnant: true })).eligible_policies
+    expect(all.some((p) => p.id.startsWith('POL-') && /국가장학금/.test(p.name))).toBe(false)
+  })
+  it('다문화 임신부: 다문화 정책이 노출됨(무자녀라도 배제 안 됨)', () => {
+    const all = runAnalysis(P({ age: 29, income_percentile: 40, household_type: '다문화가족', is_pregnant: true })).eligible_policies
+    expect(all.some((p) => p.id.startsWith('POL-') && /다문화/.test(p.name))).toBe(true)
+  })
+  it('실직 청년(27): 근로소득 전용(내일저축·내일채움)은 정밀추천에서 제외', () => {
+    const pol = runAnalysis(P({ age: 27, income_percentile: 45, employment_status: 'unemployed', life_events: ['실직'] })).eligible_policies.filter((p) => p.id.startsWith('POL-'))
+    expect(names(pol)).not.toMatch(/내일저축계좌|내일채움공제/)
+  })
+  it('무자녀 저소득 재직자(35): 교육급여 오노출 안 됨(학령기 자녀 없음)', () => {
+    const pol = runAnalysis(P({ age: 35, income_percentile: 40, employment_status: 'employed' })).eligible_policies.filter((p) => p.id.startsWith('POL-'))
+    expect(names(pol)).not.toMatch(/교육급여/)
   })
 })
