@@ -133,14 +133,17 @@ function isLocalRpaBase(base: string): boolean {
 function finalizeCaps(aiCaps: Capabilities | null, aiBase: string, local: Capabilities | null) {
   // ⚠️ 보안: RPA_BASE 는 로컬에만 둔다. 클라우드가 rpa:true 를 보고해도(RPA_ENABLED 오설정 등)
   //    로컬이 아니면 PII 를 보내지 않는다 → RPA_BASE 빈 값 유지 → RPA 버튼 숨김 + 공식 링크 폴백.
-  if (local?.rpa) RPA_BASE = LOCAL_AGENT
-  else if (aiCaps?.rpa && isLocalRpaBase(aiBase)) RPA_BASE = aiBase
+  //    ⚠️ 동일출처(데스크탑 앱)의 RPA 베이스는 정상적으로 ''(상대경로)다 — !!RPA_BASE 로 rpa 를 판정하면
+  //       이 '' 를 false 로 오판해 8000 이 아닌 포트에서 자동발급이 통째로 사라진다. rpa 가용은 별도 불리언으로.
+  let rpaOk = false
+  if (local?.rpa) { RPA_BASE = LOCAL_AGENT; rpaOk = true }
+  else if (aiCaps?.rpa && isLocalRpaBase(aiBase)) { RPA_BASE = aiBase; rpaOk = true } // aiBase='' = 동일출처(로컬)
   else RPA_BASE = ''
   // AI 베이스를 못 잡았고 로컬만 있으면 로컬을 AI 베이스로도 승격(완전 로컬 구동).
   if (!aiCaps && local) API_BASE = LOCAL_AGENT
   caps = {
     ai: aiCaps?.ai ?? local?.ai ?? false,
-    rpa: !!RPA_BASE, // RPA 는 로컬 베이스가 실제로 확정됐을 때만 '가능'으로 노출(클라우드 PII 전송 차단)
+    rpa: rpaOk, // 로컬 RPA 베이스가 확정됐는지(''=동일출처도 유효). 클라우드는 isLocalRpaBase=false 로 차단됨.
     ai_provider: aiCaps?.ai_provider ?? local?.ai_provider,
     rag: aiCaps?.rag ?? local?.rag,
   }

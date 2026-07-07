@@ -20,12 +20,12 @@ function mockFetch(map: Record<string, { ai: boolean; rpa: boolean } | null>) {
 }
 
 /** env(VITE_API_BASE)를 지정해 backend.ts 를 신선하게 로드한다(API_BASE 는 로드시 확정되므로). */
-async function loadBackend(apiBase?: string) {
+async function loadBackend(apiBase?: string, baseUrl = '/modoo-bom/') {
   vi.resetModules()
   if (apiBase === undefined) vi.stubEnv('VITE_API_BASE', '')
   else vi.stubEnv('VITE_API_BASE', apiBase)
-  // 정적 프로젝트 페이지가 아니라고 두어 동일출처 프로브 스킵(base='/modoo-bom/')
-  vi.stubEnv('BASE_URL', '/modoo-bom/')
+  // 기본은 정적 프로젝트 페이지(base='/modoo-bom/')로 동일출처 프로브 스킵. '/'면 코호스팅(로컬 앱).
+  vi.stubEnv('BASE_URL', baseUrl)
   return await import('./backend')
 }
 
@@ -60,6 +60,27 @@ describe('backend 하이브리드 감지', () => {
     expect(b.getCapabilities()?.rpa).toBe(true)
     expect(b.getRpaBase()).toBe(LOCAL)
     expect(b.API_BASE).toBe(LOCAL)
+  })
+
+  it('데스크탑 앱(동일출처 localhost, base=/) → rpa 가용·RPA_BASE는 상대경로(빈문자열)', async () => {
+    // 로컬 앱은 백엔드가 프론트를 localhost 에서 직접 서빙(동일출처, base='/'). 이때 RPA_BASE 는 정상적으로
+    // ''(상대경로)다 — 과거 caps.rpa=!!RPA_BASE 로 ''를 false 로 오판해 8000 이외 포트에서 자동발급이 사라졌다.
+    vi.stubGlobal('window', { location: { hostname: 'localhost' } }) // 동일출처 로컬 판정용
+    vi.stubGlobal('fetch', mockFetch({ '': { ai: false, rpa: true } })) // 동일출처(base='') 백엔드가 rpa:true
+    const b = await loadBackend('', '/') // 클라우드 미설정 + 코호스팅(base=/)
+    expect(await b.checkBackend()).toBe(true)
+    expect(b.getCapabilities()?.rpa).toBe(true) // 동일출처 로컬도 rpa 가용으로 노출돼야 함
+    expect(b.getRpaBase()).toBe('') // RPA 호출은 상대경로(동일출처)
+  })
+
+  it('배포 사이트(동일출처지만 비-localhost) → rpa 노출 안 함(클라우드 PII 전송 차단)', async () => {
+    vi.stubGlobal('window', { location: { hostname: 'biocode67.github.io' } })
+    vi.stubGlobal('fetch', mockFetch({ '': { ai: true, rpa: true } })) // 설령 동일출처가 rpa:true 라 보고해도
+    const b = await loadBackend('', '/')
+    // 비-localhost 동일출처는 로컬이 아니므로 RPA 비노출(강식별 PII 를 클라우드로 보내지 않음)
+    await b.checkBackend()
+    expect(b.getCapabilities()?.rpa).toBe(false)
+    expect(b.getRpaBase()).toBe('')
   })
 
   it('클라우드 콜드(무응답)여도 로컬 에이전트(rpa)는 즉시 감지 — 60초 웨이크 뒤에서 안 기다림', async () => {
