@@ -18,11 +18,25 @@ def _related_policies(policies: list[dict], k: int = 3) -> list[dict]:
     ]
 
 
+def _dedup_by_name(policies: list[dict]) -> list[dict]:
+    """이름(공백무시) 기준 중복 제거 — 시드+공공데이터에 같은 제도가 겹칠 때 챗 답변에서
+    동일 정책이 두 번 나열되는 것 방지(첫(=상위 점수) 항목 유지)."""
+    seen, out = set(), []
+    for p in policies:
+        nm = (p.get("name") or "").replace(" ", "")
+        if not nm or nm in seen:
+            continue
+        seen.add(nm)
+        out.append(p)
+    return out
+
+
 def _search_policies_for_chat(query: str, n: int = 5) -> list[dict]:
-    """키워드 기반 정책 검색 (ChromaDB 없이도 동작)"""
+    """키워드 기반 정책 검색 (ChromaDB 없이도 동작). 이름 디듑 후 상위 n건."""
     try:
         from rag.search import search_policies
-        return search_policies(query, n_results=n)
+        # 디듑으로 줄어들 수 있으니 여유있게 받아 이름 중복 제거 후 n건.
+        return _dedup_by_name(search_policies(query, n_results=n + 5))[:n]
     except Exception:
         pass
 
@@ -37,7 +51,7 @@ def _search_policies_for_chat(query: str, n: int = 5) -> list[dict]:
         if score > 0:
             scored.append((score, p))
     scored.sort(key=lambda x: -x[0])
-    return [p for _, p in scored[:n]]
+    return _dedup_by_name([p for _, p in scored])[:n]
 
 
 # ── Mock Q&A 응답 생성 ──────────────────────────────────────────────────────

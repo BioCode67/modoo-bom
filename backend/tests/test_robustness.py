@@ -213,3 +213,16 @@ async def test_gov24_doc_store_bounded():
     finally:
         g._MAX_DOCS = saved_max
         g._doc_store.clear()
+
+
+# ── chat _dedup_by_name: 시드+공공데이터 동일제도 중복 제거(챗 답변 정리) ──
+def test_chat_dedup_by_name():
+    from api.chat import _dedup_by_name
+    out = _dedup_by_name([
+        {"name": "청년 월세 한시 특별지원", "category": "청년"},
+        {"name": "청년월세 한시특별지원", "category": "청년주거"},  # 공백만 다름 → 중복
+        {"name": "기초연금"},
+        {"name": ""},          # 빈 이름 제외
+        {"category": "x"},     # 이름 없음 제외
+    ])
+    assert [p.get("name") for p in out] == ["청년 월세 한시 특별지원", "기초연금"]
