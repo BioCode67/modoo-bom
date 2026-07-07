@@ -435,3 +435,16 @@ describe('POL 결과 이름 정확중복 제거(2026-07 데이터위생)', () =>
     })
   }
 })
+
+describe('프로그램 중복 그룹 접기(2026 데이터검증)', () => {
+  const count = (p: UserProfile, re: RegExp) =>
+    getEligiblePolicies(p).filter((x) => x.id.startsWith('POL-') && re.test(x.name)).length
+  const lowIncome: UserProfile = { ...base, age: 40, income_percentile: 30, household_type: '한부모가족', has_children: true, children_ages: [10], is_pregnant: true, disability: true, disability_grade: '1급', life_events: ['실직'] }
+  it('문화누리·임신출산진료비·청소년특별·긴급복지·활동지원은 각 최대 1건', () => {
+    expect(count(lowIncome, /문화누리|통합문화이용권/)).toBeLessThanOrEqual(1)
+    expect(count(lowIncome, /임신.?출산\s*진료비/)).toBeLessThanOrEqual(1)
+    expect(count(lowIncome, /청소년\s*특별지원/)).toBeLessThanOrEqual(1)
+    expect(count(lowIncome, /긴급복지지원/)).toBeLessThanOrEqual(1)
+    expect(count(lowIncome, /장애인\s*활동지원/)).toBeLessThanOrEqual(1)
+  })
+})

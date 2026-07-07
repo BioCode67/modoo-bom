@@ -731,6 +731,12 @@ export function getEligiblePolicies(p: UserProfile): EligiblePolicy[] {
     { key: '주거급여', re: /^주거급여/ },
     { key: '교육급여', re: /^교육급여/ },
     { key: '자활근로', re: /자활\s*근로/ },
+    // 같은 프로그램이 여러 시드로 중복된 것들(2026 데이터검증에서 확인) — 상위 1개만 노출
+    { key: '문화누리', re: /문화누리|통합문화이용권/ },
+    { key: '임신출산진료비', re: /임신.?출산\s*진료비/ },
+    { key: '청소년특별지원', re: /청소년\s*특별지원/ },
+    { key: '긴급복지', re: /긴급복지지원/ },
+    { key: '장애인활동지원', re: /장애인\s*활동지원/ },
   ]
   const seenGroup = new Set<string>()
   const seenName = new Set<string>()
