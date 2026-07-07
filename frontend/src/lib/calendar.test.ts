@@ -26,6 +26,11 @@ describe('buildEvents', () => {
     const ev = buildEvents([mk({ status: 'done', appliedAt: Date.now() - 100 * DAY })], map)
     expect(ev.some((e) => e.kind === 'renew')).toBe(true)
   })
+  it('done + 1회성 바우처(1년 이내 사용)는 갱신 일정 없음 — "1년" 부분매칭 회귀', () => {
+    const once = { ...policy, id: 'POL-007', name: '첫만남이용권', renewal: '1회 (출생 후 1년 이내 사용)' }
+    const ev = buildEvents([mk({ policyId: 'POL-007', status: 'done', appliedAt: Date.now() - 100 * DAY })], { 'POL-007': once })
+    expect(ev.some((e) => e.kind === 'renew')).toBe(false)
+  })
   it('날짜 오름차순 정렬', () => {
     const ev = buildEvents([mk({ status: 'applied', appliedAt: Date.now() }), mk({ policyId: 'POL-001', status: 'tracking' })], map)
     for (let i = 1; i < ev.length; i++) expect(ev[i].date).toBeGreaterThanOrEqual(ev[i - 1].date)
