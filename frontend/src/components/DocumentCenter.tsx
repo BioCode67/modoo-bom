@@ -70,9 +70,16 @@ export function DocumentCenter() {
   }
 
   const startRpa = async (doc: string) => {
-    // 본인인증 자동입력엔 실명·생년월일·휴대폰이 필요 — 비어 있으면 시작 전에 안내
+    // 본인인증 자동입력엔 실명·생년월일·휴대폰이 필요 — 비어 있으면 시작 전에 안내하고
+    // 사용자를 '첫 빈 칸'으로 바로 데려간다(스크롤+포커스) → 어디에 뭘 넣는지 헤매지 않게.
     if (!rpaInfo.name?.trim() || !rpaInfo.birth_date?.trim() || !rpaInfo.phone?.trim()) {
-      setRpa((s) => ({ ...s, [doc]: { status: 'error', step: '아래 "자동입력 추가정보"에 실명·생년월일·휴대폰을 먼저 입력해 주세요. (본인인증 자동입력용 — 내 기기에만 저장)', at: Date.now() } }))
+      setRpa((s) => ({ ...s, [doc]: { status: 'error', step: '실명·생년월일·휴대폰만 넣으면 본인인증 화면까지 자동으로 채워드려요. 아래 칸에 입력해 주세요 👇 (내 기기에만 저장)', at: Date.now() } }))
+      const firstMissing = !rpaInfo.name?.trim() ? 'rpa-name' : !rpaInfo.birth_date?.trim() ? 'rpa-birth' : 'rpa-phone'
+      setTimeout(() => {
+        const el = document.getElementById('rpa-info-form')
+        el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        ;(document.getElementById(firstMissing) as HTMLInputElement | null)?.focus({ preventScroll: true })
+      }, 80)
       return
     }
     setRpa((s) => ({ ...s, [doc]: { status: 'running', step: '시작 중…', at: Date.now() } }))

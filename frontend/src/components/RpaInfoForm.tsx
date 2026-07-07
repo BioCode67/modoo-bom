@@ -10,12 +10,16 @@ const CARRIERS = ['SKT', 'KT', 'LGU+', 'SKM', 'KTM', 'LGM']
 export function RpaInfoForm() {
   const { rpaInfo, setRpaInfo } = useAppStore()
   return (
-    <div className="mt-3 rounded-xl bg-white border border-sprout-100 p-3 space-y-2">
+    <div id="rpa-info-form" className="mt-3 rounded-xl bg-white border border-sprout-100 p-3 space-y-2 scroll-mt-24">
       <p className="text-[11px] font-bold flex items-center gap-1 text-muted-foreground">
         <ShieldCheck className="h-3.5 w-3.5 text-sprout-500" /> 자동입력 추가정보 (선택 · 내 기기에만 저장)
       </p>
+      <p className="text-[11px] text-sprout-700 leading-relaxed">
+        실명·생년월일·휴대폰을 넣어두면 서류 발급 때 <b>본인인증 화면까지 자동으로 채워드려요</b> — 폰에서 ‘인증 허용’만 누르면 끝이에요.
+      </p>
       <div className="grid grid-cols-2 gap-2">
         <input
+          id="rpa-name"
           value={rpaInfo.name ?? ''}
           onChange={(e) => setRpaInfo({ name: e.target.value })}
           placeholder="실명 (본인인증용)"
@@ -23,6 +27,7 @@ export function RpaInfoForm() {
           aria-label="실명"
         />
         <input
+          id="rpa-birth"
           value={rpaInfo.birth_date}
           onChange={(e) => setRpaInfo({ birth_date: e.target.value })}
           placeholder="생년월일 (예: 19600101)"
@@ -31,6 +36,7 @@ export function RpaInfoForm() {
           aria-label="생년월일"
         />
         <input
+          id="rpa-phone"
           value={rpaInfo.phone}
           onChange={(e) => setRpaInfo({ phone: e.target.value })}
           placeholder="휴대폰 (01012345678)"
