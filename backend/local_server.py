@@ -159,6 +159,27 @@ async def health():
     }
 
 
+@app.get("/api/_selftest/browser")
+async def _selftest_browser():
+    """번들된 Playwright 드라이버/브라우저가 '실제로' 뜨는지 확인(패키징 스모크용, 네트워크 무관).
+
+    PyInstaller 번들의 가장 흔한 파손(node 드라이버 경로/브라우저 미탑재)은 health/supported 로는
+    못 잡는다(그건 `import playwright` 만으로 통과). 여기서 about:blank 로 한 번 띄워 닫아 실증한다.
+    강제 headless(창 안 뜸). 실패 시 500 + 원인(브라우저/드라이버 없음 등)."""
+    from rpa.base import launch_browser
+    from playwright.async_api import async_playwright
+    os.environ["RPA_HEADLESS"] = "1"  # 스모크는 창 없이
+    try:
+        async with async_playwright() as pw:
+            browser = await launch_browser(pw, slow_mo=0)
+            page = await browser.new_page()
+            await page.goto("about:blank")
+            await browser.close()
+        return {"ok": True, "browser": os.environ.get("RPA_ACTIVE_BROWSER", "chromium")}
+    except Exception as e:  # noqa: BLE001 — 원인을 그대로 반환(드라이버/브라우저 진단용)
+        return JSONResponse(status_code=500, content={"ok": False, "error": str(e)[:300]})
+
+
 # ── RPA 서류 발급 ──
 # ⚠️ 유지보수 주의: 아래 RPA/apply 엔드포인트는 api/routes.py 의 동명 핸들러를 '의도적으로 복제'한 것이다.
 #   (routes.py 는 상단에서 chromadb/langchain 을 import 해, 경량 로컬 에이전트가 그대로 재사용하면

@@ -28,10 +28,13 @@ pushd backend
 "venv-local\Scripts\python.exe" -m PyInstaller --clean --noconfirm modoobom_agent.spec || (echo [오류] PyInstaller 빌드 실패 & popd & pause & exit /b 1)
 popd
 
-echo [2.5/4] 실행파일 패키징 스모크(뜨고·서빙·RPA 준비 확인)...
+echo [2.5/4] 실행파일 패키징 스모크(뜨고·서빙·RPA 준비·브라우저 실기동 확인)...
 pushd frontend
 "..\backend\venv-local\Scripts\python.exe" e2e\installed-app.py
-if errorlevel 1 (echo [경고] 패키징 스모크 실패 — 번들 누락 의심. 계속 진행하지만 확인 필요.)
+if errorlevel 1 (
+  echo [오류] 패키징 스모크 실패 — 번들 누락/드라이버 파손 의심. 배포본 빌드 중단.
+  popd & pause & exit /b 1
+)
 popd
 
 echo [3/4] 배포 ZIP 생성...

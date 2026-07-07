@@ -66,6 +66,17 @@ def main() -> int:
         _, supported = get(port, "/api/documents/rpa-supported")
         n_docs = len(json.loads(supported).get("supported", []))
 
+        # 번들된 Playwright 드라이버/브라우저가 '실제로' 뜨는지 — 가장 흔한 PyInstaller 파손을 잡는다.
+        # (health/supported 는 import playwright 만으로 통과하므로 드라이버 파손을 못 잡음)
+        browser_ok, browser_detail = False, ""
+        try:
+            st, body = get(port, "/api/_selftest/browser", timeout=45)  # 브라우저 기동에 여유
+            j = json.loads(body)
+            browser_ok = (st == 200 and j.get("ok") is True)
+            browser_detail = j.get("browser") or j.get("error", "")
+        except Exception as e:  # noqa: BLE001
+            browser_detail = str(e)[:120]
+
         checks = [
             ("health mode=local-agent", json.loads(health)["mode"] == "local-agent"),
             ("capabilities.rpa=true", caps["rpa"] is True),
@@ -73,6 +84,8 @@ def main() -> int:
             ("RPA 지원목록 노출", "주민등록등본" in supported),
             # 번들에 rpa 모듈이 온전히 포함됐는지 — 지원 서류가 6종 미만이면 RPA 모듈 누락 의심(패키징 회귀).
             (f"RPA 지원 서류 충분({n_docs}종)", n_docs >= 6),
+            # ⭐ 번들 Playwright 드라이버+브라우저 실기동(약속의 핵심) — {browser_detail}
+            (f"브라우저 실기동({browser_detail})", browser_ok),
         ]
         ok = all(v for _, v in checks)
         for name, v in checks:
