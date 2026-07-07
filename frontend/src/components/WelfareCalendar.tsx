@@ -6,7 +6,7 @@ import { buildEvents, downloadICS, futureEvents, formatEventDate, type WelfareEv
 
 const KIND_ICON = { prepare: FileText, check: Search, renew: RefreshCw }
 const KIND_CLS = {
-  prepare: 'bg-sky2-100 text-sky2-600',
+  prepare: 'bg-sky2-100 text-sky2-700',
   check: 'bg-sun-100 text-yellow-700',
   renew: 'bg-peach-100 text-peach-600',
 }

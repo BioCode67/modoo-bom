@@ -38,7 +38,7 @@ export function IncomeCalculator({
 
   return (
     <div className="rounded-2xl border-2 border-sky2-100 bg-sky2-50/40 p-4">
-      <p className="text-sm font-bold flex items-center gap-1.5"><Calculator className="h-4 w-4 text-sky2-600" /> 기초생활보장 급여 계산기</p>
+      <p className="text-sm font-bold flex items-center gap-1.5"><Calculator className="h-4 w-4 text-sky2-700" /> 기초생활보장 급여 계산기</p>
       <p className="text-xs text-muted-foreground mt-0.5">가구원 수와 월 소득으로 생계·의료·주거·교육급여 자격을 바로 확인해요. ({MEDIAN_YEAR}년 기준 중위소득)</p>
 
       {/* 가구원 수 */}
@@ -47,7 +47,7 @@ export function IncomeCalculator({
         <div className="flex flex-wrap gap-1.5">
           {[1, 2, 3, 4, 5, 6, 7].map((n) => (
             <button key={n} onClick={() => setSize(n)}
-              className={cn('rounded-lg px-3 py-1.5 text-sm font-semibold border transition-colors', size === n ? 'bg-sky2-500 border-sky2-500 text-white' : 'bg-white border-sprout-100 text-muted-foreground hover:border-sky2-200')}>
+              className={cn('rounded-lg px-3 py-1.5 text-sm font-semibold border transition-colors', size === n ? 'bg-sky2-700 border-sky2-700 text-white' : 'bg-white border-sprout-100 text-muted-foreground hover:border-sky2-200')}>
               {n}{n === 7 ? '+' : ''}
             </button>
           ))}
@@ -85,7 +85,7 @@ export function IncomeCalculator({
               <span key={t} className="absolute -translate-x-1/2" style={{ left: `${t}%` }}>{t}%</span>
             ))}
           </div>
-          <p className="text-sm text-center mt-0.5">내 소득은 기준 중위소득의 <b className="text-sky2-600 text-base">{pct}%</b></p>
+          <p className="text-sm text-center mt-0.5">내 소득은 기준 중위소득의 <b className="text-sky2-700 text-base">{pct}%</b></p>
         </div>
       )}
 
@@ -145,7 +145,7 @@ export function IncomeCalculator({
       )}
       <p className="mt-2 text-[10px] text-muted-foreground">
         ※ 실제 ‘소득인정액’은 집·예금 등 재산 환산이 포함돼 달라질 수 있어요. 재산까지 반영한 정확한 계산은{' '}
-        <a href="https://www.bokjiro.go.kr" target="_blank" rel="noopener noreferrer" className="font-semibold text-sky2-600 hover:underline">복지로 모의계산</a>{' '}
+        <a href="https://www.bokjiro.go.kr" target="_blank" rel="noopener noreferrer" className="font-semibold text-sky2-700 hover:underline">복지로 모의계산</a>{' '}
         또는 주민센터에서 확인하세요.
       </p>
     </div>

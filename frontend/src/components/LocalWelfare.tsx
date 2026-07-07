@@ -58,10 +58,10 @@ export function LocalWelfare() {
               <Sparkles className="h-5 w-5" />
             </span>
             <span className="min-w-0">
-              <span className="block text-[11px] font-bold text-sky2-600">내 지역 맞춤</span>
+              <span className="block text-[11px] font-bold text-sky2-700">내 지역 맞춤</span>
               <span className="block font-extrabold leading-tight">{myS} 복지 {myCount.toLocaleString()}건 바로 보기</span>
             </span>
-            <ArrowRight className="ml-auto h-4 w-4 shrink-0 text-sky2-600" />
+            <ArrowRight className="ml-auto h-4 w-4 shrink-0 text-sky2-700" />
           </button>
         )}
 

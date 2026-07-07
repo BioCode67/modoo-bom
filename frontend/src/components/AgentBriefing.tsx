@@ -76,7 +76,7 @@ export function AgentBriefing({ onOpen }: { onOpen: (p: Policy | EligiblePolicy)
                       onClick={() => f.policy && onOpen(f.policy)}
                       className="w-full text-left flex items-start gap-2.5 rounded-2xl bg-white/80 border border-sprout-100 p-2.5 hover:bg-white"
                     >
-                      <span className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl ${f.alert.level === 'high' ? 'bg-rose-100 text-rose-600' : 'bg-sky2-100 text-sky2-600'}`}>
+                      <span className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl ${f.alert.level === 'high' ? 'bg-rose-100 text-rose-600' : 'bg-sky2-100 text-sky2-700'}`}>
                         <Icon className="h-4 w-4" />
                       </span>
                       <span className="min-w-0 flex-1">

@@ -234,7 +234,7 @@ function DrawerBody({
         {eligible?.reason && (
           <div className="rounded-2xl bg-sprout-50 border border-sprout-100 p-4">
             <p className="text-sm font-bold text-sprout-700 flex items-center gap-1.5"><CheckCircle2 className="h-4 w-4" /> 내가 받을 수 있는 이유</p>
-            <p className="text-sm text-sprout-700/90 mt-1">{eligible.reason}</p>
+            <p className="text-sm text-sprout-700 mt-1">{eligible.reason}</p>
             {/* '왜 나에게 맞는지'를 내 실제 정보와 대조한 체크리스트 — 조건을 한눈에(경쟁 앱은 조건 나열만) */}
             {(() => {
               const facts = profile ? matchFacts(policy, profile) : []
@@ -327,7 +327,7 @@ function DrawerBody({
                   <li key={d} className="flex items-center gap-2 text-sm text-foreground/80">
                     <FileText className="h-4 w-4 text-sky2-500 shrink-0" />
                     <span className="flex-1">{d}</span>
-                    <a href={dl.url} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-sky2-600 hover:underline inline-flex items-center gap-0.5 shrink-0">
+                    <a href={dl.url} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-sky2-700 hover:underline inline-flex items-center gap-0.5 shrink-0">
                       발급 <ExternalLink className="h-3 w-3" />
                     </a>
                   </li>

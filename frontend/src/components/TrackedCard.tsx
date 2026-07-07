@@ -9,7 +9,7 @@ import { monitorItem } from '@/lib/monitoring'
 import { cn } from '@/lib/utils'
 
 export const STATUS_META: Record<AppStatus, { label: string; cls: string; emoji: string }> = {
-  idle: { label: '관심', cls: 'bg-sky2-100 text-sky2-600', emoji: '👀' },
+  idle: { label: '관심', cls: 'bg-sky2-100 text-sky2-700', emoji: '👀' },
   tracking: { label: '준비 중', cls: 'bg-sun-100 text-yellow-700', emoji: '📝' },
   applied: { label: '신청 완료', cls: 'bg-sprout-100 text-sprout-700', emoji: '📮' },
   done: { label: '수급 중', cls: 'bg-peach-100 text-peach-600', emoji: '🎉' },
@@ -60,7 +60,7 @@ export function TrackedCard({ item, policy, onOpen }: { item: TrackedItem; polic
       {/* 다음 할 일 */}
       <div className="mt-3 rounded-xl bg-sprout-50 px-3 py-2">
         <p className="text-[11px] font-bold text-sprout-700">다음 할 일</p>
-        <p className="text-xs text-sprout-700/90 mt-0.5 leading-relaxed">{mon.nextAction}</p>
+        <p className="text-xs text-sprout-700 mt-0.5 leading-relaxed">{mon.nextAction}</p>
         {item.status === 'applied' && (
           <a
             href={mon.statusCheck.url}
@@ -82,7 +82,7 @@ export function TrackedCard({ item, policy, onOpen }: { item: TrackedItem; polic
           <span className="text-xs text-muted-foreground">금액 상세는 신청 시 확인</span>
         )}
         {docs.length > 0 && (
-          <button onClick={() => setOpen((o) => !o)} className="inline-flex items-center gap-1 text-xs font-semibold text-sky2-600">
+          <button onClick={() => setOpen((o) => !o)} className="inline-flex items-center gap-1 text-xs font-semibold text-sky2-700">
             서류 {doneDocs}/{docs.length}
             <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', open && 'rotate-180')} />
           </button>

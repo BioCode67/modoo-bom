@@ -254,7 +254,7 @@ export function Explore() {
             aria-expanded={showCalc}
             className="w-full flex items-center gap-2 rounded-2xl border-2 border-sky2-100 bg-sky2-50/50 px-4 py-3 text-left hover:border-sky2-200 transition-colors"
           >
-            <Calculator className="h-5 w-5 text-sky2-600 shrink-0" />
+            <Calculator className="h-5 w-5 text-sky2-700 shrink-0" />
             <span className="flex-1 min-w-0">
               <span className="block text-sm font-bold">내가 받을 수 있는 급여 계산하기</span>
               <span className="block text-xs text-muted-foreground">가구원 수·월 소득만 넣으면 생계·의료·주거급여 자격을 바로 확인</span>
@@ -416,7 +416,7 @@ export function Explore() {
             value={region}
             onChange={(e) => setRegion(e.target.value)}
             aria-label="지역 선택"
-            className={cn('rounded-full px-3 py-1.5 text-xs font-semibold border transition-colors cursor-pointer', region ? 'bg-sky2-500 border-sky2-500 text-white' : 'bg-white border-sprout-100 text-muted-foreground hover:border-sprout-200')}
+            className={cn('rounded-full px-3 py-1.5 text-xs font-semibold border transition-colors cursor-pointer', region ? 'bg-sky2-700 border-sky2-700 text-white' : 'bg-white border-sprout-100 text-muted-foreground hover:border-sprout-200')}
           >
             <option value="">📍 전국</option>
             {['서울', '부산', '대구', '인천', '광주', '대전', '울산', '세종', '경기', '강원', '충북', '충남', '전북', '전남', '경북', '경남', '제주'].map((s) => (
@@ -429,7 +429,7 @@ export function Explore() {
               value={gungu}
               onChange={(e) => setGungu(e.target.value)}
               aria-label="시군구 선택"
-              className={cn('rounded-full px-3 py-1.5 text-xs font-semibold border transition-colors cursor-pointer', gungu ? 'bg-sky2-500 border-sky2-500 text-white' : 'bg-white border-sprout-100 text-muted-foreground hover:border-sprout-200')}
+              className={cn('rounded-full px-3 py-1.5 text-xs font-semibold border transition-colors cursor-pointer', gungu ? 'bg-sky2-700 border-sky2-700 text-white' : 'bg-white border-sprout-100 text-muted-foreground hover:border-sprout-200')}
             >
               <option value="">{region} 전체</option>
               {gunguOptions.map((g) => (

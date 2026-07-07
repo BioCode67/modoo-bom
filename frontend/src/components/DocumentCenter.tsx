@@ -251,7 +251,7 @@ export function DocumentCenter() {
           const stale = !!(st && !['done', 'completed', 'error'].includes(st.status) && st.at && Date.now() - st.at > 30000 && tick >= 0)
           return (
             <div key={doc} className={cn('card-cute p-4 flex items-center gap-3', done && 'opacity-75')}>
-              <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl', done ? 'bg-success-50 text-success-500' : 'bg-sky2-100 text-sky2-600')}>
+              <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl', done ? 'bg-success-50 text-success-500' : 'bg-sky2-100 text-sky2-700')}>
                 {done ? <CheckCircle2 className="h-5 w-5" /> : <FileText className="h-5 w-5" />}
               </div>
               <div className="flex-1 min-w-0">

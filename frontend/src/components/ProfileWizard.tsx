@@ -140,7 +140,7 @@ export function ProfileWizard({ onSubmit }: { onSubmit: (p: UserProfile) => void
                     </Choice>
                   ))}
                 </div>
-                <button onClick={() => setShowCalc((v) => !v)} className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-sky2-600 hover:underline">
+                <button onClick={() => setShowCalc((v) => !v)} className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-sky2-700 hover:underline">
                   <Calculator className="h-3.5 w-3.5" /> 내 소득이 어디쯤인지 모르겠어요 (계산기)
                 </button>
                 {showCalc && (

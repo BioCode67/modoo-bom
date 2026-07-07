@@ -75,7 +75,7 @@ export function AgentSummary() {
           </div>
         </div>
         <div className="rounded-2xl bg-sky2-50/60 border border-sky2-100 p-3 flex items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-sky2-100 text-sky2-600"><FileText className="h-5 w-5" /></div>
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-sky2-100 text-sky2-700"><FileText className="h-5 w-5" /></div>
           <div>
             <p className="text-2xl font-extrabold leading-none">{docCount}<span className="text-sm font-bold text-muted-foreground">종</span></p>
             <p className="text-xs text-muted-foreground mt-0.5">서류 자동 발급 가능</p>

@@ -226,7 +226,7 @@ export function ChatWidget() {
                     {m.text}
                   </div>
                   {m.role === 'bot' && m.ai && (
-                    <span className="text-[10px] text-sky2-600 font-semibold -mt-0.5">🌱 복지를 찾아 정리한 답변이에요</span>
+                    <span className="text-[10px] text-sky2-700 font-semibold -mt-0.5">🌱 복지를 찾아 정리한 답변이에요</span>
                   )}
                   {m.role === 'bot' && (!!m.policies?.length || m.cta) && (
                     <div className="flex flex-wrap gap-1.5 max-w-[95%]">

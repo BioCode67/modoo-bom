@@ -19,7 +19,7 @@ export function categoryMeta(category: string): { emoji: string; cls: string } {
   if (c.includes('민간')) return { emoji: '💝', cls: 'bg-rose-50 text-rose-600' } // 민간재단(장학·의료·위기) — 정부와 구분
   if (c.includes('노인')) return { emoji: '👵', cls: 'bg-amber-100 text-amber-700' }
   if (c.includes('아동') || c.includes('영유아') || c.includes('보육')) return { emoji: '👶', cls: 'bg-pink-100 text-pink-700' }
-  if (c.includes('청년')) return { emoji: '🧑', cls: 'bg-sky2-100 text-sky2-600' }
+  if (c.includes('청년')) return { emoji: '🧑', cls: 'bg-sky2-100 text-sky2-700' }
   if (c.includes('장애')) return { emoji: '♿', cls: 'bg-indigo-100 text-indigo-700' }
   if (c.includes('임신') || c.includes('출산') || c.includes('모')) return { emoji: '🤰', cls: 'bg-rose-100 text-rose-600' }
   if (c.includes('저소득') || c.includes('생계') || c.includes('기초')) return { emoji: '🤝', cls: 'bg-emerald-100 text-emerald-700' }
