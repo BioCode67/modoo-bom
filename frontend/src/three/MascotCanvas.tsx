@@ -28,12 +28,12 @@ function StaticMascot({ animate = true }: { animate?: boolean }) {
       <div className="absolute h-56 w-56 rounded-full bg-sprout-200/50 blur-3xl" />
       <SproutLogo withFace className={`relative h-48 w-48 drop-shadow-xl ${animate ? 'animate-float' : ''}`} />
       {animate && (
-        <>
+        <span aria-hidden="true">
           <span className="absolute left-[18%] top-[24%] text-3xl animate-float-slow">🪙</span>
           <span className="absolute right-[16%] top-[20%] text-2xl animate-float">⭐</span>
           <span className="absolute right-[22%] bottom-[24%] text-2xl animate-float-slow">📄</span>
           <span className="absolute left-[20%] bottom-[22%] text-2xl animate-float">💚</span>
-        </>
+        </span>
       )}
     </div>
   )

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ArrowRight, ArrowLeft, Sparkles, Check, Calculator } from 'lucide-react'
 import type { UserProfile } from '@/lib/welfare-engine'
@@ -40,7 +40,11 @@ export function ProfileWizard({ onSubmit }: { onSubmit: (p: UserProfile) => void
   const [step, setStep] = useState(0)
   const [p, setP] = useState<UserProfile>(EMPTY)
   const [showCalc, setShowCalc] = useState(false)
+  // 소득은 기본값(80%)이 '이미 선택된 것처럼' 보이면 저소득 사용자가 그대로 넘겨 조용히 오배제된다(감사 반영).
+  //   실제로 고르기 전엔 어떤 칩도 활성화하지 않고, 미선택 안내를 띄운다.
+  const [incomeTouched, setIncomeTouched] = useState(false)
   const set = (patch: Partial<UserProfile>) => setP((prev) => ({ ...prev, ...patch }))
+  const setIncome = (v: number) => { set({ income_percentile: v }); setIncomeTouched(true) }
 
   const STEPS = ['기본 정보', '가구·소득', '나의 상황']
   const next = () => setStep((s) => Math.min(s + 1, STEPS.length - 1))
@@ -135,17 +139,20 @@ export function ProfileWizard({ onSubmit }: { onSubmit: (p: UserProfile) => void
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {INCOME_STEPS.map((s) => (
-                    <Choice key={s.v} active={p.income_percentile === s.v} onClick={() => set({ income_percentile: s.v })} small>
+                    <Choice key={s.v} active={incomeTouched && p.income_percentile === s.v} onClick={() => setIncome(s.v)} small>
                       {s.l} <span className="opacity-60 font-normal">({s.sub})</span>
                     </Choice>
                   ))}
                 </div>
+                {!incomeTouched && (
+                  <p className="mt-2 text-xs font-semibold text-orange-600">👆 소득 구간을 하나 골라주세요 — 안 고르면 ‘중간 소득’으로 분석돼 기초생활·의료급여가 빠질 수 있어요.</p>
+                )}
                 <button onClick={() => setShowCalc((v) => !v)} className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-sky2-700 hover:underline">
                   <Calculator className="h-3.5 w-3.5" /> 내 소득이 어디쯤인지 모르겠어요 (계산기)
                 </button>
                 {showCalc && (
                   <div className="mt-2">
-                    <IncomeCalculator onApply={(pct) => { set({ income_percentile: pct }); setShowCalc(false) }} />
+                    <IncomeCalculator onApply={(pct) => { setIncome(pct); setShowCalc(false) }} />
                   </div>
                 )}
               </Field>
@@ -225,9 +232,11 @@ export function ProfileWizard({ onSubmit }: { onSubmit: (p: UserProfile) => void
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  // 선택지가 버튼 묶음이라 <label for>로 묶을 수 없다 → role=group+aria-labelledby로 질문↔답변을 프로그램적으로 연결(WCAG 1.3.1).
+  const labelId = useId()
   return (
-    <div>
-      <label className="block text-sm font-bold mb-2">{label}</label>
+    <div role="group" aria-labelledby={labelId}>
+      <span id={labelId} className="block text-sm font-bold mb-2">{label}</span>
       {children}
     </div>
   )

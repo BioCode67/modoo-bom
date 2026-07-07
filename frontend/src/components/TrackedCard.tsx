@@ -82,7 +82,7 @@ export function TrackedCard({ item, policy, onOpen }: { item: TrackedItem; polic
           <span className="text-xs text-muted-foreground">금액 상세는 신청 시 확인</span>
         )}
         {docs.length > 0 && (
-          <button onClick={() => setOpen((o) => !o)} className="inline-flex items-center gap-1 text-xs font-semibold text-sky2-700">
+          <button onClick={() => setOpen((o) => !o)} aria-expanded={open} className="inline-flex items-center gap-1 text-xs font-semibold text-sky2-700">
             서류 {doneDocs}/{docs.length}
             <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', open && 'rotate-180')} />
           </button>

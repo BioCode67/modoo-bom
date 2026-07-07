@@ -91,7 +91,7 @@ export function EmergencyHelp() {
                 {/* 매칭 결과 */}
                 {matched.length > 0 && (
                   <div className="mt-4">
-                    <p className="text-sm font-bold mb-2">받을 수 있는 긴급 지원 {matched.length}건</p>
+                    <p className="text-sm font-bold mb-2">관련 있는 긴급 지원 {matched.length}건 <span className="text-[11px] font-normal text-muted-foreground">· 자격은 소득·재산 심사 후 확정</span></p>
                     <ul className="space-y-2">
                       {matched.map((p) => {
                         const m = parseMonthly(p.benefit)

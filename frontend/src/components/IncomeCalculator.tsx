@@ -91,10 +91,10 @@ export function IncomeCalculator({
 
       {/* 예상 생계급여 실수령액 — "그래서 얼마 받나"를 구체 금액으로 */}
       {livelihood > 0 && (
-        <div className="mt-3 rounded-xl bg-success-600 text-white px-4 py-3 text-center shadow-soft">
-          <p className="text-xs font-semibold text-white/85">예상 생계급여 (매월 받을 수 있어요)</p>
+        <div className="mt-3 rounded-xl bg-success-700 text-white px-4 py-3 text-center shadow-soft">
+          <p className="text-xs font-semibold text-white">예상 생계급여 (매월 받을 수 있어요)</p>
           <p className="text-2xl font-extrabold mt-0.5">약 {won(livelihood)}</p>
-          <p className="text-[10px] text-white/80 mt-1">= {size}인 생계급여 기준액 − 내 소득 · 실제 소득인정액(재산 환산 포함)에 따라 달라져요</p>
+          <p className="text-[10px] text-white mt-1">= {size}인 생계급여 기준액 − 내 소득 · 실제 소득인정액(재산 환산 포함)에 따라 달라져요</p>
         </div>
       )}
 

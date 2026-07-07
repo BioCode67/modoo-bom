@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Printer, X } from 'lucide-react'
 import type { Policy } from '@/data/policies'
 import type { EligiblePolicy, UserProfile } from '@/lib/welfare-engine'
 import { docLink } from '@/lib/officialLinks'
+import { useModalFocus } from '@/hooks/useModalFocus'
 
 /** 정책 문의처 문자열에서 전화번호만 추출(없으면 ''). */
 export function extractTel(contact?: string): string {
@@ -19,6 +20,9 @@ export function extractTel(contact?: string): string {
  */
 export function VisitKit({ policy, profile, onClose }: { policy: Policy | EligiblePolicy; profile: UserProfile | null; onClose: () => void }) {
   const [includeProfile, setIncludeProfile] = useState(true)
+  const panelRef = useRef<HTMLDivElement>(null)
+  // 이 키트는 PolicyDetailDrawer 내부(panelRef 안)에 렌더돼 자체 포커스 관리가 없었다 → 포커스 이동·트랩·복원 공용훅 적용.
+  useModalFocus(panelRef, true, onClose)
   const tel = extractTel(policy.contact)
   const docs = policy.required_docs || []
 
@@ -34,7 +38,10 @@ export function VisitKit({ policy, profile, onClose }: { policy: Policy | Eligib
 
   return (
     <div className="modal-overlay no-print" onClick={onClose} role="dialog" aria-modal="true" aria-label="주민센터 방문용 인쇄">
-      <div className="modal-content vk-doc" onClick={(e) => e.stopPropagation()}>
+      {/* ESC는 이 키트만 닫고 상위 드로어까지 닫히지 않게 전파 차단(둘 다 document keydown을 듣기 때문) */}
+      <div ref={panelRef} tabIndex={-1} className="modal-content vk-doc"
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); onClose() } }}>
         <div className="flex items-center justify-between p-4 border-b border-sprout-100 no-print">
           <p className="font-extrabold">📄 주민센터 방문용 인쇄</p>
           <button onClick={onClose} aria-label="닫기" className="btn-ghost !p-2"><X className="h-4 w-4" /></button>

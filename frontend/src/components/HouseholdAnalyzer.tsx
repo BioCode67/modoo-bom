@@ -82,7 +82,7 @@ export function HouseholdAnalyzer({ onOpen }: { onOpen: (p: Policy | EligiblePol
           <button key={v} onClick={() => setIncome(v)} className={cn('rounded-lg px-2.5 py-1 text-xs font-semibold border', income === v ? 'bg-sprout-700 border-sprout-700 text-white' : 'bg-white border-sprout-100')}>{v}%</button>
         ))}
         <span className="ml-2 text-xs font-bold text-muted-foreground">가구 형태</span>
-        <select value={household} onChange={(e) => setHousehold(e.target.value)} className="rounded-lg border border-sprout-100 px-2 py-1 text-xs">
+        <select aria-label="가구 형태" value={household} onChange={(e) => setHousehold(e.target.value)} className="rounded-lg border border-sprout-100 px-2 py-1 text-xs">
           {['일반가구', '한부모가족', '다문화가족', '조손가구', '1인가구'].map((h) => <option key={h}>{h}</option>)}
         </select>
       </div>
@@ -90,7 +90,7 @@ export function HouseholdAnalyzer({ onOpen }: { onOpen: (p: Policy | EligiblePol
       {/* 가구 요약 */}
       <div className="mt-3 grid grid-cols-3 gap-3">
         <div className="card-cute px-3 py-3 text-center"><p className="text-xl font-extrabold gradient-text">{members.length}명</p><p className="text-[11px] text-muted-foreground">가구 구성원</p></div>
-        <div className="rounded-2xl px-3 py-3 text-center bg-gradient-to-br from-sky2-400 to-sprout-500 text-white"><p className="text-xl font-extrabold">{analysis.uniqueCount}종</p><p className="text-[11px] text-white/80">가구 전체 복지</p></div>
+        <div className="rounded-2xl px-3 py-3 text-center bg-gradient-to-br from-sky2-700 to-sprout-700 text-white"><p className="text-xl font-extrabold">{analysis.uniqueCount}종</p><p className="text-[11px] text-white">가구 전체 복지</p></div>
         <div className="card-cute px-3 py-3 text-center"><p className="text-xl font-extrabold text-sprout-700">{analysis.refTotal > 0 ? formatWon(analysis.refTotal) : '-'}</p><p className="text-[11px] text-muted-foreground">참고 합산/월</p></div>
       </div>
 
@@ -100,7 +100,7 @@ export function HouseholdAnalyzer({ onOpen }: { onOpen: (p: Policy | EligiblePol
           {analysis.per.map(({ member: m, elig, monthly }) => (
             <motion.div key={m.id} layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.97 }} className="card-cute p-4">
               <div className="flex flex-wrap items-center gap-2">
-                <select value={m.relation} onChange={(e) => update(m.id, { relation: e.target.value })} className="rounded-lg border border-sprout-100 px-2 py-1 text-sm font-bold">
+                <select aria-label="가구 구성원 관계" value={m.relation} onChange={(e) => update(m.id, { relation: e.target.value })} className="rounded-lg border border-sprout-100 px-2 py-1 text-sm font-bold">
                   {RELATIONS.map((r) => <option key={r}>{r}</option>)}
                 </select>
                 <label className="text-xs text-muted-foreground flex items-center gap-1">만
