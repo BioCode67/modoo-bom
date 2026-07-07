@@ -86,8 +86,22 @@ describe('categoryMeta', () => {
     expect(categoryMeta('주거').emoji).toBe('🏠')
   })
   it('미지정 카테고리는 기본값 🌼', () => {
-    expect(categoryMeta('보훈').emoji).toBe('🌼')
+    expect(categoryMeta('처음보는분류').emoji).toBe('🌼')
     expect(categoryMeta('').emoji).toBe('🌼')
+  })
+  it('기존 제네릭이던 카테고리에 의미 아이콘 부여(2026-07)', () => {
+    expect(categoryMeta('긴급복지').emoji).toBe('🆘')
+    expect(categoryMeta('긴급돌봄').emoji).toBe('🆘')
+    expect(categoryMeta('산재').emoji).toBe('🦺')
+    expect(categoryMeta('다자녀').emoji).toBe('👨‍👩‍👧‍👦')
+    expect(categoryMeta('농어민').emoji).toBe('🌾')
+    expect(categoryMeta('보훈').emoji).toBe('🎖️')
+    expect(categoryMeta('탈북민').emoji).toBe('🕊️')
+    expect(categoryMeta('외국인근로자').emoji).toBe('🌏')
+    expect(categoryMeta('청소년').emoji).toBe('🧑')
+    expect(categoryMeta('여성복지').emoji).toBe('👩')
+    // 농어촌출산은 '출산' 우선(임신부 아이콘) — 구체 분기가 앞
+    expect(categoryMeta('농어촌출산').emoji).toBe('🤰')
   })
   it('한부모는 임신부(🤰)로 오매핑되지 않음 — 부분문자열 "모" 회귀', () => {
     expect(categoryMeta('한부모가족').emoji).toBe('👨‍👩‍👧') // 가족

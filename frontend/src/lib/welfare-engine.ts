@@ -733,12 +733,19 @@ export function getEligiblePolicies(p: UserProfile): EligiblePolicy[] {
     { key: '자활근로', re: /자활\s*근로/ },
   ]
   const seenGroup = new Set<string>()
+  const seenName = new Set<string>()
   return result.filter((pol) => {
     if (!pol.id.startsWith('POL-')) return true
+    // 1) 대표급여 그룹 접기(의료·주거·교육·자활)
     const g = DEDUP.find((d) => d.re.test(pol.name))
-    if (!g) return true
-    if (seenGroup.has(g.key)) return false
-    seenGroup.add(g.key)
+    if (g) {
+      if (seenGroup.has(g.key)) return false
+      seenGroup.add(g.key)
+    }
+    // 2) 이름 정확중복 접기 — 시드에 동일명 2건(한부모 아동양육비·실업급여·발달재활서비스)이 함께 뜨는 중복카드 방지. 상위 1개만.
+    const nm = pol.name.replace(/\s+/g, '')
+    if (seenName.has(nm)) return false
+    seenName.add(nm)
     return true
   })
 }

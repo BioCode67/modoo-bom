@@ -35,6 +35,16 @@ export function categoryMeta(category: string): { emoji: string; cls: string } {
   if (c.includes('교육') || c.includes('학')) return { emoji: '📚', cls: 'bg-violet-100 text-violet-700' }
   if (c.includes('문화')) return { emoji: '🎨', cls: 'bg-fuchsia-100 text-fuchsia-700' }
   if (c.includes('한부모') || c.includes('가족') || c.includes('다문화')) return { emoji: '👨‍👩‍👧', cls: 'bg-teal-100 text-teal-700' }
+  // 이하: 기존 제네릭(🌼)으로 떨어지던 카테고리에 의미 아이콘 부여(스캔성) — 반드시 위 구체 분기 다음(예 '농어촌출산'은 출산 우선)
+  if (c.includes('긴급')) return { emoji: '🆘', cls: 'bg-rose-100 text-rose-700' }
+  if (c.includes('산재')) return { emoji: '🦺', cls: 'bg-amber-100 text-amber-700' }
+  if (c.includes('다자녀')) return { emoji: '👨‍👩‍👧‍👦', cls: 'bg-teal-100 text-teal-700' }
+  if (c.includes('농어')) return { emoji: '🌾', cls: 'bg-lime-100 text-lime-700' }
+  if (c.includes('보훈')) return { emoji: '🎖️', cls: 'bg-amber-100 text-amber-800' }
+  if (c.includes('탈북')) return { emoji: '🕊️', cls: 'bg-sky2-100 text-sky2-700' }
+  if (c.includes('외국인')) return { emoji: '🌏', cls: 'bg-blue-100 text-blue-700' }
+  if (c.includes('청소년')) return { emoji: '🧑', cls: 'bg-sky2-100 text-sky2-700' }
+  if (c.includes('여성')) return { emoji: '👩', cls: 'bg-pink-100 text-pink-700' }
   return { emoji: '🌼', cls: 'bg-sprout-100 text-sprout-700' }
 }
 

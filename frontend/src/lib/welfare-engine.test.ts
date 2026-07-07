@@ -419,3 +419,19 @@ describe('3차 감사 수정 회귀(2026-07)', () => {
     expect(checkPolicy(mk('만 13~34세', '영케어러 지원'), { ...base, age: 40 }).eligible).toBe(false)
   })
 })
+
+describe('POL 결과 이름 정확중복 제거(2026-07 데이터위생)', () => {
+  // 시드에 동일명 2건(POL-012/059 한부모 아동양육비 등)이 함께 뜨는 중복카드 방지 — 어떤 프로필에서도 POL- 정규화이름은 유일해야
+  const profiles: UserProfile[] = [
+    { ...base, age: 34, household_type: '한부모가족', has_children: true, children_ages: [7], income_percentile: 45 },
+    senior, youth, newborn, disabled,
+    { ...base, age: 40, household_type: '한부모가족', has_children: true, children_ages: [3, 10], income_percentile: 40, employment_status: 'unemployed', life_events: ['실직'] },
+  ]
+  for (const p of profiles) {
+    it(`중복 없음 — age${p.age}/${p.household_type || '무'}`, () => {
+      const pol = getEligiblePolicies(p).filter((x) => x.id.startsWith('POL-'))
+      const names = pol.map((x) => x.name.replace(/\s+/g, ''))
+      expect(names.length).toBe(new Set(names).size)
+    })
+  }
+})
