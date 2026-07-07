@@ -7,6 +7,12 @@ export function formatWon(n: number): string {
   return `${n.toLocaleString()}원`
 }
 
+/** 외국어 답변용 원화 표기 — '만원' 단위는 비한국어 사용자에게 불명확하므로 ₩+천단위 구분. 예) ₩1,990,000 */
+export function formatWonIntl(n: number): string {
+  if (!n || n <= 0) return ''
+  return `₩${Math.round(n).toLocaleString('en-US')}`
+}
+
 export const PRIORITY_META: Record<'high' | 'medium' | 'low', { label: string; cls: string; emoji: string }> = {
   high: { label: '강력 추천', cls: 'priority-high', emoji: '🔥' },
   medium: { label: '추천', cls: 'priority-medium', emoji: '👍' },

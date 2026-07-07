@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { formatWon, parseMonthly, categoryMeta, isCashBenefit, sumCashMonthly } from './format'
+import { formatWon, formatWonIntl, parseMonthly, categoryMeta, isCashBenefit, sumCashMonthly } from './format'
 
 describe('parseMonthly', () => {
   it('원 단위(전체 숫자) 매칭', () => {
@@ -102,5 +102,14 @@ describe('isCashBenefit 감사 수정 회귀 — 현물·자산형성 과장 방
   })
   it('진짜 현금 지원은 그대로 현금성', () => {
     expect(isCashBenefit('월 30만원 현금 지급', '기초연금')).toBe(true)
+  })
+})
+
+describe('formatWonIntl — 외국어용 원화 표기(2026-07)', () => {
+  it('₩+천단위 구분(만원 단위 배제)', () => {
+    expect(formatWonIntl(1990000)).toBe('₩1,990,000')
+    expect(formatWonIntl(350000)).toBe('₩350,000')
+    expect(formatWonIntl(0)).toBe('')
+    expect(formatWonIntl(-5)).toBe('')
   })
 })

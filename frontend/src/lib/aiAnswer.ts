@@ -1,5 +1,5 @@
 import { detectLang } from './detectLang'
-import { parseMonthly, formatWon, isCashBenefit } from './format'
+import { parseMonthly, formatWon, formatWonIntl, isCashBenefit } from './format'
 
 export interface AiAnswerItem {
   name: string
@@ -33,6 +33,7 @@ export function buildAiAnswer(items: AiAnswerItem[], query: string): string {
   // 질의 언어로 답한다(외국인·다문화 사각지대) — 규칙 템플릿이라 환각 없음.
   // 정책명은 한국어 유지(실제 신청 시스템·기관이 한국어) + 통역 지원되는 ☎129 안내.
   if (code !== 'ko') {
+    const wonIntl = cashMax > 0 ? formatWonIntl(cashMax) : '' // 외국어엔 '만원' 대신 ₩+천단위(명확)
     const T: Record<string, (l: string, w: string) => string> = {
       en: (l, w) => `These welfare programs match you best: ${l}.${w ? ` Cash support up to ${w}/month.` : ''} (Program names are in Korean — call ☎129 Danuri/Welfare hotline for interpreter help.)`,
       vi: (l, w) => `Các chế độ phúc lợi phù hợp nhất với bạn: ${l}.${w ? ` Hỗ trợ tiền mặt tối đa ${w}/tháng.` : ''} (Tên chương trình bằng tiếng Hàn — gọi ☎129 để được hỗ trợ thông dịch.)`,
@@ -43,7 +44,7 @@ export function buildAiAnswer(items: AiAnswerItem[], query: string): string {
       ar: (l, w) => `أنسب برامج الرعاية لك: ${l}.${w ? ` دعم نقدي حتى ${w}/شهر.` : ''} (الأسماء بالكورية — اتصل بـ ☎129 للمساعدة بالترجمة.)`,
     }
     const t = T[code] || T.en
-    return t(list, won)
+    return t(list, wonIntl)
   }
   const amt = won ? ` 현금성 지원은 월 최대 ${won}이에요.` : ''
   return `이런 복지가 가장 잘 맞아요: ${list}.${amt}`

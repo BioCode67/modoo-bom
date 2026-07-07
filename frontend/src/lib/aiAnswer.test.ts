@@ -72,3 +72,11 @@ describe('buildAiAnswer', () => {
     expect(s).toContain('현금성 지원은 월 최대 34만원') // 재가급여(207만)가 아니라 기초연금(34만)
   })
 })
+
+describe('buildAiAnswer — 외국어 금액은 ₩ 표기(만원 배제)', () => {
+  it('영어 답변은 만원이 아니라 ₩+천단위', () => {
+    const s = buildAiAnswer([{ name: '긴급복지', benefit: '월 최대 162만원' }], 'I lost my job')
+    expect(s).toContain('₩1,620,000')
+    expect(s).not.toContain('만원')
+  })
+})
