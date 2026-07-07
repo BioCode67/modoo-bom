@@ -1,6 +1,10 @@
 import { motion } from 'framer-motion'
-import { MessageCircleHeart, MousePointerClick, Smartphone, ShieldCheck, PlayCircle } from 'lucide-react'
+import { MessageCircleHeart, MousePointerClick, Smartphone, ShieldCheck, PlayCircle, Download } from 'lucide-react'
 import { SectionHeading } from '@/ui/SectionHeading'
+
+// 데스크탑 앱(Windows 전용) 다운로드 — 릴리스 페이지로(직접 링크는 릴리스 미게시 시 404라 페이지로).
+const AGENT_RELEASES_URL = 'https://github.com/BioCode67/modoo-bom/releases'
+const isWindows = typeof navigator !== 'undefined' && /Windows/.test(navigator.userAgent)
 
 // 무설치 기본 경로 — 어떤 브라우저·폰에서도, 설치 없이. (대부분의 사용자가 이 경로)
 const STEPS = [
@@ -59,9 +63,20 @@ export function RpaShowcase() {
               <br className="hidden sm:block" />앞으로는 <b className="text-foreground">공공 마이데이터</b>로 <b className="text-foreground">인증 한 번이면 완전 자동</b> — 설치 없이 안전하게 준비 중이에요.
             </p>
           </div>
-          <span className="inline-flex items-center gap-1.5 text-xs font-bold text-sprout-700 bg-sprout-50 rounded-full px-3 py-1.5 shrink-0">
-            <ShieldCheck className="h-4 w-4" /> 개인정보 서버 전송 0
-          </span>
+          <div className="flex flex-col items-center gap-2 shrink-0">
+            {isWindows && (
+              <a
+                href={AGENT_RELEASES_URL} target="_blank" rel="noopener noreferrer"
+                className="btn-primary !py-2 !px-4 text-xs whitespace-nowrap"
+                title="Windows 데스크탑 앱 — 설치 후 서류 발급·신청이 완전 자동(시스템 크롬 사용)"
+              >
+                <Download className="h-4 w-4" /> Windows 앱 받기
+              </a>
+            )}
+            <span className="inline-flex items-center gap-1.5 text-xs font-bold text-sprout-700 bg-sprout-50 rounded-full px-3 py-1.5">
+              <ShieldCheck className="h-4 w-4" /> 개인정보 서버 전송 0
+            </span>
+          </div>
         </div>
       </div>
     </section>
