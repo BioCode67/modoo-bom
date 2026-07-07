@@ -130,8 +130,12 @@ export function DocumentCenter() {
   }
 
   // 🚀 연쇄 자동발급 — 지원 서류 전부를 한 흐름으로(정부24는 한 번 로그인으로 이어짐)
-  // 이미 '발급 완료'로 표시한 서류는 재발급 대상에서 제외(연쇄 발급은 확장 전용 — ext && … 조건으로만 노출)
+  // 이미 '발급 완료'로 표시한 서류는 재발급 대상에서 제외.
   const rpaDocs = docs.filter((d) => isRpaSupported(d) && !isDocDone(d))
+  // 로컬 백엔드(데스크탑앱)가 실제로 발급 가능한 서류만 — 로컬 여정에 넣을 대상(확장은 rpaDocs 전체)
+  const rpaDocsLocal = rpaDocs.filter((d) => isRpaSupported(d, 'local'))
+  // 연쇄 발급 대상: 확장 있으면 전체(13종), 없고 로컬 에이전트면 로컬 지원분(11종)
+  const chainDocs = ext ? rpaDocs : rpaDocsLocal
   const certAll = docs.filter((d) => isCertIssuable(d)) // 무설치 전자발급(전자증명서) 가능 서류
   const certDocs = certAll.filter((d) => !isDocDone(d)) // 그중 아직 발급 안 한 서류 — 배너 CTA가 순서대로 안내
 
@@ -142,16 +146,59 @@ export function DocumentCenter() {
     const nm = (rpaInfo.name || profile?.name || '').trim()
     if (nm) navigator.clipboard?.writeText(nm).catch(() => { /* 미지원 환경 무시 */ })
   }
+  // 로컬 백엔드(데스크탑앱) 연쇄 발급 — 한 번 카카오 인증으로 서류들을 순차 발급(orchestrator journey).
+  const runJourneyViaBackend = async (docList: string[]) => {
+    const res = await fetch(`${getRpaBase()}/api/journey/run`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        doc_names: docList, user_name: rpaInfo.name || profile?.name || '사용자',
+        birth_date: rpaInfo.birth_date, phone: rpaInfo.phone, carrier: rpaInfo.carrier,
+      }),
+    })
+    if (!res.ok) {
+      const detail = await res.json().then((d) => d?.detail).catch(() => '')
+      throw new Error(detail || '연쇄 발급을 시작하지 못했어요.')
+    }
+    const { journey_id } = await res.json()
+    for (let i = 0; i < 240; i++) { // 최대 ~6분(다서류 순차 발급 + 각 카카오 인증 대기)
+      await new Promise((r) => setTimeout(r, 1500))
+      if (!mountedRef.current) return
+      const j = await fetch(`${getRpaBase()}/api/journey/status/${journey_id}`).then((r) => r.json())
+      setRpa((s) => {
+        const next = { ...s }
+        for (const step of (j.steps || [])) {
+          const isCur = j.current === step.name
+          const msg = isCur && j.current_message ? j.current_message
+            : step.status === 'running' ? '진행 중…'
+            : (step.status === 'done' || step.status === 'completed') ? '발급 완료'
+            : step.status === 'error' ? (step.error || '실패') : '대기 중…'
+          next[step.name] = { status: step.status, step: msg, at: s[step.name]?.at, saved: !!step.saved_path }
+        }
+        return next
+      })
+      if (j.status === 'completed' || j.status === 'error') break
+    }
+  }
+
   const startAll = async () => {
     if (!rpaInfo.name?.trim() || !rpaInfo.birth_date?.trim() || !rpaInfo.phone?.trim()) {
-      setRpa((s) => ({ ...s, [rpaDocs[0]]: { status: 'error', step: '아래 "자동입력 추가정보"에 실명·생년월일·휴대폰을 먼저 입력해 주세요.', at: Date.now() } }))
+      setRpa((s) => ({ ...s, [chainDocs[0]]: { status: 'error', step: '아래 "자동입력 추가정보"에 실명·생년월일·휴대폰을 먼저 입력해 주세요.', at: Date.now() } }))
       return
     }
     const userInfo = {
       user_name: rpaInfo.name || profile?.name || '사용자',
       birth_date: rpaInfo.birth_date, phone: rpaInfo.phone, carrier: rpaInfo.carrier,
     }
-    setRpa((s) => ({ ...s, ...Object.fromEntries(rpaDocs.map((d) => [d, { status: 'running', step: '대기열에 추가됨…', at: Date.now() }])) }))
+    setRpa((s) => ({ ...s, ...Object.fromEntries(chainDocs.map((d) => [d, { status: 'running', step: '대기열에 추가됨…', at: Date.now() }])) }))
+    // 로컬 에이전트(데스크탑앱) 우선 — 확장이 없거나 로컬만 있을 때 백엔드 여정으로 연쇄 발급.
+    if (localAgent && !ext) {
+      try {
+        await runJourneyViaBackend(chainDocs)
+      } catch (e) {
+        setRpa((s) => ({ ...s, [chainDocs[0]]: { status: 'error', step: e instanceof Error ? e.message : '연쇄 발급 실패', at: Date.now() } }))
+      }
+      return
+    }
     const r = await issueManyViaExtension(rpaDocs, userInfo)
     if (!r.ok) { setRpa((s) => ({ ...s, [rpaDocs[0]]: { status: 'error', step: r.error || '연쇄 발급을 시작하지 못했어요.', at: Date.now() } })); return }
     // 확장이 표기변형을 정규화·디듑해 실제 큐에 들어간 목록(r.docs)만 진행 대상 — 나머지 카드는
@@ -227,9 +274,10 @@ export function DocumentCenter() {
       {backend && <RpaInfoForm />}
 
       {/* 🚀 연쇄 자동발급 — 확장이 있고 지원 서류가 2개 이상일 때 */}
-      {ext && rpaDocs.length > 1 && (
+      {/* 연쇄 자동발급 — 확장(전체) 또는 로컬 에이전트(데스크탑앱, 로컬 지원분)로 한 번 인증에 이어서 발급 */}
+      {(ext || localAgent) && chainDocs.length > 1 && (
         <button onClick={startAll} className="btn-primary w-full mt-3 !py-2.5 text-sm">
-          🚀 필요한 서류 {rpaDocs.length}종 전부 자동발급 (한 번 인증으로 이어서)
+          🚀 필요한 서류 {chainDocs.length}종 전부 자동발급 (한 번 인증으로 이어서)
         </button>
       )}
 

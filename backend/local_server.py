@@ -128,6 +128,16 @@ class ApplyRequest(BaseModel):
     profile: dict = {}
 
 
+class JourneyRunRequest(BaseModel):
+    doc_names: list[str] = []
+    service_names: list[str] = []
+    user_name: str = "홍길동"
+    birth_date: str = ""
+    phone: str = ""
+    carrier: str = ""
+    profile: dict = {}
+
+
 # ── 상태 ──
 @app.get("/api/health")
 async def health():
@@ -250,6 +260,32 @@ async def apply_status(task_id: str):
     d = task.to_dict() if hasattr(task, "to_dict") else dict(task)
     d.pop("download_token", None)  # rpa_status와 동일하게 인가 비밀 노출 방지(일관성)
     return d
+
+
+# ── 복지 여정(연쇄 발급/신청) — '전부 자동발급': 서류들을 한 로그인으로 순차 발급 ──
+@app.post("/api/journey/run")
+async def journey_run(req: JourneyRunRequest):
+    """지정한 서류들을 순차 발급(자동 저장)하고 신청까지 오케스트레이션. 사이트별 카카오 본인인증만 본인."""
+    from rpa.orchestrator import start_journey
+    from rpa.manager import can_accept
+    from rpa.config import rpa_enabled, rpa_disabled_reason
+    if not rpa_enabled():
+        raise HTTPException(status_code=503, detail=rpa_disabled_reason())
+    if not can_accept():
+        raise HTTPException(status_code=503, detail="지금 자동화 이용자가 많아요. 잠시 후 다시 시도하거나 공식 사이트에서 바로 진행하실 수 있어요.")
+    user_info = {"user_name": req.user_name, "birth_date": req.birth_date, "phone": req.phone, "carrier": req.carrier}
+    jid = start_journey(req.doc_names, req.service_names, req.user_name, user_info, req.profile)
+    return {"journey_id": jid, "status": "started", "docs": req.doc_names, "services": req.service_names}
+
+
+@app.get("/api/journey/status/{journey_id}")
+async def journey_status(journey_id: str):
+    """여정 진행상황(단계별 상태 + 현재 단계 라이브 메시지 + 저장된 서류 경로) 조회."""
+    from rpa.orchestrator import journey_view
+    j = journey_view(journey_id)
+    if j is None:
+        raise HTTPException(status_code=404, detail="여정을 찾을 수 없습니다.")
+    return j
 
 
 @app.exception_handler(Exception)

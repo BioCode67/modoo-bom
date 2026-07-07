@@ -16,6 +16,29 @@ def get_journey(journey_id: str):
     return _journeys.get(journey_id)
 
 
+def journey_view(journey_id: str):
+    """여정 + '현재 진행 중 단계'의 라이브 메시지/스크린샷/상태를 병합해 반환(UI 표시용).
+    각 단계는 실행 중 _rpa_tasks[task_id]에 라이브 RPATask가 있어 카카오 인증 안내 등 세부 메시지를 담는다.
+    이게 없으면 UI가 '어느 서류에서 카카오 인증을 해야 하는지' 알 수 없다."""
+    j = _journeys.get(journey_id)
+    if j is None:
+        return None
+    view = dict(j)
+    cur = j.get("current")
+    if cur:
+        from rpa.manager import get_task
+        for step in j.get("steps", []):
+            if step.get("name") == cur and step.get("task_id"):
+                t = get_task(step["task_id"])
+                if t is not None:
+                    d = t.to_dict() if hasattr(t, "to_dict") else dict(t)
+                    view["current_message"] = d.get("current_step") or ""
+                    view["current_status"] = d.get("status") or ""
+                    view["current_screenshot"] = d.get("screenshot_b64")
+                break
+    return view
+
+
 def _new_journey(doc_names, service_names, user_name) -> str:
     jid = uuid.uuid4().hex
     steps = (

@@ -480,9 +480,9 @@ async def journey_run(req: JourneyRunRequest):
 
 @router.get("/journey/status/{journey_id}")
 async def journey_status(journey_id: str):
-    """여정 진행상황(단계별 상태 + 저장된 서류 경로) 조회."""
-    from rpa.orchestrator import get_journey
-    j = get_journey(journey_id)
+    """여정 진행상황(단계별 상태 + 현재 단계 라이브 메시지 + 저장된 서류 경로) 조회."""
+    from rpa.orchestrator import journey_view
+    j = journey_view(journey_id)
     if j is None:
         raise HTTPException(status_code=404, detail="여정을 찾을 수 없습니다.")
     return j
