@@ -15,23 +15,25 @@ _CLOUD_MARKERS = ("RENDER", "DYNO", "K_SERVICE", "FLY_APP_NAME", "AWS_EXECUTION_
 
 
 def rpa_enabled() -> bool:
-    """이 백엔드에서 RPA를 실행해도 되는지."""
+    """이 백엔드에서 RPA를 실행해도 되는지 — **명시적 opt-in(RPA_ENABLED=1)일 때만 True (fail-closed)**.
+
+    ⚠️ 보안: 과거엔 클라우드 마커가 없으면 playwright 설치만으로 기본 활성(fail-open)이라, 마커 목록에
+    없는 호스트(순수 VM·Azure·Railway·마커 없는 도커 등)에 main.py 를 배포하면 RPA 엔드포인트가 공개
+    HTTPS 서버에서 켜져, 배포 웹(CORS 허용)이 이름·생년월일·연락처를 서버로 보내고 서버가 headed
+    브라우저를 띄우려 하는 개인정보/격리 위반이 발생할 수 있었다.
+    → 이제 **명시적 RPA_ENABLED=1** 이 없으면 무조건 False. 로컬 앱(run-local-app.bat·agent_entry·
+    local_server.main)은 항상 RPA_ENABLED=1 을 설정하므로 데스크탑 자동발급은 그대로 동작한다.
+    """
     v = os.getenv("RPA_ENABLED", "").strip().lower()
     if v in ("1", "true", "yes", "on"):
-        return True
-    if v in ("0", "false", "no", "off"):
-        return False
-    if os.getenv("RPA_DISABLED", "").strip():
-        return False
-    # 클라우드로 감지되면 기본 비활성(개인정보 서버 유입 방지 + headed 불가)
-    if any(os.getenv(m) for m in _CLOUD_MARKERS):
-        return False
-    # 로컬: Playwright(+브라우저)가 있어야 실제 RPA 가능
-    try:
-        import playwright  # noqa: F401
-        return True
-    except ImportError:
-        return False
+        # 명시 활성이라도 playwright 미설치면 실제 RPA 불가 → False(launch 단계 크래시 대신 정직한 게이팅).
+        try:
+            import playwright  # noqa: F401
+            return True
+        except ImportError:
+            return False
+    # 그 외(미설정·0/false·RPA_DISABLED·클라우드 마커)는 모두 비활성 — fail-closed.
+    return False
 
 
 def rpa_disabled_reason() -> str:

@@ -76,9 +76,48 @@ def test_rpa_issue_blocked_when_disabled(monkeypatch):
 
 
 def test_apply_start_unsupported_service(monkeypatch):
-    monkeypatch.setenv("RPA_ENABLED", "1")
+    monkeypatch.setenv("RPA_ENABLED", "1")  # 게이트 통과시켜 '지원목록 밖' 분기를 정확히 검증
     r = client.post("/api/apply/start", json={"service_name": "존재하지않는서비스"})
-    assert r.status_code in (400, 503)  # 지원목록 밖 → 400 (rpa 미가용 환경이면 503)
+    assert r.status_code == 400  # 지원목록 밖 → 400 (503 허용은 게이팅 회귀를 가려서 제거)
+
+
+def test_rpa_file_wrong_token_403():
+    """완료된 태스크라도 잘못된/누락 토큰이면 문서 반환 거부(다운로드 인가)."""
+    from rpa import manager
+    manager._rpa_tasks["ft-badtok"] = {"status": "done", "download_token": "realsecret",
+                                       "result": {"saved_path": __file__}}
+    try:
+        assert client.get("/api/documents/rpa-file/ft-badtok?t=WRONG").status_code == 403
+        assert client.get("/api/documents/rpa-file/ft-badtok").status_code == 403  # 토큰 없음
+    finally:
+        manager._rpa_tasks.pop("ft-badtok", None)
+
+
+def test_rpa_file_path_traversal_rejected():
+    """저장 폴더(DOCS_DIR) 밖 경로는 올바른 토큰이어도 거부(경로 이탈 차단)."""
+    import os
+    from rpa import manager
+    outside = os.path.join(os.environ.get("WINDIR", "C:\\Windows"), "win.ini")
+    manager._rpa_tasks["ft-traverse"] = {"status": "done", "download_token": "tok",
+                                         "result": {"saved_path": outside}}
+    try:
+        r = client.get("/api/documents/rpa-file/ft-traverse?t=tok")
+        # 파일이 존재하면 commonpath 검사에서 403(폴더 밖), 없으면 404 — 어느 쪽도 문서 유출 없음
+        assert r.status_code in (403, 404)
+    finally:
+        manager._rpa_tasks.pop("ft-traverse", None)
+
+
+def test_rpa_status_strips_download_token():
+    """rpa-status 응답에도 download_token(인가 비밀)이 노출되지 않아야 한다."""
+    from rpa import manager
+    manager._rpa_tasks["st-tok"] = {"status": "running", "download_token": "secret", "current_step": "x"}
+    try:
+        r = client.get("/api/documents/rpa-status/st-tok")
+        assert r.status_code == 200
+        assert "download_token" not in r.json()
+    finally:
+        manager._rpa_tasks.pop("st-tok", None)
 
 
 def test_apply_status_strips_download_token():
