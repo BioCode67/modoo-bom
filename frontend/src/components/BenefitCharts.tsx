@@ -1,11 +1,12 @@
 import { motion } from 'framer-motion'
 import type { EligiblePolicy } from '@/lib/welfare-engine'
-import { parseMonthly, formatWon, categoryMeta } from '@/lib/format'
+import { parseMonthly, isCashBenefit, formatWon, categoryMeta } from '@/lib/format'
 
-/** 월 혜택 상위 정책 가로 막대 — 금액이 파싱되는 정책만 */
+/** 월 '수령액' 상위 정책 가로 막대 — 현금성 지원만(장기요양·바우처 등 서비스 한도를 수령액처럼 과장하지 않게) */
 export function BenefitBreakdown({ policies }: { policies: EligiblePolicy[] }) {
   const rows = policies
-    .map((p) => ({ name: p.name, won: parseMonthly(p.benefit), cat: p.category }))
+    // 현금으로 받는 지원만 '수령액'으로 — 장기요양 재가급여(서비스 한도)·바우처·현물은 제외(정직성, sumCashMonthly와 동일 기준)
+    .map((p) => ({ name: p.name, won: isCashBenefit(p.benefit, `${p.name} ${p.category}`) ? parseMonthly(p.benefit) : 0, cat: p.category }))
     .filter((r) => r.won > 0)
     .sort((a, b) => b.won - a.won)
     .slice(0, 5)
