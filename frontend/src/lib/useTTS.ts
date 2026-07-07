@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 /** 언어코드(en/vi/zh…) → SpeechSynthesis BCP-47 lang 태그. 다국어 AI 답변을 자국어 보이스로 읽기 위함. */
 const LANG_TAG: Record<string, string> = {
@@ -22,6 +22,8 @@ export function hasVoiceFor(lang?: string): boolean {
 export function useTTS() {
   const [supported] = useState(() => typeof window !== 'undefined' && 'speechSynthesis' in window)
   const [speaking, setSpeaking] = useState(false)
+  // 이 훅 인스턴스가 실제로 발화 중인지(언마운트 cleanup에서 남의 재생까지 끊지 않도록) — 전역 speechSynthesis는 단일 큐라 무조건 cancel하면 동시 마운트된 다른 소비자 음성도 중단됨
+  const speakingRef = useRef(false)
   // 보이스 목록 로드 완료를 반영하는 버전 — voiceschanged 후 hasVoice 재판단을 유발(첫 낙관적 true 보정).
   const [voicesVer, setVoicesVer] = useState(0)
 
@@ -31,10 +33,10 @@ export function useTTS() {
     try { window.speechSynthesis.getVoices() } catch { /* noop */ }
     const onChange = () => setVoicesVer((v) => v + 1)
     try { window.speechSynthesis.addEventListener('voiceschanged', onChange) } catch { /* noop */ }
-    // 페이지 이탈/언마운트 시 읽기 중단
+    // 페이지 이탈/언마운트 시 '이 인스턴스가 발화 중일 때만' 중단(다른 소비자의 재생은 보존)
     return () => {
       try { window.speechSynthesis.removeEventListener('voiceschanged', onChange) } catch { /* noop */ }
-      window.speechSynthesis.cancel()
+      if (speakingRef.current) window.speechSynthesis.cancel()
     }
   }, [supported])
 
@@ -49,8 +51,9 @@ export function useTTS() {
     if (match) u.voice = match
     u.rate = 0.95
     u.pitch = 1
-    u.onend = () => setSpeaking(false)
-    u.onerror = () => setSpeaking(false)
+    u.onend = () => { speakingRef.current = false; setSpeaking(false) }
+    u.onerror = () => { speakingRef.current = false; setSpeaking(false) }
+    speakingRef.current = true
     setSpeaking(true)
     window.speechSynthesis.speak(u)
   }
@@ -58,6 +61,7 @@ export function useTTS() {
   const stop = () => {
     if (!supported) return
     window.speechSynthesis.cancel()
+    speakingRef.current = false
     setSpeaking(false)
   }
 

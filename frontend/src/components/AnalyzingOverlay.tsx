@@ -31,6 +31,8 @@ export function AnalyzingOverlay({
   const [skipReason, setSkipReason] = useState<null | 'datasaver' | 'error'>(null)
   const skipped = skipReason !== null
   const done = useRef(false)
+  // onDone을 예약한 타이머 — 언마운트(사용자가 분석 중 떠남) 시 취소해야 결과가 뒤늦게 확정·저장되지 않음
+  const doneTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   // 백엔드(LangGraph)가 배포돼 있으면 실제 10노드 에이전트를 실시간 스트리밍(대회 주제의 핵심 순간).
   // 결과는 신뢰도 높은 클라이언트 엔진 것을 쓰되, 이 화면이 '진짜 에이전트'를 보여준다.
   // 단, WS가 403·콜드스타트로 실패하면 아래 클라이언트 연출로 폴백(streamFailed) → 에이전트 느낌 항상 유지.
@@ -46,7 +48,7 @@ export function AnalyzingOverlay({
       done.current = true
       setActive(steps)
       const wait = Math.max(0, 1300 - (Date.now() - start)) // 최소 노출(깜빡임 방지)
-      setTimeout(onDone, wait)
+      doneTimer.current = setTimeout(onDone, wait)
     }
     setActive(1)
     ;(async () => {
@@ -79,7 +81,7 @@ export function AnalyzingOverlay({
     })()
     // 안전망: 신경망이 너무 오래 걸리면(첫 임베딩 다운로드 등) 결과부터 보여준다
     const safety = setTimeout(finish, 12000)
-    return () => clearTimeout(safety)
+    return () => { clearTimeout(safety); if (doneTimer.current) clearTimeout(doneTimer.current) }
   }, [profile, eligible, onDone, streamMode])
 
   // 백엔드 배포 시: 실제 LangGraph 10노드 에이전트 실시간 스트리밍(WS 실패 시 클라이언트 연출로 폴백)

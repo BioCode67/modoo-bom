@@ -104,7 +104,8 @@ export function PolicyDetailDrawer({
             aria-modal="true"
             aria-label={`${policy.name} 상세`}
           >
-            <DrawerBody policy={policy} onClose={onClose} onOpen={onOpen} ctx={{ isSaved, toggleSaved, setStatus, setView }} />
+            {/* key=policy.id — 드로어 안에서 '비슷한 복지'로 다른 정책 이동 시 이전 정책의 로컬상태(applied 배너·AI유사목록)가 잔존하지 않도록 재마운트 */}
+            <DrawerBody key={policy.id} policy={policy} onClose={onClose} onOpen={onOpen} ctx={{ isSaved, toggleSaved, setStatus, setView }} />
           </motion.aside>
         </>
       )}

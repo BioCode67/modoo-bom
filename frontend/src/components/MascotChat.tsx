@@ -58,6 +58,9 @@ export function MascotChat({ onSubmit }: { onSubmit: (p: UserProfile) => void })
   const [history, setHistory] = useState<{ step: StepId; profile: UserProfile; len: number }[]>(draft?.history ?? [])
   const [done, setDone] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
+  // 완료 시 onSubmit을 900ms 지연 호출하는 타이머 — 언마운트(중간 이탈) 시 취소해 떠난 뒤 제출/화면전환되지 않게
+  const submitTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => { if (submitTimer.current) clearTimeout(submitTimer.current) }, [])
   // 어르신(65+) 선택 시 큰글씨 모드를 즉시 제안 — 기존 복지앱의 최대 불만('작은 글씨, 어르신 미고려') 대응.
   const { elderly, toggleElderly } = useAppStore()
   const [offerElderly, setOfferElderly] = useState(false)
@@ -108,7 +111,7 @@ export function MascotChat({ onSubmit }: { onSubmit: (p: UserProfile) => void })
       return out
     })
     if (nxt) setStep(nxt)
-    else { setDone(true); setTimeout(() => onSubmit(patched), 900) }
+    else { setDone(true); submitTimer.current = setTimeout(() => onSubmit(patched), 900) }
   }
 
   const back = () => {
