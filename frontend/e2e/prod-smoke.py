@@ -57,19 +57,29 @@ def check_frontend() -> bool:
         page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
         page.on("pageerror", lambda e: page_errors.append(str(e)))
 
+        def dismiss_onboarding():
+            # 첫 방문 온보딩 모달('새싹이 인사')이 히어로 입력을 가려 제출 클릭을 막는다 → ESC로 닫는다.
+            if page.get_by_role("dialog").count():
+                page.keyboard.press("Escape")
+                page.wait_for_timeout(500)
+
         page.goto(SITE, wait_until="networkidle", timeout=60000)
         print(f"홈 로드 OK — {page.title()}")
 
         for q in QUERIES:
+            dismiss_onboarding()
             inp = page.get_by_label("상황을 한 문장으로 입력")
-            inp.fill(q)
-            inp.press("Enter")
+            inp.first.fill(q)
+            # 진짜 제출 경로: 히어로 form의 submit 버튼(일반 Enter는 QuickAsk textarea에선 제출 아님).
+            page.locator("form button[type=submit]").first.click(timeout=8000)
             try:
-                page.wait_for_selector("text=받을 수 있는 복지", timeout=25000)
-                print(f"  분석 렌더 OK — '{q[:20]}…'")
+                # 결과 전용 마커('맞춤 추천 복지' 헤딩) — '받을 수 있는 복지'는 홈 히어로에도 있어 오탐.
+                # 백엔드 10노드 스트림이면 수십 초 걸리므로 넉넉히 대기.
+                page.wait_for_selector("text=맞춤 추천 복지", timeout=45000)
+                print(f"  분석 결과 렌더 OK — '{q[:20]}…'")
                 ok_queries += 1
             except Exception:
-                print(f"  분석 렌더 실패 — '{q[:20]}…'")
+                print(f"  분석 결과 렌더 실패 — '{q[:20]}…'")
             page.goto(SITE, wait_until="networkidle", timeout=60000)
 
         browser.close()
