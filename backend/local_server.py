@@ -240,13 +240,16 @@ async def apply_supported():
 @app.post("/api/apply/start")
 async def apply_start(req: ApplyRequest):
     from rpa.manager import start_apply_task, SUPPORTED_SERVICE_NAMES, can_accept
+    from rpa.apply_rpa import _valid_bokjiro_url
     from rpa.config import rpa_enabled, rpa_disabled_reason
     if not rpa_enabled():
         raise HTTPException(status_code=503, detail=rpa_disabled_reason())
     if not can_accept():
         raise HTTPException(status_code=503, detail="지금 자동 신청 이용자가 많아요. 잠시 후 다시 시도하거나 공식 사이트에서 바로 신청하실 수 있어요.")
-    if req.service_name not in SUPPORTED_SERVICE_NAMES:
-        raise HTTPException(status_code=400, detail=f"지원하지 않는 서비스: {req.service_name}\n지원 목록: {', '.join(SUPPORTED_SERVICE_NAMES)}")
+    # 지원 6종이 아니어도, 정책의 복지로 딥링크(profile.apply_url)가 있으면 일반화 신청(확장과 동일).
+    has_link = _valid_bokjiro_url((req.profile or {}).get("apply_url") or (req.profile or {}).get("applyUrl"))
+    if req.service_name not in SUPPORTED_SERVICE_NAMES and not has_link:
+        raise HTTPException(status_code=400, detail=f"지원하지 않는 서비스: {req.service_name}\n지원 목록: {', '.join(SUPPORTED_SERVICE_NAMES)} (또는 복지로 신청 딥링크 필요)")
     task_id = start_apply_task(req.service_name, req.user_name, req.profile)
     return {"task_id": task_id, "status": "started", "service_name": req.service_name}
 

@@ -35,16 +35,17 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
     return () => { clearInterval(t); off() }
   }, [policy.name])
 
-  // 복지로/한국장학재단 신청 URL을 가진 정책이면 확장으로 자동신청 가능(내장 6종에 국한하지 않음)
+  // 복지로/한국장학재단 신청 URL을 가진 정책이면 자동신청 가능(내장 6종에 국한하지 않음)
   const app = policy.application || ''
-  const isExtApplyable = /bokjiro\.go\.kr/.test(app) || /kosaf\.go\.kr/.test(app)
+  const isBokjiroApplyable = /bokjiro\.go\.kr/.test(app)      // 로컬 백엔드(apply_rpa=복지로 전용)로 신청 가능
+  const isExtApplyable = isBokjiroApplyable || /kosaf\.go\.kr/.test(app)  // 확장은 복지로+장학재단
   const showApply = automatable || isExtApplyable
   if (!showApply) return null
 
-  // 실제 자동화 가능 여부: 확장(복지로/장학재단) 또는 로컬 에이전트(내장 6종).
+  // 실제 자동화 가능 여부: 확장(복지로/장학재단) 또는 로컬 에이전트(내장 6종 + 복지로 딥링크 일반화).
   const rpaReady = ready === true && !!caps?.rpa
   const canExt = ext && isExtApplyable
-  const canLocal = rpaReady && automatable
+  const canLocal = rpaReady && (automatable || isBokjiroApplyable)
   const canRpa = canExt || canLocal
   if (!canRpa) {
     return (
@@ -74,7 +75,8 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
     try {
       const res = await fetch(`${getRpaBase()}/api/apply/start`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ service_name: policy.name, user_name: rpaInfo.name || profile?.name || '사용자', profile: { ...(profile || {}), ...rpaInfo } }),
+        // apply_url: 정책의 실제 복지로 딥링크 — 내장 6종이 아닌 정책도 이 URL로 신청(백엔드 일반화, 호스트 검증됨).
+        body: JSON.stringify({ service_name: policy.name, user_name: rpaInfo.name || profile?.name || '사용자', profile: { ...(profile || {}), ...rpaInfo, apply_url: bestApplyUrl(policy.application, policy.name) } }),
       })
       if (!res.ok) {
         // 503(이용자 많음/RPA 비활성)은 서버 안내를 그대로 노출 — 아래 공식 신청 링크로 폴백

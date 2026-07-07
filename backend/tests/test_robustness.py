@@ -248,3 +248,20 @@ def test_gov24_doc_coverage_expanded():
         assert capp in APPLY_FORM_URLS[d] and capp in ISSUE_URLS[d] and capp in DOC_URLS[d]
     # 세 URL 맵은 CappBizCD 단일소스에서 생성 → 키 동일
     assert set(DOC_URLS) == set(ISSUE_URLS) == set(APPLY_FORM_URLS) == set(DOC_CAPP)
+
+
+# ── 자동신청 일반화: 복지로 딥링크 있으면 임의 정책도 신청(호스트 검증) ──
+def test_apply_url_generalization():
+    from rpa.apply_rpa import _valid_bokjiro_url, resolve_apply_url, SERVICE_APPLY_URLS, BOKJIRO_SEARCH_URL
+    BOK = "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00009999"
+    # 호스트 검증 — 복지로 https만
+    assert _valid_bokjiro_url(BOK)
+    assert not _valid_bokjiro_url("https://evil.com/x")
+    assert not _valid_bokjiro_url("http://www.bokjiro.go.kr/x")  # http 거부
+    assert not _valid_bokjiro_url("https://kosaf.go.kr/x")
+    assert not _valid_bokjiro_url("")
+    # 딥링크 우선(내장 6종 밖 정책도 신청 가능)
+    assert "WLF00009999" in resolve_apply_url("모르는정책", {"apply_url": BOK})
+    # 하드코딩 폴백 / 잡URL 무시
+    assert resolve_apply_url("기초연금", {}) == SERVICE_APPLY_URLS["기초연금"]
+    assert resolve_apply_url("모르는정책", {"apply_url": "https://evil.com"}) == BOKJIRO_SEARCH_URL

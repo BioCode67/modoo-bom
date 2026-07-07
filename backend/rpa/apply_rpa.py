@@ -123,15 +123,34 @@ async def _login_bokjiro(page, task) -> bool:
     return True
 
 
+def _valid_bokjiro_url(url: str) -> bool:
+    """신청 URL은 반드시 복지로(www.bokjiro.go.kr) 것만 — 임의 URL 자동이동 방지(보안)."""
+    try:
+        from urllib.parse import urlparse
+        u = urlparse(str(url or ""))
+        return u.scheme == "https" and u.hostname in ("www.bokjiro.go.kr", "bokjiro.go.kr")
+    except Exception:
+        return False
+
+
+def resolve_apply_url(service_name: str, profile: dict) -> str:
+    """신청 URL 결정 — ① 프로필이 준 복지로 딥링크(정책의 실제 wlfareInfoId, 확장과 동일 일반화)
+    ② 하드코딩 6종 ③ 검색 페이지 순. 딥링크는 복지로 호스트일 때만 채택."""
+    cand = (profile or {}).get("apply_url") or (profile or {}).get("applyUrl")
+    if cand and _valid_bokjiro_url(cand):
+        return str(cand)
+    return SERVICE_APPLY_URLS.get(service_name, BOKJIRO_SEARCH_URL)
+
+
 async def run_apply_rpa(task, service_name: str, profile: dict) -> None:
-    """복지로에서 복지 서비스 신청 자동화"""
+    """복지로에서 복지 서비스 신청 자동화. profile.apply_url(복지로 딥링크)이 있으면 임의 정책도 신청(일반화)."""
     try:
         from playwright.async_api import async_playwright
     except ImportError:
         task.update("error", "playwright 미설치: pip install playwright && playwright install chromium")
         return
 
-    service_url = SERVICE_APPLY_URLS.get(service_name, BOKJIRO_SEARCH_URL)
+    service_url = resolve_apply_url(service_name, profile)
 
     try:
         async with async_playwright() as pw:
