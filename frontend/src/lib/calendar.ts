@@ -104,7 +104,8 @@ export function toICS(events: WelfareEvent[]): string {
     'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//ModooBom//Welfare//KO', 'CALSCALE:GREGORIAN',
   ]
   for (const e of events) {
-    const esc = (s: string) => s.replace(/[\\,;]/g, (m) => '\\' + m).replace(/\n/g, '\\n')
+    // RFC 5545: 값 안의 모든 줄바꿈(CRLF·CR·LF)을 \n 이스케이프로 정규화 — 정책명/노트에 원시 CR이 남으면 .ics 줄구조가 깨져 캘린더 파싱 실패
+    const esc = (s: string) => s.replace(/[\\,;]/g, (m) => '\\' + m).replace(/\r\n|\r|\n/g, '\\n')
     lines.push(
       'BEGIN:VEVENT',
       `UID:${e.id}@modoobom`,

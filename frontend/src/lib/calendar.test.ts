@@ -84,6 +84,13 @@ describe('toICS', () => {
     expect(ics).toContain('SUMMARY:')
     expect(ics).toContain('END:VCALENDAR')
   })
+  it('노트의 CRLF/CR/LF는 \\n으로 이스케이프 — 원시 CR로 .ics 줄구조 깨지지 않음(RFC 5545)', () => {
+    const ics = toICS([{ id: 'x', date: Date.now() + 86400000, title: '제목\r줄', note: '첫줄\r\n둘째줄\n셋째', kind: 'prepare' }])
+    const desc = ics.split('\r\n').find((l) => l.startsWith('DESCRIPTION:'))
+    expect(desc).toBe('DESCRIPTION:첫줄\\n둘째줄\\n셋째')
+    // 값 내부에 원시 CR(폴딩용 \r\n 외)이 남지 않아야 함 — DESCRIPTION 값 부분에 raw \r 없음
+    expect(desc!.slice('DESCRIPTION:'.length)).not.toMatch(/\r/)
+  })
 })
 
 describe('감사 수정 회귀 — 날짜 정확성', () => {
