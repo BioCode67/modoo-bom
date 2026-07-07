@@ -420,6 +420,8 @@ export function demographicMismatch(name: string, doc: string, p: UserProfile): 
   // 재직·근로소득 전제 정책(내일채움공제·내일저축·미래적금·희망저축 등)인데 실직·학생이면 제외.
   //   (근로소득 있는 재직자만 가입 — 감사: 실직 청년에게 '청년 내일채움공제'가 1위로 오노출되던 문제)
   if (/내일채움공제|내일저축계좌|미래적금|희망저축|자산형성/.test(name) && ['unemployed', 'student'].includes(p.employment_status)) return true
+  // 자활근로는 미취업·불안정 저소득에게 공공형 일자리를 주는 사업 — 안정 재직·자영업자는 대상 아님(감사: 재직 워킹푸어 오노출)
+  if (/자활\s*근로/.test(name) && ['employed', 'self'].includes(p.employment_status)) return true
   // 재학생 전용(학자금대출 등)인데 학생이 아님이 명시되면 제외(무직·재직 등 학생 아닌 경우).
   if (/학자금대출|재학생/.test(name) && p.employment_status !== '' && p.employment_status !== 'student') return true
   // 청소년·학령기 전용인데 본인이 청소년도 아니고 학령기 자녀도 없음
@@ -721,7 +723,24 @@ export function getEligiblePolicies(p: UserProfile): EligiblePolicy[] {
     if (rel !== 0) return rel
     return b.confidence - a.confidence
   })
-  return result
+  // 대표 급여의 사실상 중복 항목을 접어 top을 어지럽히지 않게 — 정렬 후라 상위 1개만 남긴다.
+  //   (예: '주거급여 (기초생활보장)'+'주거급여 (임차급여·수선유지)', '의료급여 1종'+'의료급여 (1종·2종)',
+  //    '교육급여 (기초생활보장)'+'교육급여 (초중고 학생)', '자활 근로 사업'+'자활근로 사업'). POL- 시드에만 적용.
+  const DEDUP: { key: string; re: RegExp }[] = [
+    { key: '의료급여', re: /^의료급여/ },
+    { key: '주거급여', re: /^주거급여/ },
+    { key: '교육급여', re: /^교육급여/ },
+    { key: '자활근로', re: /자활\s*근로/ },
+  ]
+  const seenGroup = new Set<string>()
+  return result.filter((pol) => {
+    if (!pol.id.startsWith('POL-')) return true
+    const g = DEDUP.find((d) => d.re.test(pol.name))
+    if (!g) return true
+    if (seenGroup.has(g.key)) return false
+    seenGroup.add(g.key)
+    return true
+  })
 }
 
 // ── guide_generator 포팅: _GUIDE_TEMPLATES + _DEFAULT_STEPS + fallback ──────
