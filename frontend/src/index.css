@@ -117,7 +117,7 @@
   /* 칩/태그 */
   .chip { @apply inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold; }
   .chip-sprout { @apply chip bg-sprout-100 text-sprout-700; }
-  .chip-peach  { @apply chip bg-peach-100 text-peach-600; }
+  .chip-peach  { @apply chip bg-peach-100 text-peach-800; }
   .chip-sky    { @apply chip bg-sky2-100 text-sky2-700; }
   .chip-sun    { @apply chip bg-sun-100 text-yellow-700; }
 

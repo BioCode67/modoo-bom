@@ -12,7 +12,7 @@ export const STATUS_META: Record<AppStatus, { label: string; cls: string; emoji:
   idle: { label: '관심', cls: 'bg-sky2-100 text-sky2-700', emoji: '👀' },
   tracking: { label: '준비 중', cls: 'bg-sun-100 text-yellow-700', emoji: '📝' },
   applied: { label: '신청 완료', cls: 'bg-sprout-100 text-sprout-700', emoji: '📮' },
-  done: { label: '수급 중', cls: 'bg-peach-100 text-peach-600', emoji: '🎉' },
+  done: { label: '수급 중', cls: 'bg-peach-100 text-peach-800', emoji: '🎉' },
 }
 const STATUS_ORDER: AppStatus[] = ['idle', 'tracking', 'applied', 'done']
 

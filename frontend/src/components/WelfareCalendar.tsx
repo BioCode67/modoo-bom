@@ -8,7 +8,7 @@ const KIND_ICON = { prepare: FileText, check: Search, renew: RefreshCw }
 const KIND_CLS = {
   prepare: 'bg-sky2-100 text-sky2-700',
   check: 'bg-sun-100 text-yellow-700',
-  renew: 'bg-peach-100 text-peach-600',
+  renew: 'bg-peach-100 text-peach-800',
 }
 
 /** 복지 일정 — 신청 준비/점검/갱신 날짜 타임라인 + 캘린더(.ics) 내보내기 */

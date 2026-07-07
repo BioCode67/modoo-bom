@@ -41,7 +41,7 @@ export function RpaShowcase() {
               <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-sprout-100 text-sprout-700">
                 <Icon className="h-6 w-6" />
               </div>
-              <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-extrabold ${who === '사용자' ? 'bg-peach-100 text-peach-600' : 'bg-sprout-700 text-white'}`}>{who}</span>
+              <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-extrabold ${who === '사용자' ? 'bg-peach-100 text-peach-800' : 'bg-sprout-700 text-white'}`}>{who}</span>
               <h3 className="font-bold text-lg mt-2 mb-1">{title}</h3>
               <p className="text-sm text-muted-foreground leading-relaxed">{desc}</p>
             </motion.div>
