@@ -37,6 +37,17 @@ describe('monitorItem', () => {
     const m = monitorItem(mk({ status: 'done', appliedAt: Date.now() - 340 * DAY }), policy)
     expect(m.alerts.some((a) => a.kind === 'renew')).toBe(true)
   })
+  it('1회성 바우처(1년 이내 사용)는 매년 갱신 오알림 없음 — "1년" 부분매칭 회귀', () => {
+    const onceVoucher: Policy = { ...policy, name: '첫만남이용권', renewal: '1회 (출생 후 1년 이내 사용)' }
+    const m = monitorItem(mk({ status: 'done', appliedAt: Date.now() - 340 * DAY }), onceVoucher)
+    expect(m.alerts.some((a) => a.kind === 'renew')).toBe(false)
+  })
+  it('appliedAt 없는 레거시 applied 항목 → savedAt 폴백으로 일수 계산·재점검 동작', () => {
+    // 2026-06 이전 신청분·클라우드 병합으로 appliedAt이 없어도 '신청 0일째' 고정되지 않아야 한다
+    const m = monitorItem(mk({ status: 'applied', savedAt: Date.now() - 12 * DAY, lastChecked: Date.now() - 8 * DAY }), policy)
+    expect(m.daysApplied).toBe(12)
+    expect(m.reCheckDue).toBe(true)
+  })
 })
 
 describe('statusCheckLink', () => {

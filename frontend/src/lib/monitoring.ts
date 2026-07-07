@@ -39,7 +39,10 @@ export function statusCheckLink(policy: Policy | undefined): { label: string; ur
 
 /** 갱신 주기가 '매년' 류인지 — 연 1회 재확인 알림 대상 */
 function isAnnualRenewal(renewal: string): boolean {
-  return /매년|연\s*1회|1년|재확인/.test(renewal || '')
+  const r = renewal || ''
+  // '1회·사용·유효기한·이내' 등 기간/1회성 표현은 매년 갱신이 아님 — '1회 (출생 후 1년 이내 사용)'을 '1년' 부분매칭으로 오판하던 문제 방지
+  if (/1회|사용|유효|만기|소진|이내|일시/.test(r)) return false
+  return /매년|연\s*1회|1년\s*(?:마다|단위|주기)|재확인|재산정|재판정/.test(r)
 }
 
 export function monitorItem(item: TrackedItem, policy: Policy | undefined, globalDocDone: Record<string, number> = {}): ItemMonitor {
@@ -48,7 +51,8 @@ export function monitorItem(item: TrackedItem, policy: Policy | undefined, globa
   const prepared = (d: string) => item.checkedDocs.includes(d) || !!globalDocDone[d.replace(/\s/g, '')]
   const docDone = required.filter(prepared).length
   const docMissing = required.filter((d) => !prepared(d))
-  const daysApplied = item.status === 'applied' || item.status === 'done' ? daysSince(item.appliedAt) : null
+  // appliedAt이 없는 레거시/동기화 항목(2026-06 이전 신청분·클라우드 병합)은 savedAt으로 폴백 — null로 떨어져 '신청 0일째' 고정·재점검 미알림 방지
+  const daysApplied = item.status === 'applied' || item.status === 'done' ? daysSince(item.appliedAt ?? item.savedAt) : null
   const sinceChecked = daysSince(item.lastChecked)
   // 신청 직후 당일부터 '점검할 때'라고 재촉하지 않도록 — 신청 후 최소 7일 지난 뒤 첫 재점검을 권한다(심사 보통 2~4주).
   const reCheckDue = item.status === 'applied' && (daysApplied ?? 0) >= 7 && (sinceChecked === null || sinceChecked >= 7)

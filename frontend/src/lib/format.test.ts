@@ -89,6 +89,14 @@ describe('categoryMeta', () => {
     expect(categoryMeta('보훈').emoji).toBe('🌼')
     expect(categoryMeta('').emoji).toBe('🌼')
   })
+  it('한부모는 임신부(🤰)로 오매핑되지 않음 — 부분문자열 "모" 회귀', () => {
+    expect(categoryMeta('한부모가족').emoji).toBe('👨‍👩‍👧') // 가족
+    expect(categoryMeta('한부모주거').emoji).toBe('🏠')       // 주거가 더 앞 — 주거 아이콘이 적절
+    expect(categoryMeta('한부모가족').emoji).not.toBe('🤰')
+    // 실제 임신·출산·모성 카테고리는 여전히 🤰
+    expect(categoryMeta('임신·출산').emoji).toBe('🤰')
+    expect(categoryMeta('모성보호').emoji).toBe('🤰')
+  })
 })
 
 describe('isCashBenefit 감사 수정 회귀 — 현물·자산형성 과장 방지(2026-07)', () => {

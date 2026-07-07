@@ -146,9 +146,11 @@ export async function semanticSearch(
   }
   scored.sort((a, b) => b.score - a.score)
   const hits: SemanticHit[] = []
-  for (const { id, score } of scored.slice(0, topK)) {
+  // 카탈로그에 없는 stale id(embed 후 정책 삭제·이름디듑)가 topK 슬롯을 차지해 결과가 적게 나오지 않도록 — 필터 후 제한(relatedPolicies·semanticDiscover와 동일)
+  for (const { id, score } of scored) {
     const policy = pmap[id]
     if (policy) hits.push({ policy, score })
+    if (hits.length >= topK) break
   }
   return hits
 }
