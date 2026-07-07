@@ -67,9 +67,15 @@
 - `--no-sandbox` 가 실사용자 크롬(정부 로그인)에도 적용(`rpa/base.py` — w2 레인이나 RPA 안정성 영향 커서 협의).
 - rate_limit 이 OPTIONS 프리플라이트도 카운트 + XFF 무검증(`api/rate_limit.py`, 클라우드).
 
+**✅ 해결됨(w2, 07-07)**:
+- **설치본 GitHub Release 게시 완료** → https://github.com/BioCode67/modoo-bom/releases/tag/app-v0.3.0
+  (ModooBom-Setup.exe 45MB · ModooBom-Agent.zip 60MB). RpaShowcase '앱 받기' CTA(→ releases 페이지)가
+  이제 실제 다운로드로 연결됨. ⚠️ GitHub 은 자산 '한글 파일명을 전부 제거'(모두봄-설치.exe→-.exe)하므로
+  ASCII 이름 필수 — `publish-release.bat` 가 자동 복사·업로드(빌드본 갱신 시 재실행). 노트: `docs/앱-릴리스-노트.md`.
+
 **⚠️ 사용자 판단 요망**:
-- **설치본 GitHub Release 미게시**: RpaShowcase '앱 받기' CTA가 releases 페이지로 가는데 릴리스가 없어 빈 페이지. 인스톨러(`backend/dist/모두봄-설치.exe`)는 빌드됨 — gh CLI 미설치라 w2가 게시 불가. 게시 필요.
-- **미서명 인스톨러 → SmartScreen 경고**: 코드서명(OV/EV) 또는 '추가 정보→실행' 안내를 제출자료에 명시.
+- **미서명 인스톨러 → SmartScreen 경고**: 코드서명(OV/EV) 또는 '추가 정보→실행' 안내를 제출자료에 명시(릴리스 노트엔 안내 포함).
+- 업데이트된 빌드를 릴리스에 반영하려면 `build-installer.bat` → `publish-release.bat`(--clobber) 재실행.
 
 ## 🟡 협의 대기 / 제안 (다른 세션이 판단)
 - **추천 정직성**: "월 예상 혜택 상위 5" 차트가 조건부 고액 서비스(장기요양·자활)를 상단에 올려 과대약속 소지 →
