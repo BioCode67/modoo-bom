@@ -134,12 +134,15 @@ def _valid_bokjiro_url(url: str) -> bool:
 
 
 def resolve_apply_url(service_name: str, profile: dict) -> str:
-    """신청 URL 결정 — ① 프로필이 준 복지로 딥링크(정책의 실제 wlfareInfoId, 확장과 동일 일반화)
-    ② 하드코딩 6종 ③ 검색 페이지 순. 딥링크는 복지로 호스트일 때만 채택."""
+    """신청 URL 결정 — ① 알려진 6종은 실측검증 하드코딩 URL 우선(딥링크가 서비스와 불일치하거나
+    journey에서 여러 신청에 같은 프로필 apply_url이 잘못 재사용되는 것 방지) ② 그 밖은 프로필의
+    복지로 딥링크(정책 wlfareInfoId, 호스트 검증) ③ 없으면 검색 페이지."""
+    if service_name in SERVICE_APPLY_URLS:
+        return SERVICE_APPLY_URLS[service_name]
     cand = (profile or {}).get("apply_url") or (profile or {}).get("applyUrl")
     if cand and _valid_bokjiro_url(cand):
         return str(cand)
-    return SERVICE_APPLY_URLS.get(service_name, BOKJIRO_SEARCH_URL)
+    return BOKJIRO_SEARCH_URL
 
 
 async def run_apply_rpa(task, service_name: str, profile: dict) -> None:

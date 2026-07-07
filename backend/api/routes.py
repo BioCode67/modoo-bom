@@ -333,9 +333,9 @@ async def apply_status(task_id: str):
     task = get_task(task_id)
     if task is None:
         raise HTTPException(status_code=404, detail="태스크를 찾을 수 없습니다.")
-    if hasattr(task, "to_dict"):
-        return task.to_dict()
-    return task
+    d = task.to_dict() if hasattr(task, "to_dict") else dict(task)
+    d.pop("download_token", None)  # rpa_status·local_server와 동일 — 인가 비밀 노출 방지(드리프트 제거)
+    return d
 
 
 class EstimateRequest(BaseModel):

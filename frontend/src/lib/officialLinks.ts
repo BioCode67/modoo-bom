@@ -29,6 +29,9 @@ export function docLink(doc: string): OfficialLink {
     return { label: '고용24에서 발급 (고용보험 > 개인 증명원 발급)', url: 'https://www.work24.go.kr', rpa: true, issue: 'wallet' }
   if (d.includes('소득금액증명') || (d.includes('소득') && d.includes('증명')))
     return { label: '정부24/홈택스에서 발급', url: 'https://www.gov.kr/mw/AA020InfoCappView.do?CappBizCD=12100000021', rpa: true, issue: 'wallet' }
+  // 세목별 과세증명서(13100000084)를 납세증명서(13100000056)보다 먼저 — 더 구체적인 분기.
+  if (d.includes('지방세') && d.includes('세목별'))
+    return { label: '정부24/위택스에서 발급', url: 'https://www.gov.kr/mw/AA020InfoCappView.do?CappBizCD=13100000084', rpa: true, issue: 'wallet' }
   if (d.includes('지방세') && (d.includes('납세') || d.includes('과세') || d.includes('납부')))
     return { label: '정부24/위택스에서 발급', url: 'https://www.gov.kr/mw/AA020InfoCappView.do?CappBizCD=13100000056', rpa: true, issue: 'wallet' }
   if (d.includes('수급자') || d.includes('기초생활'))

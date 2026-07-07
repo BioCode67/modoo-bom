@@ -265,3 +265,17 @@ def test_apply_url_generalization():
     # 하드코딩 폴백 / 잡URL 무시
     assert resolve_apply_url("기초연금", {}) == SERVICE_APPLY_URLS["기초연금"]
     assert resolve_apply_url("모르는정책", {"apply_url": "https://evil.com"}) == BOKJIRO_SEARCH_URL
+
+
+def test_resolve_apply_url_known_service_ignores_deeplink():
+    # #5 회귀: 알려진 6종은 검증된 하드코딩 URL 우선 — 프로필 딥링크가 서비스와 불일치해도 오염 안 됨.
+    from rpa.apply_rpa import resolve_apply_url, SERVICE_APPLY_URLS
+    other = "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF99999999"
+    assert resolve_apply_url("기초연금", {"apply_url": other}) == SERVICE_APPLY_URLS["기초연금"]
+    assert resolve_apply_url("아동수당", {"applyUrl": other}) == SERVICE_APPLY_URLS["아동수당"]
+
+
+def test_gov24_form_options_helper_exists():
+    # #1 회귀: 폼 옵션 선택 헬퍼가 존재(가족관계 유형·발급목적/연도 미선택 보완). 실동작은 Playwright 필요.
+    from rpa import gov24_rpa
+    assert callable(getattr(gov24_rpa, "_select_doc_form_options", None))

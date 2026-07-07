@@ -345,6 +345,32 @@ async def _handle_apply_popup(context, page, task, doc_name) -> bool:
     return target_page
 
 
+async def _select_doc_form_options(page, doc_name: str) -> None:
+    """발급 폼의 필수 선택을 best-effort로 채운다(신청하기 전). 선택이 없어도 무해.
+    - 가족관계증명서: '일반증명서' 선택(유형 미선택이면 신청 안 넘어감)
+    - 그 외: 발급목적/귀속연도/세목 등 아직 '선택' 상태(selectedIndex 0)인 select 를 첫 유효 옵션으로.
+      (소득금액증명·지방세 납세/세목별·기초생활수급자·한부모 등이 목적/연도 미선택 시 발급 미완되던 것 보완)"""
+    try:
+        if doc_name == "가족관계증명서":
+            await page.evaluate("""() => {
+                const el = [...document.querySelectorAll('label,span,td,button,a')]
+                    .find(e => (e.textContent || '').trim().includes('일반'));
+                if (el) el.click();
+            }""")
+            await asyncio.sleep(0.4)
+        # 미선택(0번=대개 '선택하세요') 필수 select 를 첫 '유효' 옵션(값 있고 안내문구 아님)으로.
+        await page.evaluate("""() => {
+            for (const s of document.querySelectorAll('select')) {
+                if (s.disabled || s.selectedIndex > 0) continue;
+                const opt = [...s.options].find((o, i) => i > 0 && o.value && !/선택|choose|=선택/i.test(o.text));
+                if (opt) { s.value = opt.value; s.dispatchEvent(new Event('change', { bubbles: true })); }
+            }
+        }""")
+        await asyncio.sleep(0.4)
+    except Exception:
+        pass
+
+
 async def run_gov24_rpa(task, doc_name: str, user_info: dict = None) -> None:
     """정부24에서 주민등록등본 또는 초본 발급. user_info(이름·생년월일·휴대폰) 있으면 본인인증 폼 자동입력."""
     try:
@@ -441,6 +467,10 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None) -> None:
                     task.update("running", f"주민등록상 주소를 {sido} {sigungu}(으)로 설정했어요.", await take_screenshot(page))
                 except Exception:
                     pass
+
+            # ③.5 발급 폼의 유형/발급목적/귀속연도 등 필수 선택(가족관계 '일반' + 미선택 select 기본값).
+            #   소득금액증명·지방세·기초생활수급자·한부모 등은 발급목적/연도 미선택이면 신청이 안 넘어가 발급이 미완됨.
+            await _select_doc_form_options(page, doc_name)
 
             # ④ 신청하기 — 자동입력 주소가 실제 주민등록 주소와 다르면(정보 없음 안내) 사용자가 고칠 때까지 기다렸다 자동 재시도
             submitted = False

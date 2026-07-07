@@ -142,3 +142,10 @@ describe('RPA/자동신청 지원 판별', () => {
     expect(isApplyAutomatable('산림복지서비스이용권')).toBe(false)
   })
 })
+
+describe('docLink — 지방세 세목별 과세증명서 CappBizCD(자기리뷰 #3)', () => {
+  it('세목별 과세는 13100000084, 납세는 13100000056(서로 다른 코드)', () => {
+    expect(docLink('지방세 세목별 과세증명서').url).toContain('13100000084')
+    expect(docLink('지방세 납세증명서').url).toContain('13100000056')
+  })
+})
