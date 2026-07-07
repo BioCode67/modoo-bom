@@ -289,10 +289,18 @@ modoo-bom/
 | POST| `/api/admin/seed` | ChromaDB 시딩 (Mock 모드 스킵) |
 | GET | `/api/admin/env` | 환경변수 상태(마스킹) |
 
-### RPA 지원 항목 (`rpa/manager.py`)
-- **서류**: 주민등록등본/초본, 가족관계증명서, 장애인증명서(정부24),
-  건강보험 자격득실확인서(건보), 고용보험 피보험자격 이력내역서(고용24)
-- **신청 서비스**: 기초연금, 아동수당, 부모급여, 청년 내일저축계좌, 첫만남이용권, 기초생활 생계급여
+### RPA 지원 항목 (`rpa/manager.py`) — 2026-07 확장(6→11종)
+- **서류 11종**: 주민등록등본/초본·가족관계증명서·장애인증명서 + **소득금액증명·지방세 납세증명서·
+  지방세 세목별 과세증명서·기초생활수급자 증명서·한부모가족 증명서**(정부24, `gov24_rpa.DOC_CAPP` 단일소스,
+  CappBizCD는 CDP local_agent·확장과 동일 검증) + 건강보험 자격득실확인서(건보) + 고용보험 피보험자격 이력내역서(고용24).
+  프론트 `officialLinks.LOCAL_RPA_DOCS`와 반드시 일치.
+- **신청 서비스**: 하드코딩 6종(기초연금·아동수당·부모급여·청년내일저축·첫만남·생계급여) **+ 일반화** —
+  `apply_rpa.resolve_apply_url`이 정책의 복지로 딥링크(`profile.apply_url`, wlfareInfoId)를 우선 사용해
+  6종 밖 임의 복지로 정책도 신청(`_valid_bokjiro_url`로 복지로 https 호스트만 허용).
+- **연쇄 발급('전부 자동발급')**: `orchestrator` journey 엔진 → `/api/journey/run`·`/status`(local_server+routes,
+  `journey_view`가 현재단계 라이브 카카오 안내 병합). 데스크탑앱·확장 양쪽에서 한 번 인증에 순차 발급.
+- **데스크탑앱**: PyInstaller onedir(`agent_entry.py`→`local_server`, 시스템 크롬, dist-app 동일출처 서빙, chromium 미번들)
+  빌드·기동 검증됨(78MB ZIP). ⚠️ 아직 GitHub Releases 미게시(사용자 자격증명 필요) — 홈 RpaShowcase에 Windows CTA(릴리스 페이지).
 
 ---
 
