@@ -27,54 +27,45 @@ WWW_GOV_LOGIN_URL = "https://plus.gov.kr/login"
 # 간편인증 위젯이 로드되는 iframe URL 키워드
 SIMPLECERT_FRAME_KEYWORD = "simpleCert"
 
-# 서비스 안내 페이지 (로그인 후 접속)
-_JUMIN_URL = (
-    "https://www.gov.kr/mw/AA020InfoCappView.do"
-    "?CappBizCD=13100000015&HighCtgCD=A01010001&tp_seq=01&Mcode=10200"
-)
-_FAMILY_URL = (
-    "https://www.gov.kr/mw/AA020InfoCappView.do"
-    "?CappBizCD=97400000004&HighCtgCD=A01010001&tp_seq=01&Mcode=10200"
-)
-_DISABLED_URL = (
-    "https://www.gov.kr/mw/AA020InfoCappView.do"
-    "?CappBizCD=14600000273&HighCtgCD=A01010001&tp_seq=01&Mcode=10200"
-)
-DOC_URLS = {
-    "주민등록등본": _JUMIN_URL,
-    "주민등록초본": _JUMIN_URL,
-    "가족관계증명서": _FAMILY_URL,
-    "장애인증명서": _DISABLED_URL,
+# ── 서류 → 정부24 CappBizCD (단일 소스) ──
+# 서류 추가는 여기 한 줄만. 코드는 CDP local_agent(selftest_agent 8종 검증)·확장(background.js)과 동일.
+# ⚠️ 정직성: 여기 있는 서류는 정부24 온라인 발급(AA040/applyMinwonForm)이 실제로 되는 것만.
+#   가족관계는 유형선택, 국민연금 가입자증명은 AA040 발급폼이 없어(별도 흐름) 제외 유지.
+DOC_CAPP = {
+    "주민등록등본": "13100000015",
+    "주민등록초본": "13100000015",
+    "가족관계증명서": "97400000004",
+    "장애인증명서": "14600000273",
+    # ↓ CDP local_agent(selftest)로 검증된 소득심사·복지신청 핵심 증명 5종 — 데스크탑앱에도 확장
+    "소득금액증명": "12100000021",
+    "지방세 납세증명서": "13100000056",
+    "지방세 세목별 과세증명서": "13100000084",
+    "기초생활수급자 증명서": "14600000280",
+    "한부모가족 증명서": "10601000001",
 }
 
 
-# 발급 신청 폼(로그인 필요) — 서비스 안내(AA020) 없이 바로 발급 폼(AA040)으로 직행.
-# 로그인 세션이 살아있으면 여기로 가면 실제 발급 양식이 바로 뜬다(안내 페이지 저장 방지).
+# 서비스 안내 페이지(AA020) — 로그인 후 접속. 발급폼(applyMinwonForm)이 안 뜰 때의 폴백 진입점.
+def _info_url(capp_biz_cd: str) -> str:
+    return (f"https://www.gov.kr/mw/AA020InfoCappView.do?CappBizCD={capp_biz_cd}"
+            "&HighCtgCD=A01010001&tp_seq=01&Mcode=10200")
+
+
+# 발급 신청 폼(AA040, 로그인 필요) — 안내 없이 바로 발급 양식.
 def _issue_url(capp_biz_cd: str) -> str:
-    return (
-        f"https://www.gov.kr/mw/AA040OfferMainFrm.do?capp_biz_cd={capp_biz_cd}"
-        "&HighCtgCD=A01010001&FAX_TYPE=N&img=02&selectedSeq=01"
-    )
+    return (f"https://www.gov.kr/mw/AA040OfferMainFrm.do?capp_biz_cd={capp_biz_cd}"
+            "&HighCtgCD=A01010001&FAX_TYPE=N&img=02&selectedSeq=01")
 
 
-ISSUE_URLS = {
-    "주민등록등본": _issue_url("13100000015"),
-    "주민등록초본": _issue_url("13100000015"),
-    "가족관계증명서": _issue_url("97400000004"),
-    "장애인증명서": _issue_url("14600000273"),
-}
-
-# 새 발급 폼(plus.gov.kr) — 로그인과 같은 호스트라 세션이 유지된다(옛 www.gov.kr/AA040 은 크로스호스트라 세션이 끊김).
+# 새 발급 폼(plus.gov.kr) — 로그인과 같은 호스트라 세션 유지(옛 www.gov.kr/AA040 은 크로스호스트로 세션 끊김).
 def _apply_form_url(capp_biz_cd: str) -> str:
     return f"https://plus.gov.kr/minwon/apply/applyMinwonForm/?cappBizCd={capp_biz_cd}&tpSeq=01"
 
 
-APPLY_FORM_URLS = {
-    "주민등록등본": _apply_form_url("13100000015"),
-    "주민등록초본": _apply_form_url("13100000015"),
-    "가족관계증명서": _apply_form_url("97400000004"),
-    "장애인증명서": _apply_form_url("14600000273"),
-}
+# 세 URL 맵을 CappBizCD 단일 소스에서 생성(중복·드리프트 제거).
+DOC_URLS = {d: _info_url(c) for d, c in DOC_CAPP.items()}
+ISSUE_URLS = {d: _issue_url(c) for d, c in DOC_CAPP.items()}
+APPLY_FORM_URLS = {d: _apply_form_url(c) for d, c in DOC_CAPP.items()}
 
 # plus.gov.kr 간편인증 선택자 (신 UI: button.login-type)
 SIMPLE_AUTH_SELECTORS = [
@@ -455,8 +446,9 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None) -> None:
             submitted = False
             addr_warned = False
             for _ in range(24):  # 최대 ~4분(주소 정정 대기 포함)
-                if not await click_by_text(page, ["신청하기", "민원신청하기"]):
-                    await click_first_matching(page, ["button:has-text('신청하기')", "#btnMinwonApply", "#btnApply", "input[value*='신청']"])
+                # 발급 진행 버튼 — plus.gov.kr 발급폼은 '신청하기', 안내페이지(AA020) 폴백은 '발급하기'.
+                if not await click_by_text(page, ["신청하기", "민원신청하기", "발급하기"]):
+                    await click_first_matching(page, ["button:has-text('신청하기')", "a:has-text('발급하기')", "button:has-text('발급하기')", "#btnMinwonApply", "#btnApply", "input[value*='신청']"])
                 await asyncio.sleep(3)
                 txt = await _txt()
                 # 주소 불일치 안내 모달 → 닫고, 사용자가 시도·시군구를 고칠 때까지 대기 후 재시도

@@ -147,11 +147,13 @@ export const RPA_SUPPORTED_DOCS = [
   '국민연금 가입자 증명서', '국민연금 가입내역확인서',
   '건강보험 자격득실확인서', '고용보험 피보험자격 이력내역서',
 ]
-/** 로컬 백엔드(Playwright, backend/rpa/manager.py _SUPPORTED_DOCS)가 지원하는 서류 — 6종뿐.
- *  확장 없이 로컬 에이전트만 연결된 환경에서 13종을 전부 '자동'으로 표시하면
- *  7종은 클릭 시 오류가 난다(감사 실측) → 채널별로 정직하게 분리 표시. */
+/** 로컬 백엔드(Playwright, backend/rpa/manager.py _SUPPORTED_DOCS)가 지원하는 서류 — 11종.
+ *  확장 없이 로컬 에이전트만 연결된 환경에서 미지원 서류를 '자동'으로 표시하면
+ *  클릭 시 오류가 난다(감사 실측) → 채널별로 정직하게 분리 표시.
+ *  ⚠️ 여기 목록은 backend/rpa/manager.py `_SUPPORTED_DOCS`와 반드시 일치시킬 것. */
 export const LOCAL_RPA_DOCS = [
   '주민등록등본', '주민등록초본', '가족관계증명서', '장애인증명서',
+  '소득금액증명', '지방세 납세증명서', '지방세 세목별 과세증명서', '기초생활수급자 증명서', '한부모가족 증명서',
   '건강보험 자격득실확인서', '고용보험 피보험자격 이력내역서',
 ]
 function docIn(list: string[], doc: string): boolean {
