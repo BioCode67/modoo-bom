@@ -36,7 +36,13 @@
 | 세션 | 파일/영역 | 작업 | 상태 | 갱신 |
 |---|---|---|---|---|
 | 터미널/w2 | `SESSION-COORDINATION.md` | 조율 프로토콜 신설 | done | 07-07 |
-| 터미널/w2 | `components/DocumentCenter.tsx`·`RpaInfoForm.tsx` | 자동발급 인증정보(생년월일·휴대폰) 프리필/가이드 개선 — 미입력 시 자동입력 안내·폼 유도 | in_progress | 07-07 |
+| 터미널/w2 | `components/DocumentCenter.tsx`·`RpaInfoForm.tsx` | 자동발급 인증정보 미입력 시 첫 빈 칸으로 안내·폼 유도 | done | 07-07 |
+| 터미널/w2 | `lib/backend.ts finalizeCaps` | **동일출처 RPA 오탐 수정** | done | 07-07 |
+
+> ⚠️ **데스크탑 세션에 알림**: 보안 하드닝의 `finalizeCaps`가 `caps.rpa = !!RPA_BASE`로 판정하면서
+> 동일출처(데스크탑 앱)의 정상 RPA_BASE=''(상대경로)를 false로 오판 → 8000 이외 포트에서 자동발급
+> UI가 침묵 실패했습니다. rpaOk 불리언으로 수정하고 PII 차단 의도(isLocalRpaBase)는 유지했습니다.
+> 이 파일(`lib/backend.ts`)은 w2 레인이니, 감지 로직 변경 시 w2와 조율 부탁드립니다.
 
 ## 🟡 협의 대기 / 제안 (다른 세션이 판단)
 - **추천 정직성**: "월 예상 혜택 상위 5" 차트가 조건부 고액 서비스(장기요양·자활)를 상단에 올려 과대약속 소지 →
