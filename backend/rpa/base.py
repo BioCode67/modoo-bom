@@ -92,8 +92,37 @@ async def launch_browser(pw, slow_mo: int = 300):
     )
 
 
-# 발급 서류 저장 폴더 (기본: 바탕화면/모두봄서류). 환경변수 MODOOBOM_DOCS_DIR 로 변경.
-DOCS_DIR = pathlib.Path(os.getenv("MODOOBOM_DOCS_DIR") or (pathlib.Path.home() / "Desktop" / "모두봄서류"))
+def _default_docs_dir() -> pathlib.Path:
+    """발급 서류(주민번호 포함 PII) 저장 폴더 — '사용자에게 실제로 보이는' 바탕화면을 찾는다.
+
+    ⚠️ 한국 Win11 + OneDrive Known-Folder 리다이렉션이면 진짜 바탕화면은 ~/OneDrive/바탕 화면 인데,
+    ~/Desktop 은 존재하지 않거나 빈 폴더라, 거기에 저장하면 '저장 완료'라고 해도 사용자 눈엔 안 보이고
+    PII 문서가 엉뚱한 경로에 남는다. → 레지스트리 Shell Folders\\Desktop(리다이렉션 반영)을 우선 사용,
+    실패 시 OneDrive/일반 바탕화면/문서 순으로 폴백."""
+    env = os.getenv("MODOOBOM_DOCS_DIR")
+    if env:
+        return pathlib.Path(env)
+    home = pathlib.Path.home()
+    if sys.platform == "win32":
+        try:
+            import winreg
+            key = r"Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders"
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key) as k:
+                desktop = os.path.expandvars(winreg.QueryValueEx(k, "Desktop")[0])
+                if os.path.isdir(desktop):
+                    return pathlib.Path(desktop) / "모두봄서류"
+        except Exception:
+            pass
+        for cand in (home / "OneDrive" / "바탕 화면", home / "OneDrive" / "Desktop",
+                     home / "Desktop", home / "Documents"):
+            if cand.is_dir():
+                return cand / "모두봄서류"
+        return home / "Documents" / "모두봄서류"
+    return home / "Desktop" / "모두봄서류"
+
+
+# 발급 서류 저장 폴더. 환경변수 MODOOBOM_DOCS_DIR 로 변경.
+DOCS_DIR = _default_docs_dir()
 
 
 def _safe_filename(name: str) -> str:

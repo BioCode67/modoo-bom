@@ -140,7 +140,10 @@ function finalizeCaps(aiCaps: Capabilities | null, aiBase: string, local: Capabi
   else if (aiCaps?.rpa && isLocalRpaBase(aiBase)) { RPA_BASE = aiBase; rpaOk = true } // aiBase='' = 동일출처(로컬)
   else RPA_BASE = ''
   // AI 베이스를 못 잡았고 로컬만 있으면 로컬을 AI 베이스로도 승격(완전 로컬 구동).
-  if (!aiCaps && local) API_BASE = LOCAL_AGENT
+  // ⚠️ 단, 클라우드 AI(VITE_API_BASE)가 '설정돼 있으면' 승격하지 않는다 — 설정된 클라우드가 콜드스타트라
+  //    잠깐 무응답이어도 로컬(경량 서버, WS/LLM 없음)으로 덮어써 실제 클라우드 AI를 영영 못 깨우는 것을 방지.
+  //    (클라우드는 이후 실제 분석/챗 연결에서 깨어나거나 클라이언트 엔진으로 폴백)
+  if (!aiCaps && local && !ENV_API_BASE) API_BASE = LOCAL_AGENT
   caps = {
     ai: aiCaps?.ai ?? local?.ai ?? false,
     rpa: rpaOk, // 로컬 RPA 베이스가 확정됐는지(''=동일출처도 유효). 클라우드는 isLocalRpaBase=false 로 차단됨.

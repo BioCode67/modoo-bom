@@ -24,6 +24,9 @@ export function DocumentCenter() {
   // 언마운트 후 폴링이 계속 setState/fetch 하지 않도록 하는 가드('나의 복지'를 떠나면 중단)
   const mountedRef = useRef(true)
   useEffect(() => () => { mountedRef.current = false }, [])
+  // 인증정보 폼(이 컴포넌트 소유)으로 스크롤/포커스할 때 전역 id 대신 ref로 스코프 —
+  // 정책 상세 드로어의 RpaInfoForm과 id가 겹쳐 '엉뚱한 폼'으로 점프하던 것 방지.
+  const rpaFormRef = useRef<HTMLDivElement>(null)
 
   // 확장 감지 + 진행상태 구독(확장은 서류명별 status를 푸시)
   // ⚠️ 확장은 서류명을 정규화(resolveDoc)해 보내므로 퍼지매칭으로 기존 카드 키에 연결(불일치 시 '시작 중' 멈춤 방지)
@@ -74,11 +77,12 @@ export function DocumentCenter() {
     // 사용자를 '첫 빈 칸'으로 바로 데려간다(스크롤+포커스) → 어디에 뭘 넣는지 헤매지 않게.
     if (!rpaInfo.name?.trim() || !rpaInfo.birth_date?.trim() || !rpaInfo.phone?.trim()) {
       setRpa((s) => ({ ...s, [doc]: { status: 'error', step: '실명·생년월일·휴대폰만 넣으면 본인인증 화면까지 자동으로 채워드려요. 아래 칸에 입력해 주세요 👇 (내 기기에만 저장)', at: Date.now() } }))
-      const firstMissing = !rpaInfo.name?.trim() ? 'rpa-name' : !rpaInfo.birth_date?.trim() ? 'rpa-birth' : 'rpa-phone'
+      const missingIdx = !rpaInfo.name?.trim() ? 0 : !rpaInfo.birth_date?.trim() ? 1 : 2 // 이름·생년월일·휴대폰 순
       setTimeout(() => {
-        const el = document.getElementById('rpa-info-form')
-        el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-        ;(document.getElementById(firstMissing) as HTMLInputElement | null)?.focus({ preventScroll: true })
+        const root = rpaFormRef.current // 전역 id가 아니라 '이 컴포넌트의' 폼으로 스코프
+        if (!root) return
+        root.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        ;(root.querySelectorAll('input')[missingIdx] as HTMLInputElement | undefined)?.focus({ preventScroll: true })
       }, 80)
       return
     }
@@ -271,7 +275,7 @@ export function DocumentCenter() {
           </div>
         </div>
       )}
-      {backend && <RpaInfoForm />}
+      {backend && <div ref={rpaFormRef}><RpaInfoForm /></div>}
 
       {/* 🚀 연쇄 자동발급 — 확장이 있고 지원 서류가 2개 이상일 때 */}
       {/* 연쇄 자동발급 — 확장(전체) 또는 로컬 에이전트(데스크탑앱, 로컬 지원분)로 한 번 인증에 이어서 발급 */}

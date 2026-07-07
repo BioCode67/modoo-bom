@@ -91,6 +91,8 @@ describe('backend 하이브리드 감지', () => {
     expect(await b.checkBackend()).toBe(true)
     expect(b.getCapabilities()?.rpa).toBe(true)
     expect(b.getRpaBase()).toBe(LOCAL)
+    // 설정된 클라우드 AI 베이스는 로컬로 덮어쓰지 않는다(콜드여도 나중에 깨워야 하므로).
+    expect(b.API_BASE).toBe(CLOUD)
   })
 
   it('resetBackendCache 는 로컬 승격된 API_BASE 를 env 기본값으로 원복', async () => {
