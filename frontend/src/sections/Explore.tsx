@@ -128,7 +128,7 @@ export function Explore() {
       const wid = ++aiRunId.current
       warmupSemantic((p) => { if (wid === aiRunId.current) setAiProgress(p) })
         .then(() => { if (wid === aiRunId.current) setAiProgress(null) })
-        .catch(() => { if (wid === aiRunId.current) setAiError('AI 모델을 불러오지 못했어요. 네트워크를 확인하거나 일반 검색을 이용해주세요.') })
+        .catch((e) => { console.error('[AI검색] 모델 워밍업 실패:', e); if (wid === aiRunId.current) setAiError('AI 모델을 불러오지 못했어요. 네트워크를 확인하거나 일반 검색을 이용해주세요.') })
       return
     }
     const runId = ++aiRunId.current
@@ -139,7 +139,8 @@ export function Explore() {
           if (runId === aiRunId.current) setAiProgress(p)
         })
         if (runId === aiRunId.current) { setAiHits(hits); setAiProgress(null) }
-      } catch {
+      } catch (e) {
+        console.error('[AI검색] semanticSearch 실패:', e) // silent swallow 제거 — 진단 가능하게
         if (runId === aiRunId.current) {
           setAiError('AI 모델을 불러오지 못했어요. 네트워크를 확인하거나 일반 검색을 이용해주세요.')
           setAiHits(null); setAiProgress(null)

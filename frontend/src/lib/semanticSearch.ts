@@ -93,6 +93,26 @@ async function ensureLoaded(onProgress?: SemanticProgress): Promise<void> {
   await ensureModel(onProgress)
 }
 
+// 질의 임베딩 직렬화 큐. onnxruntime-web(WASM) 추출기는 '재진입 불가' —
+// 빠른 연속 질의(디바운스를 넘긴 겹침)나 워밍업과 겹치면 런타임이 깨져 간헐적으로 실패한다
+// (Node에선 재현 안 됨=브라우저 WASM 한정). 모든 추출 호출을 한 줄로 세워 겹침을 원천 차단.
+let _embedChain: Promise<unknown> = Promise.resolve()
+
+async function embedQuery(text: string): Promise<Float32Array> {
+  const run = _embedChain.then(async () => {
+    try {
+      const out = await _extractor(`query: ${text}`, { pooling: 'mean', normalize: true })
+      return out.data as Float32Array
+    } catch {
+      // 일시적 WASM 실패는 1회 재시도(직렬화 덕에 이 시점엔 다른 추출이 없음)
+      const out = await _extractor(`query: ${text}`, { pooling: 'mean', normalize: true })
+      return out.data as Float32Array
+    }
+  })
+  _embedChain = run.catch(() => {}) // 체인 자체는 실패해도 다음 호출을 막지 않게
+  return run
+}
+
 /** 질의(모든 언어)로 정책을 의미 기반 랭킹. 상위 topK의 정책+점수 반환. */
 export async function semanticSearch(
   query: string,
@@ -102,8 +122,7 @@ export async function semanticSearch(
   const q = query.trim()
   if (!q) return []
   await ensureLoaded(onProgress)
-  const out = await _extractor(`query: ${q}`, { pooling: 'mean', normalize: true })
-  const qv = out.data as Float32Array
+  const qv = await embedQuery(q) // 직렬화+재시도(WASM 재진입 방지)
   const pmap = getPolicyMap()
   // 대표(시드 POL-) 정책 소폭 가점 — 전국 5천건 중 지역 소규모 사업에 대표 국가제도가
   // 묻히지 않게(기초연금·긴급복지 등이 상위에 오도록). 유사도 격차보다 작아 강제 override는 아님.
