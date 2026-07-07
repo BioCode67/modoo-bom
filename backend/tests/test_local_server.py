@@ -137,3 +137,13 @@ def test_serves_frontend_when_built():
     r = client.get("/")
     assert r.status_code == 200
     assert "text/html" in r.headers.get("content-type", "")
+
+
+@pytest.mark.skipif(local_server._APP_DIR is None, reason="dist-app 미빌드")
+def test_api_not_shadowed_by_static_mount():
+    """'/' 정적 마운트가 /api/* 를 가리지 않아야 한다 — 가리면 설치본에서 모든 API가 index.html로
+    404되어 데모가 조용히 깨진다(마운트를 라우트보다 먼저 등록하는 리팩터 회귀 방지)."""
+    r = client.get("/api/health")
+    assert r.status_code == 200
+    assert r.json().get("status") == "ok"  # 정적 index.html이 아니라 JSON API 응답
+    assert "text/html" not in r.headers.get("content-type", "")

@@ -98,6 +98,14 @@ def test_forced_empty_means_bundled_first(monkeypatch):
     assert order.count("") == 1
 
 
+def test_safe_filename_strips_traversal():
+    """발급 문서(PII) 파일명 안전화 — 경로 이탈 문자 제거, 빈 이름은 'document'."""
+    out = base._safe_filename("../../etc/pwn")
+    assert "/" not in out and "\\" not in out  # 경로 구분자 제거 → 저장 폴더 밖으로 못 나감
+    assert base._safe_filename("") == "document"
+    assert base._safe_filename('a<b>:"|?*c') == "abc"  # 금지문자 제거
+
+
 def test_docs_dir_env_override(monkeypatch, tmp_path):
     monkeypatch.setenv("MODOOBOM_DOCS_DIR", str(tmp_path / "docs"))
     assert base._default_docs_dir() == (tmp_path / "docs")

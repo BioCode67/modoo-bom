@@ -125,6 +125,29 @@ describe('backend 하이브리드 감지', () => {
     expect(b.getCapabilities()?.ai).toBe(true)   // AI(분석·챗)는 정상
   })
 
+  it('127.0.0.1 동일출처(로컬 앱)도 localhost처럼 rpa 가용 판정', async () => {
+    vi.stubGlobal('window', { location: { hostname: '127.0.0.1' } })
+    vi.stubGlobal('fetch', mockFetch({ '': { ai: false, rpa: true } }))
+    const b = await loadBackend('', '/')
+    expect(await b.checkBackend()).toBe(true)
+    expect(b.getCapabilities()?.rpa).toBe(true) // 127.0.0.1 도 로컬로 인정
+    expect(b.getRpaBase()).toBe('')
+  })
+
+  it('capabilities 없는 health 응답 → ai=mode==production, rpa=false 로 안전 폴백', async () => {
+    // 구/최소 백엔드가 capabilities 필드 없이 mode만 줄 때(rpa 미보고) — rpa 는 반드시 false 로.
+    const f = vi.fn(async (url: string) => {
+      const base = String(url).replace('/api/health', '')
+      if (base === CLOUD) return { ok: true, json: async () => ({ mode: 'production' }) } as Response
+      throw new Error('refused')
+    })
+    vi.stubGlobal('fetch', f)
+    const b = await loadBackend(CLOUD)
+    expect(await b.checkBackend()).toBe(true)
+    expect(b.getCapabilities()?.ai).toBe(true)  // mode==='production' → ai
+    expect(b.getCapabilities()?.rpa).toBe(false) // capabilities 없음 → rpa 미노출(안전)
+  })
+
   it('아무 백엔드도 없음 → false, 베이스 그대로 (클라우드 웨이크업 재시도 소진)', async () => {
     vi.stubGlobal('fetch', mockFetch({ [CLOUD]: null, [LOCAL]: null }))
     const b = await loadBackend(CLOUD)
