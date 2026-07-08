@@ -4,6 +4,7 @@ import { MessageCircle, FileCheck2, BellRing, Sparkles, X } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
 import { SproutLogo } from '@/ui/SproutLogo'
 import { useModalFocus } from '@/hooks/useModalFocus'
+import { detectBrowserLang } from '@/components/LangSuggest'
 
 // 기능 나열이 아니라 '새싹이가 나를 어떻게 도와주는지'를 1인칭으로 — 에이전트 루프(파악→실행→관찰)와 맞춤.
 const HELPS = [
@@ -14,11 +15,15 @@ const HELPS = [
 
 /** 첫 방문 1회 — 새싹이(에이전트)가 직접 인사하며 '무엇을 대신 해주는지' 소개(진입장벽 완화) */
 export function Onboarding() {
-  const { onboarded, setOnboarded, setView } = useAppStore()
+  const { onboarded, setOnboarded, setView, uiLang, langSuggested } = useAppStore()
   const panelRef = useRef<HTMLDivElement>(null)
-  useModalFocus(panelRef, !onboarded, setOnboarded)
+  // 외국인 배려(발견된 UX 결함 수정):
+  //  ① 이미 자국어를 쓰면(비 ko) 한국어 온보딩은 오히려 방해 → 생략
+  //  ② 브라우저가 외국어인데 아직 언어 제안을 안 봤으면 → 언어 배너를 먼저(한국어 모달이 배너를 가리지 않게)
+  const deferForLang = uiLang !== 'ko' || (!langSuggested && !!detectBrowserLang())
+  useModalFocus(panelRef, !onboarded && !deferForLang, setOnboarded)
 
-  if (onboarded) return null
+  if (onboarded || deferForLang) return null
 
   return (
     <div className="modal-overlay" onClick={setOnboarded}>

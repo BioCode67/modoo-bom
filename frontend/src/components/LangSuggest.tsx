@@ -22,7 +22,7 @@ const SUGGEST: Record<Exclude<UiLang, 'ko'>, { hint: string; use: string }> = {
 }
 
 /** navigator.language('vi-VN'·'zh-CN'·'en-US'…) → 지원 UiLang. 미지원이면 null. */
-function detectBrowserLang(): Exclude<UiLang, 'ko'> | null {
+export function detectBrowserLang(): Exclude<UiLang, 'ko'> | null {
   const langs = typeof navigator !== 'undefined' ? navigator.languages || [navigator.language] : []
   for (const raw of langs) {
     const base = (raw || '').toLowerCase().split('-')[0]
