@@ -11,19 +11,24 @@ describe('annualCashflow', () => {
     expect(cf.annualTotal).toBe(440000 * 12)
   })
 
-  it('일시금은 첫 달에만 스파이크 + 연간에 1회 합산', () => {
-    const cf = annualCashflow([P('기초연금', '월 30만원'), P('첫만남이용권', '200만원 일시금')])
-    expect(cf.oneTimeTotal).toBe(2000000)
-    expect(cf.months[0]).toBe(300000 + 2000000) // 첫 달 = 월반복 + 일시금
-    expect(cf.months[1]).toBe(300000)           // 이후는 월반복만
-    expect(cf.annualTotal).toBe(300000 * 12 + 2000000)
+  it('일시금(현금)은 첫 달에만 스파이크 + 연간에 1회 합산', () => {
+    // 해산급여 = 현금 일시금. (첫만남이용권은 국민행복카드 '바우처'라 현금흐름에서 제외 — 아래 테스트 참고)
+    const cf = annualCashflow([P('기초연금', '월 30만원'), P('해산급여', '70만원 일시금')])
+    expect(cf.oneTimeTotal).toBe(700000)
+    expect(cf.months[0]).toBe(300000 + 700000) // 첫 달 = 월반복 + 일시금
+    expect(cf.months[1]).toBe(300000)          // 이후는 월반복만
+    expect(cf.annualTotal).toBe(300000 * 12 + 700000)
   })
 
-  it('바우처·대출·현물·서비스한도는 제외(정직성)', () => {
+  it('바우처·대출·현물·서비스한도는 제외(정직성) — 일시금도 동일 기준', () => {
     const cf = annualCashflow([
       P('문화누리카드', '연 13만원 바우처'),
       P('전세자금대출', '보증금 2억원 대출'),
       P('장기요양', '월 최대 200만원 한도', '노인 장기요양보험 재가급여'),
+      // 일시금 문구여도 바우처/대출/상품권이면 현금흐름에 넣지 않는다(헤드라인 과장 방지)
+      P('첫만남이용권', '첫째 200만원 국민행복카드 바우처 일시금'),
+      P('창업정착금', '정착금 500만원 융자·대출'),
+      P('출산축하금', '축하금 상품권 30만원 일시 지급'),
     ])
     expect(cf.annualTotal).toBe(0)
     expect(cf.items).toHaveLength(0)

@@ -71,20 +71,29 @@ export function isCashBenefit(benefit: string, context = ''): boolean {
   const b = benefit || ''
   if (parseMonthly(b) <= 0) return false
   // 서비스 한도액은 benefit 문구엔 금액만 있고 종류는 정책명에 있는 경우가 많아 이름·분류(context)도 함께 검사
-  const t = `${b} ${context}`
+  return !isNonCashKind(`${b} ${context}`)
+}
+
+/**
+ * 혜택 '종류'가 현금이 아님(바우처·이용권·대출·현물·서비스한도·자산형성·장려금·감면)을 텍스트로 판별.
+ * 월 반복(isCashBenefit)·일시금(현금흐름) 양쪽이 같은 정직성 기준을 공유하도록 분리했다.
+ * 월 금액 유무는 보지 않으므로 일시금(첫만남이용권 등 바우처 배제)에도 그대로 쓸 수 있다.
+ */
+export function isNonCashKind(text: string): boolean {
+  const t = text || ''
   // '현금 지급/현금으로'가 명시되면 바우처 언급이 조건부 설명이어도 현금성으로 본다
   // (예: 부모급여 "0세 월 100만원 … 어린이집 이용 시 바우처, 차액 현금 지급" — 기본은 현금)
   const explicitCash = /현금\s*지급|현금으로|차액\s*현금/.test(t)
-  // 바우처·대출·현물(전액지원/본인부담)
-  if (!explicitCash && /바우처|이용권|대출|상당|본인부담|전액\s*지원|현물/.test(t)) return false
-  if (/대출|본인부담|전액\s*지원/.test(t)) return false
+  // 바우처·이용권·상품권·대출·현물(전액지원/본인부담)
+  if (!explicitCash && /바우처|이용권|상품권|대출|융자|상당|본인부담|전액\s*지원|현물/.test(t)) return true
+  if (/대출|본인부담|전액\s*지원/.test(t)) return true
   // 서비스 한도액(장기요양·재가/시설급여·활동지원·돌봄·간병)·감면·고용주 지원(장려금)은 개인 현금소득이 아님
-  if (/장기요양|재가급여|시설급여|요양급여|활동지원|돌봄|간병|감면|장려금|치료관리|치료비/.test(t)) return false
+  if (/장기요양|재가급여|시설급여|요양급여|활동지원|돌봄|간병|감면|장려금|치료관리|치료비/.test(t)) return true
   // 현물(물품·식품 꾸러미 등)은 가치가 있어도 매월 쓰는 가처분 현금이 아님(예: 임산부 친환경 농산물 꾸러미)
-  if (/꾸러미|농산물|양곡|먹거리|분유|기저귀|생필품|물품\s*지원|현물\s*지원|식품\s*지원/.test(t)) return false
+  if (/꾸러미|농산물|양곡|먹거리|분유|기저귀|생필품|물품\s*지원|현물\s*지원|식품\s*지원/.test(t)) return true
   // 자산형성(적금·저축계좌·매칭 기여금)은 만기까지 잠겨 매월 가처분 현금이 아님 — 대출과 동일하게 합산 제외
-  if (/적금|저축계좌|기여금|디딤씨앗|내일저축|도약계좌|미래적금|자산형성/.test(t)) return false
-  return true
+  if (/적금|저축계좌|기여금|디딤씨앗|내일저축|도약계좌|미래적금|자산형성/.test(t)) return true
+  return false
 }
 
 /** 현금성 혜택의 월 합계(최대치). 중복지원 제한은 반영하지 않으므로 '최대'로만 안내해야 함. */

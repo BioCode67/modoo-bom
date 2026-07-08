@@ -6,7 +6,7 @@
  * 정직성: isCashBenefit(현금성)만 반복으로, 바우처·대출·서비스 한도·현물은 제외(BenefitBreakdown과 동일 기준).
  * 서버 전송 없음 — 결과의 eligible_policies에서 전부 기기 내 계산.
  */
-import { parseMonthly, isCashBenefit } from './format'
+import { parseMonthly, isCashBenefit, isNonCashKind } from './format'
 
 // 일시금(한 번 지급) 신호 — 월 반복이 아닌 목돈. 정책명/혜택 문구로 감지.
 const ONETIME_RE = /일시금|한\s*번|1회성?|첫만남|해산급여|출산.*지원금|축하금|정착금|장려금.*일시|출산장려/
@@ -46,7 +46,8 @@ export function annualCashflow(
     if (monthly > 0) {
       monthlyRecurring += monthly
       items.push({ name: p.name, won: monthly, kind: 'monthly' })
-    } else if (ONETIME_RE.test(ctx) || ONETIME_RE.test(benefit)) {
+      // 일시금도 월 반복과 같은 현금 기준 — 바우처(첫만남이용권)·대출·현물·상품권은 제외(정직성·앱 전반과 일관).
+    } else if ((ONETIME_RE.test(ctx) || ONETIME_RE.test(benefit)) && !isNonCashKind(`${benefit} ${ctx}`)) {
       const lump = parseLump(benefit)
       if (lump > 0) {
         oneTimeTotal += lump
