@@ -4,7 +4,7 @@ import { LifeBuoy, X, Phone, ExternalLink } from 'lucide-react'
 import { CRISES, matchEmergency } from '@/lib/emergency'
 import { applyLink } from '@/lib/officialLinks'
 import { bestApplyUrl } from '@/lib/quickApply'
-import { parseMonthly, formatWon, categoryMeta } from '@/lib/format'
+import { parseMonthly, formatWon, categoryMeta, isCashBenefit } from '@/lib/format'
 import { useModalFocus } from '@/hooks/useModalFocus'
 import { cn } from '@/lib/utils'
 
@@ -94,7 +94,8 @@ export function EmergencyHelp() {
                     <p className="text-sm font-bold mb-2">관련 있는 긴급 지원 {matched.length}건 <span className="text-[11px] font-normal text-muted-foreground">· 자격은 소득·재산 심사 후 확정</span></p>
                     <ul className="space-y-2">
                       {matched.map((p) => {
-                        const m = parseMonthly(p.benefit)
+                        // 월 배지는 '현금성 월지원'만 — 일시금·바우처·서비스는 "월 X"로 오표기하지 않는다(정직성)
+                        const m = isCashBenefit(p.benefit, `${p.name} ${p.category}`) ? parseMonthly(p.benefit) : 0
                         return (
                           <li key={p.id} className="card-cute p-3">
                             <div className="flex items-center gap-2">
