@@ -13,14 +13,17 @@ import webbrowser
 def _open_browser_when_ready():
     """서버가 뜨면 기본 브라우저로 앱을 연다(최대 15초 대기)."""
     import urllib.request
-    url = "http://127.0.0.1:8000/"
-    for _ in range(30):
+    port = os.environ.get("PORT", "8000")
+    url = f"http://127.0.0.1:{port}/"
+    for _ in range(30):  # 최대 ~15초
         try:
             urllib.request.urlopen(url + "api/health", timeout=1)
-            break
+            webbrowser.open(url)  # 서버가 실제로 떴을 때만 연다(죽은 페이지 오픈 방지)
+            return
         except Exception:
             time.sleep(0.5)
-    webbrowser.open(url)
+    # 15초 내 안 뜨면 브라우저를 열지 않는다 — 콘솔 배너의 URL로 안내되며, 창을 열어봤자 연결 거부 화면만 뜬다.
+    print(f"[모두봄] 서버 기동이 지연되고 있어요. 잠시 후 브라우저에서 {url} 을 직접 열어보세요.")
 
 
 def main():
