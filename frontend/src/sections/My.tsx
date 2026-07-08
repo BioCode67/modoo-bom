@@ -15,6 +15,7 @@ import { JourneyStepper } from '@/components/JourneyStepper'
 import { MonitorFeed } from '@/components/MonitorFeed'
 import { WelfareCalendar } from '@/components/WelfareCalendar'
 import { HouseholdAnalyzer } from '@/components/HouseholdAnalyzer'
+import { AnnualCashflow } from '@/components/AnnualCashflow'
 import { useAppStore, type AppStatus } from '@/store/useAppStore'
 import { useAuthCtx } from '@/lib/authContext'
 import { sumCashMonthly, formatWon } from '@/lib/format'
@@ -93,6 +94,9 @@ export function My() {
           </p>
         )}
       </motion.div>
+
+      {/* 담은 복지의 연간 현금흐름 — 앞으로 12개월 누적 수령액 */}
+      <AnnualCashflow policies={tracked.map((t) => POLICY_MAP[t.policyId]).filter(Boolean)} />
 
       {/* ② 신청 — 담은 복지 목록(각 카드에서 상태·서류·다음 할 일 관리) */}
       <section id="journey-apply" className="scroll-mt-24">

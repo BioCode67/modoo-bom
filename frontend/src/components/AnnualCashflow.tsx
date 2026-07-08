@@ -1,15 +1,17 @@
 import { motion } from 'framer-motion'
 import { TrendingUp, Coins } from 'lucide-react'
-import type { EligiblePolicy } from '@/lib/welfare-engine'
 import { annualCashflow } from '@/lib/cashflow'
 import { formatWon } from '@/lib/format'
+
+// name/category/benefit만 사용 — 결과의 EligiblePolicy와 나의복지의 Policy 둘 다 받는다.
+type CashflowInput = { name: string; category?: string; benefit?: string }
 
 /**
  * 올해 복지 현금흐름 — 앞으로 12개월 '언제 얼마' 받는지 막대로.
  * 포트폴리오(카테고리별)·수령액 막대(정책별 스냅샷)와 달리 '시간축'으로 연간 총액을 체감시킨다.
  * 현금성만(정직성) — 바우처·대출·서비스 한도·현물 제외.
  */
-export function AnnualCashflow({ policies }: { policies: EligiblePolicy[] }) {
+export function AnnualCashflow({ policies }: { policies: CashflowInput[] }) {
   const cf = annualCashflow(policies)
   if (cf.annualTotal <= 0) return null
   // 누적 막대 — 1년에 걸쳐 쌓이는 총액(마지막 달 = 연간 총액). 일시금은 첫 달을 크게 올린다.
