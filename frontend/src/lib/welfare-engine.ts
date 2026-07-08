@@ -982,6 +982,21 @@ function buildNotifications(p: UserProfile, eligible: EligiblePolicy[]): { title
   const events = p.life_events || []
   const names = new Set(eligible.map((e) => e.name))
 
+  // 안전 직결 — 최우선 노출
+  if (events.includes('가정폭력')) {
+    notes.push({
+      title: '🆘 폭력 피해 긴급 안내',
+      message: '위급하면 즉시 112. 여성긴급전화 1366(24시간)에서 안전한 보호시설·상담·법률·의료를 무료로 연결받을 수 있어요.',
+      type: 'safety',
+    })
+  }
+  if (events.includes('산재')) {
+    notes.push({
+      title: '산재 요양급여 청구 안내',
+      message: '업무상 재해는 근로복지공단(1588-0075)에 요양급여를 청구하세요(치료비·휴업급여). 요양급여 청구권은 3년 시효가 있어요.',
+      type: 'deadline',
+    })
+  }
   if (events.includes('출산') || p.is_pregnant) {
     notes.push({
       title: '출산 가정 신청 기한 안내',
