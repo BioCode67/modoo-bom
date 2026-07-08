@@ -158,4 +158,9 @@ describe('추천 품질 감사 회귀 — 대표 급여 상위·오노출 제거
     const pol = runAnalysis(P({ age: 45, income_percentile: 40, employment_status: 'self', life_events: ['실직'] })).eligible_policies
     expect(pol.some((p) => /긴급복지/.test(p.name))).toBe(true)
   })
+  it('농어촌 전용 지원은 거주 확인 불가 → high 오노출 안 됨(정직성, 관련 tier)', () => {
+    const pol = runAnalysis(P({ age: 29, income_percentile: 40, is_pregnant: true })).eligible_policies.filter((p) => p.id.startsWith('POL-'))
+    const nong = pol.filter((p) => /농어촌|농어민/.test(p.name))
+    expect(nong.every((p) => p.priority !== 'high')).toBe(true)
+  })
 })

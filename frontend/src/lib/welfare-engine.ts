@@ -160,6 +160,11 @@ type CheckResult = {
 const NO: CheckResult = { eligible: false, reason: '', priority: 'low', confidence: 0.0 }
 
 function checkPolicyDoc(doc: string, name: string, p: UserProfile): CheckResult {
+  // 농어촌 전용 지원은 읍·면 거주를 앱이 확인할 수 없다(region은 시·도) → 전 임신부·저소득에게 high로 오노출하지 않고
+  //   저신뢰 '관련'(low)으로만. 정직성: 거주 조건부를 확정처럼 상단 노출 금지.
+  if (/농어촌|농어민|농업인|어업인|귀농|귀어/.test(name)) {
+    return { eligible: true, reason: '농어촌 대상 (읍·면 거주 확인 필요)', priority: 'low', confidence: 0.45 }
+  }
   // ── 노인 계열 ──
   if (anyIn(doc, ['만 65세', '65세 이상', '만65세'])) {
     if (p.age >= 65) return { eligible: true, reason: `만 ${p.age}세로 연령 기준 충족`, priority: 'high', confidence: 0.95 }
