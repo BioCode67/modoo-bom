@@ -35,6 +35,8 @@ import re
 import sys
 from pathlib import Path
 
+import hashlib
+
 # Windows 콘솔(cp949)에서 이모지 print가 UnicodeEncodeError로 죽는 것 방지
 # (데이터 저장은 됐는데 마지막 안내 출력에서 크래시하던 버그 — 2026-07 실측)
 try:
@@ -188,7 +190,9 @@ def make_policy(*, sid: str, name: str, summary: str = "", target: str = "",
     target_full = (f"[{region}] " if region else "") + (clean(target) or summary)
     dept_full = clean(department) or (f"{region} 지자체" if region else "정부부처")
     return {
-        "id": f"{id_prefix}-{clean(sid)}" if sid else f"{id_prefix}-{abs(hash(region + name)) % 10_000_000}",
+        "id": f"{id_prefix}-{clean(sid)}"
+        if sid
+        else f"{id_prefix}-{int(hashlib.sha256((region + name).encode()).hexdigest(), 16) % 10_000_000}",
         "name": name,
         "category": infer_category(name + " " + summary + " " + clean(target)),
         "target": target_full,
@@ -201,6 +205,12 @@ def make_policy(*, sid: str, name: str, summary: str = "", target: str = "",
         "contact": clean(contact),
     }
 
+    # sha256() : 문자열이 아니라 bytes를 받아야함, 반환값은 SHA-256 해시 객체. 또한 abs()를 적용할 수 없음.
+    # encode() : 문자열을 바이트로 변환.
+    # hexdigest() : 해시 객체를 16진수 문자열로 변환.
+    # int(, 16) : int가 10진수라고 헷갈리지 않기위해 사용.
+
+   # md5 : 충돌을 인위적으로 만드는 취약점이 존재함.
 
 # ── CSV 모드 ──────────────────────────────────────────────────────────────────
 # 중앙부처 복지서비스정보 CSV 컬럼: 서비스아이디,서비스명,서비스URL,서비스요약,사이트,대표문의,소관부처명,소관조직명,기준연도,최종수정일
