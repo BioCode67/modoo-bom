@@ -211,4 +211,8 @@ describe('parseProfileFromText — 2차 감사 회귀(2026-07)', () => {
     expect(parseProfileFromText('아이가 학대당해요').life_events).toContain('가정폭력')
     expect(parseProfileFromText('네 맞아요 소득이 적어요').life_events).not.toContain('가정폭력')
   })
+  it('주거 위기(노숙·무주택)를 저소득으로 추론 → 주거·생계 급여 발굴', () => {
+    expect(parseProfileFromText('집이 없어서 길에서 지내요').income_percentile).toBeLessThanOrEqual(30)
+    expect(parseProfileFromText('노숙 생활 중이에요').income_percentile).toBeLessThanOrEqual(30)
+  })
 })

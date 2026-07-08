@@ -68,6 +68,10 @@ export function parseProfileFromText(text: string): UserProfile {
   //   소득뿐 아니라 '월급·벌이·수입·연봉이 적다'(워킹푸어)와 '장사 안돼·매출 줄·폐업'(자영업 부진)도 저소득 신호로 흡수.
   else if (!incomeNegated && /저소득|(?:소득|월급|월수입|벌이|수입|연봉).*(없|적|낮|많지\s*않|많진\s*않|많이\s*부족|넉넉[하지]*\s*않|부족)|형편.*(어렵|힘들)|생활(?:비)?.*(어렵|힘들|빠듯|쪼들)|돈.*(없|부족)|가난|빈곤|장사.*안\s*(돼|되|굴러)|매출.*(줄|없|감소|반토막)|폐업|가게.*(접|문\s*닫)/.test(t)) p.income_percentile = 40
   else if (/고소득|소득.*많|여유.*있|잘\s*사/.test(t)) p.income_percentile = 130
+  // 주거 위기(노숙·무주택·길에서 지냄·쪽방) = 명백한 저소득 → 주거급여·긴급복지·생계급여 발굴(else-if 아님: 항상 반영)
+  if (/노숙|집이?\s*없|갈\s*곳\s*(이|도)?\s*없|잘\s*곳\s*(이|도)?\s*없|길에서\s*(자|지내|살)|쪽방|한뎃잠|거리\s*생활/.test(t)) {
+    p.income_percentile = Math.min(p.income_percentile, 30)
+  }
 
   // ── 장애 ──
   if (/장애/.test(t)) {

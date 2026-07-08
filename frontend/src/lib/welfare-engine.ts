@@ -171,6 +171,12 @@ function checkPolicyDoc(doc: string, name: string, p: UserProfile): CheckResult 
       return { eligible: true, reason: '폭력 피해 지원 대상 (안전 최우선)', priority: 'high', confidence: 0.9 }
     return NO
   }
+  // ── 북한이탈주민 정착지원(정착금·주거·취업) — 탈북 신호 있으면 최우선(사각지대) ──
+  if (/북한이탈|탈북|새터민/.test(name)) {
+    if ((p.life_events || []).some((e) => /북한이탈|탈북|새터민/.test(e)))
+      return { eligible: true, reason: '북한이탈주민 정착지원 대상', priority: 'high', confidence: 0.9 }
+    return NO
+  }
   // ── 노인 계열 ──
   if (anyIn(doc, ['만 65세', '65세 이상', '만65세'])) {
     if (p.age >= 65) return { eligible: true, reason: `만 ${p.age}세로 연령 기준 충족`, priority: 'high', confidence: 0.95 }
