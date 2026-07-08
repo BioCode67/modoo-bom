@@ -322,6 +322,12 @@ describe('estimateBenefits / runAnalysis', () => {
     expect(r.portfolio_summary.total_policies).toBe(r.eligible_policies.length)
     expect((r.portfolio_summary.total_monthly ?? 0)).toBeGreaterThan(0)
   })
+  it('가이드 템플릿 접두매칭 — "실업급여 (구직급여)"도 실업급여 전용 가이드 적용(dead 방지)', () => {
+    const r = runAnalysis({ ...base, age: 40, income_percentile: 40, employment_status: 'unemployed', life_events: ['실직'] })
+    const g = r.application_guides.find((x) => /실업급여/.test(x.name))
+    expect(g).toBeTruthy()
+    expect(g?.steps.some((s) => /이직확인서/.test(s))).toBe(true) // 전용 템플릿 고유 문구
+  })
   it('출산 프로필 → 출산 관련 알림 생성', () => {
     expect(runAnalysis(newborn).notifications.length).toBeGreaterThan(0)
   })
