@@ -740,6 +740,7 @@ const PROGRAM_DEDUP: { key: string; re: RegExp }[] = [
   { key: '청소년특별지원', re: /청소년\s*특별지원/ },
   { key: '긴급복지', re: /긴급복지지원/ },
   { key: '장애인활동지원', re: /장애인\s*활동지원/ },
+  { key: '청년월세', re: /청년\s*월세/ },
 ]
 export function collapseProgramDuplicates<T extends { id: string; name: string }>(list: T[]): T[] {
   const seenGroup = new Set<string>()
