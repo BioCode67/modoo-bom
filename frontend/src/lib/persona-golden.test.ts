@@ -163,6 +163,12 @@ describe('추천 품질 감사 회귀 — 대표 급여 상위·오노출 제거
     const nong = pol.filter((p) => /농어촌|농어민/.test(p.name))
     expect(nong.every((p) => p.priority !== 'high')).toBe(true)
   })
+  it('장애 자녀 부모(장애아동 신호): 발달재활이 결과에(성인 장애정책 아닌 장애아동 지원) + 성인장애엔 발달재활 미노출', () => {
+    const child = runAnalysis(P({ age: 35, has_children: true, children_ages: [6], life_events: ['장애아동'] })).eligible_policies
+    expect(child.some((p) => /발달재활/.test(p.name))).toBe(true)
+    const adult = runAnalysis(P({ age: 35, disability: true, disability_grade: '1급' })).eligible_policies
+    expect(adult.some((p) => /발달재활/.test(p.name))).toBe(false)
+  })
   it('북한이탈주민(탈북 life_event): 정착지원이 결과에(사각지대)', () => {
     const pol = runAnalysis(P({ age: 28, income_percentile: 45, life_events: ['북한이탈'] })).eligible_policies
     expect(pol.some((p) => /북한이탈|탈북|새터민/.test(p.name) && p.priority === 'high')).toBe(true)

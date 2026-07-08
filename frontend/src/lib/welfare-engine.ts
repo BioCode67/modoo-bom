@@ -177,6 +177,12 @@ function checkPolicyDoc(doc: string, name: string, p: UserProfile): CheckResult 
       return { eligible: true, reason: '북한이탈주민 정착지원 대상', priority: 'high', confidence: 0.9 }
     return NO
   }
+  // ── 장애 아동 지원(발달재활·장애아동수당 등) — '장애아동' 신호나 장애+자녀면 노출(성인 장애정책과 별개) ──
+  if (/발달재활|장애\s*아동|장애아동/.test(name)) {
+    if ((p.life_events || []).includes('장애아동') || (p.disability && p.has_children))
+      return { eligible: true, reason: '장애 아동 지원 대상', priority: 'high', confidence: 0.88 }
+    return NO
+  }
   // ── 노인 계열 ──
   if (anyIn(doc, ['만 65세', '65세 이상', '만65세'])) {
     if (p.age >= 65) return { eligible: true, reason: `만 ${p.age}세로 연령 기준 충족`, priority: 'high', confidence: 0.95 }
@@ -461,8 +467,8 @@ export function demographicMismatch(name: string, doc: string, p: UserProfile): 
   if (/임산부|산모|임신|난임|출산/.test(name) && !(p.is_pregnant || ages.some((a) => a <= 1))) return true
   // 여성 전용(생리용품·여성청소년 등)인데 명백히 남성이면 제외 — 성별 누수 차단('other'=선택안함은 미상이라 유지)
   if (/생리용품|생리대|월경|여성\s*청소년/.test(name) && p.gender === 'male') return true
-  // 장애인 전용인데 비장애
-  if (/장애인|장애아/.test(name) && !p.disability) return true
+  // 장애인 전용인데 비장애 — 단, 장애 '자녀'(발달재활 등)는 본인 비장애여도 대상이므로 장애아동 신호가 있으면 유지
+  if (/장애인|장애아/.test(name) && !p.disability && !(p.life_events || []).includes('장애아동')) return true
   // 한부모·모자/부자가정·미혼모/부·조손 전용인데 아님 — 조손가구는 한부모가족지원법상 동일 급여 대상이라 포함
   if (/한부모|모자가정|부자가정|미혼모|미혼부|조손/.test(name) && !/한부모|조손/.test(p.household_type)) return true
   // 농어촌·농업 전용 지원은 대도시(특별시·광역시) 거주자에겐 제외 — 서울 임신부에게 '농어촌 출산지원금'
@@ -687,6 +693,8 @@ export function situationRelevance(policy: Policy, p: UserProfile): number {
   if ((p.household_type || '').includes('다문화') && /다문화|결혼이민|이주민|방문교육|한국어|이중언어|통번역/.test(t)) s += 7
   // 다자녀가구엔 다자녀 전용 지원(셋째아 양육비·요금감면 등)을 상위로
   if ((p.household_type || '').includes('다자녀') && /다자녀|셋째|다둥이/.test(t)) s += 6
+  // 장애 자녀 부모엔 장애아동 지원(발달재활 등)을 상위로 — 일반 아동혜택·청년정책에 묻히지 않게
+  if ((p.life_events || []).includes('장애아동') && /발달재활|장애\s*아동|장애아동/.test(t)) s += 8
   if (p.age >= 65 && /노인|어르신|경로|기초연금|장기요양|치매|틀니/.test(t)) s += 4
   if (p.has_children && /아동|보육|육아|어린이|자녀|양육|유아|급식|돌봄|부모급여|다자녀|출산|출생|첫만남/.test(t)) s += 3
   if (p.employment_status === 'unemployed' && /실업|구직|취업|재취업|일자리|자활/.test(t)) s += 3

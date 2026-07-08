@@ -73,11 +73,18 @@ export function parseProfileFromText(text: string): UserProfile {
     p.income_percentile = Math.min(p.income_percentile, 30)
   }
 
-  // ── 장애 ──
+  // ── 장애 ── 자녀가 장애인 경우(장애 아동 발달재활 등)와 본인 장애를 구분 — '장애가 있는 아들' 같은 자녀 맥락은 성인 장애로 오귀속하지 않음
   if (/장애/.test(t)) {
-    p.disability = true
-    p.disability_grade = /중증|심한|1급|2급|3급/.test(t) ? '1급' : '4급'
-    p.life_events.push('장애진단')
+    const childDis = /(아들|딸|자녀|아이|애).{0,10}장애|장애.{0,10}(아들|딸|자녀|아이)/.test(t)
+    const selfDis = /(저|제가|내가|본인|나).{0,6}장애|장애인이(에요|다|라)|장애\s*(등록|판정)|중증\s*장애/.test(t)
+    if (childDis && !selfDis) {
+      p.has_children = true
+      if (!p.life_events.includes('장애아동')) p.life_events.push('장애아동')
+    } else {
+      p.disability = true
+      p.disability_grade = /중증|심한|1급|2급|3급/.test(t) ? '1급' : '4급'
+      p.life_events.push('장애진단')
+    }
   }
 
   // ── 임신·자녀 ──
