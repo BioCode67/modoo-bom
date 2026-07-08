@@ -144,7 +144,7 @@ export function parseProfileFromText(text: string): UserProfile {
   if (/실직|실업|퇴사|해고|잘렸|일자리.*(잃|없)|직장.*잃/.test(t)) {
     p.employment_status = 'unemployed'
     if (!p.life_events.includes('실직')) p.life_events.push('실직')
-  } else if (/구직|취준|취업.*준비|일\s*구하|일자리.*찾|구직활동/.test(t)) {
+  } else if (/구직|취준|취업.*준비|일\s*구하|일자리.*찾|구직활동|취업.*안\s*(돼|되|됨|되네|되서)|취직.*안\s*(돼|되)|일자리.*(못\s*구|안\s*생)|백수/.test(t)) {
     p.employment_status = 'unemployed'
   } else if (/대학생|대학원생|학생|휴학|복학|재학|등록금/.test(t)) {
     p.employment_status = 'student'

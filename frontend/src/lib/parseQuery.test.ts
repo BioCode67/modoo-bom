@@ -233,4 +233,8 @@ describe('parseProfileFromText — 2차 감사 회귀(2026-07)', () => {
     expect(parseProfileFromText('6.25 참전용사인데 도움이 필요해요').life_events).toContain('보훈')
     expect(parseProfileFromText('국가유공자입니다').life_events).toContain('보훈')
   })
+  it('"취업이 안돼요"를 구직(미취업)으로 인식', () => {
+    expect(parseProfileFromText('20대 청년인데 취업이 안돼요').employment_status).toBe('unemployed')
+    expect(parseProfileFromText('백수예요').employment_status).toBe('unemployed')
+  })
 })
