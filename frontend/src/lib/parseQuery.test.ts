@@ -229,4 +229,8 @@ describe('parseProfileFromText — 2차 감사 회귀(2026-07)', () => {
     expect(parseProfileFromText('일하다가 다쳐서 일을 못해요').life_events).toContain('산재')
     expect(parseProfileFromText('공사장에서 다쳤어요').life_events).toContain('산재')
   })
+  it('보훈·참전용사를 감지', () => {
+    expect(parseProfileFromText('6.25 참전용사인데 도움이 필요해요').life_events).toContain('보훈')
+    expect(parseProfileFromText('국가유공자입니다').life_events).toContain('보훈')
+  })
 })

@@ -130,6 +130,11 @@ export function parseProfileFromText(text: string): UserProfile {
     p.life_events.push('가정폭력')
   }
 
+  // ── 보훈·국가유공 ── 참전·유공·상이군경 → 보훈 지원 발굴
+  if (/보훈|국가유공|유공자|참전용사|참전\s*군인|상이군경|고엽제|월남전|독립유공|6\.?25\s*참전/.test(t) && !p.life_events.includes('보훈')) {
+    p.life_events.push('보훈')
+  }
+
   // ── 산재·업무상 부상 ── 일하다 다침 → 산재보험·긴급복지 발굴
   if (/산재|산업재해|일하다.{0,6}다[쳤쳐치]|업무.{0,4}(중\s*)?다[쳤쳐]|다쳐서\s*일|작업\s*중\s*다[쳤쳐]|공사.{0,4}다[쳤쳐]/.test(t) && !p.life_events.includes('산재')) {
     p.life_events.push('산재')

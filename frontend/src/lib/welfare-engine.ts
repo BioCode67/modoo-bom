@@ -264,8 +264,15 @@ function checkPolicyDoc(doc: string, name: string, p: UserProfile): CheckResult 
   // ── 국가장학금·학자금 지원 ── ('대학생·소득분위 N구간'은 엔진 토큰이 없어 dead였던 대표 복지 — 재학생 매칭 ──
   //   학생임이 명시됐거나 명백한 대학 연령대(18~24세·직업 미상)만 — 29세 임신부·실직자 등에 오노출 방지.
   if (/국가장학금|학자금\s*지원|국가근로장학|등록금\s*지원/.test(doc)) {
-    if (p.employment_status === 'student' || (p.age >= 18 && p.age <= 24 && p.employment_status === ''))
+    // 대학생 대상 — age>=18로 중·고등학생(student지만 대학 아님) 오노출 차단
+    if ((p.employment_status === 'student' && p.age >= 18) || (p.age >= 18 && p.age <= 24 && p.employment_status === ''))
       return { eligible: true, reason: '대학 재학생 대상 (소득분위·성적 기준은 신청 시 확인)', priority: 'high', confidence: 0.85 }
+    return NO
+  }
+  // ── 국가유공자·보훈 대상 지원 — 보훈 신호 있으면 노출 ──
+  if (/보훈|국가유공|참전|상이군경|고엽제|독립유공/.test(name)) {
+    if ((p.life_events || []).some((e) => /보훈|참전|유공/.test(e)))
+      return { eligible: true, reason: '국가유공·보훈 대상', priority: 'high', confidence: 0.88 }
     return NO
   }
 

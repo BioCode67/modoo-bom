@@ -132,6 +132,10 @@ describe('추천 품질 감사 회귀 — 대표 급여 상위·오노출 제거
     const all = runAnalysis(P({ age: 29, income_percentile: 40, household_type: '다문화가족', is_pregnant: true })).eligible_policies
     expect(all.some((p) => p.id.startsWith('POL-') && /국가장학금/.test(p.name))).toBe(false)
   })
+  it('국가장학금은 고등학생(16·student)에게 오노출 안 됨(대학생 대상, age>=18)', () => {
+    const all = runAnalysis(P({ age: 16, employment_status: 'student', income_percentile: 50 })).eligible_policies
+    expect(all.some((p) => p.id.startsWith('POL-') && /국가장학금/.test(p.name))).toBe(false)
+  })
   it('다문화 임신부: 다문화 정책이 노출됨(무자녀라도 배제 안 됨)', () => {
     const all = runAnalysis(P({ age: 29, income_percentile: 40, household_type: '다문화가족', is_pregnant: true })).eligible_policies
     expect(all.some((p) => p.id.startsWith('POL-') && /다문화/.test(p.name))).toBe(true)
