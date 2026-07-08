@@ -50,7 +50,7 @@ export function parseProfileFromText(text: string): UserProfile {
   if (/다자녀|아이.*(셋|3\s*명|세\s*명)|자녀.*(셋|3\s*명|세\s*명)/.test(t)) p.household_type = '다자녀가구'
   // 다문화: '다문화/결혼이민' 외에 출신국·이주 표현도 인식(외국인·다문화 사각지대 데모 대응).
   //   ⚠️ 국가명은 '에서 왔/이주/시집/출신/이민' 같은 정주·혼인 맥락일 때만 — '일본 다녀왔어요'(여행)를 다문화로 오분류 방지.
-  if (/다문화|결혼이민|이주여성|외국인.*(배우자|결혼)|(베트남|필리핀|중국|캄보디아|태국|몽골|우즈베|네팔|일본|인도네시아|미얀마)\s*(에서\s*(왔|와서|이주|시집|장가|살)|출신|이민)|외국.*(에서\s*왔|출신)/.test(t)) p.household_type = '다문화가족'
+  if (/다문화|결혼이민|이주여성|외국인|이주민|이주\s*노동|한국말.{0,5}(서툴|못하|못\s해|어눌|어려)|한국어.{0,5}(서툴|못하|어려)|외국인.*(배우자|결혼)|(베트남|필리핀|중국|캄보디아|태국|몽골|우즈베|네팔|일본|인도네시아|미얀마)\s*(에서\s*(왔|와서|이주|시집|장가|살)|출신|이민)|외국.*(에서\s*왔|출신)/.test(t)) p.household_type = '다문화가족'
   // 한부모: 명시어(한부모/미혼모/미혼부)는 그대로, 이혼·사별은 '자녀 양육 맥락'이 있을 때만 한부모로 본다.
   //   (배우자 사망 후 혼자 사는 어르신은 한부모가 아니라 1인가구 — '사별' 단독으로 한부모 처리하던 오분류 수정)
   const kidCtx = /아이|애기|자녀|키[우워]|양육|손주/.test(t)
@@ -99,7 +99,7 @@ export function parseProfileFromText(text: string): UserProfile {
   else if (kids.length) { p.has_children = true; p.children_ages = kids.map((m) => parseInt(m[1], 10)) }
   else if (!childNegated && /아이|자녀|아들|딸|육아|아기|영유아|어린이집|유치원|키[우워]|쌍둥이|신생아|갓\s*태어/.test(t)) {
     p.has_children = true
-    if (/신생아|갓난|갓\s*태어|쌍둥이|0\s*살|돌\s*전/.test(t)) p.children_ages = /쌍둥이/.test(t) ? [0, 0] : [0]
+    if (/신생아|갓난|갓\s*태어|쌍둥이|0\s*살|돌\s*전|아기|영아|백일|젖먹이|막\s*낳/.test(t)) p.children_ages = /쌍둥이/.test(t) ? [0, 0] : [0]
     else if (kidCount) p.children_ages = Array(COUNT[kidCount[1]] ?? parseInt(kidCount[1], 10)).fill(5)
     else if (!p.children_ages.length) p.children_ages = [3]
   }
@@ -128,6 +128,11 @@ export function parseProfileFromText(text: string): UserProfile {
   //   '맞아요'(=옳다) 오탐 방지 위해 구타·폭행 맥락만: 때리/때린/폭행/구타/맞고 살/학대/가정폭력/성폭력/데이트폭력.
   if (/때리|때린|때려|폭행|구타|맞고\s*살|두들겨|가정폭력|성폭력|데이트\s*폭력|학대(당|받|해)|남편이\s*(때|폭)|아내가\s*(때|폭)/.test(t) && !p.life_events.includes('가정폭력')) {
     p.life_events.push('가정폭력')
+  }
+
+  // ── 산재·업무상 부상 ── 일하다 다침 → 산재보험·긴급복지 발굴
+  if (/산재|산업재해|일하다.{0,6}다[쳤쳐치]|업무.{0,4}(중\s*)?다[쳤쳐]|다쳐서\s*일|작업\s*중\s*다[쳤쳐]|공사.{0,4}다[쳤쳐]/.test(t) && !p.life_events.includes('산재')) {
+    p.life_events.push('산재')
   }
 
   // ── 고용 ──

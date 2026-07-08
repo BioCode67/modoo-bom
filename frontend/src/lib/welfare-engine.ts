@@ -183,6 +183,12 @@ function checkPolicyDoc(doc: string, name: string, p: UserProfile): CheckResult 
       return { eligible: true, reason: '장애 아동 지원 대상', priority: 'high', confidence: 0.88 }
     return NO
   }
+  // ── 산재(업무상 재해) 요양·보상 — 산재 신호 있으면 노출 ──
+  if (/산재|산업재해|업무상\s*재해|근로복지공단/.test(name)) {
+    if ((p.life_events || []).includes('산재'))
+      return { eligible: true, reason: '업무상 재해(산재) 대상', priority: 'high', confidence: 0.85 }
+    return NO
+  }
   // ── 노인 계열 ──
   if (anyIn(doc, ['만 65세', '65세 이상', '만65세'])) {
     if (p.age >= 65) return { eligible: true, reason: `만 ${p.age}세로 연령 기준 충족`, priority: 'high', confidence: 0.95 }
@@ -695,6 +701,9 @@ export function situationRelevance(policy: Policy, p: UserProfile): number {
   if ((p.household_type || '').includes('다자녀') && /다자녀|셋째|다둥이/.test(t)) s += 6
   // 장애 자녀 부모엔 장애아동 지원(발달재활 등)을 상위로 — 일반 아동혜택·청년정책에 묻히지 않게
   if ((p.life_events || []).includes('장애아동') && /발달재활|장애\s*아동|장애아동/.test(t)) s += 8
+  // 산재(업무상 재해)·북한이탈 신호면 해당 전용 지원을 상위로(연령만 겹친 청년정책에 묻히지 않게)
+  if ((p.life_events || []).includes('산재') && /산재|산업재해|업무상\s*재해/.test(t)) s += 8
+  if ((p.life_events || []).some((e) => /북한이탈|탈북|새터민/.test(e)) && /북한이탈|탈북|새터민/.test(t)) s += 8
   if (p.age >= 65 && /노인|어르신|경로|기초연금|장기요양|치매|틀니/.test(t)) s += 4
   if (p.has_children && /아동|보육|육아|어린이|자녀|양육|유아|급식|돌봄|부모급여|다자녀|출산|출생|첫만남/.test(t)) s += 3
   if (p.employment_status === 'unemployed' && /실업|구직|취업|재취업|일자리|자활/.test(t)) s += 3
@@ -789,6 +798,7 @@ const PROGRAM_DEDUP: { key: string; re: RegExp }[] = [
   { key: '장애인활동지원', re: /장애인\s*활동지원/ },
   { key: '청년월세', re: /청년\s*월세/ },
   { key: '틀니임플란트', re: /틀니|임플란트/ },
+  { key: '산재요양', re: /산재.*요양|산업재해.*요양/ },
 ]
 export function collapseProgramDuplicates<T extends { id: string; name: string }>(list: T[]): T[] {
   const seenGroup = new Set<string>()
