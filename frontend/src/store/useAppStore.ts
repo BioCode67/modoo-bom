@@ -34,6 +34,9 @@ interface AppState {
   // UI 표시 언어 — 외국어 입력을 감지하면 상세·신청키트 UI 골격을 그 언어로(외국인 딥퍼널). 'ko'=기본.
   uiLang: UiLang
   setUiLang: (l: UiLang) => void
+  // 브라우저 언어 감지 제안 1회 노출 여부(외국인 착지 이탈 방지 — 나그 금지)
+  langSuggested: boolean
+  dismissLangSuggest: () => void
   // 가족 도움 링크(#helper=) 수신 시 — 남의 프로필을 '대신 보는' 임시 세션(비저장, 내 데이터 불침범)
   helper: { profile: UserProfile; tracked: { policyId: string; name: string }[] } | null
   setHelper: (h: { profile: UserProfile; tracked: { policyId: string; name: string }[] } | null) => void
@@ -132,6 +135,8 @@ export const useAppStore = create<AppState>()(
       setAiQuery: (q) => set({ aiQuery: q }),
       uiLang: 'ko',
       setUiLang: (l) => set({ uiLang: l }),
+      langSuggested: false,
+      dismissLangSuggest: () => set({ langSuggested: true }),
       helper: null,
       setHelper: (helper) => set({ helper }),
       pendingRegion: '',
@@ -223,6 +228,7 @@ export const useAppStore = create<AppState>()(
       //   result 통째로 저장하면 그대로 새어나간다. summary의 이름 접두를 '회원님'으로 치환해 실명을 제거한다.
       partialize: (s) => ({
         tracked: s.tracked, docDone: s.docDone, elderly: s.elderly, highContrast: s.highContrast, onboarded: s.onboarded, uiLang: s.uiLang,
+        langSuggested: s.langSuggested,
         subscribedCategories: s.subscribedCategories,
         profile: s.profile ? { ...s.profile, name: '' } : null,
         result: s.result ? { ...s.result, profile_summary: stripNameFromSummary(s.result.profile_summary) } : null,

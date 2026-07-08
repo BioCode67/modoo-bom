@@ -10,6 +10,7 @@ const My = lazy(() => import('@/sections/My').then((m) => ({ default: m.My })))
 import { ChatWidget } from '@/components/ChatWidget'
 import { ScrollTop } from '@/components/ScrollTop'
 import { ReturnConfirm } from '@/components/ReturnConfirm'
+import { LangSuggest } from '@/components/LangSuggest'
 import { PrintSummary } from '@/components/PrintSummary'
 import { Onboarding } from '@/components/Onboarding'
 import { loadExternalCatalog } from '@/data/catalog'
@@ -81,6 +82,8 @@ export default function App() {
     <MotionConfig reducedMotion="user">
     <div className={cn('min-h-screen bg-background')}>
       <a href="#main" className="skip-link no-print">본문 바로가기</a>
+      {/* 브라우저 언어 감지 → 자국어 사용 제안(외국인 착지 이탈 방지, 1회) — 내비 위 최상단 */}
+      <LangSuggest />
       <div className="no-print"><Navbar /></div>
 
       {/* 모바일 하단 여백 = 탭바(5rem)+챗 FAB(3.5rem) — 페이지 맨 아래 우측 버튼·하트가 FAB에 영구히 가리지 않게 */}
