@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { formatWon, formatWonIntl, parseMonthly, categoryMeta, isCashBenefit, sumCashMonthly } from './format'
+import { formatWon, formatWonIntl, parseMonthly, categoryMeta, isCashBenefit, isNonCashKind, sumCashMonthly } from './format'
 
 describe('parseMonthly', () => {
   it('원 단위(전체 숫자) 매칭', () => {
@@ -124,6 +124,25 @@ describe('isCashBenefit 감사 수정 회귀 — 현물·자산형성 과장 방
   })
   it('진짜 현금 지원은 그대로 현금성', () => {
     expect(isCashBenefit('월 30만원 현금 지급', '기초연금')).toBe(true)
+  })
+})
+
+describe('isNonCashKind / 상품권·융자 제외(2026-07) — 월반복·일시금 공통 현금 기준', () => {
+  it('상품권·융자는 현금성 아님(월 지원이어도)', () => {
+    expect(isCashBenefit('월 20만원 온누리상품권')).toBe(false)
+    expect(isCashBenefit('창업 융자 월 상환 지원 30만원')).toBe(false)
+  })
+  it('isNonCashKind — 바우처·이용권·상품권·대출·융자·현물·서비스한도·자산형성은 true', () => {
+    expect(isNonCashKind('첫만남이용권 200만원 국민행복카드 바우처')).toBe(true) // 이용권·바우처
+    expect(isNonCashKind('축하금 상품권 30만원')).toBe(true)                    // 상품권
+    expect(isNonCashKind('정착금 500만원 융자')).toBe(true)                     // 융자
+    expect(isNonCashKind('노인 장기요양 재가급여 한도')).toBe(true)            // 서비스 한도
+    expect(isNonCashKind('청년내일저축계좌 정부기여금')).toBe(true)           // 자산형성
+  })
+  it('isNonCashKind — 순수 현금 일시금/월지원은 false(월액 유무와 무관)', () => {
+    expect(isNonCashKind('해산급여 70만원 일시금')).toBe(false)
+    expect(isNonCashKind('출산지원금 100만원 현금 지급')).toBe(false)
+    expect(isNonCashKind('기초연금 월 34만원')).toBe(false)
   })
 })
 
