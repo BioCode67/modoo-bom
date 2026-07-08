@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import { RotateCcw, Heart, TrendingUp, Bell, PartyPopper, Printer, Volume2, Square, Users, FileText, ArrowRight, Check } from 'lucide-react'
+import { RotateCcw, Heart, TrendingUp, Bell, PartyPopper, Printer, Volume2, Square, Users, FileText, ArrowRight, Check, AlertTriangle, Clock } from 'lucide-react'
 import { SproutLogo } from '@/ui/SproutLogo'
 import { useTTS } from '@/lib/useTTS'
 import type { AnalysisResult, UserProfile, EligiblePolicy } from '@/lib/welfare-engine'
@@ -20,6 +20,7 @@ import { WelfareScore } from '@/components/WelfareScore'
 import { ShareButton } from '@/components/ShareButton'
 import { Glossary } from '@/components/Glossary'
 import { formatWon, sumCashMonthly } from '@/lib/format'
+import { cn } from '@/lib/utils'
 import { profileSignals } from '@/lib/profileSignals'
 import { JourneyStepper } from '@/components/JourneyStepper'
 import { useAppStore } from '@/store/useAppStore'
@@ -204,16 +205,25 @@ export function ResultsView({ result, profile, onReset, helperMode = false }: { 
       {/* 알림 */}
       {result.notifications.length > 0 && (
         <div className="mt-5 space-y-2">
-          {result.notifications.map((n, i) => (
-            <motion.div key={i} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 * i }}
-              className="flex items-start gap-3 rounded-2xl bg-sun-100 border border-sun-200 px-4 py-3">
-              <Bell className="h-5 w-5 text-yellow-600 shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-bold text-yellow-900">{n.title}</p>
-                <p className="text-xs text-yellow-800/90">{n.message}</p>
-              </div>
-            </motion.div>
-          ))}
+          {result.notifications.map((n, i) => {
+            // 타입별 시각 우선순위 — 안전(빨강)이 기한(주황)·정보(노랑)보다 눈에 띄게
+            const st = n.type === 'safety'
+              ? { box: 'bg-rose-100 border-rose-300', ic: 'text-rose-600', ti: 'text-rose-900', ms: 'text-rose-800/90', Icon: AlertTriangle }
+              : n.type === 'deadline'
+                ? { box: 'bg-orange-100 border-orange-200', ic: 'text-orange-600', ti: 'text-orange-900', ms: 'text-orange-800/90', Icon: Clock }
+                : { box: 'bg-sun-100 border-sun-200', ic: 'text-yellow-600', ti: 'text-yellow-900', ms: 'text-yellow-800/90', Icon: Bell }
+            return (
+              <motion.div key={i} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 * i }}
+                role={n.type === 'safety' ? 'alert' : undefined}
+                className={cn('flex items-start gap-3 rounded-2xl border px-4 py-3', st.box)}>
+                <st.Icon className={cn('h-5 w-5 shrink-0 mt-0.5', st.ic)} />
+                <div>
+                  <p className={cn('text-sm font-bold', st.ti)}>{n.title}</p>
+                  <p className={cn('text-xs', st.ms)}>{n.message}</p>
+                </div>
+              </motion.div>
+            )
+          })}
         </div>
       )}
 
