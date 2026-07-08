@@ -215,12 +215,23 @@ function DrawerBody({
       </div>
 
       <div className="p-5 space-y-5">
-        {/* 외국어 사용자 안내 — UI 골격은 자국어, 정책 본문은 한국어 + 통역 연결(정직성) */}
-        {uiLang !== 'ko' && (
-          <p dir={RTL.includes(uiLang) ? 'rtl' : 'ltr'} className="rounded-2xl bg-sky2-50 border border-sky2-100 px-3.5 py-2.5 text-xs leading-relaxed text-sky2-800">
-            🌐 {tr(uiLang, 'banner')}
-          </p>
-        )}
+        {/* 외국어 사용자 안내 — UI 골격은 자국어, 정책 본문은 한국어 + 즉시 번역/통역 연결(정직성) */}
+        {uiLang !== 'ko' && (() => {
+          // 즉시 자국어 번역: 정책 핵심(이름·혜택·대상·신청)을 구글 번역 텍스트 링크로. 앱 내 기계번역(환각) 대신 외부 도구로 연결.
+          const gtl = uiLang === 'zh' ? 'zh-CN' : uiLang // 구글 중국어 코드
+          const text = [policy.name, policy.benefit, policy.eligibility && `대상: ${policy.eligibility}`, policy.application && `신청: ${policy.application}`]
+            .filter(Boolean).join('\n').slice(0, 1400)
+          const gurl = `https://translate.google.com/?sl=ko&tl=${gtl}&op=translate&text=${encodeURIComponent(text)}`
+          return (
+            <div dir={RTL.includes(uiLang) ? 'rtl' : 'ltr'} className="rounded-2xl bg-sky2-50 border border-sky2-100 px-3.5 py-2.5 text-xs leading-relaxed text-sky2-800">
+              <p>🌐 {tr(uiLang, 'banner')}</p>
+              <a href={gurl} target="_blank" rel="noopener noreferrer"
+                className="mt-1.5 inline-flex items-center gap-1 font-bold text-sky2-700 underline hover:text-sky2-800">
+                {tr(uiLang, 'translateCta')} <ExternalLink className="h-3 w-3" />
+              </a>
+            </div>
+          )
+        })()}
         {(() => {
           const d = deadlineHint(policy)
           if (!d) return null
