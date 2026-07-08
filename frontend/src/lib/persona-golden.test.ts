@@ -151,4 +151,7 @@ describe('추천 품질 감사 회귀 — 대표 급여 상위·오노출 제거
   it('다문화 가정(34·55%·5세 자녀): 다문화 전용 지원이 top3에(나이만 겹친 청년정책에 안 묻힘)', () => {
     expect(topNames(P({ age: 34, income_percentile: 55, household_type: '다문화가족', has_children: true, children_ages: [5] }), 3).some((x) => /다문화/.test(x))).toBe(true)
   })
+  it('다자녀 가구(40·자녀3명·50%): 다자녀 전용 지원이 top4에(일반 아동혜택에 안 묻힘)', () => {
+    expect(topNames(P({ age: 40, income_percentile: 50, household_type: '다자녀가구', has_children: true, children_ages: [3, 7, 12] }), 4).some((x) => /다자녀|셋째/.test(x))).toBe(true)
+  })
 })

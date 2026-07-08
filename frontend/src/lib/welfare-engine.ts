@@ -281,8 +281,11 @@ function checkPolicyDoc(doc: string, name: string, p: UserProfile): CheckResult 
   // 다자녀(자녀 2명 이상) — 통합 감면 등. 미성년 자녀 2명 이상이거나 가구유형이 다자녀일 때.
   if (doc.includes('다자녀')) {
     const minors = (p.children_ages || []).filter((a) => a < 18).length
-    if (minors >= 2 || (p.household_type || '').includes('다자녀'))
-      return { eligible: true, reason: '다자녀(자녀 2명 이상) 가구', priority: 'medium', confidence: 0.86 }
+    if (minors >= 2 || (p.household_type || '').includes('다자녀')) {
+      // 명확한 다자녀(자녀 3명 이상 또는 다자녀가구)의 전용 지원은 high — 일반 아동혜택에 묻히지 않게(사각지대)
+      const clearlyMulti = minors >= 3 || (p.household_type || '').includes('다자녀')
+      return { eligible: true, reason: '다자녀 가구', priority: clearlyMulti ? 'high' : 'medium', confidence: clearlyMulti ? 0.9 : 0.86 }
+    }
     return NO
   }
 
@@ -660,6 +663,8 @@ export function situationRelevance(policy: Policy, p: UserProfile): number {
   if ((p.household_type || '').includes('다문화') && /다문화|결혼이민|이주|외국인/.test(t)) s += 4
   // 다문화가족엔 다문화 전용 지원(방문교육·한국어·이중언어 등)을 상위로 — 나이만 겹쳐 청년 저축/월세가 도배하던 문제
   if ((p.household_type || '').includes('다문화') && /다문화|결혼이민|이주민|방문교육|한국어|이중언어|통번역/.test(t)) s += 7
+  // 다자녀가구엔 다자녀 전용 지원(셋째아 양육비·요금감면 등)을 상위로
+  if ((p.household_type || '').includes('다자녀') && /다자녀|셋째|다둥이/.test(t)) s += 6
   if (p.age >= 65 && /노인|어르신|경로|기초연금|장기요양|치매|틀니/.test(t)) s += 4
   if (p.has_children && /아동|보육|육아|어린이|자녀|양육|유아|급식|돌봄|부모급여|다자녀|출산|출생|첫만남/.test(t)) s += 3
   if (p.employment_status === 'unemployed' && /실업|구직|취업|재취업|일자리|자활/.test(t)) s += 3
