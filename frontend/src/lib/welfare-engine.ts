@@ -723,32 +723,34 @@ export function getEligiblePolicies(p: UserProfile): EligiblePolicy[] {
     if (rel !== 0) return rel
     return b.confidence - a.confidence
   })
-  // 대표 급여의 사실상 중복 항목을 접어 top을 어지럽히지 않게 — 정렬 후라 상위 1개만 남긴다.
-  //   (예: '주거급여 (기초생활보장)'+'주거급여 (임차급여·수선유지)', '의료급여 1종'+'의료급여 (1종·2종)',
-  //    '교육급여 (기초생활보장)'+'교육급여 (초중고 학생)', '자활 근로 사업'+'자활근로 사업'). POL- 시드에만 적용.
-  const DEDUP: { key: string; re: RegExp }[] = [
-    { key: '의료급여', re: /^의료급여/ },
-    { key: '주거급여', re: /^주거급여/ },
-    { key: '교육급여', re: /^교육급여/ },
-    { key: '자활근로', re: /자활\s*근로/ },
-    // 같은 프로그램이 여러 시드로 중복된 것들(2026 데이터검증에서 확인) — 상위 1개만 노출
-    { key: '문화누리', re: /문화누리|통합문화이용권/ },
-    { key: '임신출산진료비', re: /임신.?출산\s*진료비/ },
-    { key: '청소년특별지원', re: /청소년\s*특별지원/ },
-    { key: '긴급복지', re: /긴급복지지원/ },
-    { key: '장애인활동지원', re: /장애인\s*활동지원/ },
-  ]
+  // 대표 급여·같은 프로그램의 사실상 중복 항목을 접어 상위 1개만 남긴다(정렬 후 호출). 결과·탐색 공용.
+  return collapseProgramDuplicates(result)
+}
+
+/** 프로그램 중복 접기 — 대표급여 그룹 + 이름 정확중복을 POL- 시드에만 적용, 상위(먼저 오는) 1개만.
+ *  getEligiblePolicies(결과)와 Explore(탐색 브라우징) 양쪽에서 동일 기준으로 재사용(단일 출처). */
+const PROGRAM_DEDUP: { key: string; re: RegExp }[] = [
+  { key: '의료급여', re: /^의료급여/ },
+  { key: '주거급여', re: /^주거급여/ },
+  { key: '교육급여', re: /^교육급여/ },
+  { key: '자활근로', re: /자활\s*근로/ },
+  // 같은 프로그램이 여러 시드로 중복된 것들(2026 데이터검증에서 확인)
+  { key: '문화누리', re: /문화누리|통합문화이용권/ },
+  { key: '임신출산진료비', re: /임신.?출산\s*진료비/ },
+  { key: '청소년특별지원', re: /청소년\s*특별지원/ },
+  { key: '긴급복지', re: /긴급복지지원/ },
+  { key: '장애인활동지원', re: /장애인\s*활동지원/ },
+]
+export function collapseProgramDuplicates<T extends { id: string; name: string }>(list: T[]): T[] {
   const seenGroup = new Set<string>()
   const seenName = new Set<string>()
-  return result.filter((pol) => {
+  return list.filter((pol) => {
     if (!pol.id.startsWith('POL-')) return true
-    // 1) 대표급여 그룹 접기(의료·주거·교육·자활)
-    const g = DEDUP.find((d) => d.re.test(pol.name))
+    const g = PROGRAM_DEDUP.find((d) => d.re.test(pol.name))
     if (g) {
       if (seenGroup.has(g.key)) return false
       seenGroup.add(g.key)
     }
-    // 2) 이름 정확중복 접기 — 시드에 동일명 2건(한부모 아동양육비·실업급여·발달재활서비스)이 함께 뜨는 중복카드 방지. 상위 1개만.
     const nm = pol.name.replace(/\s+/g, '')
     if (seenName.has(nm)) return false
     seenName.add(nm)

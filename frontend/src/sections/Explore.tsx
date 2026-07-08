@@ -15,7 +15,7 @@ import { queryConcepts, relevance } from '@/lib/search'
 import { cn } from '@/lib/utils'
 import type { Policy } from '@/data/policies'
 import { useCatalog } from '@/data/useCatalog'
-import { sidoOf, guOf, type EligiblePolicy } from '@/lib/welfare-engine'
+import { sidoOf, guOf, collapseProgramDuplicates, type EligiblePolicy } from '@/lib/welfare-engine'
 import { PolicyCard } from '@/components/PolicyCard'
 import { PolicyDetailDrawer } from '@/components/PolicyDetailDrawer'
 import { Glossary } from '@/components/Glossary'
@@ -219,9 +219,11 @@ export function Explore() {
         list = base
       }
     }
-    if (sort === 'amount') return [...list].sort((a, b2) => parseMonthly(b2.benefit) - parseMonthly(a.benefit))
-    if (sort === 'name') return [...list].sort((a, b2) => a.name.localeCompare(b2.name, 'ko'))
-    return list
+    let out = list
+    if (sort === 'amount') out = [...list].sort((a, b2) => parseMonthly(b2.benefit) - parseMonthly(a.benefit))
+    else if (sort === 'name') out = [...list].sort((a, b2) => a.name.localeCompare(b2.name, 'ko'))
+    // 같은 프로그램 중복(문화누리 3중복 등) 접기 — 결과 뷰와 동일 기준. POL- 시드에만 적용, 외부 데이터는 그대로.
+    return collapseProgramDuplicates(out)
   }, [q, bucket, catalog, sort, onlyCash, benefitType, region, gungu, aiMode, aiHits])
 
   const detected = aiMode && q.trim() ? detectLang(q) : null
