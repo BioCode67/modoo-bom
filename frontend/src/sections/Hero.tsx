@@ -4,6 +4,7 @@ import { Sparkles, ArrowRight, ShieldCheck, Compass, Search } from 'lucide-react
 import { MascotCanvas } from '@/three/MascotCanvas'
 import { HeroAgentBubble } from '@/components/HeroAgentBubble'
 import { useAppStore } from '@/store/useAppStore'
+import { useCatalog } from '@/data/useCatalog'
 import { parseProfileFromText } from '@/lib/parseQuery'
 
 const STATS = [
@@ -16,6 +17,12 @@ const HERO_EXAMPLES = ['72세 혼자 사는데 소득이 적어요', '서울 사
 
 export function Hero() {
   const { setView, setPendingProfile, setAiIntent, setAiQuery } = useAppStore()
+  // 실제 카탈로그 수를 신뢰 스탯으로 — 공공데이터(policies.json) 병합 후엔 정확한 수, 병합 전(시드 190)엔
+  // 낮은 수 노출 방지를 위해 '5,000+' 보수 폴백(과장 없이 실제보다 작게). 병합되면 자동 리렌더.
+  const catalogCount = useCatalog().length
+  const stats = STATS.map((s, i) =>
+    i === 0 && catalogCount > 1000 ? { ...s, value: `${(Math.floor(catalogCount / 100) * 100).toLocaleString('en-US')}+` } : s,
+  )
   const [text, setText] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
   const focusInput = () => { inputRef.current?.focus(); inputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }) }
@@ -123,7 +130,7 @@ export function Hero() {
 
           {/* 통계 */}
           <div className="mt-8 grid grid-cols-3 gap-3 max-w-md mx-auto lg:mx-0">
-            {STATS.map((s, i) => (
+            {stats.map((s, i) => (
               <motion.div
                 key={s.label}
                 initial={{ opacity: 0, y: 16 }}
