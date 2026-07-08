@@ -228,7 +228,8 @@ function checkPolicyDoc(doc: string, name: string, p: UserProfile): CheckResult 
   //   임신 중·무자녀 다문화가족이 배제되던 문제. 가구유형으로 먼저 매칭한다.)
   if (anyIn(doc, ['다문화가족', '결혼이민자', '귀화자'])) {
     if (p.household_type === '다문화가족')
-      return { eligible: true, reason: '다문화가족 확인', priority: 'medium', confidence: 0.9 }
+      // 사각지대 대표(대회 주제) — 다문화 전용 지원은 high로. medium이면 나이만 겹친 청년 정책(전부 high)에 묻힘
+      return { eligible: true, reason: '다문화가족 확인', priority: 'high', confidence: 0.9 }
     return NO
   }
   // ── 국가장학금·학자금 지원 ── ('대학생·소득분위 N구간'은 엔진 토큰이 없어 dead였던 대표 복지 — 재학생 매칭 ──
@@ -270,8 +271,11 @@ function checkPolicyDoc(doc: string, name: string, p: UserProfile): CheckResult 
     return NO
   }
   if (doc.includes('만 18세 미만') && doc.includes('아동')) {
-    if (p.has_children && (p.children_ages || []).some((a) => a < 18))
-      return { eligible: true, reason: '만 18세 미만 자녀 보유', priority: 'medium', confidence: 0.88 }
+    if (p.has_children && (p.children_ages || []).some((a) => a < 18)) {
+      // 한부모·조손 아동양육비(월23만)는 대표 현금급여 → high. 일반 아동매칭 medium에 묻혀 top에서 사라지던 문제.
+      const hp = /한부모|조손/.test(p.household_type || '') && /한부모|조손|양육비/.test(doc)
+      return { eligible: true, reason: hp ? '한부모·조손 아동양육비 대상' : '만 18세 미만 자녀 보유', priority: hp ? 'high' : 'medium', confidence: hp ? 0.92 : 0.88 }
+    }
     return NO
   }
   // 다자녀(자녀 2명 이상) — 통합 감면 등. 미성년 자녀 2명 이상이거나 가구유형이 다자녀일 때.
@@ -329,8 +333,12 @@ function checkPolicyDoc(doc: string, name: string, p: UserProfile): CheckResult 
   }
   // 중위소득 65/63/60% — 한부모(2026년 65%로 확대) 등. 넓은 기준 순서로 정밀 검사.
   if (anyIn(doc, ['중위소득 65%'])) {
-    if (p.income_percentile <= 65)
-      return { eligible: true, reason: `소득 중위소득 ${p.income_percentile}%로 기준 충족`, priority: 'medium', confidence: 0.82 }
+    if (p.income_percentile <= 65) {
+      // 한부모·조손 대표 현금급여(아동양육비 등)는 high — 중위65%는 한부모 기준선이라, 소득만 보고 medium 처리하면
+      //   대표 양육비가 법률구조·시설입소 등 부수 서비스(high)에 밀려 top에서 묻힌다.
+      const hp = /한부모|조손/.test(p.household_type || '') && /한부모|조손|양육비/.test(doc)
+      return { eligible: true, reason: `소득 중위소득 ${p.income_percentile}%로 기준 충족`, priority: hp ? 'high' : 'medium', confidence: hp ? 0.9 : 0.82 }
+    }
     return NO
   }
   if (anyIn(doc, ['중위소득 63%'])) {
@@ -647,7 +655,11 @@ export function situationRelevance(policy: Policy, p: UserProfile): number {
   if (p.disability && /장애/.test(t)) s += 5
   if (infant && /임신|임산부|출산|출생|산모|영아|신생아|난임|모유|부모급여|첫만남|아동수당/.test(t)) s += 5
   if ((p.household_type || '').includes('한부모') && /한부모|모자|부자가정|조손|양육/.test(t)) s += 4
+  // 사각지대 대표 현금급여를 상위로 — 한부모 아동양육비(월23만)가 법률구조·시설입소 등 부수 서비스에 밀려 top에서 묻히던 문제
+  if (/(한부모|조손).*(양육비|아동양육)|아동양육비/.test(nm) && /한부모|조손/.test(p.household_type || '')) s += 8
   if ((p.household_type || '').includes('다문화') && /다문화|결혼이민|이주|외국인/.test(t)) s += 4
+  // 다문화가족엔 다문화 전용 지원(방문교육·한국어·이중언어 등)을 상위로 — 나이만 겹쳐 청년 저축/월세가 도배하던 문제
+  if ((p.household_type || '').includes('다문화') && /다문화|결혼이민|이주민|방문교육|한국어|이중언어|통번역/.test(t)) s += 7
   if (p.age >= 65 && /노인|어르신|경로|기초연금|장기요양|치매|틀니/.test(t)) s += 4
   if (p.has_children && /아동|보육|육아|어린이|자녀|양육|유아|급식|돌봄|부모급여|다자녀|출산|출생|첫만남/.test(t)) s += 3
   if (p.employment_status === 'unemployed' && /실업|구직|취업|재취업|일자리|자활/.test(t)) s += 3

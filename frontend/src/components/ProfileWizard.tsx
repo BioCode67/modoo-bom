@@ -17,6 +17,9 @@ const DEMOS: { label: string; emoji: string; profile: UserProfile }[] = [
   { label: '청년 취준생', emoji: '🧑‍💻', profile: { ...EMPTY, name: '이청년', age: 26, gender: 'male', household_type: '1인가구', income_percentile: 55, employment_status: 'unemployed', life_events: ['실직'] } },
   { label: '신혼 출산가정', emoji: '👶', profile: { ...EMPTY, name: '박보람', age: 32, gender: 'female', household_type: '신혼부부', income_percentile: 90, has_children: true, children_ages: [0], life_events: ['출산'] } },
   { label: '중증 장애인', emoji: '♿', profile: { ...EMPTY, name: '정도움', age: 45, gender: 'male', household_type: '1인가구', income_percentile: 35, disability: true, disability_grade: '1급', life_events: ['장애진단'] } },
+  // 복지 사각지대(대회 핵심 주제) — 다문화·한부모를 데모로 즉시 시연
+  { label: '다문화 가정', emoji: '🌏', profile: { ...EMPTY, name: '흐엉', age: 34, gender: 'female', household_type: '다문화가족', income_percentile: 55, has_children: true, children_ages: [5] } },
+  { label: '한부모 가정', emoji: '👩‍👧', profile: { ...EMPTY, name: '최한결', age: 38, gender: 'female', household_type: '한부모가족', income_percentile: 40, has_children: true, children_ages: [8], employment_status: 'employed' } },
 ]
 
 const HOUSEHOLDS = ['1인가구', '신혼부부', '다자녀가구', '한부모가족', '조손가구', '다문화가족', '일반가구']

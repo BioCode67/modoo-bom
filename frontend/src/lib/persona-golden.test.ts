@@ -144,4 +144,11 @@ describe('추천 품질 감사 회귀 — 대표 급여 상위·오노출 제거
     const pol = runAnalysis(P({ age: 35, income_percentile: 40, employment_status: 'employed' })).eligible_policies.filter((p) => p.id.startsWith('POL-'))
     expect(names(pol)).not.toMatch(/교육급여/)
   })
+  // 사각지대(대회 핵심) — 대표 현금급여가 부수 서비스에 묻히지 않아야
+  it('한부모 저소득(38·40%·8세 자녀): 한부모 아동양육비가 top3에(부수 서비스에 안 묻힘)', () => {
+    expect(topNames(P({ age: 38, income_percentile: 40, household_type: '한부모가족', has_children: true, children_ages: [8], employment_status: 'employed' }), 3).some((x) => /한부모.*아동양육비|아동양육비/.test(x))).toBe(true)
+  })
+  it('다문화 가정(34·55%·5세 자녀): 다문화 전용 지원이 top3에(나이만 겹친 청년정책에 안 묻힘)', () => {
+    expect(topNames(P({ age: 34, income_percentile: 55, household_type: '다문화가족', has_children: true, children_ages: [5] }), 3).some((x) => /다문화/.test(x))).toBe(true)
+  })
 })
