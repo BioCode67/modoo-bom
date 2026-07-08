@@ -113,6 +113,12 @@ export function parseProfileFromText(text: string): UserProfile {
     p.life_events.push('질병')
   }
 
+  // ── 안전 위기(폭력·학대) ── 자연어로 피해를 알리면 폭력피해 지원·1366을 최우선 발굴(안전 직결).
+  //   '맞아요'(=옳다) 오탐 방지 위해 구타·폭행 맥락만: 때리/때린/폭행/구타/맞고 살/학대/가정폭력/성폭력/데이트폭력.
+  if (/때리|때린|때려|폭행|구타|맞고\s*살|두들겨|가정폭력|성폭력|데이트\s*폭력|학대(당|받|해)|남편이\s*(때|폭)|아내가\s*(때|폭)/.test(t) && !p.life_events.includes('가정폭력')) {
+    p.life_events.push('가정폭력')
+  }
+
   // ── 고용 ──
   if (/실직|실업|퇴사|해고|잘렸|일자리.*(잃|없)|직장.*잃/.test(t)) {
     p.employment_status = 'unemployed'

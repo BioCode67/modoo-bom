@@ -205,4 +205,10 @@ describe('parseProfileFromText — 2차 감사 회귀(2026-07)', () => {
     expect(p.children_ages).not.toContain(18) // 부모 나이는 자녀에서 제외
     expect(p.age).toBe(18)                     // 부모 나이는 보존
   })
+  it('폭력 피해 자연어를 감지(안전 직결) — "맞아요"(옳다) 오탐 없음', () => {
+    expect(parseProfileFromText('남편이 때려요').life_events).toContain('가정폭력')
+    expect(parseProfileFromText('가정폭력을 당하고 있어요').life_events).toContain('가정폭력')
+    expect(parseProfileFromText('아이가 학대당해요').life_events).toContain('가정폭력')
+    expect(parseProfileFromText('네 맞아요 소득이 적어요').life_events).not.toContain('가정폭력')
+  })
 })
