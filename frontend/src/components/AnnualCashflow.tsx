@@ -12,7 +12,10 @@ import { formatWon } from '@/lib/format'
 export function AnnualCashflow({ policies }: { policies: EligiblePolicy[] }) {
   const cf = annualCashflow(policies)
   if (cf.annualTotal <= 0) return null
-  const max = Math.max(...cf.months, 1)
+  // 누적 막대 — 1년에 걸쳐 쌓이는 총액(마지막 달 = 연간 총액). 일시금은 첫 달을 크게 올린다.
+  const cumulative: number[] = []
+  cf.months.reduce((acc, m, i) => (cumulative[i] = acc + m), 0)
+  const cmax = cumulative[cumulative.length - 1] || 1
   const startMonth = new Date().getMonth() // 이번 달부터 12개월
   const label = (i: number) => (((startMonth + i) % 12) + 1)
 
@@ -34,24 +37,25 @@ export function AnnualCashflow({ policies }: { policies: EligiblePolicy[] }) {
         <span className="block mt-0.5 text-xs">※ 현금으로 받는 지원만 더한 값이에요(상품권·서비스·대출 제외). 실제 조건·중복수급 여부에 따라 달라질 수 있어요.</span>
       </p>
 
-      {/* 12개월 막대 — 첫 달(일시금 포함)은 복숭아색으로 구분. 막대 행/라벨 행 분리(% 높이 기준 고정). */}
+      {/* 누적 막대 — 달이 갈수록 쌓여 마지막에 연간 총액. 막대 행/라벨 행 분리(% 높이 기준 고정). */}
       <div className="mt-4" role="img"
-        aria-label={`앞으로 12개월 예상 복지 수령액. 연간 총 ${formatWon(cf.annualTotal)}.`}>
+        aria-label={`앞으로 12개월 누적 복지 수령액. 연말 총 ${formatWon(cf.annualTotal)}.`}>
+        <p className="text-[11px] font-semibold text-muted-foreground mb-1">📈 쌓이면 (누적)</p>
         <div className="flex items-end gap-1 h-28">
-          {cf.months.map((m, i) => {
-            const h = Math.max(6, Math.round((m / max) * 100))
-            const spike = i === 0 && cf.oneTimeTotal > 0
+          {cumulative.map((c, i) => {
+            const h = Math.max(6, Math.round((c / cmax) * 100))
+            const last = i === cumulative.length - 1
             return (
               <div key={i}
-                className={`flex-1 rounded-t-lg transition-all ${spike ? 'bg-peach-400' : 'bg-sprout-400'}`}
+                className={`flex-1 rounded-t-lg transition-all ${last ? 'bg-sprout-700' : 'bg-sprout-400'}`}
                 style={{ height: `${h}%` }}
-                title={`${label(i)}월: ${formatWon(m)}`}
+                title={`${label(i)}월까지 누적: ${formatWon(c)}`}
               />
             )
           })}
         </div>
         <div className="flex gap-1 mt-1">
-          {cf.months.map((_, i) => (
+          {cumulative.map((_, i) => (
             <span key={i} className="flex-1 text-center text-[9px] text-muted-foreground tabular-nums">{label(i)}</span>
           ))}
         </div>
