@@ -37,6 +37,30 @@ describe('parseProfileFromText', () => {
     expect(parseProfileFromText('자녀 3명이에요').household_type).toBe('다자녀가구')
   })
 
+  it('명사-먼저 단일 자녀 나이를 정확히 잡음(아동수당 과장 방지 — 감사 수정)', () => {
+    // "아이가 10살" → 자녀 나이 10 (기본 3세로 뭉개지지 않음). 10살은 아동수당(만 9세 미만) 대상 아님.
+    const p = parseProfileFromText('아이가 10살이에요')
+    expect(p.has_children).toBe(true)
+    expect(p.children_ages).toContain(10)
+    expect(p.children_ages).not.toContain(3)
+    expect(p.age).toBe(30) // 자녀 나이(10)를 부모 나이로 오인하지 않음
+  })
+  it('필러가 낀 나이-먼저 자녀 표기(5살짜리 아이)', () => {
+    const p = parseProfileFromText('5살짜리 아이를 키워요')
+    expect(p.children_ages).toContain(5)
+  })
+  it('조손가구 손주 나이를 잡음(교육급여 누락 방지 — 감사 수정)', () => {
+    const p = parseProfileFromText('할머니가 손주 9살 7살 키워요')
+    expect(p.household_type).toBe('조손가구')
+    expect(p.has_children).toBe(true)
+    expect(p.children_ages).toEqual(expect.arrayContaining([9, 7]))
+    expect(p.children_ages).not.toContain(3)
+  })
+  it('자립준비 나이 보정이 명시 나이를 덮지 않음(감사 수정)', () => {
+    expect(parseProfileFromText('30살인데 보호종료 됐어요').age).toBe(30) // 명시 30 유지(21로 덮지 않음)
+    expect(parseProfileFromText('보호종료 됐어요').age).toBe(21)          // 나이 미명시 시엔 통상값(21) 보정
+  })
+
   it('중증 장애인', () => {
     const p = parseProfileFromText('중증 장애가 있어요')
     expect(p.disability).toBe(true)

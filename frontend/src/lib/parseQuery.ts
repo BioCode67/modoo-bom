@@ -20,13 +20,15 @@ export function parseProfileFromText(text: string): UserProfile {
 
   // ── 자녀 나이 선처리 ── "아이가 셋이에요 7살 5살 2살"처럼 자녀 맥락에서 나이가 여러 개 나열되면
   // 전부 자녀 나이로 보고, 부모 나이 추출에서는 제외한다(첫 토큰을 부모 나이로 오인 방지).
-  const kidKw = t.match(/아이|애(?!인)|자녀|아들|딸|아기|애들/)
+  const kidKw = t.match(/아이|애(?!인)|자녀|아들|딸|아기|애들|손주|손자|손녀/)
   const kidCtxIdx = kidKw ? (kidKw.index ?? -1) : -1
   // 자녀 맥락 키워드 '이후'에 나열된 나이만 자녀 나이로 본다 — 그 앞의 'N살 엄마'(부모 나이)를
   //   자녀 나이로 흡수하던 오류 방지(예: "18살 엄마가 아이 7살 5살" → 자녀는 7·5, 부모는 18).
   const ageMatchesAll = [...t.matchAll(/(\d{1,2})\s*(?:살|세)/g)]
   const kidAgeMatches = kidCtxIdx >= 0 ? ageMatchesAll.filter((m) => (m.index ?? 0) > kidCtxIdx) : []
-  const multiKidAges = kidAgeMatches.length >= 2 && kidAgeMatches.every((m) => parseInt(m[1], 10) <= 18)
+  // 1개여도 인정 — "아이가 10살"처럼 자녀 한 명을 명사-먼저로 말하면 나이가 유실돼(→기본 3세)
+  //   10살 아이 부모에게 아동수당(만 9세 미만)을 과장 추천하던 결함 수정. 모두 18세 이하일 때만 자녀로.
+  const multiKidAges = kidAgeMatches.length >= 1 && kidAgeMatches.every((m) => parseInt(m[1], 10) <= 18)
     ? kidAgeMatches.map((m) => parseInt(m[1], 10))
     : null
   // 부모 나이 추출용 문자열: 자녀 나이 토큰만 제거(그 앞 부모 나이는 보존)
@@ -36,11 +38,13 @@ export function parseProfileFromText(text: string): UserProfile {
   // ── 나이 ── (단, "5살 아이"처럼 자녀를 가리키는 N살/세는 부모 나이로 잡지 않음)
   const exact = tForAge.match(/(\d{1,3})\s*(?:세|살)(?!\s*(?:아이|자녀|아들|딸|아기|아동|손주|손자|손녀))/)
   const decade = tForAge.match(/(\d0)\s*대/)
+  let ageExplicit = true // 아래 분기 중 하나로 나이를 실제 파싱했는지(기본값 30과 구별 — 자립준비 등 나이 보정이 명시값을 덮지 않게)
   if (exact) p.age = parseInt(exact[1], 10)
   else if (decade) p.age = parseInt(decade[1], 10) + 5
   else if (/노인|어르신|고령|할머니|할아버지|경로/.test(t)) p.age = 70
   else if (/청년|대학생|취준|사회초년/.test(t)) p.age = 27
   else if (/청소년|중학생|고등학생|10대/.test(t)) p.age = 16
+  else ageExplicit = false
 
   // ── 가구 형태 (뒤일수록 우선) ──
   if (/혼자|독거|1인|일인|홀로|혼자\s*살/.test(t)) p.household_type = '1인가구'
@@ -56,7 +60,7 @@ export function parseProfileFromText(text: string): UserProfile {
   const kidCtx = /아이|애기|자녀|키[우워]|양육|손주/.test(t)
   if (/한부모|미혼모|미혼부/.test(t) || (kidCtx && /혼자.*키[우워]|홀로.*키[우워]|이혼|사별|(남편|아내|배우자).*(죽|잃)/.test(t)))
     p.household_type = '한부모가족'
-  if (/조손|손주.*키우|할머니.*키우/.test(t)) p.household_type = '조손가구'
+  if (/조손|손주.*키[우워]|(할머니|할아버지|조부모).*(키[우워]|양육|맡아|돌보)/.test(t)) p.household_type = '조손가구'
 
   // ── 소득 ──
   // 부정문 오탐 방지: '소득이 적지 않다/부족하지 않다/낮지 않다'는 저소득이 아님(오히려 여유).
@@ -89,15 +93,16 @@ export function parseProfileFromText(text: string): UserProfile {
 
   // ── 임신·자녀 ──
   if (/임신|임산부|만삭|출산\s*예정|곧\s*출산/.test(t)) { p.is_pregnant = true; p.life_events.push('출산') }
-  const kids = [...t.matchAll(/(\d{1,2})\s*(살|세)\s*(아이|자녀|아들|딸|아기)/g)]
+  // 나이-먼저 자녀 표기 — "5살 아이" 및 필러가 낀 "5살짜리/정도 아이", 손주 표기까지.
+  const kids = [...t.matchAll(/(\d{1,2})\s*(살|세)\s*(?:짜리|정도|가량|쯤|밖에)?\s*(아이|자녀|아들|딸|아기|손주|손자|손녀)/g)]
   const kidCount = t.match(/(?:아이|애들?|자녀)\s*(둘|두|셋|세|넷|[2-4])\s*(?:명|이|을|이에요|입니다)?/)
   const COUNT: Record<string, number> = { 둘: 2, 두: 2, 셋: 3, 세: 3, 넷: 4 }
   // 부정문 오탐 방지: '자녀 없이·아이 없어요·무자녀·딩크'는 자녀 있음이 아니다(소득 incomeNegated와 동일 취지).
   //   → 이 가드가 없으면 childless 사용자에게 아동수당·부모급여가 잘못 추천된다.
-  const childNegated = /(아이|자녀|자식|애|아들|딸).{0,3}(없|안\s*낳|안\s*키)/.test(t) || /무자녀|딩크|자녀\s*계획\s*없/.test(t)
+  const childNegated = /(아이|자녀|자식|애|아들|딸|손주|손자|손녀).{0,3}(없|안\s*낳|안\s*키)/.test(t) || /무자녀|딩크|자녀\s*계획\s*없/.test(t)
   if (multiKidAges) { p.has_children = true; p.children_ages = multiKidAges }
   else if (kids.length) { p.has_children = true; p.children_ages = kids.map((m) => parseInt(m[1], 10)) }
-  else if (!childNegated && /아이|자녀|아들|딸|육아|아기|영유아|어린이집|유치원|키[우워]|쌍둥이|신생아|갓\s*태어/.test(t)) {
+  else if (!childNegated && /아이|자녀|아들|딸|육아|아기|영유아|어린이집|유치원|키[우워]|쌍둥이|신생아|갓\s*태어|손주|손자|손녀/.test(t)) {
     p.has_children = true
     if (/신생아|갓난|갓\s*태어|쌍둥이|0\s*살|돌\s*전|아기|영아|백일|젖먹이|막\s*낳/.test(t)) p.children_ages = /쌍둥이/.test(t) ? [0, 0] : [0]
     else if (kidCount) p.children_ages = Array(COUNT[kidCount[1]] ?? parseInt(kidCount[1], 10)).fill(5)
@@ -163,7 +168,7 @@ export function parseProfileFromText(text: string): UserProfile {
   if (/국가유공|보훈|유공자|참전유공|고엽제|독립유공|상이군경|보훈\s*대상/.test(t)) p.life_events.push('보훈')
   if (/자립준비|보호종료|아동복지시설.*퇴소|가정위탁.*종료/.test(t)) {
     p.life_events.push('자립준비')
-    if (p.age === BASE.age) p.age = 21 // 자립준비청년·보호종료아동 통상 만 18~24
+    if (!ageExplicit) p.age = 21 // 자립준비청년·보호종료아동 통상 만 18~24 (명시 나이는 덮지 않음)
   }
   if (/가정폭력|데이트폭력|성폭력|학대\s*피해|폭력.*피해|피해\s*여성/.test(t)) p.life_events.push('가정폭력')
 
