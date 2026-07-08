@@ -47,7 +47,7 @@ export function LangSuggest() {
 
   return (
     <div dir={rtl ? 'rtl' : 'ltr'}
-      className="no-print sticky top-0 z-40 flex items-center gap-2 border-b border-sky2-200 bg-sky2-50 px-4 py-2 text-sm text-sky2-900">
+      className="no-print flex items-center gap-2 border-b border-sky2-200 bg-sky2-50 px-4 py-2 text-sm text-sky2-900">
       <Languages className="h-4 w-4 shrink-0 text-sky2-600" />
       <span className="flex-1">{s.hint}</span>
       <button
