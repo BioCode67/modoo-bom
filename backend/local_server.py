@@ -342,7 +342,24 @@ def _port_in_use(host: str, port: int) -> bool:
             return False
 
 
-def main():
+def _open_browser_when_ready(url: str):
+    """서버 health가 실제로 뜨면 기본 브라우저로 앱을 연다(최대 ~15초, 안 뜨면 안 엶)."""
+    import threading
+    import time
+    import urllib.request
+
+    def _worker():
+        for _ in range(30):
+            try:
+                urllib.request.urlopen(url + "api/health", timeout=1)
+                webbrowser.open(url)
+                return
+            except Exception:
+                time.sleep(0.5)
+    threading.Thread(target=_worker, daemon=True).start()
+
+
+def main(open_browser: bool = True):
     import uvicorn
     host = os.getenv("HOST", "127.0.0.1")  # 루프백 기본 — 개인정보 다루는 로컬 에이전트를 LAN에 노출 안 함
     port = int(os.getenv("PORT", "8000"))
@@ -358,6 +375,9 @@ def main():
             pass
         return
 
+    # 서버가 뜨면 브라우저 자동 오픈(중복 오픈 방지 위해 여기 한 곳에서만 — agent_entry/bat는 위임).
+    if open_browser:
+        _open_browser_when_ready(url)
     # 접속 소음 줄이고(warning) 배너는 lifespan에서 출력.
     uvicorn.run(app, host=host, port=port, log_level="warning", access_log=False)
 

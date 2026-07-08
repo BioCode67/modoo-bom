@@ -40,23 +40,11 @@ set "MODOO_ENV=local"
 set "HOST=127.0.0.1"
 set "PORT=8000"
 
-rem 4) 8000 포트가 이미 점유됐으면 uvicorn 이 raw 트레이스백으로 죽지 않게 먼저 안내(M4).
-netstat -ano | findstr ":8000" | findstr "LISTENING" >nul 2>&1
-if not errorlevel 1 (
-  echo [모두봄] 8000 포트가 이미 사용 중이에요. 모두봄이 이미 실행 중이거나 다른 앱이 점유했을 수 있어요.
-  echo         브라우저에서 http://localhost:8000/ 을 열어 확인하세요.
-  start "" http://localhost:8000/
-  pause
-  exit /b 0
-)
-
-echo [모두봄] 로컬 에이전트를 시작합니다... 잠시 후 브라우저가 열립니다.
-rem 5) 브라우저는 3초 뒤(서버 기동 대기) 자동 오픈
-start "" cmd /c "timeout /t 3 >nul & start http://localhost:8000/"
-
-rem 경량 로컬 에이전트(local_server) — 즉시 기동(chromadb 시딩 없음) + RPA 서류발급/신청.
+echo [모두봄] 로컬 에이전트를 시작합니다... 서버가 뜨면 브라우저가 자동으로 열려요.
+rem 경량 로컬 에이전트(local_server)를 main()으로 기동 — 포트 점유 감지(raw 트레이스백 방지) +
+rem 서버 준비 후 브라우저 자동 오픈까지 한 곳(main)에서 처리(중복 오픈 방지).
 pushd backend
-"%PY%" -m uvicorn local_server:app --host 127.0.0.1 --port 8000 --log-level warning --no-access-log
+"%PY%" -c "import local_server; local_server.main()"
 popd
 
 endlocal
