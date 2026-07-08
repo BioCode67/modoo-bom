@@ -163,6 +163,14 @@ describe('추천 품질 감사 회귀 — 대표 급여 상위·오노출 제거
     const nong = pol.filter((p) => /농어촌|농어민/.test(p.name))
     expect(nong.every((p) => p.priority !== 'high')).toBe(true)
   })
+  it('가정폭력 피해자: 폭력피해 지원이 결과에(high) + 비피해자엔 미노출(안전 직결)', () => {
+    const dv = runAnalysis(P({ age: 33, gender: 'female', income_percentile: 40, life_events: ['가정폭력'] })).eligible_policies
+    const hit = dv.find((p) => /가정폭력|폭력\s*피해/.test(p.name))
+    expect(hit).toBeTruthy()
+    expect(hit?.priority).toBe('high')
+    const normal = runAnalysis(P({ age: 33, gender: 'female', income_percentile: 40 })).eligible_policies
+    expect(normal.some((p) => /가정폭력|폭력\s*피해/.test(p.name))).toBe(false)
+  })
   it('여성청소년 생리용품은 남성에게 오노출 안 됨(성별 누수 차단)', () => {
     const male = runAnalysis(P({ age: 21, gender: 'male', employment_status: 'student', income_percentile: 50 })).eligible_policies
     expect(male.some((p) => /생리용품/.test(p.name))).toBe(false)

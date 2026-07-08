@@ -165,6 +165,12 @@ function checkPolicyDoc(doc: string, name: string, p: UserProfile): CheckResult 
   if (/농어촌|농어민|농업인|어업인|귀농|귀어/.test(name)) {
     return { eligible: true, reason: '농어촌 대상 (읍·면 거주 확인 필요)', priority: 'low', confidence: 0.45 }
   }
+  // ── 폭력 피해자 지원(보호시설·여성긴급 등) — 안전 직결, 피해 신호 있으면 최우선(high) ──
+  if (/가정폭력|성폭력|폭력\s*피해|여성긴급|피해자\s*보호|학대\s*피해/.test(name)) {
+    if ((p.life_events || []).some((e) => /가정폭력|성폭력|폭력|학대/.test(e)))
+      return { eligible: true, reason: '폭력 피해 지원 대상 (안전 최우선)', priority: 'high', confidence: 0.9 }
+    return NO
+  }
   // ── 노인 계열 ──
   if (anyIn(doc, ['만 65세', '65세 이상', '만65세'])) {
     if (p.age >= 65) return { eligible: true, reason: `만 ${p.age}세로 연령 기준 충족`, priority: 'high', confidence: 0.95 }
