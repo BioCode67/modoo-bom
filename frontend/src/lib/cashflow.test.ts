@@ -32,6 +32,10 @@ describe('annualCashflow', () => {
     ])
     expect(cf.annualTotal).toBe(0)
     expect(cf.items).toHaveLength(0)
+    // 현금은 아니지만 금액 있는 비현금 지원은 'nonCash'로 따로 알린다(정직히 챙기게)
+    expect(cf.nonCash).toContain('첫만남이용권')
+    expect(cf.nonCash).toContain('출산축하금')
+    expect(cf.nonCash).toContain('문화누리카드')
   })
 
   it('혼합 — 기여 정책이 수령액 내림차순', () => {

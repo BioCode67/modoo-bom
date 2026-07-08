@@ -72,6 +72,14 @@ export function AnnualCashflow({ policies }: { policies: CashflowInput[] }) {
           ))}
         </div>
       )}
+
+      {/* 비현금 지원 — 현금 합계엔 안 넣되 '따로 받을 수 있다'고 정직히 안내(예: 첫만남이용권 바우처). */}
+      {cf.nonCash.length > 0 && (
+        <p className="mt-3 rounded-xl bg-peach-50 px-3 py-2 text-xs text-peach-800">
+          🎟️ 이 외에 <b>{cf.nonCash.slice(0, 3).join(' · ')}</b>{cf.nonCash.length > 3 ? ` 등 ${cf.nonCash.length}건` : ''} 처럼
+          바우처·상품권·서비스로 받는 지원도 있어요. 현금이 아니라 위 금액엔 안 넣었지만, 꼭 챙기세요.
+        </p>
+      )}
     </motion.section>
   )
 }

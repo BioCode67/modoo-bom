@@ -31,6 +31,7 @@ export interface Cashflow {
   oneTimeTotal: number      // 일시금 합(원)
   annualTotal: number       // 연간 총 예상 수령액(원)
   items: CashflowItem[]     // 기여 정책(수령액 내림차순)
+  nonCash: string[]         // 현금 합계엔 안 들어가지만 받을 수 있는 비현금 지원(바우처·상품권·서비스) 정책명
 }
 
 export function annualCashflow(
@@ -39,6 +40,7 @@ export function annualCashflow(
   let monthlyRecurring = 0
   let oneTimeTotal = 0
   const items: CashflowItem[] = []
+  const nonCash: string[] = []
   for (const p of policies || []) {
     const benefit = p.benefit || ''
     const ctx = `${p.name} ${p.category || ''}`
@@ -53,6 +55,9 @@ export function annualCashflow(
         oneTimeTotal += lump
         items.push({ name: p.name, won: lump, kind: 'once' })
       }
+      // 현금은 아니지만 금액이 있는 비현금 지원(바우처·상품권·서비스한도) — 헤드라인엔 안 넣되 '따로 있다'고 정직히 알린다.
+    } else if (isNonCashKind(`${benefit} ${ctx}`) && (parseMonthly(benefit) > 0 || parseLump(benefit) > 0)) {
+      nonCash.push(p.name)
     }
   }
   const months = Array<number>(12).fill(monthlyRecurring)
@@ -64,5 +69,6 @@ export function annualCashflow(
     oneTimeTotal,
     annualTotal: monthlyRecurring * 12 + oneTimeTotal,
     items,
+    nonCash,
   }
 }
