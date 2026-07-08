@@ -16,6 +16,7 @@ import { MonitorFeed } from '@/components/MonitorFeed'
 import { WelfareCalendar } from '@/components/WelfareCalendar'
 import { HouseholdAnalyzer } from '@/components/HouseholdAnalyzer'
 import { AnnualCashflow } from '@/components/AnnualCashflow'
+import { DeadlineAlert } from '@/components/DeadlineAlert'
 import { useAppStore, type AppStatus } from '@/store/useAppStore'
 import { useAuthCtx } from '@/lib/authContext'
 import { sumCashMonthly, formatWon } from '@/lib/format'
@@ -94,6 +95,9 @@ export function My() {
           </p>
         )}
       </motion.div>
+
+      {/* 담은 복지 중 마감 임박 — 놓침 방지 */}
+      <DeadlineAlert policies={tracked.map((t) => POLICY_MAP[t.policyId]).filter(Boolean)} onOpen={setSelected} />
 
       {/* 담은 복지의 연간 현금흐름 — 앞으로 12개월 누적 수령액 */}
       <AnnualCashflow policies={tracked.map((t) => POLICY_MAP[t.policyId]).filter(Boolean)} />
