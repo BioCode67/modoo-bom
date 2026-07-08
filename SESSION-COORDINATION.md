@@ -17,7 +17,13 @@
 | **프론트 UX·컴포넌트·접근성** | 데스크탑 | `src/components/*`(대부분)·`src/sections/*`·a11y·index.css·three |
 | **추천 엔진·정직성 감사·데이터** | 데스크탑 | `lib/welfare-engine.ts`·`lib/format.ts`·`data/*`·honesty/게이트·감사 |
 | **문서 자료실·README·기획서** | 데스크탑 | `README.md`·`docs/기획서*`·제출 자료 |
-| **배포(gh-pages)** | 데스크탑(주) | `npm run deploy` — 배포 경합 방지 위해 한쪽만 |
+| **배포(gh-pages)** | 데스크탑(주) | `npm run deploy` — ⚠️아래 규칙 필수 |
+
+> 🚨 **배포 규칙(2026-07-08 경합으로 라이브 회귀 발생)**: `npm run deploy` 는 **로컬 작업트리**를 빌드해
+> gh-pages 를 force-push 한다. **로컬 main 이 stale 하면 라이브가 과거로 회귀**(방금 데스크탑 배포가 w2의
+> chatAgent 수정을 stale 빌드로 덮어씀). → **배포 전 반드시 `git fetch && git rebase origin/main`(또는 pull)
+> 로 origin/main 최신화 후 배포.** 배포 직후 `curl 라이브 index.js` 해시가 방금 빌드본과 같은지 확인.
+> 두 세션이 동시에 배포하지 말 것(코디doc으로 '배포 중' 알린 뒤 한 명만).
 | **로컬앱 패키징·구조** | **터미널/w2** | `agent_entry`·`*.spec`·`installer.iss`·`build-installer.bat`·`setup-local.bat`·`run-local-app.bat` |
 | **브라우저 실행 인프라** | **터미널/w2** | `backend/rpa/base.py`(launch_browser 폴백) |
 | **하이브리드 감지·테스트·E2E·CI** | **터미널/w2** | `lib/backend.ts`·`lib/useBackend.ts`·`backend/tests/test_local_server·test_browser_launch`·`e2e/local-app.py`·`e2e/installed-app.py`·`check-all.bat` |
