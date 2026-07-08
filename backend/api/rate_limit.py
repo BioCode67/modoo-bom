@@ -52,6 +52,10 @@ def _client_ip(request: Request) -> str:
 
 
 async def rate_limit_middleware(request: Request, call_next):
+    # CORS/PNA 프리플라이트(OPTIONS)는 카운트에서 제외 — 실요청과 쌍으로 와 유효 쿼터가 절반이 되고,
+    # 429가 프리플라이트에 반환되면 CORS 헤더가 없어 브라우저엔 '레이트리밋'이 아니라 일반 CORS 오류로 보인다.
+    if request.method == "OPTIONS":
+        return await call_next(request)
     path = request.url.path
     limit = _limit_for(path)
     if limit is None:
