@@ -26,6 +26,9 @@ _here = os.path.abspath(os.getcwd())
 _distapp = os.path.join(_here, "..", "frontend", "dist-app")
 datas += [(_distapp, "frontend/dist-app")]
 
+# (사용법-README.txt 는 datas 로 넣으면 _internal 로 들어가 사용자가 못 본다 →
+#  빌드 후 onedir 루트로 복사한다: build-installer.bat / ZIP 단계에서 처리.)
+
 # playwright(드라이버 node + package) 전체 수집
 _pw = collect_all("playwright")
 datas += _pw[0]; binaries += _pw[1]; hiddenimports += _pw[2]

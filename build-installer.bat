@@ -38,6 +38,8 @@ if errorlevel 1 (
 popd
 
 echo [3/4] 배포 ZIP 생성...
+rem 첫 실행 안내를 onedir 루트(exe 옆)로 복사 — 사용자가 압축 풀면 바로 보이게(datas는 _internal로 들어가 안 보임).
+if exist "backend\사용법-README.txt" copy /Y "backend\사용법-README.txt" "backend\dist\모두봄-에이전트\사용법-README.txt" >nul
 if exist "backend\dist\모두봄-에이전트.zip" del "backend\dist\모두봄-에이전트.zip"
 powershell -NoProfile -Command "Compress-Archive -Path 'backend\dist\모두봄-에이전트\*' -DestinationPath 'backend\dist\모두봄-에이전트.zip' -Force"
 if exist "backend\dist\모두봄-에이전트.zip" ( echo   → backend\dist\모두봄-에이전트.zip 생성 완료 ) else ( echo   [경고] ZIP 생성 실패 )
