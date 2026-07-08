@@ -247,14 +247,41 @@ async def run_apply_rpa(task, service_name: str, profile: dict) -> None:
             await _fill(["input[placeholder*='생년월일']", "input[name*='brthdy']", "input[name*='birth']"], birth)
             await _fill(["input[placeholder*='휴대폰']", "input[placeholder*='연락처']", "input[name*='telno']", "input[name*='phone']"], phone)
 
+            # ⑦ 서류 첨부 '안내'(자동 첨부는 안 함) — 첨부칸은 특정 서류에 대응하는데, 엉뚱한 서류를
+            #    오첨부하면 사용자가 그대로 제출하는 위험이 있어, 어떤 서류를 어디서 첨부할지 정확히 안내한다.
+            #    '전자문서지갑' 방식이면 종이·첨부 없이 전자제출되므로 그걸 권장한다(정부 공식·무설치 정답).
+            from rpa.base import recent_issued_docs, DOCS_DIR
+            try:
+                has_file_input = await target_page.locator("input[type='file']").count() > 0
+            except Exception:
+                has_file_input = False
+            issued = recent_issued_docs()
+            attach_guide = ""
+            if has_file_input:
+                try:
+                    await target_page.locator("input[type='file']").first.scroll_into_view_if_needed(timeout=3000)
+                except Exception:
+                    pass
+                if issued:
+                    lst = "\n".join(f"   • {n}" for n, _ in issued[:6])
+                    attach_guide = (f"\n\n📎 서류 첨부: 아래 발급 서류를 첨부칸에 올려주세요\n{lst}\n"
+                                    f"   (저장 위치: {DOCS_DIR})\n"
+                                    f"   ※ '전자문서지갑' 선택이 있으면 종이·첨부 없이 바로 전자제출돼요(권장).")
+                else:
+                    attach_guide = ("\n\n📎 서류 첨부칸이 있어요. 서류 도우미에서 먼저 발급한 뒤 첨부하거나,\n"
+                                    "   '전자문서지갑' 선택으로 종이 없이 전자제출하세요(권장).")
+            elif issued:
+                attach_guide = "\n\n📎 첨부칸이 안 보이면 '전자문서지갑' 방식일 수 있어요 — 발급한 전자증명서가 자동 연동됩니다."
+
             await asyncio.sleep(1)
             ss = await take_screenshot(target_page)
             task.update("running",
                 f"✅ '{service_name}' 신청 양식이 열렸습니다!\n\n"
                 f"📋 남은 작업:\n"
                 f"1. 신청 양식의 내용을 확인해주세요\n"
-                f"2. 추가 정보가 필요하면 직접 입력해주세요\n"
-                f"3. 모든 내용 확인 후 '신청' 버튼을 클릭해주세요\n\n"
+                f"2. 추가 정보가 필요하면 직접 입력해주세요"
+                + attach_guide +
+                f"\n3. 모든 내용 확인 후 '신청' 버튼을 클릭해주세요\n\n"
                 f"⚠️ 제출은 반드시 직접 확인 후 진행해주세요.", ss)
 
             # 브라우저를 60초간 유지 (사용자가 직접 확인/제출)

@@ -125,6 +125,28 @@ def _default_docs_dir() -> pathlib.Path:
 DOCS_DIR = _default_docs_dir()
 
 
+def recent_issued_docs(limit: int = 10):
+    """모두봄이 발급해 저장한 서류(PDF/PNG)를 최신순으로 반환 — [(표시이름, 절대경로), ...].
+
+    신청 양식의 '서류 첨부'를 사용자가 정확히 하도록 안내하는 데 쓴다(어떤 서류가 어디에 있는지).
+    파일명은 '{서류명}_{타임스탬프}.pdf' 형식 → 타임스탬프를 떼어 사람이 읽는 이름으로."""
+    import glob
+    import re as _re
+    out = []
+    try:
+        files = []
+        for ext in ("*.pdf", "*.png"):
+            files.extend(glob.glob(os.path.join(str(DOCS_DIR), ext)))
+        files.sort(key=os.path.getmtime, reverse=True)
+        for f in files[:limit]:
+            stem = os.path.splitext(os.path.basename(f))[0]
+            name = _re.sub(r"_\d{8}_\d{6}$", "", stem)  # _YYYYMMDD_HHMMSS 제거
+            out.append((name or stem, os.path.abspath(f)))
+    except Exception:
+        pass
+    return out
+
+
 def _safe_filename(name: str) -> str:
     cleaned = "".join(c for c in name if c not in '<>:"/\\|?*\n\r\t').strip()
     return cleaned or "document"

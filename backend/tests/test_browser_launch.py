@@ -98,6 +98,24 @@ def test_forced_empty_means_bundled_first(monkeypatch):
     assert order.count("") == 1
 
 
+def test_recent_issued_docs(monkeypatch, tmp_path):
+    """발급 서류를 최신순 + 사람이 읽는 이름(타임스탬프 제거)으로 나열."""
+    import time
+    d = tmp_path / "모두봄서류"
+    d.mkdir()
+    (d / "주민등록등본_20260708_101500.pdf").write_bytes(b"%PDF old")
+    time.sleep(0.02)
+    (d / "가족관계증명서_20260708_101600.pdf").write_bytes(b"%PDF new")
+    (d / "무관한파일.txt").write_text("x")  # PDF/PNG 아님 → 제외
+    monkeypatch.setattr(base, "DOCS_DIR", d)
+    docs = base.recent_issued_docs()
+    names = [n for n, _ in docs]
+    assert names[0] == "가족관계증명서"  # 최신 먼저
+    assert "주민등록등본" in names
+    assert all(".txt" not in p for _, p in docs)  # txt 제외
+    assert len(docs) == 2
+
+
 def test_safe_filename_strips_traversal():
     """발급 문서(PII) 파일명 안전화 — 경로 이탈 문자 제거, 빈 이름은 'document'."""
     out = base._safe_filename("../../etc/pwn")
