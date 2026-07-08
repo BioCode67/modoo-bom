@@ -8,6 +8,7 @@ import type { Policy } from '@/data/policies'
 import { PolicyCard } from '@/components/PolicyCard'
 import { PolicyDetailDrawer } from '@/components/PolicyDetailDrawer'
 import { BenefitBreakdown, CategoryDistribution } from '@/components/BenefitCharts'
+import { AnnualCashflow } from '@/components/AnnualCashflow'
 import { FutureWelfare } from '@/components/FutureWelfare'
 import { LifeTimeline } from '@/components/LifeTimeline'
 import { ContinuityCard } from '@/components/ContinuityCard'
@@ -225,6 +226,9 @@ export function ResultsView({ result, profile, onReset, helperMode = false }: { 
           <CategoryDistribution policies={primary} />
         </section>
       )}
+
+      {/* 올해 복지 현금흐름 — 앞으로 12개월 '언제 얼마'(시간축, 연간 총액 체감) */}
+      <AnnualCashflow policies={primary} />
 
       {/* 정책 목록 */}
       {eligible.length === 0 ? (

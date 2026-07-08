@@ -1,0 +1,67 @@
+import { motion } from 'framer-motion'
+import { TrendingUp, Coins } from 'lucide-react'
+import type { EligiblePolicy } from '@/lib/welfare-engine'
+import { annualCashflow } from '@/lib/cashflow'
+import { formatWon } from '@/lib/format'
+
+/**
+ * 올해 복지 현금흐름 — 앞으로 12개월 '언제 얼마' 받는지 막대로.
+ * 포트폴리오(카테고리별)·수령액 막대(정책별 스냅샷)와 달리 '시간축'으로 연간 총액을 체감시킨다.
+ * 현금성만(정직성) — 바우처·대출·서비스 한도·현물 제외.
+ */
+export function AnnualCashflow({ policies }: { policies: EligiblePolicy[] }) {
+  const cf = annualCashflow(policies)
+  if (cf.annualTotal <= 0) return null
+  const max = Math.max(...cf.months, 1)
+  const startMonth = new Date().getMonth() // 이번 달부터 12개월
+  const label = (i: number) => (((startMonth + i) % 12) + 1)
+
+  return (
+    <motion.section
+      initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
+      className="mt-6 rounded-3xl border-2 border-sprout-100 bg-white p-5 sm:p-6"
+    >
+      <div className="flex items-center gap-2 text-sprout-700">
+        <TrendingUp className="h-5 w-5" />
+        <span className="text-sm font-bold">올해 복지 현금흐름</span>
+      </div>
+      <h3 className="mt-1.5 text-lg font-extrabold sm:text-xl">
+        앞으로 1년, <span className="text-sprout-700">{formatWon(cf.annualTotal)}</span> 받을 것으로 보여요
+      </h3>
+      <p className="mt-1 text-sm text-muted-foreground">
+        매월 <b className="text-foreground">{formatWon(cf.monthlyRecurring)}</b>
+        {cf.oneTimeTotal > 0 && <> + 첫 달 일시금 <b className="text-peach-700">{formatWon(cf.oneTimeTotal)}</b></>}
+        <span className="block mt-0.5 text-xs">※ 현금으로 받는 지원만 더한 값이에요(상품권·서비스·대출 제외). 실제 조건·중복수급 여부에 따라 달라질 수 있어요.</span>
+      </p>
+
+      {/* 12개월 막대 — 첫 달(일시금 포함)은 복숭아색으로 구분 */}
+      <div className="mt-4 flex items-end gap-1 h-32" role="img"
+        aria-label={`앞으로 12개월 예상 복지 수령액. 연간 총 ${formatWon(cf.annualTotal)}.`}>
+        {cf.months.map((m, i) => {
+          const h = Math.max(4, Math.round((m / max) * 100))
+          const spike = i === 0 && cf.oneTimeTotal > 0
+          return (
+            <div key={i} className="flex-1 flex flex-col items-center gap-1 min-w-0">
+              <div
+                className={`w-full rounded-t-lg transition-all ${spike ? 'bg-peach-400' : 'bg-sprout-400'}`}
+                style={{ height: `${h}%` }}
+                title={`${label(i)}월: ${formatWon(m)}`}
+              />
+              <span className="text-[9px] text-muted-foreground tabular-nums">{label(i)}</span>
+            </div>
+          )
+        })}
+      </div>
+
+      {cf.items.length > 0 && (
+        <div className="mt-4 flex flex-wrap gap-1.5">
+          {cf.items.slice(0, 6).map((it) => (
+            <span key={it.name} className="inline-flex items-center gap-1 rounded-full bg-sprout-50 px-2.5 py-1 text-xs font-semibold text-sprout-800">
+              <Coins className="h-3 w-3" />{it.name} {formatWon(it.won)}{it.kind === 'monthly' ? '/월' : ' 1회'}
+            </span>
+          ))}
+        </div>
+      )}
+    </motion.section>
+  )
+}
