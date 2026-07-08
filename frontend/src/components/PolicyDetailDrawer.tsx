@@ -219,7 +219,9 @@ function DrawerBody({
         {uiLang !== 'ko' && (() => {
           // 즉시 자국어 번역: 정책 핵심(이름·혜택·대상·신청)을 구글 번역 텍스트 링크로. 앱 내 기계번역(환각) 대신 외부 도구로 연결.
           const gtl = uiLang === 'zh' ? 'zh-CN' : uiLang // 구글 중국어 코드
-          const text = [policy.name, policy.benefit, policy.eligibility && `대상: ${policy.eligibility}`, policy.application && `신청: ${policy.application}`]
+          // 신청 안내에서 raw URL은 제거(번역해도 무의미·글자수 낭비) — 사람이 읽는 안내문만 포함
+          const applyText = (policy.application || '').replace(/https?:\/\/\S+/g, '').replace(/\(\s*\)/g, '').trim()
+          const text = [policy.name, policy.benefit, policy.eligibility && `대상: ${policy.eligibility}`, applyText && `신청: ${applyText}`]
             .filter(Boolean).join('\n').slice(0, 1400)
           const gurl = `https://translate.google.com/?sl=ko&tl=${gtl}&op=translate&text=${encodeURIComponent(text)}`
           return (
