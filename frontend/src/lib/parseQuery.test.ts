@@ -215,4 +215,18 @@ describe('parseProfileFromText — 2차 감사 회귀(2026-07)', () => {
     expect(parseProfileFromText('집이 없어서 길에서 지내요').income_percentile).toBeLessThanOrEqual(30)
     expect(parseProfileFromText('노숙 생활 중이에요').income_percentile).toBeLessThanOrEqual(30)
   })
+  it('외국인·한국어 미숙을 다문화가족으로 인식(헤드라인) — "일본 다녀왔어요"(여행) 오탐 없음', () => {
+    expect(parseProfileFromText('외국인인데 한국말이 서툴러요').household_type).toBe('다문화가족')
+    expect(parseProfileFromText('이주노동자예요').household_type).toBe('다문화가족')
+    expect(parseProfileFromText('일본 다녀왔어요').household_type).not.toBe('다문화가족')
+  })
+  it('미혼모 "아기를 낳아"를 영아(0세)로 인식 → 부모급여·첫만남', () => {
+    const p = parseProfileFromText('혼자서 아기를 낳아 키워요')
+    expect(p.has_children).toBe(true)
+    expect(p.children_ages).toContain(0)
+  })
+  it('산재(일하다 다침)를 감지', () => {
+    expect(parseProfileFromText('일하다가 다쳐서 일을 못해요').life_events).toContain('산재')
+    expect(parseProfileFromText('공사장에서 다쳤어요').life_events).toContain('산재')
+  })
 })
