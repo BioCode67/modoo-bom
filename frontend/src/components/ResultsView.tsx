@@ -9,6 +9,7 @@ import { PolicyCard } from '@/components/PolicyCard'
 import { PolicyDetailDrawer } from '@/components/PolicyDetailDrawer'
 import { BenefitBreakdown, CategoryDistribution } from '@/components/BenefitCharts'
 import { AnnualCashflow } from '@/components/AnnualCashflow'
+import { DeadlineAlert } from '@/components/DeadlineAlert'
 import { FutureWelfare } from '@/components/FutureWelfare'
 import { LifeTimeline } from '@/components/LifeTimeline'
 import { ContinuityCard } from '@/components/ContinuityCard'
@@ -217,6 +218,9 @@ export function ResultsView({ result, profile, onReset, helperMode = false }: { 
       )}
 
       {/* 복지 수혜 점수 — 행동 유도 (정밀 추천 기준) */}
+      {/* 마감 임박 복지 — 놓침 방지(자격 있는 것 중 기한 짧은 것 먼저) */}
+      <DeadlineAlert policies={eligible} onOpen={setSelected} />
+
       <WelfareScore eligible={primary} onOpen={setSelected} />
 
       {/* 포트폴리오 분석 (전문 시각화, 정밀 추천 기준) */}
