@@ -369,19 +369,16 @@ function DrawerBody({
                   )
                 })}
               </ul>
-              {doneCount === total && (() => {
-                // 준비 완료 → 곧바로 신청으로 연결(루프 완성). 신청 링크는 정책의 실제 신청 경로.
-                const al = applyLink(policy.application)
-                return (
-                  <div className="mt-2 flex flex-wrap items-center gap-2 rounded-xl bg-sprout-50 px-3 py-2.5">
-                    <p className="flex-1 text-xs font-semibold text-sprout-700">✅ 필요 서류를 모두 준비했어요. 이제 신청하면 돼요!</p>
-                    <a href={al.url} target="_blank" rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 rounded-full bg-sprout-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-sprout-700 transition-colors shrink-0">
-                      {al.label} <ExternalLink className="h-3 w-3" />
-                    </a>
-                  </div>
-                )
-              })()}
+              {doneCount === total && (
+                // 준비 완료 → 곧바로 신청으로 연결(루프 완성). bestApplyUrl로 주요 복지는 정확한 복지로 딥링크.
+                <div className="mt-2 flex flex-wrap items-center gap-2 rounded-xl bg-sprout-50 px-3 py-2.5">
+                  <p className="flex-1 text-xs font-semibold text-sprout-700">✅ 필요 서류를 모두 준비했어요. 이제 신청하면 돼요!</p>
+                  <a href={bestApplyUrl(policy.application, policy.name)} target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 rounded-full bg-sprout-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-sprout-700 transition-colors shrink-0">
+                    신청하러 가기 <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
+              )}
             </Section>
           )
         })()}
