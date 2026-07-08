@@ -10,7 +10,7 @@ export interface Crisis {
 
 export const CRISES: Crisis[] = [
   { key: 'joblost', emoji: '💼', label: '실직했어요', keywords: ['실업', '실직', '구직', '긴급', '생계'] },
-  { key: 'sick', emoji: '🏥', label: '아프거나 다쳤어요', keywords: ['의료', '질병', '치료', '긴급', '재활'] },
+  { key: 'sick', emoji: '🏥', label: '아프거나 다쳤어요', keywords: ['의료', '질병', '치료', '긴급', '재활', '산재'] },
   { key: 'death', emoji: '🕯️', label: '주소득자가 사라졌어요', keywords: ['긴급', '생계', '한부모', '유족'] },
   { key: 'business', emoji: '📉', label: '사업이 어려워요', keywords: ['긴급', '생계', '소상공인', '자영업'] },
   { key: 'disaster', emoji: '🔥', label: '화재·재난을 겪었어요', keywords: ['긴급', '재난', '재해', '주거'] },
