@@ -163,4 +163,10 @@ describe('추천 품질 감사 회귀 — 대표 급여 상위·오노출 제거
     const nong = pol.filter((p) => /농어촌|농어민/.test(p.name))
     expect(nong.every((p) => p.priority !== 'high')).toBe(true)
   })
+  it('여성청소년 생리용품은 남성에게 오노출 안 됨(성별 누수 차단)', () => {
+    const male = runAnalysis(P({ age: 21, gender: 'male', employment_status: 'student', income_percentile: 50 })).eligible_policies
+    expect(male.some((p) => /생리용품/.test(p.name))).toBe(false)
+    const female = runAnalysis(P({ age: 21, gender: 'female', employment_status: 'student', income_percentile: 50 })).eligible_policies
+    expect(female.some((p) => /생리용품/.test(p.name))).toBe(true)
+  })
 })

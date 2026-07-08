@@ -447,6 +447,8 @@ export function demographicMismatch(name: string, doc: string, p: UserProfile): 
   if (/청소년|학령기/.test(name) && !(p.age >= 9 && p.age <= 24) && !ages.some((a) => a >= 7 && a <= 18)) return true
   // 임산부·산모·임신·난임 전용인데 임신 중도 아니고 영아도 없음
   if (/임산부|산모|임신|난임|출산/.test(name) && !(p.is_pregnant || ages.some((a) => a <= 1))) return true
+  // 여성 전용(생리용품·여성청소년 등)인데 명백히 남성이면 제외 — 성별 누수 차단('other'=선택안함은 미상이라 유지)
+  if (/생리용품|생리대|월경|여성\s*청소년/.test(name) && p.gender === 'male') return true
   // 장애인 전용인데 비장애
   if (/장애인|장애아/.test(name) && !p.disability) return true
   // 한부모·모자/부자가정·미혼모/부·조손 전용인데 아님 — 조손가구는 한부모가족지원법상 동일 급여 대상이라 포함
