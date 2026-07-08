@@ -447,4 +447,8 @@ describe('프로그램 중복 그룹 접기(2026 데이터검증)', () => {
     expect(count(lowIncome, /긴급복지지원/)).toBeLessThanOrEqual(1)
     expect(count(lowIncome, /장애인\s*활동지원/)).toBeLessThanOrEqual(1)
   })
+  it('노인 틀니·임플란트는 최대 1건(건보급여+지원 중복 접기)', () => {
+    const senior: UserProfile = { ...base, age: 66, income_percentile: 30 }
+    expect(count(senior, /틀니|임플란트/)).toBeLessThanOrEqual(1)
+  })
 })

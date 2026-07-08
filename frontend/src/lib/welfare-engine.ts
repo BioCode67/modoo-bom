@@ -364,8 +364,11 @@ function checkPolicyDoc(doc: string, name: string, p: UserProfile): CheckResult 
 
   // ── 실직·취업 계열 ──
   if (anyIn(doc, ['비자발적 이직', '실직', '비자발적 실직자'])) {
-    if (p.employment_status === 'unemployed')
-      return { eligible: true, reason: '실직/비자발적 이직으로 신청 자격 있음', priority: 'high', confidence: 0.85 }
+    // employment_status='unemployed'뿐 아니라 실직/폐업 life_event도 인정 — 자영업 폐업자(employment='self')가
+    //   실직 신호가 있어도 긴급복지·실업급여에서 탈락하던 사각지대 해소.
+    const jobless = p.employment_status === 'unemployed' || (p.life_events || []).some((e) => /실직|실업|폐업|해고|권고사직/.test(e))
+    if (jobless)
+      return { eligible: true, reason: '실직·폐업 등 소득상실로 신청 자격 있음', priority: 'high', confidence: 0.85 }
     return NO
   }
   if (anyIn(doc, ['구직 중', '미취업', '미취업 청년'])) {
@@ -758,6 +761,7 @@ const PROGRAM_DEDUP: { key: string; re: RegExp }[] = [
   { key: '긴급복지', re: /긴급복지지원/ },
   { key: '장애인활동지원', re: /장애인\s*활동지원/ },
   { key: '청년월세', re: /청년\s*월세/ },
+  { key: '틀니임플란트', re: /틀니|임플란트/ },
 ]
 export function collapseProgramDuplicates<T extends { id: string; name: string }>(list: T[]): T[] {
   const seenGroup = new Set<string>()

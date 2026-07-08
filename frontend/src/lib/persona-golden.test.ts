@@ -154,4 +154,8 @@ describe('추천 품질 감사 회귀 — 대표 급여 상위·오노출 제거
   it('다자녀 가구(40·자녀3명·50%): 다자녀 전용 지원이 top4에(일반 아동혜택에 안 묻힘)', () => {
     expect(topNames(P({ age: 40, income_percentile: 50, household_type: '다자녀가구', has_children: true, children_ages: [3, 7, 12] }), 4).some((x) => /다자녀|셋째/.test(x))).toBe(true)
   })
+  it('자영업 폐업위기(45·self·실직·40%): 긴급복지가 결과에(employment=self여도 실직 신호 인정)', () => {
+    const pol = runAnalysis(P({ age: 45, income_percentile: 40, employment_status: 'self', life_events: ['실직'] })).eligible_policies
+    expect(pol.some((p) => /긴급복지/.test(p.name))).toBe(true)
+  })
 })
