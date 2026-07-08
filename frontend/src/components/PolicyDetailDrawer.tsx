@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Heart, ExternalLink, FileText, CheckCircle2, Building2, RefreshCw, Rocket, Volume2, Square, Phone, Sparkles, ShieldCheck } from 'lucide-react'
+import { X, Heart, ExternalLink, CheckCircle2, Building2, RefreshCw, Rocket, Volume2, Square, Phone, Sparkles, ShieldCheck } from 'lucide-react'
 import { useTTS } from '@/lib/useTTS'
 import { relatedPolicies, type SemanticHit } from '@/lib/semanticSearch'
 import type { Policy } from '@/data/policies'
@@ -141,6 +141,8 @@ function DrawerBody({
   const { profile, rpaInfo, uiLang } = useAppStore()
   const analysisResult = useAppStore((s) => s.result)
   const trackedList = useAppStore((s) => s.tracked)
+  const docDoneMap = useAppStore((s) => s.docDone) // 반응형 구독(전역 서류 준비완료)
+  const toggleDocDone = useAppStore((s) => s.toggleDocDone)
   // 이 정책이 실제 '내 분석 결과'에서 나온 것인지 — 신청 흐름 1단계의 '자동 선별 완료' 표기 정직성 근거.
   const matched = !!analysisResult?.eligible_policies.some((e) => e.id === policy.id)
   const [visitKit, setVisitKit] = useState(false)
@@ -318,25 +320,48 @@ function DrawerBody({
         {/* 에이전트 자동 신청 (지원 서비스 + 백엔드 있을 때) */}
         <AgentSubmitButton policy={policy} />
 
-        {/* 필요 서류 */}
-        {policy.required_docs?.length > 0 && (
-          <Section title={`📑 ${tr(uiLang,'requiredDocs')}`}>
-            <ul className="space-y-1.5">
-              {policy.required_docs.map((d: string) => {
-                const dl = docLink(d)
-                return (
-                  <li key={d} className="flex items-center gap-2 text-sm text-foreground/80">
-                    <FileText className="h-4 w-4 text-sky2-500 shrink-0" />
-                    <span className="flex-1">{d}</span>
-                    <a href={dl.url} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-sky2-700 hover:underline inline-flex items-center gap-0.5 shrink-0">
-                      발급 <ExternalLink className="h-3 w-3" />
-                    </a>
-                  </li>
-                )
-              })}
-            </ul>
-          </Section>
-        )}
+        {/* 필요 서류 — 체크 가능한 준비 체크리스트(전역 기억: 등본 등 공통 서류는 여러 복지에서 준비완료 공유) */}
+        {policy.required_docs?.length > 0 && (() => {
+          const done = (d: string) => !!docDoneMap[d.replace(/\s/g, '')]
+          const doneCount = policy.required_docs.filter(done).length
+          const total = policy.required_docs.length
+          return (
+            <Section title={`📑 ${tr(uiLang,'requiredDocs')} · ${doneCount}/${total} 준비`}>
+              {doneCount > 0 && (
+                <div className="mb-2 h-1.5 w-full overflow-hidden rounded-full bg-sky2-100">
+                  <div className="h-full rounded-full bg-sprout-500 transition-all" style={{ width: `${Math.round((doneCount / total) * 100)}%` }} />
+                </div>
+              )}
+              <ul className="space-y-1.5">
+                {policy.required_docs.map((d: string) => {
+                  const dl = docLink(d)
+                  const ok = done(d)
+                  return (
+                    <li key={d} className={`flex items-center gap-2 rounded-lg px-1.5 py-1 text-sm ${ok ? 'text-muted-foreground' : 'text-foreground/80'}`}>
+                      <button
+                        onClick={() => toggleDocDone(d)}
+                        aria-pressed={ok}
+                        aria-label={`${d} 준비 ${ok ? '완료 취소' : '완료 표시'}`}
+                        className="shrink-0"
+                      >
+                        {ok
+                          ? <CheckCircle2 className="h-5 w-5 text-sprout-600" />
+                          : <Square className="h-5 w-5 text-sky2-400" />}
+                      </button>
+                      <span className={`flex-1 ${ok ? 'line-through' : ''}`}>{d}</span>
+                      <a href={dl.url} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-sky2-700 hover:underline inline-flex items-center gap-0.5 shrink-0">
+                        발급 <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </li>
+                  )
+                })}
+              </ul>
+              {doneCount === total && (
+                <p className="mt-2 rounded-xl bg-sprout-50 px-3 py-2 text-xs font-semibold text-sprout-700">✅ 필요 서류를 모두 준비했어요. 이제 신청하면 돼요!</p>
+              )}
+            </Section>
+          )
+        })()}
 
         {/* 문의처 — 실사용자가 바로 전화할 수 있게 */}
         {policy.contact && (() => {
