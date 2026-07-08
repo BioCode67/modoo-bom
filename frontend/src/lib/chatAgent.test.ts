@@ -126,6 +126,18 @@ describe('docsReply — 서류 의도(행동형)', () => {
     expect(r.text).toContain('서류')
     expect(r.cta?.view).toBe('my')
   })
+  it('"서류 어떻게 발급해?"(발급 방법)도 로컬 서류 의도로 즉답 — 느린 클라우드로 안 감', () => {
+    expect(isLocalIntent('서류 어떻게 발급해?')).toBe(true)
+    const r = agentReply('서류 어떻게 발급해?', { profile: null, result: null, tracked: [mkT('POL-001')] })
+    expect(r.cta?.view).toBe('my') // 서류 도우미로 안내
+  })
+  it('"신청 어떻게 해?"는 신청 의도로 즉답(applyReply) — 클라우드 12초 대기 없음', () => {
+    expect(isLocalIntent('신청 어떻게 해?')).toBe(true)
+    expect(isLocalIntent('어디서 신청하나요')).toBe(true)
+    const r = agentReply('신청 어떻게 해?', { profile: null, result: null, tracked: [mkT('POL-001')] })
+    expect(r.text).toMatch(/신청/)
+    expect(r.cta?.view).toBe('my')
+  })
 })
 
 

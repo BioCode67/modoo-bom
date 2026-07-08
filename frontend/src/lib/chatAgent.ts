@@ -116,7 +116,10 @@ function searchReply(query: string, profile: UserProfile | null): AgentReply {
   }
 }
 
-const DOCS_RE = /(서류|준비물|구비).*(뭐|무엇|필요|어떤|알려|준비)|무슨\s*서류|필요.*서류/
+// '서류 뭐 필요해?' 뿐 아니라 '서류 어떻게 발급해?/발급 방법' 같은 발급 방법 질문도 로컬 즉답(느린 클라우드 X)
+const DOCS_RE = /(서류|준비물|구비).*(뭐|무엇|필요|어떤|알려|준비)|무슨\s*서류|필요.*서류|발급.*(어떻게|방법|어디|받|하|해)|어떻게.*발급|서류.*발급|전자증명|전자발급/
+// '신청 어떻게 해?/신청 방법/어디서 신청' — 신청 절차 안내는 로컬 에이전트가 즉시 답한다.
+const APPLY_RE = /신청.*(어떻게|방법|어디|하고|하려|할\s*수|해야|가능|절차|접수)|어떻게.*신청|어디서.*신청|신청하고\s*싶|접수.*방법/
 
 /** '서류 뭐 필요해?' — 담아둔 복지들의 필요 서류를 빈도순 요약 + 서류센터 연결(행동) */
 export function docsReply(tracked: TrackedItem[]): AgentReply {
@@ -140,6 +143,22 @@ ${lines}
 
 '나의 복지 → 서류 준비 도우미'에서 발급처 연결과 자동발급(지원 서류)까지 도와드려요.`,
     cta: { view: 'my', label: '서류 준비 도우미 열기' },
+  }
+}
+
+/** '신청 어떻게 해?' — 신청 절차를 즉시 안내하고 신청 흐름으로 연결(행동). */
+export function applyReply(tracked: TrackedItem[]): AgentReply {
+  if (!tracked.length) {
+    return {
+      text: '먼저 받을 복지를 찾아 담아두시면, 각 복지의 신청 방법과 공식 신청 페이지로 바로 안내해 드려요.',
+      cta: { view: 'analyze', label: '내 복지 분석하기' },
+    }
+  }
+  return {
+    text: `담아두신 복지 ${tracked.length}건, 신청까지 제가 도와드릴게요 👇
+• 각 복지 상세의 '신청 키트'에서 내 정보를 자동 복사하고 공식 신청 페이지(복지로 등)로 바로 이동해요.
+• 본인인증·최종 제출만 직접 하시면 됩니다. (데스크탑 앱을 쓰시면 양식 작성까지 자동으로 채워드려요.)`,
+    cta: { view: 'my', label: '나의 복지에서 신청하기' },
   }
 }
 
@@ -173,7 +192,7 @@ export function matchSaveIntent(raw: string, context: Policy[], explicitOnly = f
  *  (담기·서류·자격은 스토어/프로필과 결합된 '행동'이라 LLM보다 정확·즉시). */
 export function isLocalIntent(raw: string): boolean {
   const q = raw.trim()
-  return GREET_RE.test(q) || DOCS_RE.test(q) || ELIG_RE.test(q)
+  return GREET_RE.test(q) || DOCS_RE.test(q) || APPLY_RE.test(q) || ELIG_RE.test(q)
 }
 
 /** 메인 진입점 — 자유문장을 의도로 나눠 개인화·행동형으로 응답 */
@@ -182,6 +201,7 @@ export function agentReply(raw: string, ctx: { profile: UserProfile | null; resu
   if (!q) return { text: '' }
   if (GREET_RE.test(q)) return greetingReply(ctx.profile, [])
   if (DOCS_RE.test(q)) return docsReply(ctx.tracked ?? [])
+  if (APPLY_RE.test(q)) return applyReply(ctx.tracked ?? [])
   if (ELIG_RE.test(q)) return eligibilityReply(ctx.profile, ctx.result)
   return searchReply(q, ctx.profile)
 }
