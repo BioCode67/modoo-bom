@@ -138,6 +138,12 @@ describe('docsReply — 서류 의도(행동형)', () => {
     expect(r.text).toMatch(/신청/)
     expect(r.cta?.view).toBe('my')
   })
+  it('발급/신청 안내가 무설치 전자문서지갑(전자제출) 경로를 대화로 연결', () => {
+    const d = agentReply('서류 어떻게 발급해?', { profile: null, result: null, tracked: [mkT('POL-001')] })
+    expect(d.text).toContain('전자문서지갑')
+    const a = agentReply('신청 어떻게 해?', { profile: null, result: null, tracked: [mkT('POL-001')] })
+    expect(a.text).toContain('전자문서지갑')
+  })
 })
 
 
