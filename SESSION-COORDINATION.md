@@ -50,6 +50,14 @@
 | 터미널/w2 | `SESSION-COORDINATION.md` | 조율 프로토콜 신설 | done | 07-07 |
 | 터미널/w2 | `components/DocumentCenter.tsx`·`RpaInfoForm.tsx` | 자동발급 인증정보 미입력 시 첫 빈 칸으로 안내·폼 유도 | done | 07-07 |
 | 터미널/w2 | `lib/backend.ts finalizeCaps` | **동일출처 RPA 오탐 수정** | done | 07-07 |
+| 터미널/w2 | `local_server.py`·`docs/앱-릴리스-노트.md` | **첫 실행 UX 친절화**(콘솔 제목·안내 배너·3단계 설치 가이드) | done | 07-10 |
+
+> 📣 **데스크탑 세션에 핸드오프(07-10)**: 비개발자용 첫 실행 UX를 main(7a5afc1)에 반영했습니다.
+> ① `local_server._set_console_title()`+새 배너('실행됐어요'·브라우저 자동오픈·'검은 창 닫지 마세요'·'폰 인증만'),
+> ② `docs/앱-릴리스-노트.md`를 3단계 설치 가이드(SmartScreen '추가 정보→실행' 안내)로 재작성.
+> 번들 `사용법-README.txt`(데스크탑 작성)와 문구 일관 확인. **다음 exe 재빌드 시 이 배너가 자동 포함**되니
+> `build-installer.bat`→`publish-release.bat(--clobber)`는 릴리스 게시 레인인 데스크탑이 진행 부탁드립니다
+> (w2는 release 자산 업로드를 중복 실행하지 않음 — --clobber 충돌 방지).
 
 > ⚠️ **데스크탑 세션에 알림**: 보안 하드닝의 `finalizeCaps`가 `caps.rpa = !!RPA_BASE`로 판정하면서
 > 동일출처(데스크탑 앱)의 정상 RPA_BASE=''(상대경로)를 false로 오판 → 8000 이외 포트에서 자동발급
