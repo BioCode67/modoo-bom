@@ -1,7 +1,8 @@
 # 🔀 세션 동시작업 조율 (Session Coordination)
 
-> **두 개의 Claude 세션이 같은 저장소에서 동시에 작업**한다(데스크탑 앱 세션 · 터미널/w2 세션).
-> 서로 뭘 건드리는지 커밋으로 보이게 해 **충돌 없이 나눠 작업**하기 위한 실시간 조율 파일이다.
+> **여러 Claude 세션이 같은 저장소에서 동시에 작업**한다(데스크탑 · w2 · w3 · w4 · w5 …).
+> 각 세션은 자기 worktree/브랜치(`feat/wN`)에서 돌아 **파일은 물리적으로 격리**되고,
+> 이 파일로 **누가 어느 파일을 건드리는지** 공유해 병합·배포 충돌까지 없앤다.
 > (기록용 회고는 `WORK-STATUS.md`, 이 파일은 **"지금 누가 무엇을"**.)
 
 ## 📋 작업 시작 전 프로토콜 (양쪽 세션 공통)
@@ -10,6 +11,18 @@
 3. `origin/main` 에 **rebase로 통합**. 공유 브랜치 강제푸시 금지 · 내 feature 브랜치만 `--force-with-lease`.
 4. 두 세션이 같은 파일이 필요하면 **먼저 claim한 쪽이 소유**, 다른 쪽은 대기하거나 이 파일에 메모로 요청.
 5. 끝나면 상태를 `done`으로 바꾸고, 오래된 claim은 정리.
+
+## 🆕 새 세션(w3·w4·w5 …) 시작 체크리스트 — 이대로면 충돌 0
+각 세션은 **자기 worktree 폴더의 자기 브랜치(`feat/wN`)** 에서만 작업한다.
+1. 시작 즉시 최신화:  `git fetch origin && git rebase origin/main`
+2. **claim 먼저**: 아래 표에 `feat/wN` + 건드릴 파일/영역을 한 줄 추가 → 커밋 → push.
+   이미 다른 세션이 claim한 파일이면 그 영역은 **피한다**(선점=소유). 겹치면 레인을 나눠 잡는다.
+3. 작업 → 자기 브랜치에 커밋(절대 `main`에서 직접 작업 금지).
+4. push 전 **항상** `git fetch origin && git rebase origin/main` — 충돌은 **내 브랜치에서** 해결한다(그래서 main은 늘 깨끗).
+5. main 반영:  `git push origin HEAD:main`  (**fast-forward만**; 거부되면 4로 돌아가 다시 rebase).
+6. 자기 브랜치만 `--force-with-lease`. **`main`엔 절대 force-push 금지.**
+7. 배포(`npm run deploy`)는 **한 번에 한 세션만**, 직전에 `git merge origin/main`(아래 배포 규칙).
+> 💡 한 폴더(worktree)에 claude 세션은 **하나만**. 같은 폴더 2세션은 파일이 깨진다.
 
 ## 🛣️ 기본 레인(lane) — 특별한 claim 없으면 이 경계를 따른다
 | 영역 | 담당 세션 | 포함 |
@@ -51,6 +64,9 @@
 | 터미널/w2 | `components/DocumentCenter.tsx`·`RpaInfoForm.tsx` | 자동발급 인증정보 미입력 시 첫 빈 칸으로 안내·폼 유도 | done | 07-07 |
 | 터미널/w2 | `lib/backend.ts finalizeCaps` | **동일출처 RPA 오탐 수정** | done | 07-07 |
 | 터미널/w2 | `local_server.py`·`docs/앱-릴리스-노트.md` | **첫 실행 UX 친절화**(콘솔 제목·안내 배너·3단계 설치 가이드) | done | 07-10 |
+| 새PC/w3 | (영역 미정 — 시작 시 여기에 claim) | — | active | 07-10 |
+| 새PC/w4 | (영역 미정 — 시작 시 여기에 claim) | — | active | 07-10 |
+| 새PC/w5 | (영역 미정 — 시작 시 여기에 claim) | — | active | 07-10 |
 
 > 📣 **데스크탑 세션에 핸드오프(07-10)**: 비개발자용 첫 실행 UX를 main(7a5afc1)에 반영했습니다.
 > ① `local_server._set_console_title()`+새 배너('실행됐어요'·브라우저 자동오픈·'검은 창 닫지 마세요'·'폰 인증만'),
