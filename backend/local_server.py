@@ -55,14 +55,30 @@ def _detect_browser() -> str:
     return "Chrome/Chromium"
 
 
+def _set_console_title():
+    """콘솔 제목/창을 '모두봄'으로 — 검은 창이 뭔지 몰라 무서운 사용자에게 최소한의 안내."""
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            ctypes.windll.kernel32.SetConsoleTitleW("모두봄 — 창을 닫지 마세요 (닫으면 종료돼요)")
+        except Exception:
+            pass
+
+
 def _print_banner():
     port = os.getenv("PORT", "8000")
-    line = "═" * 52
+    _set_console_title()
+    line = "═" * 56
     print("\n" + line)
-    print("  🌱 모두봄 로컬 에이전트 실행 중")
-    print(f"  ▶ 브라우저에서 열기 :  http://localhost:{port}/")
-    print(f"  ▶ 자동발급 브라우저 :  {_detect_browser()}")
-    print("  ▶ 종료              :  이 창을 닫거나 Ctrl+C")
+    print("  🌱  모두봄이 실행됐어요!")
+    print("")
+    print(f"  ✅  잠시 후 브라우저가 자동으로 열려요.")
+    print(f"      안 열리면 브라우저 주소창에  http://localhost:{port}/  를 입력하세요.")
+    print("")
+    print("  ⚠️  이 검은 창은 '닫지 마세요'. 여기서 모두봄이 돌아가고 있어요.")
+    print("      (다 쓰고 종료하려면 이 창을 닫거나 Ctrl+C 를 누르면 돼요.)")
+    print("")
+    print(f"  📄  서류 자동발급은 {_detect_browser()} 로 진행돼요. 폰에서 '인증 허용'만 누르면 끝!")
     print(line + "\n", flush=True)
 
 
