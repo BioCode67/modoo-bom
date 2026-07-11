@@ -20,23 +20,40 @@ import { FINANCIAL_POLICIES } from '../src/data/financialPolicies.ts'
 const MODEL = 'Xenova/multilingual-e5-small'
 const DIM = 384
 
-// ── 통합 카탈로그 구성(런타임 catalog.ts 병합 규칙과 동일: 시드 우선, 외부 동명 스킵) ──
-// 시드 = 정부(POL)+민간재단(PRV)+청년주택(HOU)+정부지원사업(SUP)+정책서민금융(FIN) — catalog.ts SEED_POLICIES와 일치
+// ── 통합 카탈로그 구성 — catalog.ts 병합 규칙과 '정확히' 일치해야 임베딩 집합이 표시 카탈로그와 같아진다.
+//    (과거 불일치: 시드를 이름 디듑 안 함 → AI검색에 동명 카드 2장 · 외부 LOC-를 동명 스킵 → 지자체 정책 누락. 감사 확정)
+// nameKey: catalog.ts 와 동일(공백+괄호문자 제거). dedupeByName: LOC-(지역별 동명 별개)는 모두 유지.
+const nameKey = (name: string): string => (name || '').replace(/[\s()（）]/g, '')
+function dedupeByName(list: Policy[]): Policy[] {
+  const seen = new Set<string>()
+  return list.filter((p) => {
+    if (/^LOC-/.test(String(p.id))) return true
+    const k = nameKey(p.name)
+    if (!k || seen.has(k)) return false
+    seen.add(k)
+    return true
+  })
+}
 const SEEDS: Policy[] = [...WELFARE_POLICIES, ...PRIVATE_POLICIES, ...HOUSING_POLICIES, ...GOV_PROGRAMS, ...FINANCIAL_POLICIES]
-const policies: Policy[] = [...SEEDS]
-const seedNames = new Set(SEEDS.map((p) => p.name.replace(/\s/g, '')))
+const dedupedSeeds = dedupeByName(SEEDS)                    // catalog.ts: dedupeByName(SEED_POLICIES)
+const seedKeys = new Set(dedupedSeeds.map((p) => nameKey(p.name)))
+let policies: Policy[] = [...dedupedSeeds]
 try {
   const ext = JSON.parse(readFileSync(new URL('../public/policies.json', import.meta.url), 'utf-8'))
   const list: Policy[] = Array.isArray(ext) ? ext : ext.policies || []
+  const byId = new Map<string, Policy>(dedupedSeeds.map((p) => [String(p.id), p]))
   for (const raw of list) {
     const name = String(raw?.name || '')
     const id = String(raw?.id || '')
     if (!id || !name) continue
-    if (seedNames.has(name.replace(/\s/g, ''))) continue // 시드 동명 스킵
-    policies.push(raw as Policy)
+    // 지자체(LOC-)는 시드와 이름 겹쳐도 유지(지역별 별개), 그 외는 시드 동명 스킵 — catalog.ts와 동일.
+    if (!id.startsWith('LOC-') && seedKeys.has(nameKey(name))) continue
+    byId.set(id, raw as Policy)
   }
-  console.log(`[embed] 통합 카탈로그: 시드 ${WELFARE_POLICIES.length} + 외부 → 총 ${policies.length}건`)
+  policies = dedupeByName([...byId.values()])               // 표시 카탈로그와 동일(최종 이름 디듑)
+  console.log(`[embed] 통합 카탈로그(catalog.ts 규칙): 시드 ${dedupedSeeds.length} + 외부 병합 → 총 ${policies.length}건`)
 } catch (e) {
+  policies = dedupedSeeds
   console.log(`[embed] 외부 policies.json 없음/실패 — 시드만 임베딩 (${(e as Error).message})`)
 }
 

@@ -94,6 +94,9 @@ function fieldScore(p: Policy | EligiblePolicy, t: string, isUserTerm = false): 
   if (name === t) s += 8
   else if (name.includes(t)) s += 3
   if (p.category.toLowerCase().includes(t)) s += 2
+  // 담당부처/기관(department)도 스캔 — 'SH'(서울주택도시공사)·'LH'처럼 이름엔 없고 담당기관에만 있는
+  //   검색어가 0건이 되던 결함(감사 확정). 기관명 매칭은 소폭 가산.
+  if ((p.department || '').toLowerCase().includes(t)) s += 1.5
   // ⚠️ 지자체(LOC-) 요약 정책 다수(실측 418건)는 target=benefit=eligibility가 완전 동일 문장이라
   //    3개 필드에 각각 가산되면 랭킹이 왜곡된다. 세 본문 필드를 '합쳐서 한 번만' 점수화한다.
   const target = (p.target || '').toLowerCase()

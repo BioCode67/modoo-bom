@@ -147,10 +147,18 @@ export async function semanticSearch(
   }
   scored.sort((a, b) => b.score - a.score)
   const hits: SemanticHit[] = []
-  // 카탈로그에 없는 stale id(embed 후 정책 삭제·이름디듑)가 topK 슬롯을 차지해 결과가 적게 나오지 않도록 — 필터 후 제한(relatedPolicies·semanticDiscover와 동일)
+  // 카탈로그에 없는 stale id(embed 후 정책 삭제·이름디듑)가 topK 슬롯을 차지해 결과가 적게 나오지 않도록 — 필터 후 제한.
+  // 이름 디듑: 시드 동명 중복이 결과에 카드 2장으로 뜨던 것 방지(감사 확정). 지자체(LOC-)는 지역별 별개라 유지.
+  const seenNames = new Set<string>()
   for (const { id, score } of scored) {
     const policy = pmap[id]
-    if (policy) hits.push({ policy, score })
+    if (!policy) continue
+    if (!id.startsWith('LOC-')) {
+      const nm = policy.name.replace(/[\s()（）]/g, '')
+      if (seenNames.has(nm)) continue
+      seenNames.add(nm)
+    }
+    hits.push({ policy, score })
     if (hits.length >= topK) break
   }
   return hits
