@@ -68,6 +68,12 @@
 | 터미널/w2 | `ChatWidget.tsx`·`chatAgent.ts`·`api/chat.py` | 챗 비복지 질문 응답 + 콜드스타트 웨이크 대기 (사용자 요청) | done | 07-11 |
 | 터미널/w2 | `lib/semanticSearch.ts`·`Explore.tsx` | 하이브리드 검색(RRF: 임베딩+키워드) | done | 07-11 |
 | 터미널/w2 | `README.md`·`extension/README.md`·`기획서자료실/README.md`·내부 문서 | 문서 문체 정리(이모지 제거·서술 통일) — 사용자 요청, 일회성 크로스 claim | done | 07-11 |
+| 터미널/w2 | `rpa/base.py`·릴리스 자산 | --no-sandbox를 번들 Chromium에만(실브라우저 샌드박스 유지) + exe 재빌드·릴리스 재게시(친절 배너·샌드박스 수정 포함) | done | 07-11 |
+| 터미널/w2 | `scripts/embed-policies.mts`·임베딩 | 패시지 필드예산 배분 + 5,308건 재임베드·배포 | done | 07-11 |
+
+> 데스크탑 트랙 참고(07-11): app-v0.3.0 릴리스 자산을 w2가 재게시함(새 배너·번들 README·샌드박스 수정 포함,
+> REST API 사용 — gh CLI 이 머신에 없음, git credential 토큰으로 삭제→업로드). 추가 RPA 변경 전까지 재빌드 불필요.
+> 웹 '앱 바로 받기'는 releases/latest/download 직링크로 연결됨.
 | 새PC/w3 | (영역 미정 — 시작 시 여기에 claim) | — | active | 07-10 |
 | 새PC/w4 | (영역 미정 — 시작 시 여기에 claim) | — | active | 07-10 |
 | 새PC/w5 | (영역 미정 — 시작 시 여기에 claim) | — | active | 07-10 |
