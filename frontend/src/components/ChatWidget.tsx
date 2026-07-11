@@ -5,7 +5,7 @@ import type { Policy } from '@/data/policies'
 import { useSpeech } from '@/lib/useSpeech'
 import { GUIDE_STEPS, recommend, type GuideAnswers } from '@/lib/guidedChat'
 import { agentReply, greetingReply, matchSaveIntent, isLocalIntent, type AgentReply } from '@/lib/chatAgent'
-import { API_BASE } from '@/lib/backend'
+import { API_BASE, checkBackend, getCapabilities } from '@/lib/backend'
 import { useBackend } from '@/lib/useBackend'
 import { getCatalog } from '@/data/catalog'
 import { useAppStore } from '@/store/useAppStore'
@@ -112,9 +112,16 @@ export function ChatWidget() {
       return
     }
     // 하이브리드: 행동·개인화 의도는 로컬 에이전트(정확·즉시), 지식 질문은 진짜 LLM(백엔드 시) — 실패하면 규칙 폴백
-    if (aiChat && !isLocalIntent(q)) {
-      setMsgs((m) => [...m, { role: 'bot', text: '관련 복지를 찾아보고 있어요…', pending: true }])
-      askCloud(q).then((res) => {
+    // 콜드스타트(ready===null, 클라우드 깨우는 중)엔 웨이크 완료를 기다렸다가 LLM으로 답한다 —
+    // 기다리지 않으면 첫 1분간 지식 질문이 전부 규칙 폴백("못 찾았어요")으로 떨어진다.
+    if ((aiChat || ready === null) && !isLocalIntent(q)) {
+      setMsgs((m) => [...m, {
+        role: 'bot',
+        text: aiChat ? '관련 복지를 찾아보고 있어요…' : 'AI 에이전트를 깨우는 중이에요… 첫 접속은 30초쯤 걸릴 수 있어요 🌱',
+        pending: true,
+      }])
+      const gate: Promise<boolean> = aiChat ? Promise.resolve(true) : checkBackend()
+      gate.then((ok) => (ok && getCapabilities()?.ai ? askCloud(q) : null)).then((res) => {
         setMsgs((m) => m.filter((x) => !x.pending))
         if (res && res.answer) {
           // 관련 정책명을 카탈로그와 매칭해 '담기' 칩으로(행동 연결)

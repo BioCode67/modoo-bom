@@ -95,7 +95,7 @@ function searchReply(query: string, profile: UserProfile | null): AgentReply {
   const found = searchPolicies(getCatalog(), query).slice(0, 3)
   if (found.length === 0) {
     return {
-      text: `'${query}'에 딱 맞는 걸 바로 못 찾았어요. 😅 상황을 알려주시면(예: "62살 혼자 살아요") 더 정확히 찾아드릴게요. 급하면 ☎129 무료 상담도 좋아요.`,
+      text: `음, '${query}'는 제 전문 분야(복지·지원금)에선 딱 맞는 걸 못 찾았어요. 😅 저는 복지 전문 에이전트라 그쪽은 자신 있어요! 상황을 알려주시면(예: "62살 혼자 살아요") 받을 수 있는 걸 바로 찾아드릴게요. 급하면 ☎129 무료 상담도 좋아요.`,
       cta: { view: 'analyze', label: '내 복지 분석하기' },
     }
   }
