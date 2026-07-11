@@ -57,7 +57,10 @@ function passageOf(p: Policy): string {
   const parts = [p.target, p.benefit, p.eligibility].map((s) => (s || '').trim())
   const uniq: string[] = []
   for (const s of parts) if (s && !uniq.includes(s)) uniq.push(s)
-  const budgets = [300, 260, 240]
+  // head(이름·분류, 실측 최대 ~82자)와 join 공백을 예산에서 먼저 빼야 마지막 필드(자격)가
+  // 최종 slice에서 잘리지 않는다 — '세 필드 항상 대표' 보장을 엄밀하게(적대 리뷰 지적).
+  const avail = Math.max(200, 800 - head.length - 2)
+  const budgets = [Math.floor(avail * 0.375), Math.floor(avail * 0.325), Math.floor(avail * 0.3)]
   let spare = 0
   const cut = uniq.map((s, i) => {
     const b = (budgets[i] ?? 200) + spare

@@ -10,7 +10,8 @@
  * 동적 import 되어 로드된다(초기 번들·로딩에 영향 없음).
  */
 import type { Policy } from '@/data/policies'
-import { getPolicyMap } from '@/data/catalog'
+import { getPolicyMap, getCatalog } from '@/data/catalog'
+import { queryConcepts, relevance } from './search'
 
 export type SemanticProgress = (info: { stage: string; pct?: number }) => void
 export interface SemanticHit { policy: Policy; score: number }
@@ -173,18 +174,25 @@ export async function hybridSearch(
   // 융합 풀은 넉넉히(topK의 4배, 최소 60) — 한쪽 랭킹의 후순위가 다른 쪽 상위로 승격될 여지 확보
   const pool = Math.max(topK * 4, 60)
   const sem = await semanticSearch(q, pool, onProgress)
-  // 키워드 개념 랭킹 — 동의어 확장(lib/search)·정확명 가점 포함. 지연 import로 순환의존 방지.
-  const { queryConcepts, relevance } = await import('./search')
-  const { getCatalog } = await import('@/data/catalog')
+  return fuseRrf(sem, keywordLane(q, pool), topK)
+}
+
+/**
+ * 하이브리드의 키워드 레인 — '한글이 포함된 질의'에만 켠다.
+ * relevance/queryConcepts 는 한국어 도메인 랭커라, 영어 문장의 관사·대명사(a/I)가 1글자 사용자어
+ * 예외로 정책명의 라틴 문자('(AI·디지털)'·'MRI' 등)에 오매칭돼 잡음이 상위에 인터리브된다(적대 리뷰 확정).
+ * 외국어 질의는 의미 레인 단독이 정답 — 다국어 검색 무손상.
+ */
+export function keywordLane(q: string, pool: number): Policy[] {
+  if (!/[가-힣]/.test(q)) return []
   const concepts = queryConcepts(q)
-  const kw = concepts.length
-    ? getCatalog()
-        .map((p) => ({ p, s: relevance(p, concepts, q) }))
-        .filter((x) => x.s > 0)
-        .sort((a, b) => b.s - a.s)
-        .slice(0, pool)
-    : []
-  return fuseRrf(sem, kw.map((x) => x.p), topK)
+  if (!concepts.length) return []
+  return getCatalog()
+    .map((p) => ({ p, s: relevance(p, concepts, q) }))
+    .filter((x) => x.s > 0)
+    .sort((a, b) => b.s - a.s)
+    .slice(0, pool)
+    .map((x) => x.p)
 }
 
 /**

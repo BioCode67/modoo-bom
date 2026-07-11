@@ -120,7 +120,10 @@ export function ChatWidget() {
         text: aiChat ? '관련 복지를 찾아보고 있어요…' : 'AI 에이전트를 깨우는 중이에요… 첫 접속은 30초쯤 걸릴 수 있어요 🌱',
         pending: true,
       }])
-      const gate: Promise<boolean> = aiChat ? Promise.resolve(true) : checkBackend()
+      // 웨이크 대기는 25초 캡 — 콜드스타트가 길어지면 규칙 응답으로 폴백해 챗이 침묵하지 않게(적대 리뷰)
+      const gate: Promise<boolean> = aiChat
+        ? Promise.resolve(true)
+        : Promise.race([checkBackend(), new Promise<boolean>((r) => setTimeout(() => r(false), 25000))])
       gate.then((ok) => (ok && getCapabilities()?.ai ? askCloud(q) : null)).then((res) => {
         setMsgs((m) => m.filter((x) => !x.pending))
         if (res && res.answer) {

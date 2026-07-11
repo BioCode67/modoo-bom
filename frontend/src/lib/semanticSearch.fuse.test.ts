@@ -1,6 +1,6 @@
-/** RRF 융합(fuseRrf) — 의미·키워드 랭킹 결합의 순수 로직 검증 */
+/** RRF 융합(fuseRrf)·키워드 레인(keywordLane) — 하이브리드 검색 순수 로직 검증 */
 import { describe, it, expect } from 'vitest'
-import { fuseRrf, type SemanticHit } from './semanticSearch'
+import { fuseRrf, keywordLane, type SemanticHit } from './semanticSearch'
 import type { Policy } from '@/data/policies'
 
 const P = (id: string, name = id): Policy => ({ id, name }) as unknown as Policy
@@ -36,5 +36,18 @@ describe('fuseRrf', () => {
     const out = fuseRrf(sem, kw, 2)
     expect(out).toHaveLength(2)
     expect(new Set(out.map((h) => h.policy.id)).size).toBe(2)
+  })
+})
+
+describe('keywordLane', () => {
+  it('영어 문장 질의엔 키워드 레인이 꺼진다 — 관사 a/I가 정책명 라틴문자(AI·MRI)에 오매칭되는 잡음 차단', () => {
+    expect(keywordLane('I am a single mother raising a child alone', 60)).toEqual([])
+    expect(keywordLane('tiền hỗ trợ sinh con', 60)).toEqual([])
+  })
+
+  it('한글 질의(정확명)엔 해당 정책이 키워드 레인 최상위로 온다', () => {
+    const out = keywordLane('기초연금', 60)
+    expect(out.length).toBeGreaterThan(0)
+    expect(out[0].name.replace(/\s/g, '')).toContain('기초연금')
   })
 })
