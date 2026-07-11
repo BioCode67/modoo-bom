@@ -10,7 +10,8 @@ langchain==0.3.12
 #    pip이 최신(genai 2.1+/core 1.x)을 끌어와 langgraph 0.2.56·langchain 0.3.12와 충돌 →
 #    배포 이미지에서 import 실패 → 챗이 규칙 폴백으로 떨어진다. (dry-run으로 확인: genai 2.0.11 + core 0.3.63)
 langchain-anthropic>=0.3.0,<0.4.0
-langchain-community==0.3.12
+# langchain-community는 코드 전역에서 미사용(임포트 0건) — SQLAlchemy·aiohttp 등 무거운
+# 전이 의존성만 끌고 와 배포 빌드를 늘리므로 제거함(2026-07 확인).
 # 무료 티어 AI provider (선택 — 키가 있으면 agents/llm.py가 자동 선택: Gemini > Groq > Anthropic)
 langchain-google-genai>=2.0.0,<2.1.0
 langchain-groq>=0.2.0,<0.3.0
