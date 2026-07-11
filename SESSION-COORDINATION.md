@@ -74,6 +74,7 @@
 > 데스크탑 트랙 참고(07-11): app-v0.3.0 릴리스 자산을 w2가 재게시함(새 배너·번들 README·샌드박스 수정 포함,
 > REST API 사용 — gh CLI 이 머신에 없음, git credential 토큰으로 삭제→업로드). 추가 RPA 변경 전까지 재빌드 불필요.
 > 웹 '앱 바로 받기'는 releases/latest/download 직링크로 연결됨.
+| 터미널/w2 | `rpa/*`·`RpaInfoForm`·`DocumentCenter`·store | **복지관 현장 대비(사용자 직접 지시·7/13-14 방문)**: 인증수단 선택(카카오·PASS·네이버·토스, 3종 라이브 검증)·신청 서류 자동첨부·slow_mo 300→120·검토창 10분·'다음 분 상담' PII 리셋·현장 런북 | done | 07-11 |
 | 새PC/w3 | (영역 미정 — 시작 시 여기에 claim) | — | active | 07-10 |
 | 새PC/w4 | (영역 미정 — 시작 시 여기에 claim) | — | active | 07-10 |
 | 새PC/w5 | (영역 미정 — 시작 시 여기에 claim) | — | active | 07-10 |
