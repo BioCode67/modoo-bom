@@ -100,6 +100,10 @@ def main() -> int:
             ("capabilities.rpa=true", health is True),
             ("'자동발급 가능' UI", ("자동 발급" in body or "자동발급" in body)),
             ("주민등록등본 서류 노출", "주민등록등본" in body),
+            # 감사 수정 회귀: 인증수단 선택 UI + '다음 분 상담' 리셋 버튼(공용PC PII)
+            ("본인인증 앱 선택 UI", "본인인증 앱" in body),
+            ("인증수단 통신사 PASS 옵션", "통신사 PASS" in body),
+            ("'다음 분 상담 시작' 리셋 버튼", "다음 분 상담 시작" in body),
             ("pageerror 0", len(errors) == 0),
             ("CORS/권한 에러 0", len(cors_errors) == 0),
         ]

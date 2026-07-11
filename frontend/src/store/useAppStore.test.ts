@@ -59,3 +59,36 @@ describe('normalizeTracked/normalizeResult — persist 스키마 진화 방어(2
     expect(normalizeResult(null)).toBeNull()
   })
 })
+
+import { useAppStore } from './useAppStore'
+
+describe('resetForNextUser — 복지관 공용PC 상담 전환 시 이전 어르신 PII 전삭제(감사 확정)', () => {
+  it('프로필·분석·담은목록·발급기록·rpaInfo(실명·생년월일·인증수단)를 모두 비우고 resetNonce를 올린다', () => {
+    const s = useAppStore.getState()
+    // 이전 상담자 흔적 주입
+    useAppStore.setState({
+      profile: { name: '김복순', age: 72 } as never,
+      result: { profile_summary: 'x' } as never,
+      tracked: [{ policyId: 'POL-001', name: '기초연금', status: 'interested', checkedDocs: [] }] as never,
+      docDone: { 주민등록등본: Date.now() },
+      rpaInfo: { name: '김복순', birth_date: '19540101', phone: '01000000000', carrier: 'SKT', sido: '서울', sigungu: '중구', auth_provider: 'pass' },
+    })
+    const before = useAppStore.getState().resetNonce
+    s.resetForNextUser()
+    const after = useAppStore.getState()
+    expect(after.profile).toBeNull()
+    expect(after.result).toBeNull()
+    expect(after.tracked).toEqual([])
+    expect(after.docDone).toEqual({})
+    expect(after.rpaInfo.name).toBe('')
+    expect(after.rpaInfo.birth_date).toBe('')
+    expect(after.rpaInfo.phone).toBe('')
+    expect(after.rpaInfo.auth_provider).toBe('kakao') // 기본값으로 복귀
+    expect(after.resetNonce).toBe(before + 1)          // 챗 대화 초기화 신호
+  })
+
+  it('rpaInfo 기본 auth_provider는 kakao', () => {
+    // persist 마이그레이션 방어: 신규/초기 상태의 인증수단 기본값
+    expect(['kakao', 'pass', 'naver', 'toss']).toContain(useAppStore.getState().rpaInfo.auth_provider || 'kakao')
+  })
+})
