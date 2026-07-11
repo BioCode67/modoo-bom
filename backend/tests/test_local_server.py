@@ -164,3 +164,39 @@ def test_status_screenshot_gated_by_token():
             assert client.get(path + "?t=tok123").json()["screenshot_b64"] == "IMGDATA"
         finally:
             manager._rpa_tasks.pop(tid, None)
+
+
+def test_rpa_file_delete_after_download(monkeypatch, tmp_path):
+    """서버 RPA 모드(RPA_DELETE_AFTER_DOWNLOAD=1): 문서 전송 직후 서버 디스크에서 삭제(PII 무저장)."""
+    import os
+    from rpa import base, manager
+    f = tmp_path / "doc.pdf"
+    f.write_bytes(b"%PDF-1.4 test")
+    monkeypatch.setattr(base, "DOCS_DIR", tmp_path)
+    monkeypatch.setenv("RPA_DELETE_AFTER_DOWNLOAD", "1")
+    manager._rpa_tasks["del1"] = {"status": "done", "download_token": "tok",
+                                  "result": {"saved_path": str(f)}}
+    try:
+        r = client.get("/api/documents/rpa-file/del1?t=tok")
+        assert r.status_code == 200 and r.content.startswith(b"%PDF")
+        assert not os.path.exists(f)  # 전송 후 삭제됨
+    finally:
+        manager._rpa_tasks.pop("del1", None)
+
+
+def test_rpa_file_kept_by_default(monkeypatch, tmp_path):
+    """로컬 앱 기본(env 미설정): 다운로드 후에도 파일 유지(내 PC 보관)."""
+    import os
+    from rpa import base, manager
+    f = tmp_path / "doc2.pdf"
+    f.write_bytes(b"%PDF-1.4 keep")
+    monkeypatch.setattr(base, "DOCS_DIR", tmp_path)
+    monkeypatch.delenv("RPA_DELETE_AFTER_DOWNLOAD", raising=False)
+    manager._rpa_tasks["del2"] = {"status": "done", "download_token": "tok2",
+                                  "result": {"saved_path": str(f)}}
+    try:
+        r = client.get("/api/documents/rpa-file/del2?t=tok2")
+        assert r.status_code == 200
+        assert os.path.exists(f)
+    finally:
+        manager._rpa_tasks.pop("del2", None)

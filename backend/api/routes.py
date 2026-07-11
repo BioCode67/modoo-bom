@@ -290,7 +290,19 @@ async def rpa_file(task_id: str, t: str = ""):
     if os.path.commonpath([real, os.path.realpath(str(DOCS_DIR))]) != os.path.realpath(str(DOCS_DIR)):
         raise HTTPException(status_code=403, detail="허용되지 않은 파일 경로입니다.")
     media = "application/pdf" if real.lower().endswith(".pdf") else "image/png"
-    return FileResponse(real, media_type=media, filename=os.path.basename(real), headers={
+    # 서버 RPA 모드(원격 다중 사용자): 문서를 사용자에게 전송한 '직후' 서버 디스크에서 삭제 —
+    # PII(주민번호 포함)가 서버에 남지 않게(개인정보 무저장 원칙). 로컬 앱은 기본 꺼짐(내 PC 보관).
+    bg = None
+    if os.getenv("RPA_DELETE_AFTER_DOWNLOAD", "0") == "1":
+        from starlette.background import BackgroundTask
+
+        def _rm(p=real):
+            try:
+                os.remove(p)
+            except OSError:
+                pass
+        bg = BackgroundTask(_rm)
+    return FileResponse(real, media_type=media, filename=os.path.basename(real), background=bg, headers={
         "Cache-Control": "no-store",
         "X-Content-Type-Options": "nosniff",
         "Referrer-Policy": "no-referrer",

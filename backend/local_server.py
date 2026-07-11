@@ -268,7 +268,18 @@ async def rpa_file(task_id: str, t: str = ""):
     if outside:
         raise HTTPException(status_code=403, detail="허용되지 않은 파일 경로입니다.")
     media = "application/pdf" if real.lower().endswith(".pdf") else "image/png"
-    return FileResponse(real, media_type=media, filename=os.path.basename(real), headers={
+    # 서버 RPA 모드: 전송 직후 서버 디스크에서 삭제(PII 무저장) — routes.py 와 패리티. 로컬 앱 기본 꺼짐.
+    bg = None
+    if os.getenv("RPA_DELETE_AFTER_DOWNLOAD", "0") == "1":
+        from starlette.background import BackgroundTask
+
+        def _rm(p=real):
+            try:
+                os.remove(p)
+            except OSError:
+                pass
+        bg = BackgroundTask(_rm)
+    return FileResponse(real, media_type=media, filename=os.path.basename(real), background=bg, headers={
         "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer",
     })
 
