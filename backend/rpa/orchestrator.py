@@ -33,18 +33,26 @@ def journey_view(journey_id: str, t: str = ""):
     if not authorized:
         view.pop("user_name", None)
         view["saved_docs"] = ["(발급됨)" for _ in view.get("saved_docs", [])]  # 파일 경로(PII) 숨김, 개수만
+    # 단계별 정보 병합 — 현재 단계는 라이브 메시지/스크린샷, 인가 시 각 단계의 다운로드 토큰(문서 회수용)도.
     cur = j.get("current")
-    if cur:
-        for step in j.get("steps", []):
-            if step.get("name") == cur and step.get("task_id"):
-                task = get_task(step["task_id"])
-                if task is not None:
-                    d = task.to_dict() if hasattr(task, "to_dict") else dict(task)
+    steps_view = []
+    for step in j.get("steps", []):
+        s = dict(step)
+        tid = step.get("task_id")
+        if tid:
+            task = get_task(tid)
+            if task is not None:
+                d = task.to_dict() if hasattr(task, "to_dict") else dict(task)
+                if step.get("name") == cur:
                     view["current_message"] = d.get("current_step") or ""
                     view["current_status"] = d.get("status") or ""
                     if authorized:
                         view["current_screenshot"] = d.get("screenshot_b64")
-                break
+                if authorized and d.get("status") in ("done", "completed"):
+                    # 발급 완료 단계만 문서 회수 토큰 노출(서버 RPA/원격에서 PDF 다운로드용)
+                    s["download_token"] = d.get("download_token")
+        steps_view.append(s)
+    view["steps"] = steps_view
     return view
 
 

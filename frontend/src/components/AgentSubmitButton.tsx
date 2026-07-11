@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Bot, Loader2, ExternalLink, ShieldCheck, AlertCircle } from 'lucide-react'
 import type { Policy } from '@/data/policies'
 import type { EligiblePolicy } from '@/lib/welfare-engine'
@@ -23,6 +23,10 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
   const [run, setRun] = useState<RunState>(null)
   const [ext, setExt] = useState(false)
   const automatable = isApplyAutomatable(policy.name)
+  // 폴링 중단 가드(언마운트 후 setState 방지) + 중복 기동 방지(신청이 진행 중이면 재클릭 무시)
+  const mountedRef = useRef(true)
+  const runningRef = useRef(false)
+  useEffect(() => () => { mountedRef.current = false }, [])
 
   // 확장 감지 + 진행상태 구독(해당 서비스만 — 표기 차이는 퍼지매칭) + 무응답 감지용 틱
   const [tick, setTick] = useState(0)
@@ -66,6 +70,8 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
   }
 
   const start = async () => {
+    if (runningRef.current) return  // 진행 중 재클릭 무시 — 동일 신청 태스크 중복 기동 방지(감사 확정)
+    runningRef.current = true
     setRun({ status: 'running', step: '에이전트 시작 — 새 탭에서 복지로에 접속해요…', at: Date.now() })
     // 로컬 에이전트(내장 6종)가 되면 백엔드 우선, 아니면 확장으로 신청(복지로 딥링크 전달)
     if (!canLocal && canExt) {
@@ -73,6 +79,7 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
         user_name: rpaInfo.name || profile?.name || '사용자', birth_date: rpaInfo.birth_date, phone: rpaInfo.phone, carrier: rpaInfo.carrier,
       }, policy.application)
       if (!r.ok) setRun({ status: 'error', step: r.error || '이 서비스는 확장 자동신청을 아직 지원하지 않아요.', at: Date.now() })
+      runningRef.current = false
       return
     }
     try {
@@ -89,14 +96,19 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
       const { task_id, download_token } = await res.json()
       // 스크린샷(정부 페이지 — PII 가능)은 시작자 토큰(?t=)이 있어야 응답에 포함된다(백엔드 게이트)
       const tq = download_token ? `?t=${encodeURIComponent(download_token)}` : ''
-      for (let i = 0; i < 200; i++) {
+      // 폴링 상한을 백엔드 대기창(로그인 5분 + 검토 10분) 이상으로 — 인증이 느려도 UI가 완료 전에 멈추지 않게
+      for (let i = 0; i < 800; i++) { // 최대 ~20분
         await new Promise((r) => setTimeout(r, 1500))
+        if (!mountedRef.current) return  // 언마운트 후 setState/fetch 중단
         const st = await fetch(`${getRpaBase()}/api/apply/status/${task_id}${tq}`).then((r) => r.json())
+        if (!mountedRef.current) return
         setRun({ status: st.status, step: st.current_step || st.status, shot: st.screenshot_b64 || undefined })
         if (['done', 'error', 'completed'].includes(st.status)) break
       }
     } catch (e) {
       setRun({ status: 'error', step: e instanceof Error ? e.message : '실패' })
+    } finally {
+      runningRef.current = false
     }
   }
 

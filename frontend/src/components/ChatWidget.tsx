@@ -12,7 +12,7 @@ import { useAppStore } from '@/store/useAppStore'
 import { SproutLogo } from '@/ui/SproutLogo'
 import { cn } from '@/lib/utils'
 
-interface Msg { role: 'user' | 'bot'; text: string; policies?: Policy[]; cta?: AgentReply['cta']; ai?: boolean; pending?: boolean }
+interface Msg { role: 'user' | 'bot'; text: string; policies?: Policy[]; cta?: AgentReply['cta']; ai?: boolean; pending?: boolean; pendingId?: string }
 
 const SUGGESTIONS = ['내가 받을 수 있는 거', '기초연금', '출산·육아', '청년', '실업급여']
 
@@ -123,17 +123,20 @@ export function ChatWidget() {
     // 콜드스타트(ready===null, 클라우드 깨우는 중)엔 웨이크 완료를 기다렸다가 LLM으로 답한다 —
     // 기다리지 않으면 첫 1분간 지식 질문이 전부 규칙 폴백("못 찾았어요")으로 떨어진다.
     if ((aiChat || ready === null) && !isLocalIntent(q)) {
+      // 각 대기 버블에 고유 id — 연속 질문 시 '자기' 버블만 지운다(과거엔 첫 응답이 모든 pending 을 일괄
+      //   제거해 두 번째 질문이 침묵하던 결함, 적대 리뷰 확정).
+      const pid = `p${Date.now()}-${Math.round(Math.random() * 1e6)}`
       setMsgs((m) => [...m, {
         role: 'bot',
         text: aiChat ? '관련 복지를 찾아보고 있어요…' : 'AI 에이전트를 깨우는 중이에요… 첫 접속은 30초쯤 걸릴 수 있어요 🌱',
-        pending: true,
+        pending: true, pendingId: pid,
       }])
       // 웨이크 대기는 25초 캡 — 콜드스타트가 길어지면 규칙 응답으로 폴백해 챗이 침묵하지 않게(적대 리뷰)
       const gate: Promise<boolean> = aiChat
         ? Promise.resolve(true)
         : Promise.race([checkBackend(), new Promise<boolean>((r) => setTimeout(() => r(false), 25000))])
       gate.then((ok) => (ok && getCapabilities()?.ai ? askCloud(q) : null)).then((res) => {
-        setMsgs((m) => m.filter((x) => !x.pending))
+        setMsgs((m) => m.filter((x) => x.pendingId !== pid))
         if (res && res.answer) {
           // 관련 정책명을 카탈로그와 매칭해 '담기' 칩으로(행동 연결)
           const cat = getCatalog()

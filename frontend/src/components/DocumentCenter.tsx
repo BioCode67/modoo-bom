@@ -120,7 +120,9 @@ export function DocumentCenter() {
       const issued = await res.json()
       const task_id = issued.task_id
       const downloadToken = issued.download_token || ''  // 시작자에게만 반환되는 다운로드 인가 토큰
-      for (let i = 0; i < 60; i++) {
+      // ⚠️ 폴링 상한을 백엔드 대기창(로그인 8분·전자서명 대기 등) 이상으로 — 어르신 본인인증이 90초를
+      //    넘겨도 UI가 완료 전에 멈추지 않게(과거 60회=90초라 인증이 느리면 발급돼도 '진행 중'에 영구 정지, 감사 확정).
+      for (let i = 0; i < 1200; i++) { // 최대 ~30분
         await new Promise((r) => setTimeout(r, 1500))
         if (!mountedRef.current) return // 뷰를 떠나면 폴링 중단(언마운트 후 setState/fetch 방지)
         // ?t= 토큰: 스크린샷 포함 응답 인가(백엔드 게이트) — 시작자만 진행 화면을 볼 수 있게
@@ -189,7 +191,8 @@ export function DocumentCenter() {
             : step.status === 'running' ? '진행 중…'
             : (step.status === 'done' || step.status === 'completed') ? '발급 완료'
             : step.status === 'error' ? (step.error || '실패') : '대기 중…'
-          next[step.name] = { status: step.status, step: msg, at: s[step.name]?.at, saved: !!step.saved_path }
+          // 발급 완료 단계는 taskId+토큰을 실어 '발급 문서 받기' 버튼이 뜨게(서버 RPA/원격에서 PDF 회수)
+          next[step.name] = { status: step.status, step: msg, at: s[step.name]?.at, saved: !!step.saved_path, taskId: step.task_id, downloadToken: step.download_token }
         }
         return next
       })
