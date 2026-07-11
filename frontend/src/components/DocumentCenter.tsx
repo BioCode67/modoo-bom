@@ -122,7 +122,8 @@ export function DocumentCenter() {
       for (let i = 0; i < 60; i++) {
         await new Promise((r) => setTimeout(r, 1500))
         if (!mountedRef.current) return // 뷰를 떠나면 폴링 중단(언마운트 후 setState/fetch 방지)
-        const st = await fetch(`${getRpaBase()}/api/documents/rpa-status/${task_id}`).then((r) => r.json())
+        // ?t= 토큰: 스크린샷 포함 응답 인가(백엔드 게이트) — 시작자만 진행 화면을 볼 수 있게
+        const st = await fetch(`${getRpaBase()}/api/documents/rpa-status/${task_id}${downloadToken ? `?t=${encodeURIComponent(downloadToken)}` : ''}`).then((r) => r.json())
         if (!mountedRef.current) return
         // 발급 완료 시 result.saved_path가 있으면 문서를 사용자에게 돌려줄 수 있음(다운로드 버튼 노출)
         setRpa((s) => ({ ...s, [doc]: { status: st.status, step: st.current_step || '', at: s[doc]?.at, taskId: task_id, downloadToken, saved: !!(st.result && st.result.saved_path) } }))

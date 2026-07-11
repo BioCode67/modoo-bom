@@ -52,3 +52,18 @@ def test_rpa_supported_parity():
     a = _lc.get("/api/documents/rpa-supported").json()["supported"]
     b = _mc.get("/api/documents/rpa-supported").json()["supported"]
     assert a == b
+
+
+def test_status_screenshot_gate_parity():
+    """스크린샷(PII 가능)이 두 앱 모두 '시작자 토큰(?t=) 일치 시에만' 포함되는지 — 게이트 패리티."""
+    from rpa import manager
+    for tid, path in (("scp1", "/api/documents/rpa-status/scp1"), ("scp2", "/api/apply/status/scp2")):
+        manager._rpa_tasks[tid] = {"status": "running", "download_token": "tokP",
+                                   "screenshot_b64": "IMG", "current_step": "x"}
+        try:
+            for name, c in _CLIENTS:
+                assert "screenshot_b64" not in c.get(path).json(), name
+                assert "screenshot_b64" not in c.get(path + "?t=WRONG").json(), name
+                assert c.get(path + "?t=tokP").json().get("screenshot_b64") == "IMG", name
+        finally:
+            manager._rpa_tasks.pop(tid, None)

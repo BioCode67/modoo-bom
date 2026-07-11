@@ -86,10 +86,12 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
         const detail = await res.json().then((d) => d?.detail).catch(() => '')
         throw new Error(detail || (res.status === 503 ? '지금은 자동 신청이 어려워요 — 공식 신청 페이지로 진행해 주세요.' : '이 서비스는 자동 신청을 지원하지 않아요'))
       }
-      const { task_id } = await res.json()
+      const { task_id, download_token } = await res.json()
+      // 스크린샷(정부 페이지 — PII 가능)은 시작자 토큰(?t=)이 있어야 응답에 포함된다(백엔드 게이트)
+      const tq = download_token ? `?t=${encodeURIComponent(download_token)}` : ''
       for (let i = 0; i < 200; i++) {
         await new Promise((r) => setTimeout(r, 1500))
-        const st = await fetch(`${getRpaBase()}/api/apply/status/${task_id}`).then((r) => r.json())
+        const st = await fetch(`${getRpaBase()}/api/apply/status/${task_id}${tq}`).then((r) => r.json())
         setRun({ status: st.status, step: st.current_step || st.status, shot: st.screenshot_b64 || undefined })
         if (['done', 'error', 'completed'].includes(st.status)) break
       }

@@ -248,14 +248,18 @@ async def rpa_issue(req: DocRequest):
 
 
 @router.get("/documents/rpa-status/{task_id}")
-async def rpa_status(task_id: str):
-    """RPA 태스크 현재 상태 조회. ⚠️ download_token은 응답에서 제거(파일 다운로드 인가 비밀 유출 방지)."""
+async def rpa_status(task_id: str, t: str = ""):
+    """RPA 태스크 현재 상태 조회. ⚠️ download_token은 응답에서 제거(파일 다운로드 인가 비밀 유출 방지).
+    스크린샷(정부 페이지 — 주민번호 등 PII 가능)은 시작자만 아는 토큰(?t=) 일치 시에만 포함(감사 지적)."""
+    import hmac
     from rpa.manager import get_task
     task = get_task(task_id)
     if task is None:
         raise HTTPException(status_code=404, detail="태스크를 찾을 수 없습니다.")
     d = task.to_dict() if hasattr(task, "to_dict") else dict(task)
-    d.pop("download_token", None)
+    token = str(d.pop("download_token", "") or "")
+    if not (t and token and hmac.compare_digest(t, token)):
+        d.pop("screenshot_b64", None)
     return d
 
 
@@ -308,7 +312,7 @@ async def apply_supported():
 @router.post("/apply/start")
 async def apply_start(req: ApplyRequest):
     """복지 서비스 신청 RPA 시작"""
-    from rpa.manager import start_apply_task, SUPPORTED_SERVICE_NAMES, can_accept
+    from rpa.manager import start_apply_task, SUPPORTED_SERVICE_NAMES, can_accept, get_task
     from rpa.apply_rpa import _valid_bokjiro_url
     from rpa.config import rpa_enabled, rpa_disabled_reason
     if not rpa_enabled():
@@ -323,18 +327,25 @@ async def apply_start(req: ApplyRequest):
             detail=f"지원하지 않는 서비스: {req.service_name}\n지원 목록: {', '.join(SUPPORTED_SERVICE_NAMES)} (또는 복지로 신청 딥링크 필요)",
         )
     task_id = start_apply_task(req.service_name, req.user_name, req.profile)
-    return {"task_id": task_id, "status": "started", "service_name": req.service_name}
+    # 시작자에게만 토큰 반환(rpa-issue 와 동일) — status 의 스크린샷(정부 페이지 PII 가능) 열람 인가에 사용
+    started = get_task(task_id)
+    token = (started.get("download_token") if isinstance(started, dict)
+             else getattr(started, "download_token", "")) or ""
+    return {"task_id": task_id, "status": "started", "service_name": req.service_name, "download_token": token}
 
 
 @router.get("/apply/status/{task_id}")
-async def apply_status(task_id: str):
-    """신청 RPA 태스크 상태 조회"""
+async def apply_status(task_id: str, t: str = ""):
+    """신청 RPA 태스크 상태 조회 — 스크린샷은 시작자 토큰(?t=) 일치 시에만(rpa_status 와 동일 게이트)."""
+    import hmac
     from rpa.manager import get_task
     task = get_task(task_id)
     if task is None:
         raise HTTPException(status_code=404, detail="태스크를 찾을 수 없습니다.")
     d = task.to_dict() if hasattr(task, "to_dict") else dict(task)
-    d.pop("download_token", None)  # rpa_status·local_server와 동일 — 인가 비밀 노출 방지(드리프트 제거)
+    token = str(d.pop("download_token", "") or "")  # 인가 비밀 노출 방지(드리프트 제거)
+    if not (t and token and hmac.compare_digest(t, token)):
+        d.pop("screenshot_b64", None)
     return d
 
 

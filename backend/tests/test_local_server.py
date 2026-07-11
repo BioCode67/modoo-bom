@@ -147,3 +147,20 @@ def test_api_not_shadowed_by_static_mount():
     assert r.status_code == 200
     assert r.json().get("status") == "ok"  # 정적 index.html이 아니라 JSON API 응답
     assert "text/html" not in r.headers.get("content-type", "")
+
+
+def test_status_screenshot_gated_by_token():
+    """스크린샷(정부 페이지 — PII 가능)은 시작자 토큰(?t=) 일치 시에만 응답에 포함(감사 지적)."""
+    from rpa import manager
+    for tid, path in (("sc-doc", "/api/documents/rpa-status/sc-doc"), ("sc-apply", "/api/apply/status/sc-apply")):
+        manager._rpa_tasks[tid] = {"status": "running", "download_token": "tok123",
+                                   "screenshot_b64": "IMGDATA", "current_step": "x"}
+        try:
+            # 토큰 없음/불일치 → 스크린샷 제거(진행 상태·스텝은 그대로)
+            d = client.get(path).json()
+            assert "screenshot_b64" not in d and d["status"] == "running"
+            assert "screenshot_b64" not in client.get(path + "?t=WRONG").json()
+            # 시작자 토큰 일치 → 포함
+            assert client.get(path + "?t=tok123").json()["screenshot_b64"] == "IMGDATA"
+        finally:
+            manager._rpa_tasks.pop(tid, None)
