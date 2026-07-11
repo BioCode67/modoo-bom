@@ -3,7 +3,7 @@ import { motion } from 'framer-motion'
 import { Search, X, Mic, ArrowDownWideNarrow, Calculator, ChevronDown, Globe, Sparkles, Volume2, Square } from 'lucide-react'
 import { useSpeech } from '@/lib/useSpeech'
 import { useTTS } from '@/lib/useTTS'
-import { semanticSearch, warmupSemantic, type SemanticHit } from '@/lib/semanticSearch'
+import { hybridSearch, warmupSemantic, type SemanticHit } from '@/lib/semanticSearch'
 import { detectLang, detectUiLang } from '@/lib/detectLang'
 import { isUiLang } from '@/lib/i18nLite'
 import { benefitTypeOf, BENEFIT_TYPE_META, type BenefitType } from '@/lib/benefitType'
@@ -135,7 +135,8 @@ export function Explore() {
     setAiError(null)
     const t = setTimeout(async () => {
       try {
-        const hits = await semanticSearch(query, 60, (p) => {
+        // 하이브리드(의미+키워드 RRF): "기초연금" 같은 정확명 질의와 다국어·생활어 질의를 모두 강하게
+        const hits = await hybridSearch(query, 60, (p) => {
           if (runId === aiRunId.current) setAiProgress(p)
         })
         if (runId === aiRunId.current) { setAiHits(hits); setAiProgress(null) }

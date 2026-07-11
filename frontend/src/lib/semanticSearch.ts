@@ -156,6 +156,61 @@ export async function semanticSearch(
 }
 
 /**
+ * 하이브리드 검색 — 신경망 의미 랭킹과 키워드(개념) 랭킹을 RRF(Reciprocal Rank Fusion)로 융합.
+ *
+ * 임베딩 단독의 약점(정책 '고유명사' 질의: "기초연금"을 의미상 비슷한 다른 연금이 이길 수 있음)과
+ * 키워드 단독의 약점(생활어·다국어: "tiền hỗ trợ sinh con"은 사전에 없음)을 서로 보완한다.
+ * RRF는 점수 스케일이 다른 두 랭킹을 순위만으로 합치므로 별도 정규화·튜닝이 필요 없다(k=60 표준).
+ * 키워드 랭킹이 비어 있으면(외국어 질의 등) 자연히 의미 랭킹만 남는다 — 다국어 검색 무손상.
+ */
+export async function hybridSearch(
+  query: string,
+  topK = 12,
+  onProgress?: SemanticProgress,
+): Promise<SemanticHit[]> {
+  const q = query.trim()
+  if (!q) return []
+  // 융합 풀은 넉넉히(topK의 4배, 최소 60) — 한쪽 랭킹의 후순위가 다른 쪽 상위로 승격될 여지 확보
+  const pool = Math.max(topK * 4, 60)
+  const sem = await semanticSearch(q, pool, onProgress)
+  // 키워드 개념 랭킹 — 동의어 확장(lib/search)·정확명 가점 포함. 지연 import로 순환의존 방지.
+  const { queryConcepts, relevance } = await import('./search')
+  const { getCatalog } = await import('@/data/catalog')
+  const concepts = queryConcepts(q)
+  const kw = concepts.length
+    ? getCatalog()
+        .map((p) => ({ p, s: relevance(p, concepts, q) }))
+        .filter((x) => x.s > 0)
+        .sort((a, b) => b.s - a.s)
+        .slice(0, pool)
+    : []
+  return fuseRrf(sem, kw.map((x) => x.p), topK)
+}
+
+/**
+ * RRF 융합(순수 함수) — 두 랭킹을 순위 역수 합으로 결합. k=60 표준.
+ * 반환 score는 UI가 유사도(0~1)로 표시하므로 의미 유사도를 유지(융합점수로 신뢰도 날조 금지) —
+ * 키워드 랭킹에만 있던 정책은 의미 풀 최하위 유사도로 보수적으로 표기.
+ */
+export function fuseRrf(sem: SemanticHit[], kw: Policy[], topK: number, K = 60): SemanticHit[] {
+  const fused = new Map<string, { policy: Policy; score: number; semScore?: number }>()
+  sem.forEach((h, i) => {
+    fused.set(h.policy.id, { policy: h.policy, score: 1 / (K + i + 1), semScore: h.score })
+  })
+  kw.forEach((p, i) => {
+    const cur = fused.get(p.id)
+    const add = 1 / (K + i + 1)
+    if (cur) cur.score += add
+    else fused.set(p.id, { policy: p, score: add })
+  })
+  const floor = sem.length ? sem[sem.length - 1].score : 0.8
+  return [...fused.values()]
+    .sort((a, b) => b.score - a.score)
+    .slice(0, topK)
+    .map((x) => ({ policy: x.policy, score: x.semScore ?? floor }))
+}
+
+/**
  * 특정 정책과 의미가 비슷한 복지 — 사전계산 임베딩만 사용(AI 모델 다운로드 불필요).
  * 정책 상세에서 "비슷한 복지 찾기"에 사용. 이름 중복 제거, 자기 자신 제외.
  */
