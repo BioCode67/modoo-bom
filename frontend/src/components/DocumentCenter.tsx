@@ -87,7 +87,7 @@ export function DocumentCenter() {
       return
     }
     setRpa((s) => ({ ...s, [doc]: { status: 'running', step: '시작 중…', at: Date.now() } }))
-    // 채널 라우팅: 로컬 백엔드는 6종만 지원 — 로컬이 못 하는 서류는 확장으로(있으면), 둘 다 안 되면 정직한 안내
+    // 채널 라우팅: 로컬 백엔드는 15종 지원(officialLinks.LOCAL_RPA_DOCS) — 로컬이 못 하는 서류는 확장으로(있으면), 둘 다 안 되면 정직한 안내
     const localOk = isRpaSupported(doc, 'local')
     if ((!localAgent || !localOk) && ext) {
       const r = await issueViaExtension(doc, {
@@ -140,7 +140,7 @@ export function DocumentCenter() {
   const rpaDocs = docs.filter((d) => isRpaSupported(d) && !isDocDone(d))
   // 로컬 백엔드(데스크탑앱)가 실제로 발급 가능한 서류만 — 로컬 여정에 넣을 대상(확장은 rpaDocs 전체)
   const rpaDocsLocal = rpaDocs.filter((d) => isRpaSupported(d, 'local'))
-  // 연쇄 발급 대상: 확장 있으면 전체(13종), 없고 로컬 에이전트면 로컬 지원분(11종)
+  // 연쇄 발급 대상: 확장 있으면 전체(13종), 없고 로컬 에이전트면 로컬 지원분(15종)
   const chainDocs = ext ? rpaDocs : rpaDocsLocal
   const certAll = docs.filter((d) => isCertIssuable(d)) // 무설치 전자발급(전자증명서) 가능 서류
   const certDocs = certAll.filter((d) => !isDocDone(d)) // 그중 아직 발급 안 한 서류 — 배너 CTA가 순서대로 안내
@@ -304,7 +304,7 @@ export function DocumentCenter() {
       <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
         {docs.map((doc) => {
           const link = docLink(doc)
-          // 확장 있으면 13종, 로컬 백엔드만이면 6종만 '자동' 표시(과대 표시 시 클릭 오류 — 감사 실측)
+          // 확장 있으면 13종, 로컬 백엔드만이면 로컬 지원 15종만 '자동' 표시(과대 표시 시 클릭 오류 — 감사 실측)
           const supported = ext ? isRpaSupported(doc) : isRpaSupported(doc, 'local')
           const kind = certKind(doc) // 'wallet'=전자증명서(지갑 유통) · 'online'=온라인 발급 · undefined=오프라인/본인준비
           const done = isDocDone(doc)
