@@ -69,6 +69,8 @@ interface AppState {
   result: AnalysisResult | null
   setAnalysis: (profile: UserProfile, result: AnalysisResult) => void
   clearAnalysis: () => void
+  /** 현장(복지관) 상담 전환용 — 이전 어르신의 개인정보·분석·기록을 한 번에 삭제(새 상담 시작) */
+  resetForNextUser: () => void
   // 홈에서 한 문장 입력 시, 결과를 바로 캐시하지 않고 '분석 대기' 프로필만 넘겨 분석 오버레이(실제 AI)를 태운다
   pendingProfile: UserProfile | null
   setPendingProfile: (p: UserProfile | null) => void
@@ -172,6 +174,14 @@ export const useAppStore = create<AppState>()(
         // 분석 초기화 시 기기에 남은 프로필 이력(modoo:profileHistory)도 함께 삭제(방침 §5 이행)
         try { localStorage.removeItem('modoo:profileHistory') } catch { /* noop */ }
         set({ profile: null, result: null })
+      },
+      resetForNextUser: () => {
+        // 복지관 현장: 어르신 한 분 상담이 끝나면 다음 분 전에 이전 분의 흔적(PII·분석·담은목록·발급기록)을 전부 비운다.
+        try { localStorage.removeItem('modoo:profileHistory') } catch { /* noop */ }
+        set({
+          profile: null, result: null, pendingProfile: null, tracked: [], docDone: {},
+          rpaInfo: { name: '', birth_date: '', phone: '', carrier: '', sido: '', sigungu: '', auth_provider: 'kakao' },
+        })
       },
       pendingProfile: null,
       setPendingProfile: (pendingProfile) => set({ pendingProfile }),
