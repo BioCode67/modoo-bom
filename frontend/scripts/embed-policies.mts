@@ -48,11 +48,24 @@ async function embed(text: string): Promise<Float32Array> {
   return o.data as Float32Array
 }
 
-// 정책의 정체성을 담되 중복 문구(공공데이터는 target=benefit=eligibility 인 경우多)는 정리
+// 정책의 정체성을 담되 중복 문구(공공데이터는 target=benefit=eligibility 인 경우多)는 정리.
+// ⚠️ 전체를 .slice(0,800)로 꼬리 절단하면 긴 정책에서 eligibility(자격)가 통째로 유실된다 →
+//    필드별 예산(대상 300·혜택 260·자격 240자)을 배분해 세 필드가 항상 패시지에 대표되게 한다.
+//    남는 예산은 앞 필드부터 재사용(짧은 정책은 기존과 동일한 전문 포함).
 function passageOf(p: Policy): string {
-  const parts = [p.target, p.benefit, p.eligibility].map((s) => (s || '').trim()).filter(Boolean)
-  const uniq = [...new Set(parts)]
-  return `passage: ${p.name}. 분류 ${p.category}. ${uniq.join(' ')}`.slice(0, 800)
+  const head = `passage: ${p.name}. 분류 ${p.category}. `
+  const parts = [p.target, p.benefit, p.eligibility].map((s) => (s || '').trim())
+  const uniq: string[] = []
+  for (const s of parts) if (s && !uniq.includes(s)) uniq.push(s)
+  const budgets = [300, 260, 240]
+  let spare = 0
+  const cut = uniq.map((s, i) => {
+    const b = (budgets[i] ?? 200) + spare
+    const t = s.slice(0, b)
+    spare = Math.max(0, b - t.length)
+    return t
+  })
+  return (head + cut.join(' ')).slice(0, 800)
 }
 
 const ids: string[] = []
