@@ -104,9 +104,13 @@ w2 수정 완료(백엔드/패키징/감지/테스트 레인): rpa_enabled fail-
   orchestrator가 사용. 회귀 테스트 `test_manager_safety.py`. 데스크탑 트랙은 이후 여정 로직 변경 시 queued_slot 유지 요망.
 - ~~_evict_old 가 실행 중 태스크도 제거~~ → **w2가 수정**: 종료 상태(done/completed/error)만 퇴거. 같은 테스트로 고정.
 - ~~`--no-sandbox` 실브라우저 적용~~ → **w2가 수정**(자기 레인): 번들 Chromium에만 적용, 회귀 테스트 2건.
-- **잔여**: status의 screenshot_b64 가 task_id 만으로 노출(download_token 설계 무력화) — 프론트 폴링 UI가 스샷을 쓰므로
-  토큰 전달 흐름(issue 응답→status 쿼리) 협의 필요. RPA 프론트 배선은 데스크탑 레인이라 w2 미터치.
+- ~~status의 screenshot_b64 노출~~ → **w2가 수정**(07-11): rpa-status·apply-status 스크린샷을 시작자 토큰(?t=)으로
+  게이트(양쪽 앱 패리티+테스트), apply/start가 토큰 반환, 프론트 폴러(AgentSubmitButton·DocumentCenter) ?t= 전달.
 - **잔여**: rate_limit XFF 무검증(`api/rate_limit.py`, 클라우드) — 데스크탑/추후.
+
+> 적대적 리뷰(07-11, w2 변경분 대상) 결과: 치명 1건 발견·수정 — 영어 질의에서 1글자 사용자어 예외(a/I)가
+> 정책명 라틴 표기(AI·MRI)에 오탐돼 검색이 잡음으로 오염. `search.ts` 1글자 예외를 한글로 한정(근본) +
+> 하이브리드 키워드 레인 한글 게이트. 라이브 실측으로 잡음 0 확인. 잠복 1건(embed head 예산)·완화 1건(챗 웨이크 25s 캡)도 처리.
 
 해결됨(w2, 07-07):
 - 설치본 GitHub Release 게시 완료 → https://github.com/BioCode67/modoo-bom/releases/tag/app-v0.3.0
