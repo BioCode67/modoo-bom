@@ -66,13 +66,23 @@ def capacity() -> dict:
     }
 
 
+_TERMINAL_STATUSES = ("done", "completed", "error")
+
+
 def _evict_old() -> None:
-    """저장소가 상한을 넘으면 가장 오래된 태스크부터 제거(메모리 보호)."""
+    """저장소가 상한을 넘으면 '끝난' 태스크 중 가장 오래된 것부터 제거(메모리 보호).
+
+    ⚠️ 진행 중(pending/queued/running/waiting_*) 태스크를 지우면 다중 접속 데모에서
+    사용자가 폴링하던 status 가 갑자기 404 → 화면이 멈춘다. 종료 상태만 퇴거 대상(감사 지적)."""
     if len(_rpa_tasks) <= _MAX_TASKS:
         return
     def _created(v):
         return v.get("created_at", "") if isinstance(v, dict) else getattr(v, "created_at", "")
-    for k, _ in sorted(_rpa_tasks.items(), key=lambda kv: _created(kv[1]))[: len(_rpa_tasks) - _MAX_TASKS]:
+    def _status(v):
+        return v.get("status", "") if isinstance(v, dict) else getattr(v, "status", "")
+    removable = [(k, v) for k, v in _rpa_tasks.items() if _status(v) in _TERMINAL_STATUSES]
+    excess = len(_rpa_tasks) - _MAX_TASKS
+    for k, _ in sorted(removable, key=lambda kv: _created(kv[1]))[:excess]:
         _rpa_tasks.pop(k, None)
 
 
@@ -118,6 +128,27 @@ class RPATask:
 
 def get_task(task_id: str) -> Optional[dict]:
     return _rpa_tasks.get(task_id)
+
+
+@asynccontextmanager
+async def queued_slot():
+    """rpa_slot + 대기 큐 카운팅 — _guarded_run 밖에서 슬롯을 기다리는 실행(여정 단계 등)이
+    can_accept() 백프레셔에 잡히도록, 슬롯 대기 동안 _waiting 을 올린다(감사 지적: journey 큐 우회)."""
+    global _active, _waiting
+    _waiting += 1
+    dequeued = False
+    try:
+        async with _get_sem():
+            _waiting -= 1
+            dequeued = True
+            _active += 1
+            try:
+                yield
+            finally:
+                _active = max(0, _active - 1)
+    finally:
+        if not dequeued:  # 슬롯 획득 전 취소·예외 → 대기 카운트 반납
+            _waiting = max(0, _waiting - 1)
 
 
 @asynccontextmanager

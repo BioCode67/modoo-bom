@@ -92,7 +92,7 @@ async def _run_journey(jid, user_info, profile):
     j["status"] = "running"
     user_name = j["user_name"]
 
-    from rpa.manager import rpa_slot, _TASK_TIMEOUT
+    from rpa.manager import queued_slot, _TASK_TIMEOUT
     for step in j["steps"]:
         j["current"] = step["name"]
         step["status"] = "running"
@@ -100,8 +100,9 @@ async def _run_journey(jid, user_info, profile):
         step["task_id"] = task.task_id
         _rpa_tasks[task.task_id] = task
         try:
-            # 전체 동시성(_MAX_CONCURRENT)을 넘지 않도록 슬롯을 거치고, 멈춘 단계는 타임아웃으로 종료
-            async with rpa_slot():
+            # 전체 동시성(_MAX_CONCURRENT)을 넘지 않도록 슬롯을 거치고, 멈춘 단계는 타임아웃으로 종료.
+            # queued_slot: 슬롯 대기 중에도 _waiting 에 잡혀 can_accept() 백프레셔가 여정을 인지한다.
+            async with queued_slot():
                 if step["kind"] == "doc":
                     await asyncio.wait_for(_run_step_doc(task, step["name"], user_info), timeout=_TASK_TIMEOUT)
                     saved = (task.result or {}).get("saved_path")

@@ -99,12 +99,14 @@ w2 수정 완료(백엔드/패키징/감지/테스트 레인): rpa_enabled fail-
 패키징 스모크 브라우저 실기동 검증+빌드 하드페일·DOCS_DIR 실바탕화면 해석(OneDrive)·감지 클라우드
 오클로버·중복DOM id·rpa-file/launch_browser/토큰 회귀 테스트 다수·8000 포트 안내. (커밋 참조)
 
-데스크탑 트랙 판단 요망(그쪽 RPA/클라우드 레인이라 w2 미터치):
-- journey 연쇄발급이 _MAX_QUEUE 백프레셔를 우회(`manager._run_journey`가 `_waiting` 미증가) → journey/run 반복 시 무한 누적. journey 러너에 큐 카운팅 추가 필요.
-- _evict_old 가 실행 중 태스크도 제거(가장 오래된 것 무조건) → 다중접속 데모에서 진행 중 태스크 404. 실행중 스킵 필요.
-- status의 screenshot_b64 가 task_id 만으로 노출(download_token 설계 무력화) — 정부 페이지 스샷에 주민번호 가능. 토큰 가드 또는 status에서 스샷 제거 검토.
-- `--no-sandbox` 가 실사용자 크롬(정부 로그인)에도 적용(`rpa/base.py` — w2 레인이나 RPA 안정성 영향 커서 협의).
-- rate_limit 이 OPTIONS 프리플라이트도 카운트 + XFF 무검증(`api/rate_limit.py`, 클라우드).
+감사 지적 처리 현황(07-11 갱신):
+- ~~journey가 _MAX_QUEUE 백프레셔 우회~~ → **w2가 수정**(4일 경과·마감 임박이라 크로스 claim): `manager.queued_slot()` 신설,
+  orchestrator가 사용. 회귀 테스트 `test_manager_safety.py`. 데스크탑 트랙은 이후 여정 로직 변경 시 queued_slot 유지 요망.
+- ~~_evict_old 가 실행 중 태스크도 제거~~ → **w2가 수정**: 종료 상태(done/completed/error)만 퇴거. 같은 테스트로 고정.
+- ~~`--no-sandbox` 실브라우저 적용~~ → **w2가 수정**(자기 레인): 번들 Chromium에만 적용, 회귀 테스트 2건.
+- **잔여**: status의 screenshot_b64 가 task_id 만으로 노출(download_token 설계 무력화) — 프론트 폴링 UI가 스샷을 쓰므로
+  토큰 전달 흐름(issue 응답→status 쿼리) 협의 필요. RPA 프론트 배선은 데스크탑 레인이라 w2 미터치.
+- **잔여**: rate_limit XFF 무검증(`api/rate_limit.py`, 클라우드) — 데스크탑/추후.
 
 해결됨(w2, 07-07):
 - 설치본 GitHub Release 게시 완료 → https://github.com/BioCode67/modoo-bom/releases/tag/app-v0.3.0
