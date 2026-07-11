@@ -144,3 +144,48 @@ def test_bogus_channel_still_falls_back(monkeypatch):
     order = base._browser_candidates()
     assert order[0] == "bogus"
     assert order[1:] == ["chrome", "msedge", ""]  # 실제 후보로 폴백 경로 확보
+
+
+def test_no_sandbox_only_for_bundled_chromium(monkeypatch):
+    """--no-sandbox 는 번들 Chromium에만 — 정부 로그인을 하는 실사용 Chrome/Edge의 샌드박스(보안 계층)는 유지."""
+    monkeypatch.setattr(base.sys, "platform", "win32")
+    # 채널 지정(실브라우저) → --no-sandbox 없음
+    monkeypatch.setenv("RPA_BROWSER_CHANNEL", "chrome")
+    assert "--no-sandbox" not in base.get_launch_options()["args"]
+    # 번들 Chromium(빈 채널) → --no-sandbox 포함(잠긴 PC 회피책)
+    monkeypatch.setenv("RPA_BROWSER_CHANNEL", "")
+    assert "--no-sandbox" in base.get_launch_options()["args"]
+
+
+def test_launch_rebuilds_args_per_candidate(monkeypatch):
+    """launch_browser 가 후보별로 args 를 재구성: 실브라우저 후보엔 샌드박스 유지, 번들 후보엔 --no-sandbox."""
+    monkeypatch.setattr(base.sys, "platform", "win32")
+    monkeypatch.delenv("RPA_BROWSER_CHANNEL", raising=False)
+    seen = []
+
+    class FakeChromium:
+        async def launch(self, **opts):
+            seen.append((opts.get("channel", ""), list(opts.get("args", []))))
+            raise RuntimeError("skip")  # 전 후보 순회 유도
+
+    class FakePW:
+        chromium = FakeChromium()
+
+    import asyncio
+
+    async def run():
+        try:
+            await base.launch_browser(FakePW(), slow_mo=0)
+        except RuntimeError:
+            pass
+
+    loop = asyncio.new_event_loop()
+    try:
+        loop.run_until_complete(run())
+    finally:
+        loop.close()
+        asyncio.set_event_loop(asyncio.new_event_loop())  # 후속 테스트용 fresh loop
+    by_channel = {ch: args for ch, args in seen}
+    assert "--no-sandbox" not in by_channel["chrome"]
+    assert "--no-sandbox" not in by_channel["msedge"]
+    assert "--no-sandbox" in by_channel[""]

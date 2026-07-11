@@ -26,7 +26,6 @@ def get_launch_options(slow_mo: int = 300) -> dict:
         "args": [
             "--start-maximized",
             "--disable-blink-features=AutomationControlled",
-            "--no-sandbox",
         ],
     }
     channel = os.getenv("RPA_BROWSER_CHANNEL")
@@ -35,6 +34,11 @@ def get_launch_options(slow_mo: int = 300) -> dict:
     channel = channel.strip()
     if channel:
         opts["channel"] = channel
+    else:
+        # --no-sandbox 는 '번들 Chromium'에만 — 컨테이너/잠긴 PC에서 샌드박스 초기화가 실패해
+        # 실행 자체가 안 되는 경우의 회피책이다. 정부 사이트 로그인을 하는 사용자의 실제
+        # Chrome/Edge(channel 지정)에서는 보안 계층(샌드박스)을 끄지 않는다. (감사 지적 반영)
+        opts["args"].append("--no-sandbox")
     return opts
 
 
@@ -72,9 +76,12 @@ async def launch_browser(pw, slow_mo: int = 300):
     """
     base = get_launch_options(slow_mo)
     base.pop("channel", None)
+    base_args = [a for a in base.get("args", []) if a != "--no-sandbox"]
     tried, last_err = [], None
     for ch in _browser_candidates():
         opts = dict(base)
+        # 후보별 args 재구성: --no-sandbox 는 번들 Chromium 후보에만(실사용 Chrome/Edge 는 샌드박스 유지)
+        opts["args"] = base_args + ([] if ch else ["--no-sandbox"])
         if ch:
             opts["channel"] = ch
         try:

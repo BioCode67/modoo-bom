@@ -9,7 +9,7 @@
 > 실시간 AI 백엔드도 라이브입니다 — 클라우드(Render)에 LangGraph 10노드 에이전트와 챗이 배포돼
 > 배포 사이트에서 실제 LLM 답변이 동작합니다. LLM은 Gemini 2.5 Flash이며, 실패 시 Groq·Claude로 자동 폴백하고 키가 없으면 규칙 기반으로 동작합니다.
 
-![tests](https://img.shields.io/badge/frontend_tests-392_passed-brightgreen) ![pytest](https://img.shields.io/badge/backend_pytest-34_passed-brightgreen) ![e2e](https://img.shields.io/badge/E2E_실브라우저-10여정·에러0-brightgreen) ![data](https://img.shields.io/badge/실데이터-5,250여건_검증-blue) ![lighthouse](https://img.shields.io/badge/Lighthouse-A11y96·BP100·SEO100-blue)
+![tests](https://img.shields.io/badge/frontend_tests-559_passed-brightgreen) ![pytest](https://img.shields.io/badge/backend_pytest-84+_passed-brightgreen) ![e2e](https://img.shields.io/badge/E2E_실브라우저-10여정·에러0-brightgreen) ![data](https://img.shields.io/badge/실데이터-5,300여건_검증-blue) ![lighthouse](https://img.shields.io/badge/Lighthouse-A11y96·BP100·SEO100-blue)
 
 회원가입·백엔드 없이 바로 동작합니다. 프론트엔드는 **전국 5,250여 건 복지**(보건복지부 검증 큐레이션 124 + 정부지원사업·청년주택·서민금융 45
 + 민간재단 큐레이션 21 + 한국사회보장정보원 공공데이터 5,061 — 현대차 정몽구 스칼러십·심장재단 수술비 등
