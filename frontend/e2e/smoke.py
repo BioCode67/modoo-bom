@@ -195,6 +195,13 @@ def main() -> int:
             page.wait_for_selector("text=Tiếng Việt", timeout=5000)
             print("[e2e] ✅ 4.8 외국인·다문화 다국어 진입로")
 
+            # 4.9) 데스크탑 앱 원클릭 다운로드 CTA — exe 직접 다운로드 링크(릴리스 latest 자산) 회귀 고정
+            #      (Windows UA에서만 노출 — e2e 크로뮴은 Windows UA)
+            btn = page.wait_for_selector('a:has-text("Windows 앱 바로 받기")', timeout=8000)
+            href = btn.get_attribute("href") or ""
+            assert href.endswith("/releases/latest/download/ModooBom-Setup.exe"), f"다운로드 href 회귀: {href}"
+            print("[e2e] ✅ 4.9 데스크탑 앱 원클릭 다운로드 CTA(exe 직링크)")
+
             # 5) 모바일 뷰포트(iPhone급) — 핸드폰에서 홈·주 흐름이 깨지지 않는지
             mpage = browser.new_page(viewport={"width": 390, "height": 844}, is_mobile=True, has_touch=True)
             mpage.on("pageerror", lambda e: errors.append(f"[mobile] {e}"))
