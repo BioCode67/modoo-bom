@@ -165,7 +165,7 @@ function docIn(list: string[], doc: string): boolean {
   const d = doc.replace(/\s/g, '')
   return list.some((s) => d.includes(s.replace(/\s/g, '')) || s.replace(/\s/g, '').includes(d))
 }
-/** channel: 'ext'=크롬 확장(13종) · 'local'=로컬 백엔드(6종) · 미지정=둘 중 아무거나(최대 집합) */
+/** channel: 'ext'=크롬 확장(13종) · 'local'=로컬 백엔드(15종) · 미지정=둘 중 아무거나(최대 집합) */
 export function isRpaSupported(doc: string, channel?: 'ext' | 'local'): boolean {
   if (channel === 'local') return docIn(LOCAL_RPA_DOCS, doc)
   return docIn(RPA_SUPPORTED_DOCS, doc)

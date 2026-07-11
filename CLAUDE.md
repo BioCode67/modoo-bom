@@ -289,11 +289,14 @@ modoo-bom/
 | POST| `/api/admin/seed` | ChromaDB 시딩 (Mock 모드 스킵) |
 | GET | `/api/admin/env` | 환경변수 상태(마스킹) |
 
-### RPA 지원 항목 (`rpa/manager.py`) — 2026-07 확장(6→11종)
-- **서류 11종**: 주민등록등본/초본·가족관계증명서·장애인증명서 + **소득금액증명·지방세 납세증명서·
+### RPA 지원 항목 (`rpa/manager.py`) — 2026-07 확장(6→11→15종)
+- **서류 15종**: 주민등록등본/초본·가족관계증명서·장애인증명서 + **소득금액증명·지방세 납세증명서·
   지방세 세목별 과세증명서·기초생활수급자 증명서·한부모가족 증명서**(정부24, `gov24_rpa.DOC_CAPP` 단일소스,
-  CappBizCD는 CDP local_agent·확장과 동일 검증) + 건강보험 자격득실확인서(건보) + 고용보험 피보험자격 이력내역서(고용24).
-  프론트 `officialLinks.LOCAL_RPA_DOCS`와 반드시 일치.
+  CappBizCD는 CDP local_agent·확장과 동일 검증) + **국세 납세증명서·출입국사실증명·병적증명서·건강보험료
+  납부확인서**(07-11 AA020 실측 확장 — 납부확인서는 영숫자 코드) + 건강보험 자격득실확인서(건보) +
+  고용보험 피보험자격 이력내역서(고용24). 프론트 `officialLinks.LOCAL_RPA_DOCS`와 반드시 일치.
+  보류: 차상위계층 확인서(폼 미확인·자격한정), 국민연금 가입증명(정부24 즉시발급 불가 — 3일 신청 민원).
+  **인증수단 선택**(카카오·PASS·네이버·토스): `base.AUTH_PROVIDERS`+`click_provider_in_anyid`, 요청 `auth_provider`.
 - **신청 서비스**: 하드코딩 6종(기초연금·아동수당·부모급여·청년내일저축·첫만남·생계급여) **+ 일반화** —
   `apply_rpa.resolve_apply_url`이 정책의 복지로 딥링크(`profile.apply_url`, wlfareInfoId)를 우선 사용해
   6종 밖 임의 복지로 정책도 신청(`_valid_bokjiro_url`로 복지로 https 호스트만 허용).
