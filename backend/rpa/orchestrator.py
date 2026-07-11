@@ -5,6 +5,7 @@
 - 신청(apply): 복지로 RPA 로 양식 자동작성 (최종 제출은 사용자 승인)
 """
 import asyncio
+import secrets
 import uuid
 from datetime import datetime
 
@@ -16,25 +17,33 @@ def get_journey(journey_id: str):
     return _journeys.get(journey_id)
 
 
-def journey_view(journey_id: str):
+def journey_view(journey_id: str, t: str = ""):
     """여정 + '현재 진행 중 단계'의 라이브 메시지/스크린샷/상태를 병합해 반환(UI 표시용).
     각 단계는 실행 중 _rpa_tasks[task_id]에 라이브 RPATask가 있어 카카오 인증 안내 등 세부 메시지를 담는다.
-    이게 없으면 UI가 '어느 서류에서 카카오 인증을 해야 하는지' 알 수 없다."""
+
+    ⚠️ 인가(감사 확정): 정부 페이지 스크린샷(주민번호 가능)·실명·저장경로는 시작자 토큰(?t=) 일치 시에만 노출.
+       download_token 자체는 어떤 경우에도 응답에 넣지 않는다."""
+    from rpa.manager import get_task, token_ok
     j = _journeys.get(journey_id)
     if j is None:
         return None
+    authorized = token_ok(t, j.get("download_token"))
     view = dict(j)
+    view.pop("download_token", None)
+    if not authorized:
+        view.pop("user_name", None)
+        view["saved_docs"] = ["(발급됨)" for _ in view.get("saved_docs", [])]  # 파일 경로(PII) 숨김, 개수만
     cur = j.get("current")
     if cur:
-        from rpa.manager import get_task
         for step in j.get("steps", []):
             if step.get("name") == cur and step.get("task_id"):
-                t = get_task(step["task_id"])
-                if t is not None:
-                    d = t.to_dict() if hasattr(t, "to_dict") else dict(t)
+                task = get_task(step["task_id"])
+                if task is not None:
+                    d = task.to_dict() if hasattr(task, "to_dict") else dict(task)
                     view["current_message"] = d.get("current_step") or ""
                     view["current_status"] = d.get("status") or ""
-                    view["current_screenshot"] = d.get("screenshot_b64")
+                    if authorized:
+                        view["current_screenshot"] = d.get("screenshot_b64")
                 break
     return view
 
@@ -55,12 +64,22 @@ def _new_journey(doc_names, service_names, user_name) -> str:
         "done_count": 0,
         "saved_docs": [],
         "created_at": datetime.now().isoformat(),
+        "download_token": secrets.token_urlsafe(18),  # 스크린샷·실명·경로 열람 인가(시작자에게만 반환)
     }
     return jid
 
 
-def start_journey(doc_names, service_names, user_name, user_info, profile) -> str:
-    """지원되는 서류/서비스만 골라 여정을 시작하고 journey_id 반환."""
+def journey_token(journey_id: str) -> str:
+    """여정 인가 토큰 조회 — 시작 응답으로 시작자에게만 전달(스크린샷·경로 열람 인가)."""
+    j = _journeys.get(journey_id)
+    return (j or {}).get("download_token", "") if j else ""
+
+
+def start_journey(doc_names, service_names, user_name, user_info, profile):
+    """지원되는 서류/서비스만 골라 여정을 시작. 반환: (journey_id, accepted_docs, accepted_services).
+
+    ⚠️ 지원목록 밖 항목은 제외되는데, 이를 프론트에 알려주지 않으면 해당 카드가 '대기…' 스피너로
+       영구 고정된다(감사 확정) → accepted 목록을 함께 반환해 프론트가 그것만 추적하게 한다."""
     from rpa.manager import SUPPORTED_DOC_NAMES, SUPPORTED_SERVICE_NAMES
     docs = [d for d in (doc_names or []) if d in SUPPORTED_DOC_NAMES]
     svcs = [s for s in (service_names or []) if s in SUPPORTED_SERVICE_NAMES]
@@ -68,7 +87,7 @@ def start_journey(doc_names, service_names, user_name, user_info, profile) -> st
     # 강한 참조 보관(_spawn_bg)로 GC가 실행 중 여정을 취소하지 못하게 한다.
     from rpa.manager import _spawn_bg
     _spawn_bg(_run_journey(jid, user_info or {}, profile or {}))
-    return jid
+    return jid, docs, svcs
 
 
 async def _run_step_doc(task, doc_name, user_info):

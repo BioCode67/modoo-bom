@@ -33,6 +33,7 @@ export function ChatWidget() {
   const docDone = useAppStore((s) => s.docDone)
   const toggleSaved = useAppStore((s) => s.toggleSaved)
   const setRpaInfo = useAppStore((s) => s.setRpaInfo)
+  const resetNonce = useAppStore((s) => s.resetNonce)
   const { ready, caps } = useBackend()
   const aiChat = ready === true && !!caps?.ai // 클라우드/로컬 백엔드의 진짜 LLM(Claude) 사용 가능
   const endRef = useRef<HTMLDivElement>(null)
@@ -73,6 +74,13 @@ export function ChatWidget() {
       return [{ role: 'bot', text: g.text, cta: g.cta }]
     })
   }, [open, profile, tracked, docDone])
+
+  // 상담 전환('다음 분 상담 시작')이면 대화 내용(이전 어르신 실명·상담)을 비운다 — resetNonce 신호.
+  useEffect(() => {
+    if (resetNonce === 0) return
+    setMsgs([]); setInput(''); setStep(-1)
+    setAnswers({ situations: [] }); setMultiSel([]); setGuideName(''); setGuideAge('')
+  }, [resetNonce])
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [msgs, open, step])
 

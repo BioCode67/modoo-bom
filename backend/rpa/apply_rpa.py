@@ -15,6 +15,7 @@
   - 청년 내일저축계좌
 """
 import asyncio
+import os
 from rpa.base import (
     take_screenshot, wait_for_login,
     click_first_matching, click_by_text, make_browser_context_args,
@@ -302,8 +303,13 @@ async def run_apply_rpa(task, service_name: str, profile: dict) -> None:
                 has_file_input = await target_page.locator("input[type='file']").count() > 0
             except Exception:
                 has_file_input = False
+            # ⚠️ 자동 첨부 후보는 '최근 발급물'만 — 공용 PC에서 직전 사용자의 오래된 서류(주민번호 포함)가
+            #    다음 사용자 신청서에 붙는 교차사용자 PII 유출 방지(감사 확정). '다음 분 상담'은 폴더를 비우고,
+            #    이 시간창은 리셋을 깜빡한 경우의 2차 방어선. (안내 목록에는 전체 issued 사용)
+            _attach_age = int(os.getenv("RPA_ATTACH_MAX_AGE", "1200"))  # 기본 20분
             issued = recent_issued_docs()
-            attached = await _auto_attach(target_page, issued) if (has_file_input and issued) else []
+            attach_candidates = recent_issued_docs(within_seconds=_attach_age)
+            attached = await _auto_attach(target_page, attach_candidates) if (has_file_input and attach_candidates) else []
             attach_guide = ""
             if attached:
                 lst = "\n".join(f"   ✓ {a}" for a in attached)

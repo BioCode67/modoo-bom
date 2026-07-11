@@ -1,5 +1,7 @@
 import { ShieldCheck } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
+import { getRpaBase } from '@/lib/backend'
+import { useBackend } from '@/lib/useBackend'
 
 const CARRIERS = ['SKT', 'KT', 'LGU+', 'SKM', 'KTM', 'LGM']
 // 간편인증 수단 — 어르신 다수가 카카오 미사용(통신사 PASS 등)이라 선택 지원(복지관 현장 필수)
@@ -16,6 +18,14 @@ const AUTH_PROVIDERS = [
  */
 export function RpaInfoForm() {
   const { rpaInfo, setRpaInfo, resetForNextUser } = useAppStore()
+  const { ready, caps } = useBackend()
+  const localAgent = ready === true && !!caps?.rpa
+  const nextUser = () => {
+    if (!window.confirm('이전 상담자의 정보(이름·생년월일·연락처·담은 복지·발급 기록·대화 내용)를 모두 지우고 새 상담을 시작할까요?')) return
+    resetForNextUser() // 화면·localStorage·챗 대화 초기화
+    // 로컬 에이전트면 서버에 저장된 발급 서류(주민번호 포함 PDF)도 삭제 — 다음 분에게 안 남게
+    if (localAgent) fetch(`${getRpaBase()}/api/session/reset`, { method: 'POST' }).catch(() => { /* 실패해도 화면은 초기화됨 */ })
+  }
   return (
     <div className="mt-3 rounded-xl bg-white border border-sprout-100 p-3 space-y-2 scroll-mt-24">
       <p className="text-[11px] font-bold flex items-center gap-1 text-muted-foreground">
@@ -77,15 +87,14 @@ export function RpaInfoForm() {
           </button>
         ))}
       </div>
-      {/* 현장(복지관) 상담 전환 — 이전 분의 개인정보·기록을 한 번에 삭제 */}
-      {(rpaInfo.name || rpaInfo.birth_date || rpaInfo.phone) && (
-        <button
-          onClick={() => { if (window.confirm('이전 상담자의 정보(이름·생년월일·연락처·담은 복지·발급 기록)를 모두 지우고 새 상담을 시작할까요?')) resetForNextUser() }}
-          className="w-full rounded-lg border border-peach-200 bg-peach-50 px-2.5 py-1.5 text-[11px] font-bold text-peach-800 hover:bg-peach-100 transition-colors"
-        >
-          다음 분 상담 시작 (이전 정보 전체 삭제)
-        </button>
-      )}
+      {/* 현장(복지관) 상담 전환 — 이전 분의 개인정보·기록을 한 번에 삭제.
+          ⚠️ 항상 노출(조건부 렌더 금지) — 서류 발급을 안 한 상담에서도 이전 어르신의 분석·담은목록·챗 대화가 남아 삭제가 필요하다(감사 확정). */}
+      <button
+        onClick={nextUser}
+        className="w-full rounded-lg border border-peach-200 bg-peach-50 px-2.5 py-1.5 text-[11px] font-bold text-peach-800 hover:bg-peach-100 transition-colors"
+      >
+        다음 분 상담 시작 (이전 정보 전체 삭제)
+      </button>
       {/* 인증수단 — 폰에 깔린 앱으로 선택(카카오 없는 어르신은 통신사 PASS가 대부분) */}
       <p className="text-[11px] font-bold text-muted-foreground pt-1">본인인증 앱 (폰에 있는 걸로 선택)</p>
       <div className="flex flex-wrap gap-1" role="radiogroup" aria-label="간편인증 수단">

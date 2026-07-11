@@ -166,11 +166,21 @@ export function DocumentCenter() {
       const detail = await res.json().then((d) => d?.detail).catch(() => '')
       throw new Error(detail || '연쇄 발급을 시작하지 못했어요.')
     }
-    const { journey_id } = await res.json()
-    for (let i = 0; i < 240; i++) { // 최대 ~6분(다서류 순차 발급 + 각 카카오 인증 대기)
+    const started = await res.json()
+    const journey_id = started.journey_id
+    const jtok = started.download_token || ''  // 스크린샷/경로 열람 인가 토큰(시작자에게만)
+    // 지원목록 밖 서류는 여정에서 제외되므로, 서버가 실제로 받은 서류만 추적한다(나머지 카드가 스피너로 영구고정되지 않게).
+    const accepted: string[] = Array.isArray(started.docs) ? started.docs : docList
+    const dropped = docList.filter((d) => !accepted.includes(d))
+    if (dropped.length) {
+      setRpa((s) => ({ ...s, ...Object.fromEntries(dropped.map((d) => [d, { status: 'error', step: '이 서류는 자동발급 대상이 아니에요 — 옆의 발급 버튼으로 진행해 주세요.', at: Date.now() }])) }))
+    }
+    const tq = jtok ? `?t=${encodeURIComponent(jtok)}` : ''
+    // 폴링 상한을 백엔드 대기창 이상으로 — 각 서류 인증이 느려도 UI가 완료 전에 멈추지 않게(스텝당 최대 30분/여정)
+    for (let i = 0; i < 1400; i++) { // 최대 ~35분(다서류 순차 발급 + 각 인증 대기)
       await new Promise((r) => setTimeout(r, 1500))
       if (!mountedRef.current) return
-      const j = await fetch(`${getRpaBase()}/api/journey/status/${journey_id}`).then((r) => r.json())
+      const j = await fetch(`${getRpaBase()}/api/journey/status/${journey_id}${tq}`).then((r) => r.json())
       setRpa((s) => {
         const next = { ...s }
         for (const step of (j.steps || [])) {

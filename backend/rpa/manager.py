@@ -9,12 +9,39 @@
 개인정보 원칙(rpa/config.py): 이름·생년월일·연락처는 메모리에서만 쓰고 로깅/디스크 저장하지 않는다.
 """
 import asyncio
+import hmac
 import os
 import secrets
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Optional
+
+
+def token_ok(t, token) -> bool:
+    """상수시간 토큰 비교 — 비ASCII/None/타입불일치 입력에도 예외 없이 False.
+    (hmac.compare_digest 는 비ASCII str 에 TypeError 를 던져 게이트가 500 이 되던 결함 방지 — 감사 확정)."""
+    try:
+        if not t or not token:
+            return False
+        return hmac.compare_digest(str(t).encode("utf-8"), str(token).encode("utf-8"))
+    except (TypeError, ValueError):
+        return False
+
+
+# 상태 응답에서 토큰 미인가 시 제거할 민감 필드(정부 페이지 스샷·실명·민감 서류종).
+_SENSITIVE_STATUS_FIELDS = ("screenshot_b64", "user_name", "doc_name")
+
+
+def redact_status(d: dict, authorized: bool) -> dict:
+    """상태 dict 를 응답용으로 정제 — download_token 은 항상 제거, 미인가면 PII 필드도 제거."""
+    d = dict(d)
+    d.pop("download_token", None)  # 인가 비밀은 어떤 경우에도 노출 금지
+    if not authorized:
+        for k in _SENSITIVE_STATUS_FIELDS:
+            d.pop(k, None)
+    return d
+
 
 # task_id → RPATask(실행 중) 또는 dict(완료) 저장소
 _rpa_tasks: dict = {}

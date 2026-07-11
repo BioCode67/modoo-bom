@@ -214,6 +214,13 @@ async def db_status(_: bool = Depends(require_admin)):
         return {"error": str(e), "document_count": 0}
 
 
+@router.post("/session/reset")
+async def session_reset():
+    """공용 PC '다음 분 상담' 전환 — 발급 서류 폴더의 이전 사용자 PII 문서를 서버에서 삭제(local_server 패리티)."""
+    from rpa.base import clear_docs_dir
+    return {"cleared": clear_docs_dir()}
+
+
 @router.get("/documents/rpa-supported")
 async def rpa_supported_docs():
     """RPA 지원 서류 목록 반환"""
@@ -250,18 +257,14 @@ async def rpa_issue(req: DocRequest):
 
 @router.get("/documents/rpa-status/{task_id}")
 async def rpa_status(task_id: str, t: str = ""):
-    """RPA 태스크 현재 상태 조회. ⚠️ download_token은 응답에서 제거(파일 다운로드 인가 비밀 유출 방지).
-    스크린샷(정부 페이지 — 주민번호 등 PII 가능)은 시작자만 아는 토큰(?t=) 일치 시에만 포함(감사 지적)."""
-    import hmac
-    from rpa.manager import get_task
+    """RPA 태스크 현재 상태 조회. ⚠️ 스크린샷(정부 페이지 PII)·실명·서류종은 시작자 토큰(?t=) 일치 시에만.
+    download_token 은 어떤 경우에도 응답에 노출하지 않는다."""
+    from rpa.manager import get_task, token_ok, redact_status
     task = get_task(task_id)
     if task is None:
         raise HTTPException(status_code=404, detail="태스크를 찾을 수 없습니다.")
     d = task.to_dict() if hasattr(task, "to_dict") else dict(task)
-    token = str(d.pop("download_token", "") or "")
-    if not (t and token and hmac.compare_digest(t, token)):
-        d.pop("screenshot_b64", None)
-    return d
+    return redact_status(d, token_ok(t, d.get("download_token")))
 
 
 @router.get("/documents/rpa-file/{task_id}")
@@ -272,13 +275,12 @@ async def rpa_file(task_id: str, t: str = ""):
        task_id는 rpa-status URL·로그에 노출되므로 task_id만으로는 남의 문서를 받을 수 없다(다중 사용자 유출 차단).
        완료+저장된 태스크만, 저장 폴더 밖 경로 거절, 캐시 금지."""
     import hmac
-    from rpa.manager import get_task
+    from rpa.manager import get_task, token_ok
     task = get_task(task_id)
     if task is None:
         raise HTTPException(status_code=404, detail="태스크를 찾을 수 없습니다.")
     d = task if isinstance(task, dict) else task.to_dict()
-    token = d.get("download_token") or ""
-    if not t or not token or not hmac.compare_digest(str(t), str(token)):
+    if not token_ok(t, d.get("download_token")):
         raise HTTPException(status_code=403, detail="다운로드 인가 토큰이 필요합니다.")
     result = d.get("result") or {}
     path = result.get("saved_path")
@@ -349,17 +351,13 @@ async def apply_start(req: ApplyRequest):
 
 @router.get("/apply/status/{task_id}")
 async def apply_status(task_id: str, t: str = ""):
-    """신청 RPA 태스크 상태 조회 — 스크린샷은 시작자 토큰(?t=) 일치 시에만(rpa_status 와 동일 게이트)."""
-    import hmac
-    from rpa.manager import get_task
+    """신청 RPA 태스크 상태 조회 — 스크린샷·실명·서류종은 시작자 토큰(?t=) 일치 시에만(rpa_status 패리티)."""
+    from rpa.manager import get_task, token_ok, redact_status
     task = get_task(task_id)
     if task is None:
         raise HTTPException(status_code=404, detail="태스크를 찾을 수 없습니다.")
     d = task.to_dict() if hasattr(task, "to_dict") else dict(task)
-    token = str(d.pop("download_token", "") or "")  # 인가 비밀 노출 방지(드리프트 제거)
-    if not (t and token and hmac.compare_digest(t, token)):
-        d.pop("screenshot_b64", None)
-    return d
+    return redact_status(d, token_ok(t, d.get("download_token")))
 
 
 class EstimateRequest(BaseModel):
@@ -501,16 +499,18 @@ async def journey_run(req: JourneyRunRequest):
         raise HTTPException(status_code=503, detail="지금 자동화 이용자가 많아요. 잠시 후 다시 시도하거나 공식 사이트에서 바로 진행하실 수 있어요.")
     user_info = {"user_name": req.user_name, "birth_date": req.birth_date,
                  "phone": req.phone, "carrier": req.carrier, "auth_provider": req.auth_provider}
-    jid = start_journey(req.doc_names, req.service_names, req.user_name, user_info, req.profile)
-    return {"journey_id": jid, "status": "started",
-            "docs": req.doc_names, "services": req.service_names}
+    jid, accepted_docs, accepted_svcs = start_journey(req.doc_names, req.service_names, req.user_name, user_info, req.profile)
+    from rpa.orchestrator import journey_token
+    # accepted_*: 실제 여정에 들어간 항목(지원목록 밖은 제외) → 프론트가 이것만 추적(스피너 영구고정 방지)
+    return {"journey_id": jid, "status": "started", "download_token": journey_token(jid),
+            "docs": accepted_docs, "services": accepted_svcs}
 
 
 @router.get("/journey/status/{journey_id}")
-async def journey_status(journey_id: str):
-    """여정 진행상황(단계별 상태 + 현재 단계 라이브 메시지 + 저장된 서류 경로) 조회."""
+async def journey_status(journey_id: str, t: str = ""):
+    """여정 진행상황 조회. 스크린샷·실명·저장경로는 시작자 토큰(?t=) 일치 시에만."""
     from rpa.orchestrator import journey_view
-    j = journey_view(journey_id)
+    j = journey_view(journey_id, t)
     if j is None:
         raise HTTPException(status_code=404, detail="여정을 찾을 수 없습니다.")
     return j

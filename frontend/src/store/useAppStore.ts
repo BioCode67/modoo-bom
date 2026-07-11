@@ -71,6 +71,8 @@ interface AppState {
   clearAnalysis: () => void
   /** 현장(복지관) 상담 전환용 — 이전 어르신의 개인정보·분석·기록을 한 번에 삭제(새 상담 시작) */
   resetForNextUser: () => void
+  /** 상담 전환 시 증가 — 챗 등 컴포넌트 로컬 상태(대화 내용)를 비우는 신호(persist 밖 상태 정리용) */
+  resetNonce: number
   // 홈에서 한 문장 입력 시, 결과를 바로 캐시하지 않고 '분석 대기' 프로필만 넘겨 분석 오버레이(실제 AI)를 태운다
   pendingProfile: UserProfile | null
   setPendingProfile: (p: UserProfile | null) => void
@@ -175,13 +177,16 @@ export const useAppStore = create<AppState>()(
         try { localStorage.removeItem('modoo:profileHistory') } catch { /* noop */ }
         set({ profile: null, result: null })
       },
+      resetNonce: 0,
       resetForNextUser: () => {
         // 복지관 현장: 어르신 한 분 상담이 끝나면 다음 분 전에 이전 분의 흔적(PII·분석·담은목록·발급기록)을 전부 비운다.
+        // resetNonce++ 로 챗 대화(msgs 등 persist 밖 로컬 상태)까지 비우도록 신호를 준다(이전 어르신 실명·상담내용 노출 차단).
         try { localStorage.removeItem('modoo:profileHistory') } catch { /* noop */ }
-        set({
+        set((s) => ({
           profile: null, result: null, pendingProfile: null, tracked: [], docDone: {},
           rpaInfo: { name: '', birth_date: '', phone: '', carrier: '', sido: '', sigungu: '', auth_provider: 'kakao' },
-        })
+          resetNonce: s.resetNonce + 1,
+        }))
       },
       pendingProfile: null,
       setPendingProfile: (pendingProfile) => set({ pendingProfile }),

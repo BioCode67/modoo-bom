@@ -136,26 +136,51 @@ def _default_docs_dir() -> pathlib.Path:
 DOCS_DIR = _default_docs_dir()
 
 
-def recent_issued_docs(limit: int = 10):
+def recent_issued_docs(limit: int = 10, within_seconds: Optional[int] = None):
     """모두봄이 발급해 저장한 서류(PDF/PNG)를 최신순으로 반환 — [(표시이름, 절대경로), ...].
 
     신청 양식의 '서류 첨부'를 사용자가 정확히 하도록 안내하는 데 쓴다(어떤 서류가 어디에 있는지).
-    파일명은 '{서류명}_{타임스탬프}.pdf' 형식 → 타임스탬프를 떼어 사람이 읽는 이름으로."""
+    파일명은 '{서류명}_{타임스탬프}.pdf' 형식 → 타임스탬프를 떼어 사람이 읽는 이름으로.
+
+    within_seconds: 지정 시 '최근 N초 내 발급'만 반환 — 공용 PC에서 '직전 사용자'의 오래된 서류를
+    다음 사용자의 신청서에 자동 첨부하는 것을 막는 방어선(자동첨부 경로에서 사용)."""
     import glob
     import re as _re
+    import time as _time
     out = []
     try:
         files = []
         for ext in ("*.pdf", "*.png"):
             files.extend(glob.glob(os.path.join(str(DOCS_DIR), ext)))
         files.sort(key=os.path.getmtime, reverse=True)
+        cutoff = (_time.time() - within_seconds) if within_seconds else None
         for f in files[:limit]:
+            if cutoff is not None and os.path.getmtime(f) < cutoff:
+                continue
             stem = os.path.splitext(os.path.basename(f))[0]
             name = _re.sub(r"_\d{8}_\d{6}$", "", stem)  # _YYYYMMDD_HHMMSS 제거
             out.append((name or stem, os.path.abspath(f)))
     except Exception:
         pass
     return out
+
+
+def clear_docs_dir() -> int:
+    """발급 서류 폴더(DOCS_DIR)의 PDF/PNG 를 모두 삭제 — 공용 PC '다음 분 상담' 전환 시 이전 사용자 PII 제거.
+    반환: 삭제한 파일 수. (폴더 자체는 유지)"""
+    import glob
+    n = 0
+    try:
+        for ext in ("*.pdf", "*.png"):
+            for f in glob.glob(os.path.join(str(DOCS_DIR), ext)):
+                try:
+                    os.remove(f)
+                    n += 1
+                except OSError:
+                    pass
+    except Exception:
+        pass
+    return n
 
 
 def _safe_filename(name: str) -> str:

@@ -200,3 +200,35 @@ def test_rpa_file_kept_by_default(monkeypatch, tmp_path):
         assert os.path.exists(f)
     finally:
         manager._rpa_tasks.pop("del2", None)
+
+
+def test_status_non_ascii_token_no_500():
+    """?t= 에 비ASCII를 줘도 500이 아니라 정상 게이트(200, 스샷 제거) — hmac 비ASCII TypeError 방지."""
+    from rpa import manager
+    manager._rpa_tasks["na1"] = {"status": "running", "download_token": "tok",
+                                 "screenshot_b64": "IMG", "user_name": "김복순", "current_step": "x"}
+    try:
+        for path in ("/api/documents/rpa-status/na1", "/api/apply/status/na1"):
+            r = client.get(path, params={"t": "한글토큰불일치"})
+            assert r.status_code == 200, path              # 500 아님(비ASCII로 TypeError 안 남)
+            assert "screenshot_b64" not in r.json(), path  # 불일치라 스샷 제거
+    finally:
+        manager._rpa_tasks.pop("na1", None)
+
+
+def test_status_redacts_pii_without_token():
+    """토큰 없으면 실명·서류종·스크린샷 전부 제거(민감 서류종 노출 차단)."""
+    from rpa import manager
+    manager._rpa_tasks["pii1"] = {"status": "running", "download_token": "tok",
+                                  "screenshot_b64": "IMG", "user_name": "김복순",
+                                  "doc_name": "기초생활수급자 증명서", "current_step": "진행 중"}
+    try:
+        d = client.get("/api/documents/rpa-status/pii1").json()
+        assert "user_name" not in d and "doc_name" not in d and "screenshot_b64" not in d
+        assert d.get("status") == "running" and d.get("current_step") == "진행 중"  # 비민감 필드는 유지
+        # 토큰 있으면 전부 노출
+        d2 = client.get("/api/documents/rpa-status/pii1?t=tok").json()
+        assert d2.get("user_name") == "김복순" and d2.get("screenshot_b64") == "IMG"
+        assert "download_token" not in d2  # 토큰 자체는 어떤 경우에도 미노출
+    finally:
+        manager._rpa_tasks.pop("pii1", None)
