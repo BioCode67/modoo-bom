@@ -311,13 +311,18 @@ async def _wait_login(page, task, timeout: int = 300) -> bool:
             url = page.url
             if CERT_KEYWORD in url and LOGIN_KEYWORD not in url:
                 return True
-            # 로그아웃 버튼 = 로그인 완료 신호
-            logout = await page.evaluate("""
-                () => !!Array.from(document.querySelectorAll('a,button'))
-                    .find(e => (e.textContent||'').includes('로그아웃'))
-            """)
-            if logout:
-                return True
+            # 로그아웃 버튼 = 로그인 완료 신호.
+            # ⚠️ '보이는' 로그아웃만 인정 + 최소 3초 경과 후 판정 — 로그인 전 숨은 메뉴의 '로그아웃' 링크를
+            #    오탐해 미로그인 상태로 발급 단계로 넘어가던 결함 방지(base.wait_for_login 과 동일 패턴, 감사 확정).
+            if elapsed >= 3:
+                logout = await page.evaluate("""
+                    () => Array.from(document.querySelectorAll('a,button'))
+                        .some(e => (e.textContent||'').includes('로그아웃')
+                                   && e.offsetParent !== null
+                                   && e.getBoundingClientRect().width > 0)
+                """)
+                if logout:
+                    return True
         except Exception:
             pass
 
