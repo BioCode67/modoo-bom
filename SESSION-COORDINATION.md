@@ -64,6 +64,8 @@
 | 터미널/w2 | `components/DocumentCenter.tsx`·`RpaInfoForm.tsx` | 자동발급 인증정보 미입력 시 첫 빈 칸으로 안내·폼 유도 | done | 07-07 |
 | 터미널/w2 | `lib/backend.ts finalizeCaps` | **동일출처 RPA 오탐 수정** | done | 07-07 |
 | 터미널/w2 | `local_server.py`·`docs/앱-릴리스-노트.md` | **첫 실행 UX 친절화**(콘솔 제목·안내 배너·3단계 설치 가이드) | done | 07-10 |
+| 터미널/w2 | `Hero.tsx`·`HeroAgentBubble`·`three/*`·`ui/SproutLogo` | 말풍선이 3D 새싹 가림 수정 + 2D/3D 마스코트 통일 (사용자 직접 요청) | active | 07-11 |
+| 터미널/w2 | `ChatWidget.tsx`·`chatAgent.ts`·`api/chat.py` | 챗봇 비복지 질문 응답 개선 + 콜드스타트 UX (사용자 직접 요청) | active | 07-11 |
 | 새PC/w3 | (영역 미정 — 시작 시 여기에 claim) | — | active | 07-10 |
 | 새PC/w4 | (영역 미정 — 시작 시 여기에 claim) | — | active | 07-10 |
 | 새PC/w5 | (영역 미정 — 시작 시 여기에 claim) | — | active | 07-10 |
