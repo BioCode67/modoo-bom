@@ -26,7 +26,11 @@ _bg_tasks: set = set()
 # ── 다중 사용자 안전 파라미터(환경변수로 조정) ──
 _MAX_CONCURRENT = max(1, int(os.getenv("RPA_MAX_CONCURRENT", "2")))   # 동시에 띄우는 브라우저 수
 _MAX_QUEUE = max(0, int(os.getenv("RPA_MAX_QUEUE", "8")))             # 대기 큐 최대 길이(초과 시 거절)
-_TASK_TIMEOUT = max(60, int(os.getenv("RPA_TASK_TIMEOUT", "900")))    # 태스크 하드 타임아웃(초)
+# 태스크 하드 타임아웃(초) — 기본 1800.
+# ⚠️ 내부 대기 합(gov24 로그인480+주소정정240+전자서명240+유예60 ≈ 1020s / apply 로그인300+검토600 ≈ 900s)보다
+#    커야 검토·인증 도중 브라우저가 강제 종료되지 않는다. 과거 기본 900은 이 합보다 짧아 현장에서
+#    발급/검토 중 창이 닫히던 결함(감사 확정) → 1800으로 상향(uvicorn·docker 기동에도 안전 기본).
+_TASK_TIMEOUT = max(60, int(os.getenv("RPA_TASK_TIMEOUT", "1800")))
 _MAX_TASKS = max(50, int(os.getenv("RPA_MAX_TASKS", "200")))          # 저장소 보관 상한
 
 _sem: Optional[asyncio.Semaphore] = None
@@ -181,7 +185,10 @@ async def _guarded_run(task: "RPATask", run_coro) -> None:
             finally:
                 _active = max(0, _active - 1)
     except asyncio.TimeoutError:
-        task.update("error", "시간이 초과돼 자동화를 종료했어요. 공식 사이트에서 이어서 진행해 주세요.")
+        # 이미 발급 완료(done)에 도달한 태스크는 error 로 덮어쓰지 않는다 — 유예 sleep 중 타임아웃이
+        #   성공을 실패로 보고하던 결함(감사 확정) 방지. 미완 상태에서만 시간초과로 표기.
+        if getattr(task, "status", "") not in ("done", "completed"):
+            task.update("error", "시간이 초과돼 자동화를 종료했어요. 공식 사이트에서 이어서 진행해 주세요.")
     except Exception as e:  # noqa: BLE001 — 어떤 실패도 슬롯을 정상 반납해야 함
         task.update("error", f"자동화 오류: {str(e)[:200]}")
     finally:

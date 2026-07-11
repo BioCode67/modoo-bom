@@ -541,12 +541,14 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None) -> None:
                 await final_page.bring_to_front()
             except Exception:
                 pass
-            saved = await save_document(final_page, doc_name)
             final_url = final_page.url
             body_now = await _txt()
-            issued = ("처리완료" in body_now) or ("mbrAplySrvcList" in final_url) or bool(saved)
+            # ⚠️ 실제 발급 신호로만 성공 판정 — save_document 는 어떤 화면이든 항상 저장(headed에선 스샷 폴백)
+            #   하므로 saved 유무로 판정하면 '미발급 화면'도 발급완료로 오보된다(감사 확정 결함).
+            really_issued = ("처리완료" in body_now) or ("발급완료" in body_now) or ("발급 완료" in body_now) or ("mbrAplySrvcList" in final_url)
+            saved = await save_document(final_page, doc_name)
 
-            if saved:
+            if really_issued and saved:
                 task.update(
                     "done",
                     f"✅ {doc_name} 발급 완료!\n📄 자동 저장됨: {saved}\n브라우저는 60초 후 자동 종료됩니다.",
@@ -554,14 +556,16 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None) -> None:
                 )
                 task.result = {"success": True, "doc_name": doc_name, "saved_path": saved}
             else:
+                # 발급이 확인되지 않음 — 저장된 파일은 '진행 화면 캡처'일 수 있어 saved_path 로 넘기지 않는다
+                #   (신청 자동첨부·여정 saved_docs 에 미발급 화면이 섞이는 것을 원천 차단).
                 task.update(
                     "done",
-                    f"⚠️ {doc_name} 발급 화면까지 진행했어요.\n"
-                    "브라우저에서 '문서출력'으로 저장을 마무리해 주세요(주소·인증 확인 필요).\n"
+                    f"⚠️ {doc_name}은(는) 아직 발급이 '완료되지 않았어요'.\n"
+                    "화면에서 주소·본인인증을 확인하고 '문서출력'까지 눌러 저장을 마무리해 주세요.\n"
                     "브라우저는 60초 후 자동 종료됩니다.",
                     await take_screenshot(final_page),
                 )
-                task.result = {"success": issued, "doc_name": doc_name, "final_url": final_url}
+                task.result = {"success": False, "doc_name": doc_name, "final_url": final_url, "progress_capture": saved}
 
             await asyncio.sleep(60)
             await browser.close()

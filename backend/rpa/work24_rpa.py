@@ -239,7 +239,8 @@ async def run_work24_rpa(task, user_info: dict = None) -> None:
             else:
                 task.update("running", "화면을 확인하는 중...", ss)
 
-            # ⑦ 발급/출력 버튼 대기 (최대 90초)
+            # ⑦ 발급/출력 버튼 대기 (최대 90초) — 실제 발급 버튼을 눌렀거나 결과 팝업이 떴을 때만 성공
+            issue_reached = False
             for _ in range(90):
                 try:
                     for sel in ISSUE_SELECTORS:
@@ -249,27 +250,41 @@ async def run_work24_rpa(task, user_info: dict = None) -> None:
                             task.update("running", "발급/출력 버튼 감지! 클릭합니다.", ss)
                             await el.click()
                             await asyncio.sleep(2)
+                            issue_reached = True
                             break
-
+                    if issue_reached:
+                        break
                     if len(context.pages) > 1:
                         popup = context.pages[-1]
                         await popup.bring_to_front()
                         ss = await take_screenshot(popup)
                         task.update("running", "발급 완료 팝업 감지!", ss)
+                        issue_reached = True
                         break
                 except Exception:
                     pass
                 await asyncio.sleep(1)
 
             ss = await take_screenshot(page)
-            task.update(
-                "done",
-                "✅ 고용보험 피보험자격 이력내역서 발급 절차 완료!\n"
-                "열린 브라우저에서 Ctrl+P(⌘+P)로 PDF 저장 또는 인쇄 가능합니다.\n"
-                "브라우저는 60초 후 자동 종료됩니다.",
-                ss,
-            )
-            task.result = {"success": True, "doc_name": "고용보험 피보험자격 이력내역서"}
+            if issue_reached:
+                # ⚠️ 정직성(감사 확정): 발급 버튼 도달/클릭을 못 했으면 '완료'로 오보하지 않는다.
+                task.update(
+                    "done",
+                    "✅ 고용보험 피보험자격 이력내역서 발급 절차 완료!\n"
+                    "열린 브라우저에서 Ctrl+P(⌘+P)로 PDF 저장 또는 인쇄 가능합니다.\n"
+                    "브라우저는 60초 후 자동 종료됩니다.",
+                    ss,
+                )
+                task.result = {"success": True, "doc_name": "고용보험 피보험자격 이력내역서"}
+            else:
+                task.update(
+                    "done",
+                    "⚠️ 고용보험 이력내역서 '발급 버튼까지 도달하지 못했어요'.\n"
+                    "로그인·조회가 됐는지 화면에서 확인하고, 발급/출력 버튼을 직접 눌러 저장해 주세요.\n"
+                    "브라우저는 60초 후 자동 종료됩니다.",
+                    ss,
+                )
+                task.result = {"success": False, "doc_name": "고용보험 피보험자격 이력내역서"}
 
             await asyncio.sleep(60)
             await browser.close()
