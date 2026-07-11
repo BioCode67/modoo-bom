@@ -483,6 +483,8 @@ class JourneyRunRequest(BaseModel):
     phone: str = ""
     carrier: str = ""
     auth_provider: str = "kakao"
+    sido: str = ""
+    sigungu: str = ""
     profile: dict = {}
 
 
@@ -498,7 +500,8 @@ async def journey_run(req: JourneyRunRequest):
     if not can_accept():
         raise HTTPException(status_code=503, detail="지금 자동화 이용자가 많아요. 잠시 후 다시 시도하거나 공식 사이트에서 바로 진행하실 수 있어요.")
     user_info = {"user_name": req.user_name, "birth_date": req.birth_date,
-                 "phone": req.phone, "carrier": req.carrier, "auth_provider": req.auth_provider}
+                 "phone": req.phone, "carrier": req.carrier, "auth_provider": req.auth_provider,
+                 "sido": req.sido, "sigungu": req.sigungu}
     jid, accepted_docs, accepted_svcs = start_journey(req.doc_names, req.service_names, req.user_name, user_info, req.profile)
     from rpa.orchestrator import journey_token
     # accepted_*: 실제 여정에 들어간 항목(지원목록 밖은 제외) → 프론트가 이것만 추적(스피너 영구고정 방지)

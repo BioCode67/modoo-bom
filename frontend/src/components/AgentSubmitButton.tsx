@@ -77,6 +77,7 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
     if (!canLocal && canExt) {
       const r = await applyViaExtension(policy.name, {
         user_name: rpaInfo.name || profile?.name || '사용자', birth_date: rpaInfo.birth_date, phone: rpaInfo.phone, carrier: rpaInfo.carrier,
+        auth_provider: rpaInfo.auth_provider || 'kakao', // 확장 자동신청에도 인증수단 전달
       }, policy.application)
       if (!r.ok) setRun({ status: 'error', step: r.error || '이 서비스는 확장 자동신청을 아직 지원하지 않아요.', at: Date.now() })
       runningRef.current = false

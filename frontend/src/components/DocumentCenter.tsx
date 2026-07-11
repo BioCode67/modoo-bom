@@ -94,6 +94,7 @@ export function DocumentCenter() {
         // 본인인증엔 실명(rpaInfo.name)이 필요 — 프로필 이름(데모 페르소나일 수 있음)은 폴백
         user_name: rpaInfo.name || profile?.name || '사용자',
         birth_date: rpaInfo.birth_date, phone: rpaInfo.phone, carrier: rpaInfo.carrier,
+        auth_provider: rpaInfo.auth_provider || 'kakao', // 선택한 인증수단(PASS 등)을 확장에도 전달
       })
       if (!r.ok) setRpa((s) => ({ ...s, [doc]: { status: 'error', step: r.error || '확장이 이 서류를 지원하지 않아요.', at: Date.now() } }))
       return
@@ -162,6 +163,7 @@ export function DocumentCenter() {
         doc_names: docList, user_name: rpaInfo.name || profile?.name || '사용자',
         birth_date: rpaInfo.birth_date, phone: rpaInfo.phone, carrier: rpaInfo.carrier,
         auth_provider: rpaInfo.auth_provider || 'kakao',
+        sido: rpaInfo.sido, sigungu: rpaInfo.sigungu, // 연쇄발급에서도 주민등록 주소 자동정정
       }),
     })
     if (!res.ok) {
@@ -208,6 +210,7 @@ export function DocumentCenter() {
     const userInfo = {
       user_name: rpaInfo.name || profile?.name || '사용자',
       birth_date: rpaInfo.birth_date, phone: rpaInfo.phone, carrier: rpaInfo.carrier,
+      auth_provider: rpaInfo.auth_provider || 'kakao', // 확장 연쇄발급에도 인증수단 전달
     }
     setRpa((s) => ({ ...s, ...Object.fromEntries(chainDocs.map((d) => [d, { status: 'running', step: '대기열에 추가됨…', at: Date.now() }])) }))
     // 로컬 에이전트(데스크탑앱) 우선 — 확장이 없거나 로컬만 있을 때 백엔드 여정으로 연쇄 발급.

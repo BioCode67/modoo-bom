@@ -308,13 +308,22 @@ def provider_display(provider: str) -> str:
     return AUTH_PROVIDERS.get(str(provider or "").lower(), AUTH_PROVIDERS["kakao"])["display"]
 
 
-async def click_provider_in_anyid(page, provider: str = "kakao") -> bool:
-    """간편인증 위젯(anyid·simpleCert 등)에서 선택한 제공자를 정확히 클릭.
+async def click_provider_in_anyid(page, provider: str = "kakao", attempts: int = 4) -> bool:
+    """간편인증 위젯에서 선택 제공자를 클릭 — 위젯 내부가 늦게 렌더돼도 되도록 재시도(감사 확정).
 
-    카카오는 실측 검증된 KAKAOTALK_SELECTORS 경로를 그대로 쓰고, 그 외 제공자는
-    동일 3단계(정확 셀렉터 → JS 토큰 매칭 → 느슨한 폴백)를 제공자 테이블로 일반화한다.
-    (뱅크/페이 등 유사 항목 오클릭은 exclude로 차단)
-    """
+    위젯 iframe 이 'URL 등장 즉시' 반환된 뒤 내부 버튼이 아직 안 그려졌을 때 1회 클릭은 불발한다.
+    → 짧은 간격으로 여러 번 시도해 버튼이 나타나는 순간 클릭한다. (기본 4회 × ~1.2초)"""
+    if str(provider or "").lower() not in AUTH_PROVIDERS:
+        provider = "kakao"  # 비표준/오타 값은 카카오로(프론트는 유효값만 보내나 방어)
+    for i in range(max(1, attempts)):
+        if await _click_provider_once(page, provider):
+            return True
+        await asyncio.sleep(1.0)  # 위젯 내부 렌더 대기 후 재시도
+    return False
+
+
+async def _click_provider_once(page, provider: str = "kakao") -> bool:
+    """제공자 클릭 1회 시도 — 정확 셀렉터 → JS 토큰 매칭 → 느슨한 폴백(뱅크/페이 오클릭은 exclude로 차단)."""
     p = AUTH_PROVIDERS.get(str(provider or "").lower(), AUTH_PROVIDERS["kakao"])
 
     # 1단계: Playwright 선택자 — 카카오는 검증된 테이블, 그 외는 라벨 기반 생성

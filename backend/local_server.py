@@ -153,6 +153,8 @@ class JourneyRunRequest(BaseModel):
     phone: str = ""
     carrier: str = ""
     auth_provider: str = "kakao"
+    sido: str = ""
+    sigungu: str = ""
     profile: dict = {}
 
 
@@ -337,7 +339,8 @@ async def journey_run(req: JourneyRunRequest):
         raise HTTPException(status_code=503, detail=rpa_disabled_reason())
     if not can_accept():
         raise HTTPException(status_code=503, detail="지금 자동화 이용자가 많아요. 잠시 후 다시 시도하거나 공식 사이트에서 바로 진행하실 수 있어요.")
-    user_info = {"user_name": req.user_name, "birth_date": req.birth_date, "phone": req.phone, "carrier": req.carrier, "auth_provider": req.auth_provider}
+    user_info = {"user_name": req.user_name, "birth_date": req.birth_date, "phone": req.phone, "carrier": req.carrier, "auth_provider": req.auth_provider,
+                 "sido": req.sido, "sigungu": req.sigungu}
     jid, accepted_docs, accepted_svcs = start_journey(req.doc_names, req.service_names, req.user_name, user_info, req.profile)
     from rpa.orchestrator import journey_token
     return {"journey_id": jid, "status": "started", "download_token": journey_token(jid),
