@@ -82,7 +82,8 @@ export function HeroAgentBubble({ onFocusInput }: { onFocusInput?: () => void })
         </span>
         <div className="min-w-0">
           <p className="text-[11px] font-extrabold text-sprout-700">새싹이 · 복지 에이전트</p>
-          <div className="mt-0.5 min-h-[2.5rem] text-sm font-medium text-foreground leading-relaxed">
+          {/* min-h 3줄 확보 — 인사말이 4.2초 주기로 바뀔 때 2↔3줄 변동으로 아래 3D 캔버스가 밀리는 것 방지 */}
+          <div className="mt-0.5 min-h-[4.25rem] text-sm font-medium text-foreground leading-relaxed">
             <AnimatePresence mode="wait">
               <motion.p
                 key={returning ? 'ret' : gi}
