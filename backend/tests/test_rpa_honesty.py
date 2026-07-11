@@ -82,3 +82,51 @@ def test_work24_reports_incomplete_when_button_not_reached():
     src = open("rpa/work24_rpa.py", encoding="utf-8").read()
     assert "issue_reached" in src
     assert '"success": False' in src
+
+
+# ── PII 방어 회귀(감사 확정): 교차사용자 서류첨부·리셋·토큰 안전 ──
+
+def test_recent_issued_docs_recency_filter(monkeypatch, tmp_path):
+    """within_seconds: 오래된(직전 사용자) 발급물은 자동첨부 후보에서 제외 — 교차사용자 PII 차단."""
+    import os
+    import time
+    from rpa import base
+    monkeypatch.setattr(base, "DOCS_DIR", tmp_path)
+    old = tmp_path / "주민등록등본_20260101_000000.pdf"
+    new = tmp_path / "가족관계증명서_20260712_000000.pdf"
+    old.write_bytes(b"%PDF old"); new.write_bytes(b"%PDF new")
+    # old 파일 mtime 을 2시간 전으로
+    past = time.time() - 7200
+    os.utime(old, (past, past))
+    within = base.recent_issued_docs(within_seconds=1200)  # 20분 이내만
+    names = [n for n, _ in within]
+    assert "가족관계증명서" in names          # 최근 발급물은 포함
+    assert "주민등록등본" not in names         # 2시간 전(직전 사용자)은 제외
+    # 필터 없으면 둘 다
+    assert len(base.recent_issued_docs()) == 2
+
+
+def test_clear_docs_dir_removes_pii(monkeypatch, tmp_path):
+    """'다음 분 상담' 리셋 시 서버 발급 문서(주민번호 PDF)를 전부 삭제."""
+    import os
+    from rpa import base
+    monkeypatch.setattr(base, "DOCS_DIR", tmp_path)
+    (tmp_path / "a.pdf").write_bytes(b"x")
+    (tmp_path / "b.png").write_bytes(b"x")
+    (tmp_path / "keep.txt").write_text("not a doc")  # PDF/PNG 만 대상
+    n = base.clear_docs_dir()
+    assert n == 2
+    assert not (tmp_path / "a.pdf").exists() and not (tmp_path / "b.png").exists()
+    assert (tmp_path / "keep.txt").exists()  # 문서 외 파일은 유지
+
+
+def test_token_ok_non_ascii_and_edge():
+    """token_ok: 비ASCII·None·불일치는 False(예외 없이), 정확 일치만 True."""
+    from rpa.manager import token_ok
+    assert token_ok("한글토큰", "한글토큰") is True       # 비ASCII 일치도 정상 True(500 안 남)
+    assert token_ok("한글토큰", "다른값") is False
+    assert token_ok("", "x") is False
+    assert token_ok("x", "") is False
+    assert token_ok(None, "x") is False
+    assert token_ok("x", None) is False
+    assert token_ok("tok123", "tok123") is True
