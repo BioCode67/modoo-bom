@@ -12,7 +12,7 @@
 ![tests](https://img.shields.io/badge/frontend_tests-564_passed-brightgreen) ![pytest](https://img.shields.io/badge/backend_pytest-130_passed-brightgreen) ![e2e](https://img.shields.io/badge/E2E_실브라우저-10여정·에러0-brightgreen) ![data](https://img.shields.io/badge/실데이터-5,300여건_검증-blue) ![lighthouse](https://img.shields.io/badge/Lighthouse-A11y100·BP100·SEO100-blue)
 
 회원가입·백엔드 없이 바로 동작합니다. 프론트엔드는 **전국 5,250여 건 복지**(보건복지부 검증 큐레이션 124 + 정부지원사업·청년주택·서민금융 45
-+ 민간재단 큐레이션 21 + 한국사회보장정보원 공공데이터 5,061 — 현대차 정몽구 스칼러십·심장재단 수술비 등
++ 민간재단 큐레이션 21 + 한국사회보장정보원 공공데이터 5,143(중앙460·지자체4,683) — 현대차 정몽구 스칼러십·심장재단 수술비 등
 민간은 전 항목 공식 사이트 실측 검증, 이름 기준 병합·디듑)와 자격 판정 엔진, 그리고 브라우저에서 직접 도는 AI를 실행하므로 즉시 로딩되고 항상 켜져 있습니다.
 (FastAPI 백엔드를 연결하면 LangGraph 에이전트·RPA 자동발급 등 고급 기능이 활성화됩니다. LLM은 Gemini 2.5 Flash — Groq·Claude 자동 폴백.)
 
@@ -67,7 +67,7 @@ npm run deploy   # 빌드 후 gh-pages 브랜치로 배포 → GitHub Pages
 
 ### 복지정책 카탈로그 확장 (전체 정책 담기)
 
-기본 제공 5,250여 건(큐레이션 시드 190 = 정부 124 + 지원사업 33 + 민간재단 21 + 주택공고 7 + 서민금융 5, + 중앙부처·지자체 공공데이터 5,061, 이미 병합·디듑·배포됨)을
+기본 제공 약 5,300건(큐레이션 시드 190 = 정부 124 + 지원사업 33 + 민간재단 21 + 주택공고 7 + 서민금융 5, + 중앙부처·지자체 공공데이터 5,143, 이름 디듑 후)을
 정부 공식 공개데이터로 계속 갱신·확장할 수 있습니다. 프론트가 `public/policies.json`을 런타임에 자동 병합하므로 코드 수정 없이 늘어납니다.
 
 ```bash
