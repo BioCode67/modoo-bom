@@ -136,6 +136,7 @@ class DocRequest(BaseModel):
     carrier: str = ""
     sido: str = ""
     sigungu: str = ""
+    auth_provider: str = "kakao"  # 간편인증 수단: kakao|pass|naver|toss (어르신 다수 PASS)
 
 
 class ApplyRequest(BaseModel):
@@ -151,6 +152,7 @@ class JourneyRunRequest(BaseModel):
     birth_date: str = ""
     phone: str = ""
     carrier: str = ""
+    auth_provider: str = "kakao"
     profile: dict = {}
 
 
@@ -219,7 +221,7 @@ async def rpa_issue(req: DocRequest):
     if req.doc_name not in SUPPORTED_DOC_NAMES:
         raise HTTPException(status_code=400, detail=f"지원하지 않는 서류: {req.doc_name}\n지원 목록: {', '.join(SUPPORTED_DOC_NAMES)}")
     user_info = {"user_name": req.user_name, "birth_date": req.birth_date, "phone": req.phone,
-                 "carrier": req.carrier, "sido": req.sido, "sigungu": req.sigungu}
+                 "carrier": req.carrier, "sido": req.sido, "sigungu": req.sigungu, "auth_provider": req.auth_provider}
     task_id = start_rpa_task(req.doc_name, req.user_name, user_info)
     _t = get_task(task_id)
     token = getattr(_t, "download_token", "") if _t is not None and not isinstance(_t, dict) else (_t or {}).get("download_token", "")
@@ -325,7 +327,7 @@ async def journey_run(req: JourneyRunRequest):
         raise HTTPException(status_code=503, detail=rpa_disabled_reason())
     if not can_accept():
         raise HTTPException(status_code=503, detail="지금 자동화 이용자가 많아요. 잠시 후 다시 시도하거나 공식 사이트에서 바로 진행하실 수 있어요.")
-    user_info = {"user_name": req.user_name, "birth_date": req.birth_date, "phone": req.phone, "carrier": req.carrier}
+    user_info = {"user_name": req.user_name, "birth_date": req.birth_date, "phone": req.phone, "carrier": req.carrier, "auth_provider": req.auth_provider}
     jid = start_journey(req.doc_names, req.service_names, req.user_name, user_info, req.profile)
     return {"journey_id": jid, "status": "started", "docs": req.doc_names, "services": req.service_names}
 

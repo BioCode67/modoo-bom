@@ -7,7 +7,7 @@ import asyncio
 from rpa.base import (
     take_screenshot, wait_for_login,
     click_first_matching, make_browser_context_args,
-    click_kakaotalk_in_anyid, detect_auth_form, AUTH_FORM_USER_GUIDE,
+    click_provider_in_anyid, provider_display, detect_auth_form, AUTH_FORM_USER_GUIDE,
     get_launch_options, launch_browser,
 )
 
@@ -110,8 +110,8 @@ async def _navigate_to_doc_menu(page, task) -> bool:
     return False
 
 
-async def run_work24_rpa(task) -> None:
-    """고용24에서 고용보험 피보험자격 이력내역서 발급"""
+async def run_work24_rpa(task, user_info: dict = None) -> None:
+    """고용24에서 고용보험 피보험자격 이력내역서 발급. user_info.auth_provider로 인증수단 선택."""
     try:
         from playwright.async_api import async_playwright
     except ImportError:
@@ -149,7 +149,9 @@ async def run_work24_rpa(task) -> None:
             ss = await take_screenshot(page)
             task.update("running", f"로그인 페이지 이동\n현재 URL: {page.url}", ss)
 
-            # ③ 간편인증 클릭 → 카카오톡 선택
+            # ③ 간편인증 클릭 → 인증수단 선택
+            provider = str((user_info or {}).get("auth_provider", "kakao") or "kakao")
+            pv = provider_display(provider)
             await asyncio.sleep(1)
 
             # 간편인증 링크 클릭 (class: link-easy-anyId — Work24 확인 완료)
@@ -159,12 +161,19 @@ async def run_work24_rpa(task) -> None:
                 "a:has-text('간편인증')",
             ])
             if easy_auth_clicked:
-                await asyncio.sleep(3)  # anyid 모달 로드 대기
+                # anyid 모달 로드 — 제공자 버튼이 뜰 때까지 짧게 폴링(고정 3초 → 평균 단축)
+                for _ in range(10):
+                    await asyncio.sleep(0.4)
+                    try:
+                        if await page.locator("li:has-text('카카오톡'), img[alt*='카카오'], [class*='anyid']").first.count() > 0:
+                            break
+                    except Exception:
+                        pass
 
-            # anyid 모달 내 카카오톡 클릭 (뱅크/스토리 제외 — 공통 헬퍼 사용)
-            kakao_clicked = await click_kakaotalk_in_anyid(page)
+            # anyid 모달 내 인증수단 클릭 (뱅크/스토리 제외 — 공통 헬퍼 사용)
+            kakao_clicked = await click_provider_in_anyid(page, provider)
 
-            await asyncio.sleep(2)
+            await asyncio.sleep(1)
             ss = await take_screenshot(page)
 
             # 본인인증 폼이 열렸는지 감지
@@ -173,8 +182,8 @@ async def run_work24_rpa(task) -> None:
             elif kakao_clicked or easy_auth_clicked:
                 task.update(
                     "waiting_login",
-                    "📱 카카오 간편인증 화면이 열렸습니다.\n"
-                    "스마트폰 카카오톡 알림에서 [인증 허용]을 눌러주세요.\n"
+                    f"📱 {pv} 간편인증 화면이 열렸습니다.\n"
+                    f"스마트폰 {pv} 알림에서 [인증 허용]을 눌러주세요.\n"
                     "인증 완료 후 자동으로 다음 단계가 진행됩니다.",
                     ss,
                 )

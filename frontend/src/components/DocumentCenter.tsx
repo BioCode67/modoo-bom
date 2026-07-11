@@ -109,6 +109,7 @@ export function DocumentCenter() {
           doc_name: doc, user_name: rpaInfo.name || profile?.name || '사용자',
           birth_date: rpaInfo.birth_date, phone: rpaInfo.phone, carrier: rpaInfo.carrier,
           sido: rpaInfo.sido, sigungu: rpaInfo.sigungu,
+          auth_provider: rpaInfo.auth_provider || 'kakao', // 어르신은 통신사 PASS가 많음
         }),
       })
       if (!res.ok) {
@@ -158,6 +159,7 @@ export function DocumentCenter() {
       body: JSON.stringify({
         doc_names: docList, user_name: rpaInfo.name || profile?.name || '사용자',
         birth_date: rpaInfo.birth_date, phone: rpaInfo.phone, carrier: rpaInfo.carrier,
+        auth_provider: rpaInfo.auth_provider || 'kakao',
       }),
     })
     if (!res.ok) {

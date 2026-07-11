@@ -18,7 +18,7 @@ import re
 from rpa.base import (
     take_screenshot, wait_for_login,
     click_first_matching, click_by_text, make_browser_context_args,
-    click_kakaotalk_in_anyid, detect_auth_form, AUTH_FORM_USER_GUIDE,
+    click_provider_in_anyid, provider_display, detect_auth_form, AUTH_FORM_USER_GUIDE,
     LOGIN_PAGE_URL_KEYWORDS, get_launch_options, launch_browser, save_document,
 )
 
@@ -189,26 +189,32 @@ async def _login_on_www_gov(page, task, user_info: dict = None) -> bool:
     ss = await take_screenshot(page)
     task.update("running", "정부24(plus.gov.kr) 로그인 — 간편인증 선택 중...", ss)
 
+    # 인증수단(카카오/PASS/네이버/토스) — 어르신 다수가 카카오 미사용이라 선택 지원(현장 필수)
+    provider = str((user_info or {}).get("auth_provider", "kakao") or "kakao")
+    pv = provider_display(provider)
+
     # ① 간편인증 버튼 클릭 (신 UI: button.login-type → 텍스트 폴백)
-    await asyncio.sleep(1.5)
+    await asyncio.sleep(1)
     simple_clicked = await click_first_matching(page, SIMPLE_AUTH_SELECTORS)
     if not simple_clicked:
         simple_clicked = await click_by_text(page, ["간편인증", "간편 인증", "간편로그인", "간편 로그인"])
-    await asyncio.sleep(2.5)
+    # 위젯 iframe 로드는 아래 _get_simplecert_frame 이 폴링으로 기다림 — 고정 대기는 잔여 0.5초만(버벅임 제거)
+    await asyncio.sleep(0.5)
 
     # ② 간편인증 위젯 iframe 취득 (없으면 페이지에서 직접 시도하는 폴백)
     frame = await _get_simplecert_frame(page)
     auth_ctx = frame or page
     ss = await take_screenshot(page)
     if frame:
-        task.update("running", "간편인증 위젯 로드됨 — 카카오톡 선택 중...", ss)
+        task.update("running", f"간편인증 위젯 로드됨 — {pv} 선택 중...", ss)
     else:
-        task.update("running", "간편인증 화면 진입 — 카카오톡 선택을 시도합니다...", ss)
+        task.update("running", f"간편인증 화면 진입 — {pv} 선택을 시도합니다...", ss)
 
-    # ③ 카카오톡 선택 (iframe 내부, 카카오뱅크 제외)
-    await asyncio.sleep(1)
-    kakaotalk_clicked = await click_kakaotalk_in_anyid(auth_ctx)
-    await asyncio.sleep(2)
+    # ③ 인증수단 선택 (iframe 내부, 뱅크류 오클릭 제외)
+    await asyncio.sleep(0.5)
+    kakaotalk_clicked = await click_provider_in_anyid(auth_ctx, provider)
+    # 폼 등장은 아래 detect_auth_form/자동입력이 감지 — 잔여 안정화만
+    await asyncio.sleep(0.5)
     ss = await take_screenshot(page)
 
     # ④ 본인인증 정보 입력 폼 감지 및 안내 (iframe 컨텍스트에서 감지)
@@ -228,28 +234,28 @@ async def _login_on_www_gov(page, task, user_info: dict = None) -> bool:
 
     if autofilled:
         if requested:
-            _msg = "✅ 정보 자동입력 + '인증 요청'까지 완료했어요.\n📱 카카오톡 알림에서 [인증 허용]만 누르시면 됩니다."
+            _msg = f"✅ 정보 자동입력 + '인증 요청'까지 완료했어요.\n📱 휴대폰 {pv} 알림에서 [인증 허용]만 누르시면 됩니다."
         elif not _has_birth:
-            _msg = "✅ 이름·휴대폰을 자동 입력했어요.\n화면에서 '생년월일'을 입력하고 '인증 요청'을 누른 뒤, 📱 카카오톡 [인증 허용]을 해주세요."
+            _msg = f"✅ 이름·휴대폰을 자동 입력했어요.\n화면에서 '생년월일'을 입력하고 '인증 요청'을 누른 뒤, 📱 {pv} [인증 허용]을 해주세요."
         else:
-            _msg = "✅ 이름·생년월일·휴대폰을 자동 입력했어요.\n화면에서 '인증 요청'을 누르면, 📱 카카오톡 알림에서 [인증 허용]만 하시면 됩니다."
+            _msg = f"✅ 이름·생년월일·휴대폰을 자동 입력했어요.\n화면에서 '인증 요청'을 누르면, 📱 {pv} 알림에서 [인증 허용]만 하시면 됩니다."
         task.update("waiting_login", _msg, ss)
     elif kakaotalk_clicked and form_detected:
         task.update("waiting_login", AUTH_FORM_USER_GUIDE, ss)
     elif kakaotalk_clicked:
         task.update(
             "waiting_login",
-            "📱 카카오톡 간편인증 화면이 열렸습니다.\n"
-            "스마트폰 카카오톡 알림에서 [인증 허용]을 눌러주세요.\n"
+            f"📱 {pv} 간편인증 화면이 열렸습니다.\n"
+            f"스마트폰 {pv} 알림에서 [인증 허용]을 눌러주세요.\n"
             "인증 완료 후 자동으로 다음 단계가 진행됩니다.",
             ss,
         )
     else:
         task.update(
             "waiting_login",
-            "브라우저에서 '간편인증' 탭 → '카카오톡(TALK)' 선택 후\n"
+            f"브라우저에서 '간편인증' 탭 → '{pv}' 선택 후\n"
             "본인인증 정보(이름·생년월일·전화번호)를 입력하고 '인증 요청'을 클릭해주세요.\n"
-            "📱 카카오톡 알림 허용 후 자동으로 진행됩니다.",
+            f"📱 {pv} 알림 허용 후 자동으로 진행됩니다.",
             ss,
         )
 
@@ -507,11 +513,12 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None) -> None:
             # ⑤ 전자서명(간편인증 재요구)이 뜨면 자동입력+인증요청, 폰 승인은 본인
             sign_frame = await _get_simplecert_frame(page, timeout_sec=3)
             if sign_frame is not None:
-                await click_kakaotalk_in_anyid(sign_frame)
+                _prov = str((user_info or {}).get("auth_provider", "kakao") or "kakao")
+                await click_provider_in_anyid(sign_frame, _prov)
                 await asyncio.sleep(1)
                 if await _autofill_auth_form(sign_frame, user_info) and re.sub(r"[^0-9]", "", str((user_info or {}).get("birth_date", ""))):
                     await _request_auth(sign_frame)
-                task.update("waiting_login", "📱 전자서명 인증이에요 — 카카오톡 [인증 허용]을 눌러주세요.", await take_screenshot(page))
+                task.update("waiting_login", f"📱 전자서명 인증이에요 — {provider_display(_prov)} [인증 허용]을 눌러주세요.", await take_screenshot(page))
                 for _ in range(120):
                     await asyncio.sleep(2)
                     t = await _txt()

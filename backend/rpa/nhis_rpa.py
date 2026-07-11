@@ -170,10 +170,17 @@ async def _open_easy_auth_widget(page, task) -> bool:
     return False
 
 
-# ── Step 3: 카카오톡 클릭 ─────────────────────────────────────────────────────
+# ── Step 3: 인증수단 클릭(기본 카카오톡) ─────────────────────────────────────
 
-async def _click_kakao(page, task) -> bool:
-    """anyid 위젯에서 카카오톡 클릭 — mouse.click() 좌표 방식"""
+async def _click_kakao(page, task, provider: str = "kakao") -> bool:
+    """anyid 위젯에서 선택 인증수단 클릭 — mouse.click() 좌표 방식.
+
+    li 텍스트 '정확 일치' 우선(기존 카카오 검증 방식 유지), 못 찾으면 '포함 매칭' 폴백
+    (PASS는 위젯마다 '통신사PASS'/'PASS' 표기가 갈림). 뱅크류는 exclude로 오클릭 방지.
+    """
+    from rpa.base import AUTH_PROVIDERS, provider_display
+    p = AUTH_PROVIDERS.get(str(provider or "").lower(), AUTH_PROVIDERS["kakao"])
+    pv = provider_display(provider)
     for attempt in range(20):
         # 보안 팝업 먼저 처리
         dismissed = await page.evaluate(_JS_DISMISS_SECURITY)
@@ -181,31 +188,35 @@ async def _click_kakao(page, task) -> bool:
             task.update("running", f"보안 팝업 {dismissed}개 닫음")
             await asyncio.sleep(0.5)
 
-        # JS로 카카오톡 요소 좌표 획득 — width>0 인 li만 선택
+        # JS로 대상 요소 좌표 획득 — width>0 인 li만 선택(숨겨진 중복 요소 회피)
         rect = await page.evaluate("""
-            () => {
-                // 숨겨진 중복 요소를 피하기 위해 width>0 조건 필수
-                const li = Array.from(document.querySelectorAll('li')).find(l => {
-                    if (l.textContent.trim() !== '카카오톡') return false;
+            (cfg) => {
+                const lis = Array.from(document.querySelectorAll('li')).filter(l => {
                     const r = l.getBoundingClientRect();
                     return r.width > 0 && r.height > 0;
                 });
+                const t = (l) => l.textContent.trim();
+                const low = (l) => t(l).toLowerCase();
+                let li = lis.find(l => cfg.labels.includes(t(l)));                    // 정확 일치 우선
+                if (!li) li = lis.find(l => cfg.tokens.some(k => low(l).includes(k)) // 포함 매칭 폴백
+                                            && !cfg.exclude.some(x => low(l).includes(x)));
                 if (!li) return null;
                 const r = li.getBoundingClientRect();
                 return {x: r.left + r.width / 2, y: r.top + r.height / 2};
             }
-        """)
+        """, {"labels": p["labels"], "tokens": [k.lower() for k in p["tokens"]],
+              "exclude": [x.lower() for x in p["exclude"]]})
 
         if rect:
             await page.mouse.click(rect['x'], rect['y'])
             await asyncio.sleep(1.5)
-            task.update("running", f"카카오톡 mouse.click 완료 ({rect['x']:.0f},{rect['y']:.0f})")
+            task.update("running", f"{pv} mouse.click 완료 ({rect['x']:.0f},{rect['y']:.0f})")
             return True
 
         # 좌표를 못 얻으면 스크린샷 찍고 재시도
         if attempt == 0:
             ss = await take_screenshot(page)
-            task.update("running", "카카오톡 좌표 탐색 중...", ss)
+            task.update("running", f"{pv} 좌표 탐색 중...", ss)
 
         await asyncio.sleep(1)
     return False
@@ -472,18 +483,20 @@ async def run_nhis_rpa(task, user_info: dict = None) -> None:
                     # ③ 간편인증 위젯 열기
                     opened = await _open_easy_auth_widget(page, task)
                     ss = await take_screenshot(page)
+                    _prov = str(info.get("auth_provider", "kakao") or "kakao")
+                    from rpa.base import provider_display as _pd
                     if not opened:
                         task.update("waiting_login",
                             "⚠️ 간편인증 위젯 자동 오픈 실패.\n브라우저에서 '간편 인증 로그인 바로가기'를 클릭해주세요.", ss)
                     else:
-                        task.update("running", "간편인증 위젯 열림. 카카오톡 선택 중...", ss)
+                        task.update("running", f"간편인증 위젯 열림. {_pd(_prov)} 선택 중...", ss)
 
-                        # ④ 카카오톡 클릭
-                        kakao_ok = await _click_kakao(page, task)
+                        # ④ 인증수단 클릭(기본 카카오톡)
+                        kakao_ok = await _click_kakao(page, task, _prov)
                         ss = await take_screenshot(page)
 
                         if kakao_ok:
-                            task.update("running", "카카오톡 선택 완료. 폼 입력 중...", ss)
+                            task.update("running", f"{_pd(_prov)} 선택 완료. 폼 입력 중...", ss)
 
                             # ⑤ 폼 입력
                             filled = await _wait_and_fill_form(page, name, birth, prefix, suffix, task)

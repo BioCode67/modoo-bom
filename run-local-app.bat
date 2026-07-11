@@ -35,6 +35,8 @@ rem    강하고, 카카오 간편인증(본인이 직접)도 익숙한 크롬�
 set "RPA_ENABLED=1"
 set "RPA_BROWSER_CHANNEL=chrome"
 set "RPA_HEADLESS=0"
+rem 신청 양식 검토(기본 10분) 중 태스크 타임아웃으로 창이 닫히지 않게 여유 확보
+set "RPA_TASK_TIMEOUT=1800"
 set "PYTHONUTF8=1"
 set "MODOO_ENV=local"
 set "HOST=127.0.0.1"

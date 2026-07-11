@@ -2,6 +2,13 @@ import { ShieldCheck } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
 
 const CARRIERS = ['SKT', 'KT', 'LGU+', 'SKM', 'KTM', 'LGM']
+// 간편인증 수단 — 어르신 다수가 카카오 미사용(통신사 PASS 등)이라 선택 지원(복지관 현장 필수)
+const AUTH_PROVIDERS = [
+  { v: 'kakao', label: '카카오톡' },
+  { v: 'pass', label: '통신사 PASS' },
+  { v: 'naver', label: '네이버' },
+  { v: 'toss', label: '토스' },
+] as const
 
 /**
  * 에이전트 자동입력용 추가정보 입력(선택).
@@ -67,6 +74,23 @@ export function RpaInfoForm() {
             }`}
           >
             {c}
+          </button>
+        ))}
+      </div>
+      {/* 인증수단 — 폰에 깔린 앱으로 선택(카카오 없는 어르신은 통신사 PASS가 대부분) */}
+      <p className="text-[11px] font-bold text-muted-foreground pt-1">본인인증 앱 (폰에 있는 걸로 선택)</p>
+      <div className="flex flex-wrap gap-1" role="radiogroup" aria-label="간편인증 수단">
+        {AUTH_PROVIDERS.map(({ v, label }) => (
+          <button
+            key={v}
+            role="radio"
+            aria-checked={(rpaInfo.auth_provider || 'kakao') === v}
+            onClick={() => setRpaInfo({ auth_provider: v })}
+            className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold border transition-colors ${
+              (rpaInfo.auth_provider || 'kakao') === v ? 'bg-sprout-700 border-sprout-700 text-white' : 'bg-white border-sprout-100 text-muted-foreground hover:border-sprout-200'
+            }`}
+          >
+            {label}
           </button>
         ))}
       </div>

@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Optional, Callable
 
 
-def get_launch_options(slow_mo: int = 300) -> dict:
+def get_launch_options(slow_mo: int = None) -> dict:
     """모든 RPA가 공통으로 쓰는 브라우저 실행 옵션.
 
     윈도우에서는 Playwright 번들 Chromium이 일부 잠긴(관리형) PC에서 SxS(부속 구성)
@@ -20,6 +20,10 @@ def get_launch_options(slow_mo: int = 300) -> dict:
       - RPA_BROWSER_CHANNEL : 'msedge' | 'chrome' | '' (빈 값이면 번들 Chromium 강제)
       - RPA_HEADLESS=1      : 창 없이 실행. 기본은 headed(본인인증 위해 창 표시).
     """
+    # slow_mo: 모든 액션에 걸리는 지연(ms) — 과거 300ms는 클릭·입력마다 0.3초씩 쌓여 '버벅임'의 주범.
+    # nhis가 100ms로 장기 검증돼 있어 기본 120ms로 통일(RPA_SLOW_MO 로 현장에서 즉시 조절 가능).
+    if slow_mo is None:
+        slow_mo = max(0, int(os.getenv("RPA_SLOW_MO", "120")))
     opts = {
         "headless": os.getenv("RPA_HEADLESS", "0") == "1",
         "slow_mo": slow_mo,
@@ -68,7 +72,7 @@ def _browser_candidates() -> list[str]:
     return uniq
 
 
-async def launch_browser(pw, slow_mo: int = 300):
+async def launch_browser(pw, slow_mo: int = None):
     """가용 브라우저를 우선순위로 시도해 첫 성공을 반환(설치 안 된 채널은 건너뜀).
 
     Chrome→Edge→번들 Chromium 순 폴백이라, 특정 브라우저 미설치 PC에서도 자동발급이 끊기지 않는다.
@@ -260,27 +264,60 @@ LOGIN_PAGE_URL_KEYWORDS = [
 ]
 
 
-async def click_kakaotalk_in_anyid(page) -> bool:
+# ── 간편인증 제공자 정의 — 어르신 다수가 카카오 미사용(통신사 PASS 등)이라 수단 선택 필수(복지관 현장) ──
+# labels: has-text/alt 정확 매칭용 표시 라벨 · tokens: JS 텍스트 포함 매칭 · loose: 최후 폴백 · exclude: 오클릭 방지
+AUTH_PROVIDERS = {
+    "kakao": {"labels": ["카카오톡"], "tokens": ["카카오톡", "kakaotalk"], "loose": ["카카오", "kakao"],
+              "exclude": ["뱅크", "bank"], "display": "카카오톡"},
+    "pass":  {"labels": ["통신사PASS", "통신사 PASS", "PASS"], "tokens": ["통신사pass", "통신사 pass", "pass(통신사)"],
+              "loose": ["pass", "통신사"], "exclude": ["카카오", "kakao", "password", "페이코", "payco"], "display": "통신사 PASS"},
+    "naver": {"labels": ["네이버"], "tokens": ["네이버", "naver"], "loose": ["네이버"],
+              "exclude": ["뱅크", "bank", "페이", "웨일"], "display": "네이버"},
+    "toss":  {"labels": ["토스"], "tokens": ["토스", "toss"], "loose": ["토스"],
+              "exclude": ["뱅크", "bank"], "display": "토스"},
+}
+
+
+def provider_display(provider: str) -> str:
+    """안내 문구용 제공자 표시명 — 미지정/오타는 카카오톡."""
+    return AUTH_PROVIDERS.get(str(provider or "").lower(), AUTH_PROVIDERS["kakao"])["display"]
+
+
+async def click_provider_in_anyid(page, provider: str = "kakao") -> bool:
+    """간편인증 위젯(anyid·simpleCert 등)에서 선택한 제공자를 정확히 클릭.
+
+    카카오는 실측 검증된 KAKAOTALK_SELECTORS 경로를 그대로 쓰고, 그 외 제공자는
+    동일 3단계(정확 셀렉터 → JS 토큰 매칭 → 느슨한 폴백)를 제공자 테이블로 일반화한다.
+    (뱅크/페이 등 유사 항목 오클릭은 exclude로 차단)
     """
-    anyid 모달에서 카카오톡을 정확히 클릭.
-    카카오뱅크/카카오스토리와 혼동하지 않도록 '톡'/'kakaotalk' 텍스트만 매칭.
-    """
-    # 1단계: Playwright 선택자
-    for sel in KAKAOTALK_SELECTORS:
+    p = AUTH_PROVIDERS.get(str(provider or "").lower(), AUTH_PROVIDERS["kakao"])
+
+    # 1단계: Playwright 선택자 — 카카오는 검증된 테이블, 그 외는 라벨 기반 생성
+    if p is AUTH_PROVIDERS["kakao"]:
+        selectors = KAKAOTALK_SELECTORS
+    else:
+        selectors = []
+        for lab in p["labels"]:
+            selectors += [
+                f"a[title*='{lab}']", f"img[alt*='{lab}']",
+                f"label:has-text('{lab}')", f"li:has-text('{lab}')",
+                f"a:has-text('{lab}')", f"button:has-text('{lab}')",
+            ]
+    for sel in selectors:
         try:
             el = page.locator(sel).first
             if await el.count() > 0:
                 await el.scroll_into_view_if_needed()
                 await el.click()
-                await asyncio.sleep(1.5)
+                await asyncio.sleep(1.2)
                 return True
         except Exception:
             continue
 
-    # 2단계: JS — '카카오톡'/'kakaotalk' 포함, '뱅크'/'bank' 제외
+    # 2단계: JS — 토큰 포함 + exclude 제외 (텍스트·alt·title·data-*·클래스 종합)
     try:
         result = await page.evaluate("""
-            () => {
+            (cfg) => {
                 const all = [...document.querySelectorAll('a, button, li, span, img, div')];
                 const candidates = all.filter(el => {
                     const text = (
@@ -291,8 +328,8 @@ async def click_kakaotalk_in_anyid(page) -> bool:
                         (el.getAttribute('data-provider') || '') +
                         el.className
                     ).toLowerCase();
-                    return (text.includes('카카오톡') || text.includes('kakaotalk')) &&
-                           !text.includes('뱅크') && !text.includes('bank');
+                    return cfg.tokens.some(t => text.includes(t)) &&
+                           !cfg.exclude.some(x => text.includes(x));
                 });
                 if (candidates.length > 0) {
                     const el = candidates[0];
@@ -304,36 +341,41 @@ async def click_kakaotalk_in_anyid(page) -> bool:
                 }
                 return false;
             }
-        """)
+        """, {"tokens": [t.lower() for t in p["tokens"]], "exclude": [x.lower() for x in p["exclude"]]})
         if result:
-            await asyncio.sleep(1.5)
+            await asyncio.sleep(1.2)
             return True
     except Exception:
         pass
 
-    # 3단계: JS — anyid 리스트에서 마지막 카카오 항목 (카카오톡이 보통 하단)
+    # 3단계: JS — 느슨한 매칭의 마지막 항목(위젯 목록에서 본계열이 보통 하단)
     try:
         result = await page.evaluate("""
-            () => {
+            (cfg) => {
                 const all = [...document.querySelectorAll('a, button, li')];
-                const kakaoItems = all.filter(el => {
+                const items = all.filter(el => {
                     const t = (el.textContent + el.className).toLowerCase();
-                    return t.includes('카카오') || t.includes('kakao');
+                    return cfg.loose.some(k => t.includes(k)) && !cfg.exclude.some(x => t.includes(x));
                 });
-                if (kakaoItems.length > 0) {
-                    kakaoItems[kakaoItems.length - 1].click();
-                    return kakaoItems.length;
+                if (items.length > 0) {
+                    items[items.length - 1].click();
+                    return items.length;
                 }
                 return 0;
             }
-        """)
+        """, {"loose": [k.lower() for k in p["loose"]], "exclude": [x.lower() for x in p["exclude"]]})
         if result:
-            await asyncio.sleep(1.5)
+            await asyncio.sleep(1.2)
             return True
     except Exception:
         pass
 
     return False
+
+
+async def click_kakaotalk_in_anyid(page) -> bool:
+    """(호환 래퍼) anyid 모달에서 카카오톡 클릭 — click_provider_in_anyid('kakao')."""
+    return await click_provider_in_anyid(page, "kakao")
 
 
 async def detect_auth_form(page) -> bool:

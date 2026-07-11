@@ -18,7 +18,7 @@ import asyncio
 from rpa.base import (
     take_screenshot, wait_for_login,
     click_first_matching, click_by_text, make_browser_context_args,
-    click_kakaotalk_in_anyid, detect_auth_form, AUTH_FORM_USER_GUIDE,
+    click_provider_in_anyid, provider_display, detect_auth_form, AUTH_FORM_USER_GUIDE,
     LOGIN_PAGE_URL_KEYWORDS, get_launch_options, launch_browser,
     click_eform_button, get_frame_by_url,
 )
@@ -62,7 +62,7 @@ SUBMIT_BUTTON_SELECTORS = [
 ]
 
 
-async def _login_bokjiro(page, task) -> bool:
+async def _login_bokjiro(page, task, provider: str = "kakao") -> bool:
     """복지로 로그인 (eForm 간편인증 → yeskey fincert → 카카오톡).
 
     복지로는 Clipsoft eForm SPA라 간편인증 버튼이 .cl-button 컴포넌트이고, 인증 위젯은
@@ -70,10 +70,11 @@ async def _login_bokjiro(page, task) -> bool:
     사용자가 직접 수행한다(비가역 본인인증 원칙). RPA는 위젯까지 안정적으로 도달시킨다.
     """
     login_url = page.url
+    pv = provider_display(provider)
     ss = await take_screenshot(page)
     task.update("running", "복지로 로그인 페이지 — 간편인증 선택 중...", ss)
 
-    await asyncio.sleep(2)
+    await asyncio.sleep(1)
 
     # 간편인증: eForm 컴포넌트(cl-button) 우선 → 표준 셀렉터/텍스트 폴백
     clicked_simple = await click_eform_button(page, "간편인증")
@@ -83,21 +84,22 @@ async def _login_bokjiro(page, task) -> bool:
         ])
     if not clicked_simple:
         clicked_simple = await click_by_text(page, ["간편인증", "간편 인증", "간편로그인", "간편 로그인"])
-    await asyncio.sleep(3)
+    # fincert iframe 로드는 아래 get_frame_by_url 이 폴링으로 대기 — 고정 3초는 잉여라 제거(버벅임)
+    await asyncio.sleep(0.5)
 
     # 간편인증 위젯은 메인 페이지 오버레이 또는 fincert iframe 중 하나에 렌더된다 → 양쪽에서 시도
     frame = await get_frame_by_url(page, FINCERT_FRAME_KEYWORD, timeout_sec=8)
     contexts = [page] + ([frame] if frame else [])
     ss = await take_screenshot(page)
-    task.update("running", "간편인증 위젯 로드됨 — '카카오톡' 선택 중...", ss)
+    task.update("running", f"간편인증 위젯 로드됨 — '{pv}' 선택 중...", ss)
 
-    # 카카오톡 선택 (카카오뱅크 제외). 위젯이 있는 컨텍스트를 찾아 클릭.
+    # 인증수단 선택(뱅크류 오클릭 제외). 위젯이 있는 컨텍스트를 찾아 클릭.
     kakaotalk_clicked = False
     for ctx_ in contexts:
-        if await click_kakaotalk_in_anyid(ctx_):
+        if await click_provider_in_anyid(ctx_, provider):
             kakaotalk_clicked = True
             break
-    await asyncio.sleep(2)
+    await asyncio.sleep(1)
     ss = await take_screenshot(page)
 
     form_detected = any([await detect_auth_form(ctx_) for ctx_ in contexts])
@@ -105,13 +107,13 @@ async def _login_bokjiro(page, task) -> bool:
         task.update("waiting_login", AUTH_FORM_USER_GUIDE, ss)
     elif kakaotalk_clicked:
         task.update("waiting_login",
-            "📱 카카오톡 간편인증 화면이 열렸습니다.\n"
-            "스마트폰 카카오톡 알림에서 [인증 허용]을 눌러주세요.\n"
+            f"📱 {pv} 간편인증 화면이 열렸습니다.\n"
+            f"스마트폰 {pv} 알림에서 [인증 허용]을 눌러주세요.\n"
             "인증 완료 후 자동으로 진행됩니다.", ss)
     else:
         task.update("waiting_login",
-            "브라우저에서 '간편인증' → '카카오톡' 선택 후\n"
-            "본인인증을 완료해주세요. 📱 카카오톡 알림 허용 후 자동 진행됩니다.", ss)
+            f"브라우저에서 '간편인증' → '{pv}' 선택 후\n"
+            f"본인인증을 완료해주세요. 📱 {pv} 알림 허용 후 자동 진행됩니다.", ss)
 
     login_ok = await wait_for_login(page, task, timeout_sec=300, login_url=login_url)
     if not login_ok:
@@ -121,6 +123,49 @@ async def _login_bokjiro(page, task) -> bool:
     ss = await take_screenshot(page)
     task.update("running", f"✅ 복지로 로그인 완료!\n현재: {page.url}", ss)
     return True
+
+
+async def _auto_attach(target_page, issued) -> list:
+    """파일 첨부칸의 주변 문맥(가장 가까운 행/라벨 텍스트)과 발급 서류명을 대조해 '확신 매칭'만 자동 첨부.
+
+    - 첨부칸 문맥에 서류명이 그대로 등장할 때만 그 칸에 set_input_files (오첨부 방지)
+    - 첨부칸 1개 + 발급 서류 1종이면 모호성이 없으므로 문맥 없이도 첨부
+    - 실패는 조용히 건너뛰고(안내 폴백), 무엇을 어디에 붙였는지 목록으로 반환
+    """
+    attached: list = []
+    try:
+        inputs = target_page.locator("input[type='file']")
+        n = await inputs.count()
+    except Exception:
+        return attached
+    used_docs: set = set()
+    for i in range(n):
+        el = inputs.nth(i)
+        try:
+            ctx_text = await el.evaluate(
+                "e => ((e.closest('tr,li,dl,.row,.form-group') || e.parentElement)?.innerText || '').slice(0, 300)"
+            )
+        except Exception:
+            ctx_text = ""
+        compact = (ctx_text or "").replace(" ", "")
+        for doc_name, path in issued:
+            key = str(doc_name).replace(" ", "")
+            if key and key in compact and doc_name not in used_docs:
+                try:
+                    await el.set_input_files(path)
+                    used_docs.add(doc_name)
+                    label = (ctx_text or "").strip().splitlines()[0][:30] if ctx_text else f"{i + 1}번째 칸"
+                    attached.append(f"{doc_name} → '{label}'")
+                except Exception:
+                    pass
+                break
+    if not attached and n == 1 and len(issued) == 1:
+        try:
+            await inputs.first.set_input_files(issued[0][1])
+            attached.append(f"{issued[0][0]} → 첨부칸")
+        except Exception:
+            pass
+    return attached
 
 
 def _valid_bokjiro_url(url: str) -> bool:
@@ -154,6 +199,7 @@ async def run_apply_rpa(task, service_name: str, profile: dict) -> None:
         return
 
     service_url = resolve_apply_url(service_name, profile)
+    provider = str((profile or {}).get("auth_provider", "kakao") or "kakao")
 
     try:
         async with async_playwright() as pw:
@@ -173,7 +219,7 @@ async def run_apply_rpa(task, service_name: str, profile: dict) -> None:
             await asyncio.sleep(3)
 
             # ② 로그인
-            login_ok = await _login_bokjiro(page, task)
+            login_ok = await _login_bokjiro(page, task, provider)
             if not login_ok:
                 await browser.close()
                 return
@@ -189,7 +235,7 @@ async def run_apply_rpa(task, service_name: str, profile: dict) -> None:
 
             # 로그인 재요구 처리
             if any(k in page.url for k in LOGIN_PAGE_URL_KEYWORDS):
-                login_ok = await _login_bokjiro(page, task)
+                login_ok = await _login_bokjiro(page, task, provider)
                 if not login_ok:
                     await browser.close()
                     return
@@ -247,17 +293,23 @@ async def run_apply_rpa(task, service_name: str, profile: dict) -> None:
             await _fill(["input[placeholder*='생년월일']", "input[name*='brthdy']", "input[name*='birth']"], birth)
             await _fill(["input[placeholder*='휴대폰']", "input[placeholder*='연락처']", "input[name*='telno']", "input[name*='phone']"], phone)
 
-            # ⑦ 서류 첨부 '안내'(자동 첨부는 안 함) — 첨부칸은 특정 서류에 대응하는데, 엉뚱한 서류를
-            #    오첨부하면 사용자가 그대로 제출하는 위험이 있어, 어떤 서류를 어디서 첨부할지 정확히 안내한다.
-            #    '전자문서지갑' 방식이면 종이·첨부 없이 전자제출되므로 그걸 권장한다(정부 공식·무설치 정답).
+            # ⑦ 발급 서류 '자동 첨부' — 첨부칸 주변 문맥(라벨·행 텍스트)과 발급 서류명이 일치하는
+            #    '확신 매칭'만 자동으로 붙인다(오첨부 방지). 단일 첨부칸+단일 발급서류처럼 모호성이
+            #    없는 경우도 첨부. 애매하면 기존처럼 정확 안내로 폴백. 제출은 여전히 본인 확인 후.
+            #    (정부24 담당 확인: 정상적 발급·신청 목적의 자동화 접근은 허용 — 2026-07 사용자 확인)
             from rpa.base import recent_issued_docs, DOCS_DIR
             try:
                 has_file_input = await target_page.locator("input[type='file']").count() > 0
             except Exception:
                 has_file_input = False
             issued = recent_issued_docs()
+            attached = await _auto_attach(target_page, issued) if (has_file_input and issued) else []
             attach_guide = ""
-            if has_file_input:
+            if attached:
+                lst = "\n".join(f"   ✓ {a}" for a in attached)
+                attach_guide = (f"\n\n📎 발급해둔 서류를 자동으로 첨부했어요:\n{lst}\n"
+                                f"   제출 전 첨부칸에서 맞게 붙었는지 한 번만 확인해주세요.")
+            elif has_file_input:
                 try:
                     await target_page.locator("input[type='file']").first.scroll_into_view_if_needed(timeout=3000)
                 except Exception:
@@ -284,23 +336,34 @@ async def run_apply_rpa(task, service_name: str, profile: dict) -> None:
                 f"\n3. 모든 내용 확인 후 '신청' 버튼을 클릭해주세요\n\n"
                 f"⚠️ 제출은 반드시 직접 확인 후 진행해주세요.", ss)
 
-            # 브라우저를 60초간 유지 (사용자가 직접 확인/제출)
+            # 사용자 검토·제출 동안 브라우저 유지 — 기본 10분(RPA_REVIEW_WINDOW 초).
+            # ⚠️ 과거 60초는 어르신·현장에서 검토 중에 창이 사라지는 문제 → 대폭 확장.
+            #    사용자가 창을 직접 닫으면 조기 종료(불필요한 대기 없음).
+            import os as _os
             task.result = {"success": True, "service_name": service_name, "status": "form_ready"}
-            await asyncio.sleep(60)
+            review_sec = max(60, int(_os.getenv("RPA_REVIEW_WINDOW", "600")))
+            for _ in range(review_sec // 5):
+                await asyncio.sleep(5)
+                try:
+                    if not context.pages or all(p.is_closed() for p in context.pages):
+                        break
+                except Exception:
+                    break
 
-            # 최종 스크린샷
+            # 최종 스크린샷(창이 남아있을 때만)
+            ss = None
             try:
-                final_page = context.pages[-1] if len(context.pages) > 1 else page
-                ss = await take_screenshot(final_page)
+                open_pages = [p for p in context.pages if not p.is_closed()]
+                if open_pages:
+                    ss = await take_screenshot(open_pages[-1])
             except Exception:
-                ss = await take_screenshot(page)
+                pass
 
             task.update("done",
                 f"✅ '{service_name}' 신청 절차 안내 완료!\n"
                 "브라우저에서 신청을 마저 진행하거나 나중에 복지로(www.bokjiro.go.kr)에서 신청하실 수 있습니다.\n"
                 "문의: ☎ 129 (복지로 콜센터)", ss)
 
-            await asyncio.sleep(30)
             await browser.close()
 
     except Exception as e:

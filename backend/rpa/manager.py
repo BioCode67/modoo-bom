@@ -248,7 +248,7 @@ def start_rpa_task(doc_name: str, user_name: str, user_info: dict = None) -> str
             await run_nhis_rpa(task, _info)
         elif rpa_type == "work24":
             from rpa.work24_rpa import run_work24_rpa
-            await run_work24_rpa(task)
+            await run_work24_rpa(task, _info)
 
     _spawn_bg(_guarded_run(task, run_coro))
     return task_id

@@ -12,6 +12,8 @@ def main():
     os.environ.setdefault("RPA_BROWSER_CHANNEL", "chrome")
     os.environ.setdefault("HOST", "127.0.0.1")
     os.environ.setdefault("PORT", "8000")
+    # 로컬(1인) 사용: 신청 양식 검토 10분 + 로그인 대기까지 여유 있게 — 검토 중 타임아웃으로 창이 닫히지 않게
+    os.environ.setdefault("RPA_TASK_TIMEOUT", "1800")
     # 브라우저 자동 오픈은 local_server.main()이 서버 준비 후 한 번만 처리(중복 오픈 방지).
     import local_server
     local_server.main()
