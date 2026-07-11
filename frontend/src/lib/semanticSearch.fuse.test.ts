@@ -51,3 +51,20 @@ describe('keywordLane', () => {
     expect(out[0].name.replace(/\s/g, '')).toContain('기초연금')
   })
 })
+
+describe('영어 문장 → 일반 검색 잡음 차단(fieldScore 1글자 한글 한정)', () => {
+  it('영어 관사·대명사(a/I)가 라틴 표기 정책명(AI·MRI 등)에 오탐되지 않는다', async () => {
+    const { searchPolicies } = await import('./search')
+    const { getCatalog } = await import('@/data/catalog')
+    const out = searchPolicies(getCatalog(), 'I am a single mother raising a child alone').slice(0, 6)
+    const noise = out.filter((p) => /MRI|BIG3|AI·디지털|AI 안부/.test(p.name))
+    expect(noise).toEqual([])
+  })
+
+  it('한글 1글자 사용자어("암")는 여전히 허용된다', async () => {
+    const { searchPolicies } = await import('./search')
+    const { getCatalog } = await import('@/data/catalog')
+    const out = searchPolicies(getCatalog(), '암')
+    expect(out.some((p) => p.name.includes('암'))).toBe(true)
+  })
+})

@@ -84,7 +84,9 @@ function fieldScore(p: Policy | EligiblePolicy, t: string, isUserTerm = false): 
   // 그것도 이름의 '시작' 또는 '비한글 경계' 매칭만 인정한다 — '암'→'암환자의료비지원' O,
   // '집'→'어린이집'(중간) X, '암'→'영암군'(중간) X. 본문/분류 substring은 노이즈라 보지 않는다.
   if (t.length < 2) {
-    if (!isUserTerm) return 0
+    // 사용자가 직접 친 '한글' 1글자('암'·'집')만 예외 — 영어 1글자(a/I: 관사·대명사)는
+    // 정책명의 라틴 표기('(AI·디지털)'·'MRI'·'HAPPY I')에 오탐돼 영어 문장 검색을 잡음으로 오염(적대 리뷰 확정).
+    if (!isUserTerm || !/[가-힣]/.test(t)) return 0
     const esc = t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
     return name.startsWith(t) || new RegExp(`[^가-힣]${esc}`).test(name) ? 3 : 0
   }
