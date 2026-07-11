@@ -93,9 +93,9 @@ export function SproutMascot({ animate = true }: { animate?: boolean }) {
         <meshStandardMaterial color="#fb7185" transparent opacity={0.6} />
       </mesh>
 
-      {/* 입(작은 캡슐) */}
-      <mesh position={[0, 0.76, 0.57]} rotation={[Math.PI / 2, 0, 0]}>
-        <capsuleGeometry args={[0.03, 0.12, 4, 8]} />
+      {/* 입 — 2D 로고와 동일한 '웃는 곡선'(아래로 볼록한 반원 호) */}
+      <mesh position={[0, 0.8, 0.56]} rotation={[0, 0, Math.PI]}>
+        <torusGeometry args={[0.09, 0.022, 8, 20, Math.PI]} />
         <meshStandardMaterial color="#1f3d2b" />
       </mesh>
 

@@ -152,11 +152,12 @@ export function Hero() {
           transition={{ duration: 0.7, delay: 0.1 }}
           className="order-1 lg:order-2 relative"
         >
-          {/* 말풍선 — 마스코트 위에 겹쳐 '새싹이가 말하는' 느낌 */}
-          <div className="relative z-20 px-2 -mb-2 lg:mb-0 lg:absolute lg:top-2 lg:left-0 lg:right-4">
+          {/* 말풍선 — 마스코트 '위쪽'에 흐름 배치(꼬리가 아래 새싹이를 가리켜 말하는 느낌).
+              절대배치(z-20 오버레이)는 데스크탑에서 새싹이 얼굴을 가려 제거함. */}
+          <div className="relative z-20 px-2 -mb-2">
             <HeroAgentBubble onFocusInput={focusInput} />
           </div>
-          <div className="h-[300px] sm:h-[420px] lg:h-[520px]">
+          <div className="h-[300px] sm:h-[420px] lg:h-[440px]">
             <MascotCanvas />
           </div>
         </motion.div>
