@@ -54,7 +54,7 @@
 
 ## 기술 스택 요약
 - **Frontend**: React 18 · Vite · TypeScript · Tailwind · React Three Fiber(3D) · framer-motion · **transformers.js(온디바이스 AI)** · zustand · PWA
-- **Backend**: FastAPI · LangGraph(10노드 에이전트) · ChromaDB(RAG) · **Playwright RPA** · Anthropic Claude(또는 Mock 모드)
+- **Backend**: FastAPI · LangGraph(10노드 에이전트) · ChromaDB(RAG) · **Playwright RPA** · LLM Gemini 2.5 Flash(Groq·Claude 자동 폴백, 키 없으면 규칙 모드)
 
 ## 정직성 원칙 (과장하지 않음)
 - 완전 무인 자동 제출은 **설계상 불가**(정부 본인인증 필수 + 비가역) — human-in-the-loop가 정답.
