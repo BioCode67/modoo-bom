@@ -76,12 +76,12 @@ save(fig, 'chart3-페르소나발견가치.png')
 fig, ax = plt.subplots(figsize=(9.2, 5.0))
 fig.patch.set_facecolor(BG); ax.set_facecolor(BG)
 items = ['프론트 단위테스트', '백엔드 pytest', 'E2E 실브라우저 여정', '신청·발급 URL 생존검사', '접근성(Lighthouse)']
-vals4 = [353, 34, 10, 70, 96]
-labels4 = ['353개 통과', '34개 통과', '10개 여정 · 에러 0', '70건 중 69건 생존(1건 즉시 정정)', '96점 / BP·SEO 100점']
+vals4 = [563, 84, 11, 70, 100]  # 2026-07-11 실측(백엔드는 경량 환경 기준 84 이상, Lighthouse는 라이브 측정 100)
+labels4 = ['563개 통과', '84개+ 통과', '11개 여정 · 에러 0', '70건 중 69건 생존(1건 즉시 정정)', '100점 / BP·SEO 100점']
 bars = ax.barh(items[::-1], vals4[::-1], color=[SKY, ROSE, PEACH, LIGHT, GREEN][::-1], edgecolor='white')
 for b, lab in zip(bars, labels4[::-1]):
     ax.text(b.get_width() + 4, b.get_y() + b.get_height()/2, lab, va='center', fontsize=11, fontweight='bold', color=DARK)
-ax.set_xlim(0, 460)
+ax.set_xlim(0, 700)
 ax.set_title('품질을 숫자로 증명 — 자동 검증 게이트 (매 변경마다 실행)', fontsize=15, fontweight='bold', color=DARK, pad=12)
 ax.spines[['top', 'right']].set_visible(False)
 ax.tick_params(labelsize=11.5); ax.set_xticks([])
