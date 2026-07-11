@@ -40,6 +40,13 @@ echo === [4/5] 백엔드 pytest ===
 if defined PYFULL (
   "%PYFULL%" -m pytest backend\tests -q
   if errorlevel 1 (set "FAIL=1"& echo [FAIL] pytest) else (echo [OK] pytest)
+) else if exist "backend\venv-local\Scripts\python.exe" (
+  rem 전체 venv 없으면 경량 venv로 부분 실행 — chromadb/langgraph 의존 모듈만 제외(스킵보다 훨씬 낫다)
+  "backend\venv-local\Scripts\python.exe" -m pytest backend\tests -q ^
+    --ignore=backend\tests\test_rpa_parity.py --ignore=backend\tests\test_security.py ^
+    --ignore=backend\tests\test_mock_mode.py --ignore=backend\tests\test_robustness.py ^
+    --ignore=backend\tests\test_rpa_safety.py
+  if errorlevel 1 (set "FAIL=1"& echo [FAIL] pytest-lean) else (echo [OK] pytest-lean ^(전체 venv 없음 — chromadb 의존 5모듈 제외^))
 ) else (
   echo [SKIP] backend\venv 없음 — venv 생성 후 requirements 설치하고 재실행
 )
