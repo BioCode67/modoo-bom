@@ -23,7 +23,7 @@ OpenAI 키가 없어도 **Mock 모드**로 전체 파이프라인이 동작한�
 ### Backend (`backend/`) — Python 3.11+
 - **FastAPI 0.115** + uvicorn — REST + WebSocket 서버
 - **LangGraph 0.2.56** + LangChain 0.3 — 10노드 StateGraph 에이전트
-- **langchain-anthropic** — LLM은 **Claude** 사용 (GPT 아님 — README 본문은 구버전 잔재)
+- **LLM** — 지식형 챗은 **Gemini 2.5 Flash**(실패 시 Groq→Claude 자동 폴백, `agents/llm.py FallbackChatLLM`). langchain-google-genai/groq/anthropic 모두 설치, 키 없으면 규칙 모드.
 - **ChromaDB 0.5.23** — 복지 정책 RAG (sentence-transformers 내장 임베딩, 별도 임베딩 API 불필요)
 - **Playwright** — 정부24·건강보험공단·고용24 실제 브라우저 RPA
 - **pydantic 2.10** — AgentState / UserProfile 스키마
@@ -84,8 +84,8 @@ src/
   현대차 정몽구 스칼러십·관정·삼성꿈장학·미래에셋(장학) + 심장재단·백혈병어린이·아산SOS·초록우산·밀알(의료·위기·장애) —
   전 항목 공식 사이트 실측 검증·URL 생존 확인, 심사·선발형 명시, 엔진에선 저신뢰 '관련 복지'로만 노출(과장 방지))
   + 한국사회보장정보원 공공데이터 OpenAPI(B554287)로
-  **중앙부처 367 + 지자체 4,598 = 약 4,965건 실데이터**(`public/policies.json`, 약 3.3MB·gh-pages gzip 전송)를
-  런타임 병합 → 총 **약 5,250건**. 이름 기준 디듑(시드 우선). 가짜 데이터 미생성 원칙.
+  **중앙부처 460 + 지자체 4,683 = 약 5,143건 실데이터**(`public/policies.json`, 약 3.3MB·gh-pages gzip 전송)를
+  런타임 병합 → 총 **약 5,300건**(이름 디듑 후). 이름 기준 디듑(시드 우선). 가짜 데이터 미생성 원칙.
   키는 `backend/.env`의 `DATA_GO_KR_SERVICE_KEY`, 수집은 `python etl/ingest_welfare.py --csv <중앙CSV> --local`
   (ETL은 https+페이지 재시도로 견고). 더 받으려면 중앙부처(15090532)도 활용신청 후 `--api`.
   + **정책서민금융 큐레이션 5건**(`src/data/financialPolicies.ts`, FIN-###: 소액생계비대출·햇살론유스·햇살론 일반/특례·미소금융 —

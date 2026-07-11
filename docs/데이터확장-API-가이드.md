@@ -1,7 +1,7 @@
 # 데이터 확장 — 어떤 API가 필요한가 (정리)
 
 > 사용자 요청("api 필요하면 정리해서 말해줘")에 대한 정리. **키 발급이 필요한 것**과
-> **키 없이 가능한 것**을 나눠 적는다. 현재 데이터: 시드 큐레이션 152 + 공공데이터 5,061 ≈ **5,180여 건**.
+> **키 없이 가능한 것**을 나눠 적는다. 현재 데이터: 시드 큐레이션 190 + 공공데이터 5,143 ≈ **약 5,300건**.
 
 ---
 
@@ -9,7 +9,7 @@
 
 | API | 제공 | 상태 | 산출 |
 |---|---|---|---|
-| **한국사회보장정보원 복지서비스 (B554287)** | data.go.kr OpenAPI | ✅ 사용 중(`backend/.env`의 `DATA_GO_KR_SERVICE_KEY`) | 중앙부처 463 + 지자체 4,598 = **5,061건** → `public/policies.json` |
+| **한국사회보장정보원 복지서비스 (B554287)** | data.go.kr OpenAPI | ✅ 사용 중(`backend/.env`의 `DATA_GO_KR_SERVICE_KEY`) | 중앙부처 460 + 지자체 4,683 = **5,143건** → `public/policies.json` |
 
 수집 방법: `cd backend && python etl/ingest_welfare.py --api`(또는 CSV 모드). 결과를 `frontend/public/policies.json`에 병합.
 
