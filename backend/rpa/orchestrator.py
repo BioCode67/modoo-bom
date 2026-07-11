@@ -82,7 +82,7 @@ async def _run_step_doc(task, doc_name, user_info):
         await run_nhis_rpa(task, user_info)
     elif rpa_type == "work24":
         from rpa.work24_rpa import run_work24_rpa
-        await run_work24_rpa(task)
+        await run_work24_rpa(task, user_info)  # 인증수단(auth_provider) 포함
 
 
 async def _run_journey(jid, user_info, profile):
