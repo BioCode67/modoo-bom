@@ -189,8 +189,27 @@ function checkPolicyDoc(doc: string, name: string, p: UserProfile): CheckResult 
       return { eligible: true, reason: '업무상 재해(산재) 대상', priority: 'high', confidence: 0.85 }
     return NO
   }
+  // ── 수급가구 + 취약구성원 나열형 (예: 에너지바우처) ──
+  // eligibility가 '생계·의료급여 수급 가구이면서 노인·영유아·장애인·임산부·중증질환자·한부모 구성원 포함'처럼
+  // 여러 구성원 유형을 OR로 나열하는 정책은, 임신 하드게이트로 배제하지 말고(비임신 노인 수급자 탈락 방지, 감사 확정)
+  // '수급(소득) + 본인이 나열된 구성원 유형에 해당'으로 정밀 판정 → 자격자만 정확히 노출(과장 없음).
+  {
+    const memberTypes = ['노인', '영유아', '장애', '임산부', '중증질환', '한부모', '조손']
+    const nMembers = memberTypes.filter((t) => doc.includes(t)).length
+    if (nMembers >= 3 && anyIn(doc, ['수급 가구', '급여 수급', '수급자', '생계·의료'])) {
+      const isSenior = p.age >= 65
+      const hasInfant = !!(p.has_children && (p.children_ages || []).some((a) => a <= 5))
+      const isDisabled = !!p.disability
+      const isSingleParent = /한부모|조손/.test(p.household_type || '')
+      const memberMatch = isSenior || hasInfant || isDisabled || !!p.is_pregnant || isSingleParent
+      // 수급가구 소득 ≈ 생계32·의료40 수급자(중위 40% 이하)
+      if (memberMatch && p.income_percentile <= 40)
+        return { eligible: true, reason: '기초생활 수급가구 + 취약 구성원(노인·영유아·장애·임산부·한부모 등) 해당', priority: 'high', confidence: 0.85 }
+      return NO
+    }
+  }
   // ── 노인 계열 ──
-  if (anyIn(doc, ['만 65세', '65세 이상', '만65세'])) {
+  if (anyIn(doc, ['만 65세', '65세 이상', '만65세', '65세↑', '노인(65'])) {
     if (p.age >= 65) return { eligible: true, reason: `만 ${p.age}세로 연령 기준 충족`, priority: 'high', confidence: 0.95 }
     return NO
   }
@@ -405,6 +424,12 @@ function checkPolicyDoc(doc: string, name: string, p: UserProfile): CheckResult 
     const jobless = p.employment_status === 'unemployed' || (p.life_events || []).some((e) => /실직|실업|폐업|해고|권고사직/.test(e))
     if (jobless)
       return { eligible: true, reason: '실직·폐업 등 소득상실로 신청 자격 있음', priority: 'high', confidence: 0.85 }
+    // ⚠️ 긴급복지 등 '위기' 정책은 eligibility에 '실직, 사망, 화재 등'을 나열한다 — '실직' 문자열이 먼저 매칭돼
+    //   사망·질병·재난으로 위기를 맞은 '재직 중' 가구가 탈락하던 결함(감사 확정). 위기 정책 + 위기 신호면 인정.
+    const crisisPolicy = /긴급복지|위기상황|위기사유|긴급\s*지원/.test(doc)
+    const crisisSignal = (p.life_events || []).some((e) => /사망|질병|화재|재난|위기|산재/.test(e))
+    if (crisisPolicy && crisisSignal && p.income_percentile <= 80)
+      return { eligible: true, reason: '갑작스러운 위기사유(사망·질병·재난 등) 발생 — 긴급복지 대상', priority: 'high', confidence: 0.82 }
     return NO
   }
   if (anyIn(doc, ['구직 중', '미취업', '미취업 청년'])) {
