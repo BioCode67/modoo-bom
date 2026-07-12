@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { checkPolicy, type UserProfile } from '@/lib/welfare-engine'
+import { checkPolicy, demographicMismatch, type UserProfile } from '@/lib/welfare-engine'
 import { isCashBenefit } from '@/lib/format'
 import { WELFARE_POLICIES } from '@/data/policies'
 
@@ -159,5 +159,24 @@ describe('4차 감사 — 취업지원 FN 구제 + 장애유형/질환 FP 격하
     const fam = P({ age: 36, income_percentile: 48, has_children: true, children_ages: [2, 5, 9], employment_status: 'employed' })
     const r = checkPolicy(find('POL-110'), fam)
     if (r.eligible) expect(r.priority).toBe('low')
+  })
+})
+
+describe('5차 — 장학금 뻥튀기 차단(진짜 쓸 수 있는 것만)', () => {
+  const scholarships = WELFARE_POLICIES.filter((p) => /장학금|장학생|스칼러십|장학재단/.test(p.name))
+  it('민간재단 장학금이 카탈로그에 실재(테스트 전제)', () => {
+    expect(scholarships.length).toBeGreaterThan(0)
+  })
+  it('72세 독거 어르신(저소득)에게 어떤 장학금도 노출 안 됨(demographicMismatch 차단)', () => {
+    const senior = P({ age: 72, income_percentile: 25, household_type: '노인가구' })
+    for (const s of scholarships) {
+      expect(demographicMismatch(s.name, `${s.eligibility} ${s.target} ${s.name}`, senior)).toBe(true)
+    }
+  })
+  it('학령기 자녀(중학생) 둔 부모에겐 장학금 게이트 통과(자녀가 쓸 수 있음)', () => {
+    const parent = P({ age: 42, income_percentile: 40, has_children: true, children_ages: [14] })
+    // 자녀가 8~24세라 하드 제외되지 않아야(노출 여부는 신호매칭에 달림)
+    const anyPass = scholarships.some((s) => !demographicMismatch(s.name, `${s.eligibility} ${s.target} ${s.name}`, parent))
+    expect(anyPass).toBe(true)
   })
 })
