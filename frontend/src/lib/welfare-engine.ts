@@ -704,6 +704,19 @@ export function checkPolicy(policy: Policy, p: UserProfile): CheckResult {
       reason: '해당 장애유형·질환이 있는 경우 지원 대상이에요 — 상세에서 조건을 확인하세요.',
     }
   }
+  // 근로연계 자산형성(내일저축계좌·미래적금·내일채움·희망저축 등)은 '근로·사업소득이 있는' 사람만 가입 가능.
+  //   재직(employed) 확인 전엔 강력추천으로 단정하지 않는다 — 나이만 겹친 청년(직업 미상)에게 상단을 도배하던
+  //   과추천 차단(사용자 '진짜 쓸 수 있는 것만'). employed면 그대로 high/medium 유지.
+  if (res.eligible && res.priority !== 'low' &&
+      /내일저축|미래적금|내일채움|희망저축|자산형성|디딤씨앗|청년도약/.test(policy.name) &&
+      p.employment_status !== 'employed' && p.employment_status !== 'self') {
+    return {
+      eligible: true,
+      priority: 'low',
+      confidence: Math.min(res.confidence, 0.5),
+      reason: '근로·사업소득이 있어야 가입돼요 — 일하고 계시면 대상이에요(상세 확인).',
+    }
+  }
   return res
 }
 
