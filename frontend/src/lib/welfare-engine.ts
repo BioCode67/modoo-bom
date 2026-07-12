@@ -179,7 +179,7 @@ function checkPolicyDoc(doc: string, name: string, p: UserProfile): CheckResult 
   }
   // ── 장애 아동 지원(발달재활·장애아동수당 등) — '장애아동' 신호나 장애+자녀면 노출(성인 장애정책과 별개) ──
   if (/발달재활|장애\s*아동|장애아동/.test(name)) {
-    if ((p.life_events || []).includes('장애아동') || (p.disability && p.has_children))
+    if (hasDisabledChild(p) || (p.disability && p.has_children))
       return { eligible: true, reason: '장애 아동 지원 대상', priority: 'high', confidence: 0.88 }
     return NO
   }
@@ -210,7 +210,13 @@ function checkPolicyDoc(doc: string, name: string, p: UserProfile): CheckResult 
   }
   // ── 노인 계열 ──
   if (anyIn(doc, ['만 65세', '65세 이상', '만65세', '65세↑', '노인(65'])) {
-    if (p.age >= 65) return { eligible: true, reason: `만 ${p.age}세로 연령 기준 충족`, priority: 'high', confidence: 0.95 }
+    if (p.age >= 65) {
+      // 장기요양·노인돌봄 등 '요양등급 판정·돌봄 필요 인정'을 전제하는 서비스는 65세 모두가 대상이 아님.
+      //   연령만으로 강력추천(high)하면 건강한 어르신에게 돌봄서비스가 과추천됨(감사 확정 FP) → medium·저신뢰 + 안내.
+      if (/장기요양|요양등급|등급판정|일상생활\s*지원|거동\s*불편|기능\s*저하|노인돌봄|돌봄서비스|독립생활/.test(doc))
+        return { eligible: true, reason: `만 ${p.age}세 대상 — 단, 장기요양 등급판정·돌봄 필요 인정을 받은 경우예요`, priority: 'medium', confidence: 0.6 }
+      return { eligible: true, reason: `만 ${p.age}세로 연령 기준 충족`, priority: 'high', confidence: 0.95 }
+    }
     return NO
   }
   if (anyIn(doc, ['만 60세', '60세 이상', '만60세', '만 66세'])) {
@@ -262,6 +268,9 @@ function checkPolicyDoc(doc: string, name: string, p: UserProfile): CheckResult 
     return NO
   }
   if (doc.includes('발달장애인')) {
+    // '발달장애인 부모·가족' 대상 정책(부모 심리지원 등)은 부모가 비장애여도 대상 — 장애 자녀 신호로 매칭(감사 확정 FN).
+    if (/부모|가족|보호자/.test(doc) && hasDisabledChild(p))
+      return { eligible: true, reason: '발달장애 자녀의 부모·가족 대상', priority: 'high', confidence: 0.85 }
     if (p.disability && ['지적', '자폐'].some((g) => (p.disability_grade || '').includes(g)))
       return { eligible: true, reason: `발달장애인(${p.disability_grade}) 조건 충족`, priority: 'high', confidence: 0.91 }
     return NO
@@ -472,6 +481,29 @@ function checkPolicyDoc(doc: string, name: string, p: UserProfile): CheckResult 
  * 정밀 룰이 연령 문구를 못 잡고 소득/소득무관 분기로 새어 엉뚱한 추천(예: 72세에 청년·유아 정책)이
  * 뜨는 것을 막는 안전장치. 과배제를 피하려 '명백한' 경우만 막는다(보수적 임계).
  */
+// 자녀 장애 신호 — 위저드('장애아 자녀')·자연어(parseQuery '장애아동') 양쪽 문자열을 모두 인식.
+//   부모 본인은 비장애여도 '장애 자녀'가 있으면 발달재활·장애아동 지원 대상(사각지대 구제).
+function hasDisabledChild(p: UserProfile): boolean {
+  return (p.life_events || []).some((e) => /장애아동|장애아\s*자녀|자녀\s*장애/.test(e))
+}
+
+// 대출·상환형 정책 — '자격 충족(강력추천)'으로 단정하면 안 됨(상환의무·심사, 현금급여와 다름).
+//   단 '대출이자 지원'은 이자를 보조받는 현금성 지원이라 대출이 아님(제외).
+function isLoanPolicy(policy: Policy): boolean {
+  const t = `${policy.name} ${policy.benefit}`
+  if (/이자\s*지원|이자지원|대출이자/.test(t)) return false
+  return /대출|전세자금|버팀목|융자|보증금\s*대출|저금리|금리\s*로\s*대출/.test(t)
+}
+
+// 심사·선발·공모형 정책 — 신청하면 다 받는 게 아니라 경쟁·심사로 선정. 자격을 단정할 수 없어 저신뢰로만.
+function isSelectivePolicy(policy: Policy): boolean {
+  const t = `${policy.name} ${policy.benefit} ${policy.eligibility}`
+  if (/공모|경진|선발|오디션|콘테스트|경쟁률|심사를\s*통해|서류.*면접/.test(t)) return true
+  // 창업 사업화 지원금(최대 N억/천만원)은 사실상 경쟁형 공모 — 연령만으로 강력추천 금지.
+  if (/창업/.test(policy.name) && /지원금.*최대|사업화\s*지원|최대\s*[\d,]+\s*(억|천만)/.test(t)) return true
+  return false
+}
+
 export function demographicMismatch(name: string, doc: string, p: UserProfile): boolean {
   const ages = p.children_ages || []
   const hasChild = p.has_children || ages.length > 0
@@ -488,6 +520,8 @@ export function demographicMismatch(name: string, doc: string, p: UserProfile): 
   if (/미숙아|선천성이상아/.test(name) && !(p.is_pregnant || ages.some((a) => a <= 2))) return true
   // 다자녀 전용 혜택은 미성년 자녀 2명 이상(또는 다자녀 가구유형)만.
   if (/다자녀/.test(name) && !((ages.filter((a) => a < 18).length >= 2) || (p.household_type || '').includes('다자녀'))) return true
+  // '셋째아 이상' 전용 지원은 자녀가 3명 이상일 때만 — 자녀 2명 가구에 노출되던 오추천 차단(감사 확정 FP).
+  if (/셋째|세\s*자녀|자녀\s*3명|3명\s*이상\s*자녀/.test(name) && ages.length > 0 && ages.length < 3 && !(p.household_type || '').includes('다자녀')) return true
   // 유치원 학비(유아학비·누리과정)는 만 3~5세 대상 — 아이 나이가 적혀 있는데 3~5세가 없으면 제외.
   if (/유아학비|유치원|누리과정/.test(name) && ages.length > 0 && !ages.some((a) => a >= 3 && a <= 5)) return true
   // 미취업 전용(일경험·구직지원)인데 이미 직업(재직·자영·은퇴)이 있으면 제외 — 연령만 맞아 강력추천되던 오류 차단.
@@ -506,7 +540,7 @@ export function demographicMismatch(name: string, doc: string, p: UserProfile): 
   // 여성 전용(생리용품·여성청소년 등)인데 명백히 남성이면 제외 — 성별 누수 차단('other'=선택안함은 미상이라 유지)
   if (/생리용품|생리대|월경|여성\s*청소년/.test(name) && p.gender === 'male') return true
   // 장애인 전용인데 비장애 — 단, 장애 '자녀'(발달재활 등)는 본인 비장애여도 대상이므로 장애아동 신호가 있으면 유지
-  if (/장애인|장애아/.test(name) && !p.disability && !(p.life_events || []).includes('장애아동')) return true
+  if (/장애인|장애아/.test(name) && !p.disability && !hasDisabledChild(p)) return true
   // 한부모·모자/부자가정·미혼모/부·조손 전용인데 아님 — 조손가구는 한부모가족지원법상 동일 급여 대상이라 포함
   if (/한부모|모자가정|부자가정|미혼모|미혼부|조손/.test(name) && !/한부모|조손/.test(p.household_type)) return true
   // 농어촌·농업 전용 지원은 대도시(특별시·광역시) 거주자에겐 제외 — 서울 임신부에게 '농어촌 출산지원금'
@@ -606,7 +640,21 @@ export function checkPolicy(policy: Policy, p: UserProfile): CheckResult {
   // 소득 상한이 명시돼 있고 사용자가 명백히 초과하면 대상 아님(연령만 맞아도 제외)
   const ceil = incomeCeiling(doc)
   if (ceil !== null && p.income_percentile > ceil) return NO
-  return checkPolicyDoc(doc, policy.name, p)
+  const res = checkPolicyDoc(doc, policy.name, p)
+  // 대출·심사/선발형은 '자격 충족(강력추천)'으로 단정하지 않고 저신뢰 '관련 복지'로 격하(정직성, 감사 확정 FP).
+  //   대출은 상환의무·심사, 공모·선발은 경쟁으로 선정 — 신청하면 다 받는 현금급여와 다르다.
+  if (res.eligible && res.priority !== 'low' && (isLoanPolicy(policy) || isSelectivePolicy(policy))) {
+    const loan = isLoanPolicy(policy)
+    return {
+      eligible: true,
+      priority: 'low',
+      confidence: Math.min(res.confidence, 0.5),
+      reason: loan
+        ? '대출(심사·상환) 상품이에요 — 연령·소득 요건은 맞지만 자격·한도는 신청 시 심사로 정해져요.'
+        : '심사·선발형 지원이에요 — 신청하면 다 받는 건 아니고 경쟁·심사로 선정돼요.',
+    }
+  }
+  return res
 }
 
 // 요약본(공공데이터) 정책은 정밀 룰의 정형 문구가 없어 룰 매칭이 어렵다.

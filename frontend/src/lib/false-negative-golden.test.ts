@@ -36,3 +36,61 @@ describe('false-negative 수정 검증', () => {
     expect(checkPolicy(find('POL-023'), rich).eligible).toBe(false)
   })
 })
+
+describe('2차 감사 — 장애 자녀 신호(위저드 입력) FN 구제', () => {
+  // 비장애 부모가 위저드로 '장애아 자녀'를 선택 → 발달재활·발달장애인 부모 지원이 노출돼야 함.
+  const parent = P({ age: 40, income_percentile: 50, has_children: true, children_ages: [7], life_events: ['장애아 자녀'] })
+  it('발달재활(POL-021): 위저드 장애아 자녀 신호로 노출', () => {
+    expect(checkPolicy(find('POL-021'), parent).eligible).toBe(true)
+  })
+  it('발달장애인 부모 심리지원(POL-091): 부모가 비장애여도 장애 자녀로 노출', () => {
+    expect(checkPolicy(find('POL-091'), parent).eligible).toBe(true)
+  })
+  it('자연어 경로 호환: life_events "장애아동"(parseQuery)도 동일 노출', () => {
+    const nl = P({ age: 40, income_percentile: 50, has_children: true, children_ages: [7], life_events: ['장애아동'] })
+    expect(checkPolicy(find('POL-021'), nl).eligible).toBe(true)
+  })
+  it('정직성: 장애 자녀 신호 없는 일반 부모(자녀 비장애)에겐 발달장애인 부모 지원 노출 안 됨', () => {
+    const plain = P({ age: 40, income_percentile: 50, has_children: true, children_ages: [7], life_events: [] })
+    expect(checkPolicy(find('POL-091'), plain).eligible).toBe(false)
+    expect(checkPolicy(find('POL-021'), plain).eligible).toBe(false)
+  })
+})
+
+describe('2차 감사 — 과추천(FP) 저신뢰 격하 정직성', () => {
+  it('청년 전세대출(POL-027): 대출이라 high가 아닌 low로만 노출', () => {
+    const youth = P({ age: 28, income_percentile: 60 })
+    const r = checkPolicy(find('POL-027'), youth)
+    // 노출은 되되(관련 복지) 강력추천은 아니어야
+    if (r.eligible) expect(r.priority).toBe('low')
+  })
+  it('청년 창업 지원(POL-111): 선발·경쟁형이라 강력추천(high) 아님', () => {
+    const youth = P({ age: 30, income_percentile: 60 })
+    const r = checkPolicy(find('POL-111'), youth)
+    if (r.eligible) expect(r.priority).not.toBe('high')
+  })
+  it('노인 장기요양(POL-025): 요양등급 필요라 65세만으론 high 아님(medium 이하)', () => {
+    const senior = P({ age: 70, income_percentile: 50 })
+    const r = checkPolicy(find('POL-025'), senior)
+    if (r.eligible) expect(r.priority).not.toBe('high')
+  })
+  it('노인돌봄 바우처(POL-094): 기능제한 요건이라 high 아님', () => {
+    const senior = P({ age: 70, income_percentile: 50 })
+    const r = checkPolicy(find('POL-094'), senior)
+    if (r.eligible) expect(r.priority).not.toBe('high')
+  })
+  it('기초연금(POL-001): 돌봄 서비스 아님 — 어르신에게 여전히 high 유지(과격하 방지)', () => {
+    const senior = P({ age: 70, income_percentile: 30 })
+    const r = checkPolicy(find('POL-001'), senior)
+    expect(r.eligible).toBe(true)
+    expect(r.priority).toBe('high')
+  })
+  it('셋째아 양육비(POL-036): 자녀 2명 가구엔 노출 안 됨(셋째 전용)', () => {
+    const two = P({ age: 38, income_percentile: 60, has_children: true, children_ages: [4, 7], household_type: '2자녀' })
+    expect(checkPolicy(find('POL-036'), two).eligible).toBe(false)
+  })
+  it('셋째아 양육비(POL-036): 자녀 3명 가구엔 노출', () => {
+    const three = P({ age: 38, income_percentile: 60, has_children: true, children_ages: [2, 5, 8] })
+    expect(checkPolicy(find('POL-036'), three).eligible).toBe(true)
+  })
+})
