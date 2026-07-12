@@ -112,7 +112,7 @@ export function RemoteRpaSetup() {
               </button>
             )}
           </div>
-          <p className="text-[12px] text-amber-700/80">
+          <p className="text-[12px] text-amber-800">
             서버 띄우는 법은 <code>docs/서버사이드-RPA-설계.md</code> 참고. 노트북에서 쓴다면 설치형 로컬 앱이 더 안전·간편해요.
           </p>
         </div>

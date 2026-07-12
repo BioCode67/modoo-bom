@@ -71,7 +71,7 @@ export function EmergencyHelp() {
                     <a href="tel:129" className="btn-warm !bg-rose-500 hover:!bg-rose-600 !py-2.5 flex-1"><Phone className="h-4 w-4" /> 129 긴급복지 상담</a>
                     <a href="https://www.bokjiro.go.kr" target="_blank" rel="noopener noreferrer" className="btn-secondary !py-2.5"><ExternalLink className="h-4 w-4" /> 복지로</a>
                   </div>
-                  <p className="mt-2 text-[11px] text-rose-600/80">긴급복지지원은 ‘선지원 후심사’ — 주민센터·129에 먼저 알리면 빠르게 도움받을 수 있어요.</p>
+                  <p className="mt-2 text-[11px] text-rose-700">긴급복지지원은 ‘선지원 후심사’ — 주민센터·129에 먼저 알리면 빠르게 도움받을 수 있어요.</p>
                 </div>
 
                 {/* 안전 위기(폭력·학대) 선택 시 — 복지 상담이 아니라 전용 긴급 핫라인을 최우선 표시(생명·안전 우선) */}

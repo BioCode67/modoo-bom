@@ -41,7 +41,7 @@ function TermChip({ label, term }: { label: string; term: Term }) {
         >
           <b className="text-sprout-700">{term.term}</b> — {term.short}
           <span className="block mt-1 text-muted-foreground">{term.plain}</span>
-          {term.example && <span className="block mt-1 text-sprout-700/80">💡 {term.example}</span>}
+          {term.example && <span className="block mt-1 text-sprout-800">💡 {term.example}</span>}
         </span>
       )}
     </span>
