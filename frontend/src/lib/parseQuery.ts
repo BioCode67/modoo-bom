@@ -15,7 +15,7 @@ const BASE: UserProfile = {
 
 export function parseProfileFromText(text: string): UserProfile {
   const t = (text || '').replace(/\s+/g, ' ').trim()
-  const p: UserProfile = { ...BASE, life_events: [] }
+  const p: UserProfile = { ...BASE, life_events: [], _query: t }
   if (!t) return p
 
   // ── 자녀 나이 선처리 ── "아이가 셋이에요 7살 5살 2살"처럼 자녀 맥락에서 나이가 여러 개 나열되면

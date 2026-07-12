@@ -18,6 +18,8 @@ export interface UserProfile {
   children_ages: number[]
   is_pregnant: boolean
   life_events: string[]
+  /** 자연어 질의 원문(선택) — 주제어(틀니·전세·창업 등)를 랭킹에 반영하기 위해 보관. 자격판정엔 영향 없음. */
+  _query?: string
 }
 
 export interface EligiblePolicy extends Policy {
@@ -858,7 +860,28 @@ export function situationRelevance(policy: Policy, p: UserProfile): number {
   if (ev.includes('보훈') && /국가유공|보훈|유공자|참전|고엽제|상이군경/.test(t)) s += 5
   if (ev.includes('자립준비') && /자립준비|보호종료|자립수당|자립정착/.test(t)) s += 5
   if (ev.includes('가정폭력') && /가정폭력|성폭력|폭력피해|여성긴급|보호시설/.test(t)) s += 5
+  // 자연어 질의의 '주제어'(틀니·전세·창업 등)와 정책이 직접 일치하면 상위로 — 주제 질문에 나이만 겹친
+  //   청년/기본값 정책이 도배하던 문제 완화(자격판정엔 무관, 랭킹만). 대표 급여를 완전히 덮지 않게 소폭(캡).
+  if (p._query) s += queryTopicBoost(`${nm} ${policy.category} ${policy.benefit}`, p._query)
   return s
+}
+
+// 질의 원문에서 의미있는 주제어를 뽑아 정책 텍스트와 겹치면 가점(불용어·너무 흔한 말은 제외).
+const QUERY_STOPWORDS = new Set([
+  '지원', '혜택', '받을', '받는', '받고', '있나요', '있어요', '싶어요', '싶은', '관련', '정책', '복지', '알려',
+  '궁금', '해줘', '해주세요', '무엇', '어떤', '어떻게', '가능', '신청', '대상', '경우', '저는', '제가', '나는',
+  '내가', '합니다', '입니다', '해요', '인데', '하는', '되는', '무슨', '뭐가', '뭔가', '거나', '건가', '건지',
+])
+function queryTopicBoost(text: string, query: string): number {
+  const toks = (query.match(/[가-힣]{2,}/g) || []).filter((w) => !QUERY_STOPWORDS.has(w))
+  let boost = 0
+  const seen = new Set<string>()
+  for (const w of toks) {
+    if (seen.has(w) || !text.includes(w)) continue
+    seen.add(w)
+    boost += 5
+  }
+  return Math.min(boost, 10) // 대표 현금급여(≈9)를 완전히 덮지 않도록 상한
 }
 
 export function getEligiblePolicies(p: UserProfile): EligiblePolicy[] {
