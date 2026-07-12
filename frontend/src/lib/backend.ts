@@ -64,7 +64,9 @@ export const RPA_CONSENT_KEY = 'modoo_rpa_consent'
 export function getConfiguredRemoteRpa(): string {
   try {
     if (typeof localStorage === 'undefined') return ''
-    const url = (localStorage.getItem(RPA_SERVER_KEY) || '').trim()
+    // 타이핑한 서버가 없으면, 팀이 빌드 시 지정한 데모 서버(VITE_RPA_BASE)를 실제 발급에도 쓸 수 있게 폴백.
+    //   → 방문자는 URL을 몰라도 '동의' 체크만으로 이 데모 서버로 자기 정보 발급까지 옵트인 가능.
+    const url = ((localStorage.getItem(RPA_SERVER_KEY) || '').trim()) || ENV_RPA_BASE
     const consent = localStorage.getItem(RPA_CONSENT_KEY) === '1'
     if (!url || !consent) return ''
     if (!/^https:\/\//i.test(url)) return '' // https 서버만(배포 폰은 https라 mixed-content·평문 PII 방지)
@@ -78,8 +80,11 @@ export function setRemoteRpaServer(url: string, consent: boolean) {
   try {
     if (typeof localStorage === 'undefined') return
     const clean = (url || '').trim().replace(/\/+$/, '')
-    if (clean && consent && /^https:\/\//i.test(clean)) {
-      localStorage.setItem(RPA_SERVER_KEY, clean)
+    // 유효 대상: 타이핑한 https 서버, 또는(타이핑 없이) 빌드 시 지정 데모 서버(VITE_RPA_BASE, https)
+    const effective = clean || (/^https:\/\//i.test(ENV_RPA_BASE) ? ENV_RPA_BASE : '')
+    if (consent && /^https:\/\//i.test(effective)) {
+      if (clean) localStorage.setItem(RPA_SERVER_KEY, clean) // 타이핑한 경우만 저장(없으면 ENV 폴백)
+      else localStorage.removeItem(RPA_SERVER_KEY)
       localStorage.setItem(RPA_CONSENT_KEY, '1')
     } else {
       localStorage.removeItem(RPA_SERVER_KEY)
@@ -89,6 +94,11 @@ export function setRemoteRpaServer(url: string, consent: boolean) {
   } catch {
     /* noop */
   }
+}
+
+/** 빌드 시 지정된 데모(팀) RPA 서버가 있는지 — UI 가 '동의만으로 실제 발급 옵트인'을 노출할지 판단용. */
+export function hasEnvRpaServer(): boolean {
+  return /^https:\/\//i.test(ENV_RPA_BASE)
 }
 
 // /api/health 1회 호출 → capabilities 반환(실패 시 null). 짧은 타임아웃.

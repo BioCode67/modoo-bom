@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Server, ShieldAlert, Check, X, ChevronDown } from 'lucide-react'
-import { getConfiguredRemoteRpa, setRemoteRpaServer } from '@/lib/backend'
+import { getConfiguredRemoteRpa, setRemoteRpaServer, hasEnvRpaServer } from '@/lib/backend'
 import { cn } from '@/lib/utils'
 
 /**
@@ -14,16 +14,19 @@ import { cn } from '@/lib/utils'
  */
 export function RemoteRpaSetup() {
   const current = getConfiguredRemoteRpa()
+  const envServer = hasEnvRpaServer() // 팀이 빌드 시 지정한 데모 서버 존재 → URL 없이 '동의만'으로 옵트인 가능
   const [open, setOpen] = useState(false)
-  const [url, setUrl] = useState(current)
+  const [url, setUrl] = useState(current && !envServer ? current : '')
   const [agree, setAgree] = useState(!!current)
   const [err, setErr] = useState('')
 
   const connect = () => {
     const clean = url.trim()
-    if (!/^https:\/\//i.test(clean)) { setErr('https:// 로 시작하는 서버 주소를 입력해 주세요 (개인정보 보호).'); return }
+    // 데모 서버(envServer)가 있으면 URL 없이 동의만으로 OK, 없으면 https URL 필수
+    if (!envServer && !/^https:\/\//i.test(clean)) { setErr('https:// 로 시작하는 서버 주소를 입력해 주세요 (개인정보 보호).'); return }
+    if (clean && !/^https:\/\//i.test(clean)) { setErr('서버 주소는 https:// 로 시작해야 해요.'); return }
     if (!agree) { setErr('개인정보가 서버를 거치는 것에 동의하셔야 켤 수 있어요.'); return }
-    setRemoteRpaServer(clean, true) // 저장 + 재탐지
+    setRemoteRpaServer(clean, true) // 저장(빈 URL이면 데모 서버 폴백) + 재탐지
     window.location.reload() // 백엔드 재감지 반영(설정은 유지됨)
   }
   const disconnect = () => {
@@ -49,8 +52,13 @@ export function RemoteRpaSetup() {
       {open && (
         <div className="mt-3 space-y-3 text-sm text-amber-950/90">
           <p className="leading-relaxed">
-            폰 화면(웹)은 정부24를 직접 조작할 수 없어요(브라우저 보안). 대신 <b>내가 띄운 RPA 서버</b>의
-            브라우저가 대신 정부24를 조작하고, 본인인증은 <b>내 폰의 카카오톡·PASS</b>로 승인해요.
+            {envServer ? (
+              <>이 데모의 <b>자동발급 서버</b>가 대신 정부24를 조작하고, 본인인증은 <b>내 폰의 카카오톡·PASS</b>로 승인해요.
+                아래 동의만 하면 <b>내 정보로 실제 서류 발급까지</b> 이어서 해볼 수 있어요.</>
+            ) : (
+              <>폰 화면(웹)은 정부24를 직접 조작할 수 없어요(브라우저 보안). 대신 <b>내가 띄운 RPA 서버</b>의
+                브라우저가 대신 정부24를 조작하고, 본인인증은 <b>내 폰의 카카오톡·PASS</b>로 승인해요.</>
+            )}
           </p>
           <div className="flex items-start gap-2 rounded-xl bg-white/70 p-3 text-[13px] leading-relaxed text-amber-900">
             <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
@@ -60,17 +68,19 @@ export function RemoteRpaSetup() {
             </span>
           </div>
 
-          <label className="block">
-            <span className="mb-1 block text-xs font-medium text-amber-800">내 RPA 서버 주소 (https)</span>
-            <input
-              type="url"
-              inputMode="url"
-              placeholder="https://my-rpa.example.com"
-              value={url}
-              onChange={(e) => { setUrl(e.target.value); setErr('') }}
-              className="w-full rounded-xl border border-amber-300 bg-white px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
-            />
-          </label>
+          {!envServer && (
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-amber-800">내 RPA 서버 주소 (https)</span>
+              <input
+                type="url"
+                inputMode="url"
+                placeholder="https://my-rpa.example.com"
+                value={url}
+                onChange={(e) => { setUrl(e.target.value); setErr('') }}
+                className="w-full rounded-xl border border-amber-300 bg-white px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
+              />
+            </label>
+          )}
 
           <label className="flex cursor-pointer items-start gap-2 text-[13px]">
             <input
@@ -90,7 +100,7 @@ export function RemoteRpaSetup() {
               onClick={connect}
               className="inline-flex items-center gap-1.5 rounded-xl bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700"
             >
-              <Check className="h-4 w-4" /> {current ? '서버 변경' : '서버 연결'}
+              <Check className="h-4 w-4" /> {current ? (envServer ? '동의 갱신' : '서버 변경') : (envServer ? '실제 발급 켜기 (동의)' : '서버 연결')}
             </button>
             {current && (
               <button
