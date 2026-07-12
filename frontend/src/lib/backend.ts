@@ -30,6 +30,9 @@ export interface Capabilities {
 
 const ENV_API_BASE = (import.meta.env.VITE_API_BASE as string | undefined)?.trim() || ''
 export let API_BASE = ENV_API_BASE
+// 체험(데모) 모드 전용 서버 — 개인정보를 요구/전송하지 않는 '실제 정부24 자동화 보여주기'용.
+// PII가 없어 안전하므로 팀이 빌드 시 지정한 신뢰 서버(VITE_RPA_BASE)를 동의 없이도 쓸 수 있다.
+const ENV_RPA_BASE = (import.meta.env.VITE_RPA_BASE as string | undefined)?.trim().replace(/\/+$/, '') || ''
 export let RPA_BASE = '' // RPA 전용 베이스 — 로컬 에이전트 감지 시 채워짐(그 전엔 RPA 버튼도 숨김)
 const LOCAL_AGENT = 'http://localhost:8000'
 
@@ -44,6 +47,12 @@ export function getCapabilities(): Capabilities | null {
 /** RPA(서류발급·신청) 호출에 쓸 베이스. 로컬 에이전트 감지 시 그 주소, 아니면 ''(=미지원). */
 export function getRpaBase(): string {
   return RPA_BASE
+}
+
+/** 체험(데모) 모드에 쓸 서버 베이스 — 개인정보 없는 '실제 정부24 자동화 보여주기'용.
+ *  우선순위: 이미 감지된 RPA 베이스(로컬/옵트인) → 빌드 시 지정 신뢰 서버(VITE_RPA_BASE). 둘 다 없으면 ''. */
+export function getDemoRpaBase(): string {
+  return RPA_BASE || ENV_RPA_BASE
 }
 
 // 서버 사이드 RPA(옵트인 전용) — 사용자가 '자신의 RPA 서버 주소'를 명시 지정하고 PII 전송에 '명시 동의'했을

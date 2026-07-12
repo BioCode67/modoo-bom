@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion'
 import { MessageCircleHeart, MousePointerClick, Smartphone, ShieldCheck, PlayCircle, Download } from 'lucide-react'
 import { SectionHeading } from '@/ui/SectionHeading'
+import { DemoAutomation } from '@/components/DemoAutomation'
 
 // 데스크탑 앱(Windows 전용) — 설치 exe '직접 다운로드'(릴리스 게시 확인됨: app-v0.3.0 ModooBom-Setup.exe).
 // latest/download 는 최신 릴리스의 동명 자산을 따라가므로 버전이 올라가도 링크가 유지된다.
@@ -88,6 +89,9 @@ export function RpaShowcase() {
             </span>
           </div>
         </div>
+
+        {/* 실제 정부24 자동화 '체험' — 데모 서버(getDemoRpaBase) 연결 시에만 노출. 개인정보 없이 진짜 자동화를 보여줌 */}
+        <DemoAutomation />
       </div>
     </section>
   )
