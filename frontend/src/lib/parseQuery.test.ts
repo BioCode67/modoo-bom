@@ -261,4 +261,14 @@ describe('parseProfileFromText — 2차 감사 회귀(2026-07)', () => {
     expect(parseProfileFromText('20대 청년인데 취업이 안돼요').employment_status).toBe('unemployed')
     expect(parseProfileFromText('백수예요').employment_status).toBe('unemployed')
   })
+  it('"형편이 어려워요/어렵습니다" 등 활용형을 저소득으로 인식(활용 어미 누락 방지)', () => {
+    // '어렵다'는 '어렵습니다'(어렵)·'어려워요'(어려)로 갈려 어간 하나로는 한쪽이 누락됨 → 둘 다 잡아야
+    for (const q of ['형편이 어려워요', '형편이 어렵습니다', '살기 어렵습니다', '생활이 어려운 상황이에요', '끼니를 거를 만큼 어렵습니다']) {
+      expect(parseProfileFromText(q).income_percentile, q).toBeLessThanOrEqual(45)
+    }
+  })
+  it('저소득 오탐 방지: "소득이 넉넉합니다·돈이 많아요"는 저소득 아님', () => {
+    expect(parseProfileFromText('소득이 넉넉합니다').income_percentile).toBeGreaterThan(60)
+    expect(parseProfileFromText('돈이 많아요').income_percentile).toBeGreaterThan(60)
+  })
 })
