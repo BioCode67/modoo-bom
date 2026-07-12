@@ -291,3 +291,18 @@ def start_rpa_task(doc_name: str, user_name: str, user_info: dict = None) -> str
 
     _spawn_bg(_guarded_run(task, run_coro))
     return task_id
+
+
+def start_demo_task(doc_name: str = "주민등록등본") -> str:
+    """체험 모드 태스크 — 개인정보 없이 '실제 정부24 자동조작'을 스크린샷으로 보여주고 인증벽에서 정지.
+    지원 서류 제한 없음(안내 페이지가 없으면 정부24 홈으로 폴백). 동시성 상한·타임아웃은 발급과 공유."""
+    task_id = uuid.uuid4().hex
+    task = RPATask(task_id, doc_name or "주민등록등본", "체험")
+    _rpa_tasks[task_id] = task
+
+    async def run_coro():
+        from rpa.demo_rpa import run_demo_rpa
+        await run_demo_rpa(task, doc_name or "주민등록등본")
+
+    _spawn_bg(_guarded_run(task, run_coro))
+    return task_id

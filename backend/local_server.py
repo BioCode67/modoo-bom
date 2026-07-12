@@ -139,6 +139,10 @@ class DocRequest(BaseModel):
     auth_provider: str = "kakao"  # 간편인증 수단: kakao|pass|naver|toss (어르신 다수 PASS)
 
 
+class DemoRequest(BaseModel):
+    doc_name: str = "주민등록등본"  # 체험할 서류(안내페이지 없으면 정부24 홈 폴백)
+
+
 class ApplyRequest(BaseModel):
     service_name: str
     user_name: str = "홍길동"
@@ -236,6 +240,22 @@ async def rpa_issue(req: DocRequest):
     _t = get_task(task_id)
     token = getattr(_t, "download_token", "") if _t is not None and not isinstance(_t, dict) else (_t or {}).get("download_token", "")
     return {"task_id": task_id, "download_token": token, "status": "started", "doc_name": req.doc_name}
+
+
+@app.post("/api/rpa/demo-start")
+async def rpa_demo_start(req: DemoRequest):
+    """체험 모드 — 개인정보 없이 '실제 정부24 자동조작'을 스크린샷으로 보여주고 인증벽에서 정지.
+    방문자(심사위원)가 설정·인증·개인정보 없이 진짜 자동화를 체험(표 유도). 진행/스크린샷은 rpa-status 폴링."""
+    from rpa.manager import start_demo_task, can_accept, get_task
+    from rpa.config import rpa_enabled, rpa_disabled_reason
+    if not rpa_enabled():
+        raise HTTPException(status_code=503, detail=rpa_disabled_reason())
+    if not can_accept():
+        raise HTTPException(status_code=503, detail="지금 체험 이용자가 많아요. 잠시 후 다시 시도해 주세요.")
+    task_id = start_demo_task(req.doc_name)
+    _t = get_task(task_id)
+    token = getattr(_t, "download_token", "") if _t is not None and not isinstance(_t, dict) else (_t or {}).get("download_token", "")
+    return {"task_id": task_id, "download_token": token, "status": "started", "doc_name": req.doc_name, "demo": True}
 
 
 @app.get("/api/documents/rpa-status/{task_id}")
