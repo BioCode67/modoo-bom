@@ -371,7 +371,7 @@ def _get_with_retry(client, url, params, label, attempts: int = 3):
     for a in range(1, attempts + 1):
         try:
             r = client.get(url, params=params)
-            r.raise_for_status()
+            r.raise_for_status() # HTTP 요청 -> 응답 상태 코드 확인
             return r
         except Exception as e:  # noqa: BLE001
             last = str(e).splitlines()[0][:140]
