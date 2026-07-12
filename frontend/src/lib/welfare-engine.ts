@@ -709,8 +709,9 @@ export function checkPolicy(policy: Policy, p: UserProfile): CheckResult {
   // 근로연계 자산형성(내일저축계좌·미래적금·내일채움·희망저축 등)은 '근로·사업소득이 있는' 사람만 가입 가능.
   //   재직(employed) 확인 전엔 강력추천으로 단정하지 않는다 — 나이만 겹친 청년(직업 미상)에게 상단을 도배하던
   //   과추천 차단(사용자 '진짜 쓸 수 있는 것만'). employed면 그대로 high/medium 유지.
+  // ⚠️ '디딤씨앗통장'은 부모 근로소득이 아니라 수급·차상위·한부모의 만0~17세 '아동' 대상 자산형성이라 제외(오격하 금지, 감사 확정).
   if (res.eligible && res.priority !== 'low' &&
-      /내일저축|미래적금|내일채움|희망저축|자산형성|디딤씨앗|청년도약/.test(policy.name) &&
+      /내일저축|미래적금|내일채움|희망저축|자산형성|청년도약/.test(policy.name) &&
       p.employment_status !== 'employed' && p.employment_status !== 'self') {
     return {
       eligible: true,
@@ -867,13 +868,19 @@ export function situationRelevance(policy: Policy, p: UserProfile): number {
 }
 
 // 질의 원문에서 의미있는 주제어를 뽑아 정책 텍스트와 겹치면 가점(불용어·너무 흔한 말은 제외).
+//  ⚠️ '소득·노인·어르신·저소득·장애인·청년' 등은 사용자를 규정하는 '자기소개어'라 이미 프로필(나이·소득 등)로
+//     반영됨 → 주제어로 이중가점하면 부수 서비스가 대표 현금급여(기초연금 등)를 밀어냄(감사 확정). 불용어로 제외.
 const QUERY_STOPWORDS = new Set([
   '지원', '혜택', '받을', '받는', '받고', '있나요', '있어요', '싶어요', '싶은', '관련', '정책', '복지', '알려',
   '궁금', '해줘', '해주세요', '무엇', '어떤', '어떻게', '가능', '신청', '대상', '경우', '저는', '제가', '나는',
   '내가', '합니다', '입니다', '해요', '인데', '하는', '되는', '무슨', '뭐가', '뭔가', '거나', '건가', '건지',
+  // 자기소개 인구통계어(프로필로 이미 반영 — 주제어 이중가점 방지)
+  '소득', '저소득', '노인', '어르신', '고령', '장애', '장애인', '청년', '아동', '자녀', '혼자', '가구', '가족',
+  '많이', '너무', '조금', '그냥', '정말', '아주', '살아요', '살고', '있는데', '싶습니다',
 ])
 function queryTopicBoost(text: string, query: string): number {
-  const toks = (query.match(/[가-힣]{2,}/g) || []).filter((w) => !QUERY_STOPWORDS.has(w))
+  // 3글자 이상 주제어만(2글자 '소득'이 정책명 '저소득'에 부분일치해 과부스트하던 문제 방지) + 불용어 제외.
+  const toks = (query.match(/[가-힣]{3,}/g) || []).filter((w) => !QUERY_STOPWORDS.has(w))
   let boost = 0
   const seen = new Set<string>()
   for (const w of toks) {
@@ -881,7 +888,7 @@ function queryTopicBoost(text: string, query: string): number {
     seen.add(w)
     boost += 5
   }
-  return Math.min(boost, 10) // 대표 현금급여(≈9)를 완전히 덮지 않도록 상한
+  return Math.min(boost, 8) // 대표 현금급여(기초연금 rel≈9~13)를 덮지 않도록 상한 하향
 }
 
 export function getEligiblePolicies(p: UserProfile): EligiblePolicy[] {

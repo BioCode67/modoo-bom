@@ -271,4 +271,24 @@ describe('parseProfileFromText — 2차 감사 회귀(2026-07)', () => {
     expect(parseProfileFromText('소득이 넉넉합니다').income_percentile).toBeGreaterThan(60)
     expect(parseProfileFromText('돈이 많아요').income_percentile).toBeGreaterThan(60)
   })
+  it('"힘들다" ㄹ불규칙 활용(힘듭니다/힘드네요/힘든데)도 저소득 인식', () => {
+    for (const q of ['생활이 힘듭니다', '생계가 힘드네요', '형편이 힘든데요', '살기가 힘듭니다']) {
+      expect(parseProfileFromText(q).income_percentile, q).toBeLessThanOrEqual(45)
+    }
+  })
+  it('"건강이 나쁩니다/나쁜" 활용도 질병 신호', () => {
+    expect(parseProfileFromText('건강이 나쁩니다').life_events).toContain('질병')
+    expect(parseProfileFromText('몸이 아파서 일을 못해요').life_events).toContain('질병')
+  })
+  it('구어 "짤렸어요"·격식 "취직이 안 됩니다"도 실직/구직 인식', () => {
+    expect(parseProfileFromText('짤렸어요').employment_status).toBe('unemployed')
+    expect(parseProfileFromText('취직이 안 됩니다').employment_status).toBe('unemployed')
+    expect(parseProfileFromText('일을 구하고 있어요').employment_status).toBe('unemployed')
+  })
+  it('"회사 다녀요"(다니다 활용)·자영업을 고용/자영으로 인식', () => {
+    expect(parseProfileFromText('회사 다녀요').employment_status).toBe('employed')
+    expect(parseProfileFromText('직장 다닙니다').employment_status).toBe('employed')
+    expect(parseProfileFromText('장사해요').employment_status).toBe('self')
+    expect(parseProfileFromText('자영업 합니다').employment_status).toBe('self')
+  })
 })
