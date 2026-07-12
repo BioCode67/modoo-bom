@@ -173,10 +173,23 @@ describe('5차 — 장학금 뻥튀기 차단(진짜 쓸 수 있는 것만)', ()
       expect(demographicMismatch(s.name, `${s.eligibility} ${s.target} ${s.name}`, senior)).toBe(true)
     }
   })
-  it('학령기 자녀(중학생) 둔 부모에겐 장학금 게이트 통과(자녀가 쓸 수 있음)', () => {
-    const parent = P({ age: 42, income_percentile: 40, has_children: true, children_ages: [14] })
-    // 자녀가 8~24세라 하드 제외되지 않아야(노출 여부는 신호매칭에 달림)
+  it('대학생 자녀(20세) 둔 부모에겐 장학금 게이트 통과(자녀가 쓸 수 있음)', () => {
+    // 시드(WELFARE_POLICIES)의 장학금은 국가장학금(대학)뿐 — 대학연령 자녀가 있어야 통과. 14세 자녀면
+    // 대학 장학금은 못 쓰므로 제외되는 게 정상. 대학생 자녀(18~24)면 통과해야 한다.
+    const parent = P({ age: 50, income_percentile: 40, has_children: true, children_ages: [20] })
     const anyPass = scholarships.some((s) => !demographicMismatch(s.name, `${s.eligibility} ${s.target} ${s.name}`, parent))
     expect(anyPass).toBe(true)
+  })
+  it('영유아(9세 이하)만 둔 부모에겐 대학·해외 장학금 미노출(초중고 장학만 가능)', () => {
+    const mom = P({ age: 36, income_percentile: 48, has_children: true, children_ages: [2, 5, 9], employment_status: 'employed' })
+    const shown = WELFARE_POLICIES.filter((s) => /장학|스칼러십|펠로십|교환/.test(s.name))
+      .filter((s) => !demographicMismatch(s.name, `${s.eligibility} ${s.target} ${s.name}`, mom))
+    // 노출되는 장학은 대학·해외·교환·펠로십형이 아니어야(자녀가 대학연령 아님)
+    for (const s of shown) expect(/해외|교환|펠로십/.test(s.name)).toBe(false)
+  })
+  it('대학생 본인(재학생)에겐 대학 장학금 통과', () => {
+    const uni = P({ age: 22, income_percentile: 45, employment_status: 'student' })
+    const univScholar = WELFARE_POLICIES.find((s) => /대학|해외|펠로십/.test(`${s.eligibility} ${s.name}`) && /장학|스칼러십/.test(s.name))
+    if (univScholar) expect(demographicMismatch(univScholar.name, `${univScholar.eligibility} ${univScholar.target} ${univScholar.name}`, uni)).toBe(false)
   })
 })

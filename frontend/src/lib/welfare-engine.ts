@@ -558,13 +558,21 @@ export function demographicMismatch(name: string, doc: string, p: UserProfile): 
   if (/학자금대출|재학생/.test(name) && p.employment_status !== '' && p.employment_status !== 'student') return true
   // 청소년·학령기 전용인데 본인이 청소년도 아니고 학령기 자녀도 없음
   if (/청소년|학령기/.test(name) && !(p.age >= 9 && p.age <= 24) && !ages.some((a) => a >= 7 && a <= 18)) return true
-  // 장학금·학자금·장학생 전용(민간재단 등)은 '학생 본인'(재학생·학령~대학연령) 또는 '학령기~대학연령 자녀'가
-  //   있어야 실제로 쓸 수 있다. 저소득 신호만으로 72세 어르신·비학생에게 장학금이 새어 '관련 복지'로 노출되던
-  //   과추천(뻥튀기)을 차단(사용자 지적). 학생 신호가 하나도 없으면 제외.
-  if (/장학금|장학생|스칼러십|학자금\s*지원|장학재단|학자금\s*대출/.test(name) &&
-      p.employment_status !== 'student' &&
-      !(p.age >= 15 && p.age <= 29) &&
-      !ages.some((a) => a >= 8 && a <= 24)) return true
+  // 장학금·학자금·장학생 전용(민간재단 등)은 '실제로 쓸 수 있는 학생'이 있어야 노출(저소득 신호만으론 뻥튀기).
+  //   교육 단계별로 분리: 대학·해외·펠로십형은 대학연령(본인 18~29 또는 자녀 18~24)만, 초중고·청소년·아동형은
+  //   학령기(본인 청소년 또는 자녀 7~18)만. 72세 어르신·영유아 부모에게 대학 장학금이 새던 과추천 차단(사용자 지적).
+  if (/장학금|장학생|스칼러십|학자금\s*지원|장학재단|펠로십|교환\s*장학|학자금\s*대출/.test(name)) {
+    const isStudent = p.employment_status === 'student'
+    // 자격요건(doc)까지 보고 대학형 판정 — 이름에 '대학'이 없어도 eligibility에 '대학생'이면 대학형(현대차·관정 등)
+    const isUniv = /대학|대학생|대학원|전문대|해외|교환|펠로십|글로벌/.test(doc)
+    if (isUniv) {
+      // 대학·해외·펠로십: 본인이 대학연령 학생이거나, 대학연령(18~24) 자녀가 있어야
+      if (!isStudent && !(p.age >= 18 && p.age <= 29) && !ages.some((a) => a >= 18 && a <= 24)) return true
+    } else {
+      // 초중고·청소년·아동 장학: 본인이 학령기이거나, 학령기(7~18) 자녀가 있어야
+      if (!isStudent && !(p.age >= 8 && p.age <= 24) && !ages.some((a) => a >= 7 && a <= 18)) return true
+    }
+  }
   // 임산부·산모·임신·난임 전용인데 임신 중도 아니고 영아도 없음
   if (/임산부|산모|임신|난임|출산/.test(name) && !(p.is_pregnant || ages.some((a) => a <= 1))) return true
   // 여성 전용(생리용품·여성청소년 등)인데 명백히 남성이면 제외 — 성별 누수 차단('other'=선택안함은 미상이라 유지)
