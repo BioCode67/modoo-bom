@@ -120,3 +120,44 @@ describe('3차 감사 — 금액합산·외국인·정직성', () => {
     expect(checkPolicy(find('POL-119'), kor).eligible).toBe(false)
   })
 })
+
+describe('4차 감사 — 취업지원 FN 구제 + 장애유형/질환 FP 격하', () => {
+  it('국민취업지원 I유형(POL-008): 저소득 구직자에게 이제 high(월60만원, low에 묻히던 치명 FN)', () => {
+    const seeker = P({ age: 24, income_percentile: 45, household_type: '1인가구', employment_status: 'unemployed' })
+    const r = checkPolicy(find('POL-008'), seeker)
+    expect(r.eligible).toBe(true)
+    expect(r.priority).toBe('high')
+  })
+  it('청년 구직활동 지원금(POL-044): 미취업 청년에게 high(광역 소득분기에 가로채이던 것)', () => {
+    const youth = P({ age: 24, income_percentile: 45, household_type: '1인가구', employment_status: 'unemployed' })
+    const r = checkPolicy(find('POL-044'), youth)
+    expect(r.eligible).toBe(true)
+    expect(r.priority).toBe('high')
+  })
+  it('국민취업지원 II유형(POL-079): 서비스형이라 medium(현금급여 위로 안 올림)', () => {
+    const seeker = P({ age: 58, income_percentile: 35, household_type: '1인가구', employment_status: 'unemployed', disability: true, disability_grade: '1급' })
+    const r = checkPolicy(find('POL-079'), seeker)
+    expect(r.eligible).toBe(true)
+    expect(r.priority).not.toBe('high')
+  })
+  it('취업지원 정직성: 재직자(다자녀 워킹맘)에겐 구직 지원 노출 안 됨', () => {
+    const working = P({ age: 36, income_percentile: 48, has_children: true, children_ages: [2, 5, 9], employment_status: 'employed' })
+    expect(checkPolicy(find('POL-008'), working).eligible).toBe(false)
+  })
+  it('청각 인공와우(POL-089): 지체장애 1급에게 high 아님 — 장애유형 확인 불가라 저신뢰', () => {
+    const limb = P({ age: 58, income_percentile: 35, disability: true, disability_grade: '1급' })
+    const r = checkPolicy(find('POL-089'), limb)
+    if (r.eligible) expect(r.priority).toBe('low')
+  })
+  it('일반 장애급여(장애인연금 POL-003): 중증장애인에겐 여전히 high 유지(과격하 방지)', () => {
+    const sev = P({ age: 58, income_percentile: 35, disability: true, disability_grade: '1급' })
+    const r = checkPolicy(find('POL-003'), sev)
+    expect(r.eligible).toBe(true)
+    expect(r.priority).toBe('high')
+  })
+  it('소아암 치료비(POL-110): 건강한 다자녀 가정엔 확신추천(medium+) 아님', () => {
+    const fam = P({ age: 36, income_percentile: 48, has_children: true, children_ages: [2, 5, 9], employment_status: 'employed' })
+    const r = checkPolicy(find('POL-110'), fam)
+    if (r.eligible) expect(r.priority).toBe('low')
+  })
+})

@@ -405,6 +405,22 @@ function checkPolicyDoc(doc: string, name: string, p: UserProfile): CheckResult 
       return { eligible: true, reason: `소득 중위소득 ${p.income_percentile}%로 생계급여(기초생활) 기준 충족`, priority: 'high', confidence: 0.87 }
     return NO
   }
+  // ── 취업지원(구직) 계열 — 국민취업지원·구직촉진수당·청년구직활동지원금 등 (소득분기보다 먼저) ──
+  //   저소득 구직자 대표 현금성 수당인데, eligibility의 '중위 60%'(≠'중위소득 60%' 리터럴)·'저소득 구직자'
+  //   (≠'구직 중/미취업')·광역 소득분기(중위120% low) 가로채기로 low에 묻히던 것(감사 확정 치명 FN).
+  //   구직 신호(미취업·실직 이벤트)면 소득은 이미 checkPolicy 앞단에서 게이트됨 → 현금수당형 high·서비스형 medium.
+  if (/국민취업지원|구직촉진|구직활동\s*지원|취업성공패키지/.test(doc)) {
+    const jobless = p.employment_status === 'unemployed' || (p.life_events || []).some((e) => /실직|실업|폐업|해고|권고사직|구직/.test(e))
+    if (!jobless) return NO
+    // I유형·구직촉진수당·청년구직활동지원금은 현금 수당(대표 급여) → high. II유형(서비스형)은 medium(현금급여 위로 올리지 않음).
+    const cashType = /구직촉진|구직활동\s*지원금/.test(doc) || (/I\s*유형/.test(doc) && !/II\s*유형|Ⅱ/.test(doc))
+    return {
+      eligible: true,
+      reason: cashType ? '저소득 구직자 취업지원 대상 (구직촉진수당 등)' : '취업지원 서비스 대상 (직업훈련·일경험)',
+      priority: cashType ? 'high' : 'medium',
+      confidence: cashType ? 0.85 : 0.75,
+    }
+  }
   // 중위소득 65/63/60% — 한부모(2026년 65%로 확대) 등. 넓은 기준 순서로 정밀 검사.
   if (anyIn(doc, ['중위소득 65%'])) {
     if (p.income_percentile <= 65) {
@@ -659,6 +675,18 @@ export function checkPolicy(policy: Policy, p: UserProfile): CheckResult {
       reason: loan
         ? '대출(심사·상환) 상품이에요 — 연령·소득 요건은 맞지만 자격·한도는 신청 시 심사로 정해져요.'
         : '심사·선발형 지원이에요 — 신청하면 다 받는 건 아니고 경쟁·심사로 선정돼요.',
+    }
+  }
+  // 프로필로 확인 불가한 '장애유형(청각·시각 등)·특정 질환' 하드조건 정책은 확신형 강력추천 금지 → 저신뢰(정직성, 감사 확정 FP).
+  //   앱은 장애 '유형'을 입력받지 않고(등록·등급만) 질병 보유도 모르므로, 청각와우를 지체장애인에게·소아암 치료비를
+  //   건강한 가정에 high/medium으로 단정하던 것을 '해당 조건이면 대상' 저신뢰 안내로 격하. 일반 장애·아동 급여는 영향 없음.
+  if (res.eligible && res.priority !== 'low' &&
+      /인공와우|와우\s*수술|청각장애|청각\s*장애|시각장애|시각\s*장애|저시력|망막|각막|보청기|점자|수어|언어장애|소아암|백혈병|어린이\s*암|난치성\s*질환/.test(doc)) {
+    return {
+      eligible: true,
+      priority: 'low',
+      confidence: Math.min(res.confidence, 0.5),
+      reason: '해당 장애유형·질환이 있는 경우 지원 대상이에요 — 상세에서 조건을 확인하세요.',
     }
   }
   return res
