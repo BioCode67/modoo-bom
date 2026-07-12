@@ -21,6 +21,9 @@
 export interface Capabilities {
   ai: boolean
   rpa: boolean
+  /** RPA 베이스가 '원격 서버 사이드'인지(로컬 에이전트가 아니라 사용자가 명시 지정+동의한 클라우드 RPA 서버).
+   *  UI 는 이 값이 true 면 '내 정보가 서버를 거친다'는 동의 안내를 유지해야 한다(정직성·개인정보). */
+  rpaRemote?: boolean
   ai_provider?: string
   rag?: string
 }
@@ -41,6 +44,42 @@ export function getCapabilities(): Capabilities | null {
 /** RPA(서류발급·신청) 호출에 쓸 베이스. 로컬 에이전트 감지 시 그 주소, 아니면 ''(=미지원). */
 export function getRpaBase(): string {
   return RPA_BASE
+}
+
+// 서버 사이드 RPA(옵트인 전용) — 사용자가 '자신의 RPA 서버 주소'를 명시 지정하고 PII 전송에 '명시 동의'했을
+//   때만 원격 RPA를 켠다. 기본(공개 배포)은 로컬 전용 유지 → 아무 설정 없는 방문자는 기존 안전 동작 그대로.
+//   ⚠️ 개인정보: 이 경로가 켜지면 이름·생년월일·연락처가 지정 서버로 전송된다(서버는 저장 안 함이 원칙).
+//      그래서 (1) https 서버만, (2) 명시 동의 플래그(modoo_rpa_consent==='1')가 둘 다 있어야 활성.
+export const RPA_SERVER_KEY = 'modoo_rpa_server'
+export const RPA_CONSENT_KEY = 'modoo_rpa_consent'
+export function getConfiguredRemoteRpa(): string {
+  try {
+    if (typeof localStorage === 'undefined') return ''
+    const url = (localStorage.getItem(RPA_SERVER_KEY) || '').trim()
+    const consent = localStorage.getItem(RPA_CONSENT_KEY) === '1'
+    if (!url || !consent) return ''
+    if (!/^https:\/\//i.test(url)) return '' // https 서버만(배포 폰은 https라 mixed-content·평문 PII 방지)
+    return url.replace(/\/+$/, '')
+  } catch {
+    return ''
+  }
+}
+/** 서버 사이드 RPA 옵트인 설정/해제 — UI(동의 화면)에서 호출. */
+export function setRemoteRpaServer(url: string, consent: boolean) {
+  try {
+    if (typeof localStorage === 'undefined') return
+    const clean = (url || '').trim().replace(/\/+$/, '')
+    if (clean && consent && /^https:\/\//i.test(clean)) {
+      localStorage.setItem(RPA_SERVER_KEY, clean)
+      localStorage.setItem(RPA_CONSENT_KEY, '1')
+    } else {
+      localStorage.removeItem(RPA_SERVER_KEY)
+      localStorage.removeItem(RPA_CONSENT_KEY)
+    }
+    resetBackendCache() // 재탐지 강제(다음 checkBackend 에서 원격 반영)
+  } catch {
+    /* noop */
+  }
 }
 
 // /api/health 1회 호출 → capabilities 반환(실패 시 null). 짧은 타임아웃.
@@ -112,8 +151,12 @@ async function runCheck(onWake?: (attempt: number, max: number) => void): Promis
     }
   }
 
-  if (!aiCaps && !local) { cached = false; return false }
-  finalizeCaps(aiCaps, aiBase, local)
+  // 서버 사이드 RPA(옵트인) — 사용자가 명시 지정+동의한 원격 RPA 서버가 있으면 별도 프로브(로컬 없을 때의 폰 경로).
+  const remoteRpaBase = getConfiguredRemoteRpa()
+  const remoteRpaCaps = remoteRpaBase ? await fetchHealth(remoteRpaBase, 5000) : null
+
+  if (!aiCaps && !local && !remoteRpaCaps) { cached = false; return false }
+  finalizeCaps(aiCaps, aiBase, local, remoteRpaBase, remoteRpaCaps)
   cached = true
   return true
 }
@@ -129,14 +172,21 @@ function isLocalRpaBase(base: string): boolean {
   return false
 }
 
-/** 감지 결과를 API_BASE/RPA_BASE/caps 로 확정. AI 는 클라우드/동일출처, RPA 는 '로컬 전용'. */
-function finalizeCaps(aiCaps: Capabilities | null, aiBase: string, local: Capabilities | null) {
-  // ⚠️ 보안: RPA_BASE 는 로컬에만 둔다. 클라우드가 rpa:true 를 보고해도(RPA_ENABLED 오설정 등)
-  //    로컬이 아니면 PII 를 보내지 않는다 → RPA_BASE 빈 값 유지 → RPA 버튼 숨김 + 공식 링크 폴백.
-  //    ⚠️ 동일출처(데스크탑 앱)의 RPA 베이스는 정상적으로 ''(상대경로)다 — !!RPA_BASE 로 rpa 를 판정하면
-  //       이 '' 를 false 로 오판해 8000 이 아닌 포트에서 자동발급이 통째로 사라진다. rpa 가용은 별도 불리언으로.
+/** 감지 결과를 API_BASE/RPA_BASE/caps 로 확정. AI 는 클라우드/동일출처, RPA 는 '로컬 우선 + 옵트인 원격 서버'. */
+function finalizeCaps(
+  aiCaps: Capabilities | null,
+  aiBase: string,
+  local: Capabilities | null,
+  remoteRpaBase = '',
+  remoteRpaCaps: Capabilities | null = null,
+) {
+  // ⚠️ 보안: RPA_BASE 는 (1)로컬 에이전트, (2)사용자가 명시 지정+동의한 원격 RPA 서버, (3)동일출처(로컬 앱)에만 둔다.
+  //    '자동 감지된' 클라우드(aiBase)가 rpa:true 를 보고해도(RPA_ENABLED 오설정 등) 로컬이 아니면 PII 를 보내지
+  //    않는다 → 빈 값 유지 → 버튼 숨김 + 공식 링크 폴백. 원격 서버는 오직 '명시 옵트인'(getConfiguredRemoteRpa)만 허용.
   let rpaOk = false
-  if (local?.rpa) { RPA_BASE = LOCAL_AGENT; rpaOk = true }
+  let rpaRemote = false
+  if (local?.rpa) { RPA_BASE = LOCAL_AGENT; rpaOk = true } // 로컬 에이전트 우선(PII 가 기기 밖으로 안 나감)
+  else if (remoteRpaBase && remoteRpaCaps?.rpa) { RPA_BASE = remoteRpaBase; rpaOk = true; rpaRemote = true } // 옵트인 원격 서버
   else if (aiCaps?.rpa && isLocalRpaBase(aiBase)) { RPA_BASE = aiBase; rpaOk = true } // aiBase='' = 동일출처(로컬)
   else RPA_BASE = ''
   // AI 베이스를 못 잡았고 로컬만 있으면 로컬을 AI 베이스로도 승격(완전 로컬 구동).
@@ -147,7 +197,8 @@ function finalizeCaps(aiCaps: Capabilities | null, aiBase: string, local: Capabi
   caps = {
     ai: aiCaps?.ai ?? local?.ai ?? false,
     rpa: rpaOk, // 로컬 RPA 베이스가 확정됐는지(''=동일출처도 유효). 클라우드는 isLocalRpaBase=false 로 차단됨.
-    ai_provider: aiCaps?.ai_provider ?? local?.ai_provider,
+    rpaRemote, // true=옵트인 원격 서버 RPA(PII 가 서버를 거침 → UI 는 동의 안내 유지)
+    ai_provider: aiCaps?.ai_provider ?? (remoteRpaCaps?.ai_provider ?? local?.ai_provider),
     rag: aiCaps?.rag ?? local?.rag,
   }
 }

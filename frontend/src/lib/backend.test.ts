@@ -156,3 +156,63 @@ describe('backend 하이브리드 감지', () => {
     expect(b.getCapabilities()).toBe(null)
   }, 15000)
 })
+
+describe('서버 사이드 RPA 옵트인(폰/배포에서 원격 서버 RPA)', () => {
+  const RPASRV = 'https://my-rpa.example.com'
+  const mem: Record<string, string> = {}
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn())
+    for (const k of Object.keys(mem)) delete mem[k]
+    vi.stubGlobal('localStorage', {
+      getItem: (k: string) => (k in mem ? mem[k] : null),
+      setItem: (k: string, v: string) => { mem[k] = v },
+      removeItem: (k: string) => { delete mem[k] },
+    })
+  })
+  afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs() })
+
+  it('원격 서버 미설정 → 원격 RPA 미사용(기본 안전, 로컬 전용)', async () => {
+    vi.stubGlobal('fetch', mockFetch({ [RPASRV]: { ai: false, rpa: true }, [LOCAL]: null }))
+    const b = await loadBackend('')
+    // 설정/동의 없음 → getConfiguredRemoteRpa()='' → 원격 프로브 안 함 → RPA 미노출
+    await b.checkBackend()
+    expect(b.getRpaBase()).toBe('')
+    expect(b.getCapabilities()).toBe(null) // 아무 백엔드 없음
+  })
+
+  it('서버 지정+동의 → 원격 RPA 활성(RPA_BASE=원격, rpaRemote=true)', async () => {
+    vi.stubGlobal('fetch', mockFetch({ [RPASRV]: { ai: false, rpa: true }, [LOCAL]: null }))
+    const b = await loadBackend('')
+    b.setRemoteRpaServer(RPASRV, true)
+    expect(await b.checkBackend()).toBe(true)
+    expect(b.getRpaBase()).toBe(RPASRV)
+    expect(b.getCapabilities()?.rpa).toBe(true)
+    expect(b.getCapabilities()?.rpaRemote).toBe(true)
+  })
+
+  it('동의 없이 URL만 → 미활성(PII 보호)', async () => {
+    vi.stubGlobal('fetch', mockFetch({ [RPASRV]: { ai: false, rpa: true }, [LOCAL]: null }))
+    const b = await loadBackend('')
+    b.setRemoteRpaServer(RPASRV, false) // 동의 false → 저장 안 됨
+    await b.checkBackend()
+    expect(b.getRpaBase()).toBe('')
+  })
+
+  it('http(비-https) 서버는 거부 — 평문 PII 전송 방지', async () => {
+    const HTTP = 'http://insecure.example.com'
+    vi.stubGlobal('fetch', mockFetch({ [HTTP]: { ai: false, rpa: true }, [LOCAL]: null }))
+    const b = await loadBackend('')
+    b.setRemoteRpaServer(HTTP, true) // https 아님 → 저장 안 됨
+    await b.checkBackend()
+    expect(b.getRpaBase()).toBe('')
+  })
+
+  it('로컬 에이전트가 있으면 원격보다 로컬 우선(PII 가 기기 밖으로 안 나감)', async () => {
+    vi.stubGlobal('fetch', mockFetch({ [RPASRV]: { ai: false, rpa: true }, [LOCAL]: { ai: false, rpa: true } }))
+    const b = await loadBackend('')
+    b.setRemoteRpaServer(RPASRV, true)
+    expect(await b.checkBackend()).toBe(true)
+    expect(b.getRpaBase()).toBe(LOCAL) // 로컬 우선
+    expect(b.getCapabilities()?.rpaRemote).toBeFalsy()
+  })
+})
