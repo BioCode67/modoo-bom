@@ -14,11 +14,26 @@ export function DemoAutomation() {
   const [state, setState] = useState<'idle' | 'running' | 'done' | 'error'>('idle')
   const [shots, setShots] = useState<Shot[]>([])
   const [msg, setMsg] = useState('')
+  const [live, setLive] = useState<boolean | null>(null) // 서버 도달 여부(null=확인 중)
   const mounted = useRef(true)
   const running = useRef(false)
   useEffect(() => () => { mounted.current = false }, [])
 
+  // 마운트 시 데모 서버 health 프리체크 — 서버가 꺼져 있으면 죽은 버튼을 안 보여주고 정직히 안내.
+  useEffect(() => {
+    if (!base) { setLive(false); return }
+    const ctrl = new AbortController()
+    const t = setTimeout(() => ctrl.abort(), 6000)
+    fetch(`${base}/api/health`, { signal: ctrl.signal })
+      .then((r) => r.ok ? r.json() : null)
+      .then((j) => { if (mounted.current) setLive(!!(j && j.capabilities?.rpa)) })
+      .catch(() => { if (mounted.current) setLive(false) })
+      .finally(() => clearTimeout(t))
+    return () => { clearTimeout(t); ctrl.abort() }
+  }, [base])
+
   if (!base) return null // 데모 서버 미연결 시 노출 안 함(빌드 시 VITE_RPA_BASE 또는 로컬/옵트인 감지)
+  if (live === false) return null // 서버는 지정됐지만 지금 꺼져 있음 → 죽은 버튼 대신 미노출(정직성)
 
   const start = async () => {
     if (running.current) return
@@ -69,7 +84,12 @@ export function DemoAutomation() {
         주민번호·이름은 <b className="text-foreground">묻지 않아요</b> — 본인인증 화면에서 멈춰요(실제 발급은 본인 폰 인증 후).
       </p>
 
-      {state === 'idle' && (
+      {state === 'idle' && live === null && (
+        <div className="mt-4 inline-flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" /> 데모 서버 연결 확인 중…
+        </div>
+      )}
+      {state === 'idle' && live === true && (
         <button onClick={start} className="btn-primary mt-4 inline-flex items-center gap-2 !py-2.5">
           <PlayCircle className="h-5 w-5" /> 실제 자동화 체험 시작
         </button>
