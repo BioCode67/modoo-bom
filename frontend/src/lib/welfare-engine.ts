@@ -226,6 +226,21 @@ function checkPolicyDoc(doc: string, name: string, p: UserProfile): CheckResult 
     return NO
   }
 
+  // ── 취업지원(구직) 계열 — 국민취업지원·구직촉진수당·청년구직활동지원금 등 ──
+  //   ⚠️ 반드시 청년 '나이' 분기(만 15~34세 등)보다 먼저 판정해야 한다. 안 그러면 '만 15~34세' 문구가 나이
+  //   분기에 먼저 걸려 미취업이 아닌 청년(예: 출산가정 32세)에게도 구직촉진수당(월60만)이 high로 잡혀 현금합계가
+  //   과대계상된다(이중/과장 방지). 구직 신호(미취업·실직)가 있어야만 대상 — 소득은 checkPolicy 앞단서 이미 게이트.
+  if (/국민취업지원|구직촉진|구직활동\s*지원|취업성공패키지/.test(doc)) {
+    const jobless = p.employment_status === 'unemployed' || (p.life_events || []).some((e) => /실직|실업|폐업|해고|권고사직|구직/.test(e))
+    if (!jobless) return NO
+    const cashType = /구직촉진|구직활동\s*지원금/.test(doc) || (/I\s*유형/.test(doc) && !/II\s*유형|Ⅱ/.test(doc))
+    return {
+      eligible: true,
+      reason: cashType ? '저소득 구직자 취업지원 대상 (구직촉진수당 등)' : '취업지원 서비스 대상 (직업훈련·일경험)',
+      priority: cashType ? 'high' : 'medium',
+      confidence: cashType ? 0.85 : 0.75,
+    }
+  }
   // ── 청년 계열 ──
   // 만 19~20세 전용(예: 청년 문화예술패스) — 넓은 청년 룰보다 먼저 정밀 판정(21~34세 오노출 방지)
   if (anyIn(doc, ['만 19~20세', '19~20세', '만 19세·20세'])) {
@@ -406,22 +421,6 @@ function checkPolicyDoc(doc: string, name: string, p: UserProfile): CheckResult 
     if (p.income_percentile <= 32)
       return { eligible: true, reason: `소득 중위소득 ${p.income_percentile}%로 생계급여(기초생활) 기준 충족`, priority: 'high', confidence: 0.87 }
     return NO
-  }
-  // ── 취업지원(구직) 계열 — 국민취업지원·구직촉진수당·청년구직활동지원금 등 (소득분기보다 먼저) ──
-  //   저소득 구직자 대표 현금성 수당인데, eligibility의 '중위 60%'(≠'중위소득 60%' 리터럴)·'저소득 구직자'
-  //   (≠'구직 중/미취업')·광역 소득분기(중위120% low) 가로채기로 low에 묻히던 것(감사 확정 치명 FN).
-  //   구직 신호(미취업·실직 이벤트)면 소득은 이미 checkPolicy 앞단에서 게이트됨 → 현금수당형 high·서비스형 medium.
-  if (/국민취업지원|구직촉진|구직활동\s*지원|취업성공패키지/.test(doc)) {
-    const jobless = p.employment_status === 'unemployed' || (p.life_events || []).some((e) => /실직|실업|폐업|해고|권고사직|구직/.test(e))
-    if (!jobless) return NO
-    // I유형·구직촉진수당·청년구직활동지원금은 현금 수당(대표 급여) → high. II유형(서비스형)은 medium(현금급여 위로 올리지 않음).
-    const cashType = /구직촉진|구직활동\s*지원금/.test(doc) || (/I\s*유형/.test(doc) && !/II\s*유형|Ⅱ/.test(doc))
-    return {
-      eligible: true,
-      reason: cashType ? '저소득 구직자 취업지원 대상 (구직촉진수당 등)' : '취업지원 서비스 대상 (직업훈련·일경험)',
-      priority: cashType ? 'high' : 'medium',
-      confidence: cashType ? 0.85 : 0.75,
-    }
   }
   // 중위소득 65/63/60% — 한부모(2026년 65%로 확대) 등. 넓은 기준 순서로 정밀 검사.
   if (anyIn(doc, ['중위소득 65%'])) {
