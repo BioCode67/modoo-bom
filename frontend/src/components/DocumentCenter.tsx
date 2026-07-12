@@ -9,6 +9,7 @@ import { useBackend } from '@/lib/useBackend'
 import { detectExtension, issueViaExtension, issueManyViaExtension, getExtensionTrace, onExtensionStatus, sameDocName } from '@/lib/extension'
 import { setPendingReturn } from '@/lib/returnPrompt'
 import { RpaInfoForm } from '@/components/RpaInfoForm'
+import { RemoteRpaSetup } from '@/components/RemoteRpaSetup'
 import { cn } from '@/lib/utils'
 
 type RpaState = { status: string; step: string; at?: number; taskId?: string; saved?: boolean; downloadToken?: string } | null
@@ -296,7 +297,13 @@ export function DocumentCenter() {
           </div>
         </div>
       )}
+      {/* 백엔드(로컬 에이전트·확장·옵트인 원격 서버)가 없을 때만: 설치 없이 '내 서버'로 자동발급 옵트인(고급) */}
+      {!backend && <div className="mt-3"><RemoteRpaSetup /></div>}
       {backend && <div ref={rpaFormRef}><RpaInfoForm /></div>}
+      {/* 옵트인 원격 서버로 연결된 경우: 내 정보가 서버를 거친다는 안내 유지(정직성) */}
+      {localAgent && caps?.rpaRemote && (
+        <p className="mt-2 text-xs text-amber-700">🔒 내 서버로 자동발급 중 — 이름·생년월일·연락처가 지정 서버를 거쳐요(본인인증은 내 폰에서).</p>
+      )}
 
       {/* 🚀 연쇄 자동발급 — 확장이 있고 지원 서류가 2개 이상일 때 */}
       {/* 연쇄 자동발급 — 확장(전체) 또는 로컬 에이전트(데스크탑앱, 로컬 지원분)로 한 번 인증에 이어서 발급 */}
