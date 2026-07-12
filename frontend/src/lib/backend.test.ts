@@ -216,3 +216,25 @@ describe('서버 사이드 RPA 옵트인(폰/배포에서 원격 서버 RPA)', (
     expect(b.getCapabilities()?.rpaRemote).toBeFalsy()
   })
 })
+
+describe('체험(데모) 서버 베이스 getDemoRpaBase', () => {
+  afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs() })
+
+  it('VITE_RPA_BASE 지정 시 그 서버를 체험 베이스로(개인정보 없는 데모라 동의 불필요)', async () => {
+    vi.resetModules()
+    vi.stubEnv('VITE_API_BASE', '')
+    vi.stubEnv('VITE_RPA_BASE', 'https://demo.example.com/')
+    vi.stubEnv('BASE_URL', '/modoo-bom/')
+    const b = await import('./backend')
+    expect(b.getDemoRpaBase()).toBe('https://demo.example.com') // 끝 슬래시 제거
+  })
+
+  it('VITE_RPA_BASE 미지정 + RPA 미감지 → 체험 베이스 없음(버튼 미노출)', async () => {
+    vi.resetModules()
+    vi.stubEnv('VITE_API_BASE', '')
+    vi.stubEnv('VITE_RPA_BASE', '')
+    vi.stubEnv('BASE_URL', '/modoo-bom/')
+    const b = await import('./backend')
+    expect(b.getDemoRpaBase()).toBe('')
+  })
+})
