@@ -62,23 +62,49 @@ CORS). 이건 전 세계 모든 브라우저의 근본 보안 규칙이라 정�
 
 `setRemoteRpaServer(url, consent)` 로 설정/해제(동의 화면에서 호출). https 아니면 저장 거부(평문 PII 방지).
 
-## 백엔드 — RPA 서버로 배포하기
+## 내 PC를 RPA 서버로 — 클릭 몇 번 (권장: 시연·파일럿)
 
-RPA 코드(`backend/rpa/*`, `api/routes.py`)는 이미 서버에서 동작 가능. 서버 모드 기동:
+서버는 **`local_server.py`**(경량, chromadb 불필요, RPA·CORS·체험 엔드포인트 포함)를 쓴다. main.py는 RAG
+의존성이 무거워 서버용으로 부적합. 이미 `https://biocode67.github.io`가 CORS 허용돼 있어 배포 사이트가 바로 호출 가능.
 
-```bash
-# 클라우드/VM (Playwright + chromium 설치된 호스트)
-export RPA_ENABLED=1            # 명시 opt-in (fail-closed 기본이라 필수)
-export RPA_HEADLESS=1           # 창 없이(서버라 화면 없음)
-export RPA_BROWSER_CHANNEL=chrome   # 실제 크롬(안티봇 강함). 없으면 번들 chromium(--no-sandbox 자동)
-export CORS_ORIGINS="https://biocode67.github.io"   # 폰/배포 출처만 허용
-export RPA_DELETE_AFTER_DOWNLOAD=1  # 발급 PDF 회수 후 서버에서 삭제(PII)
-uvicorn main:app --host 0.0.0.0 --port 8000
-# playwright install chromium  (최초 1회)
+**① RPA 서버 켜기** — 저장소 루트에서 `run-rpa-server.bat` 더블클릭
 ```
+RPA_ENABLED=1 · RPA_HEADLESS=1 · RPA_BROWSER_CHANNEL=chrome · RPA_DELETE_AFTER_DOWNLOAD=1
+uvicorn local_server:app --host 0.0.0.0 --port 8000   (bat이 자동 설정)
+```
+**② https 공개 주소 얻기** — 새 창에서 `run-tunnel.bat` 더블클릭(cloudflared 무료)
+→ `https://<무작위>.trycloudflare.com` 주소가 나온다. **이게 서버 주소.**
+(설치: `winget install --id Cloudflare.cloudflared` 또는 releases에서 cloudflared.exe를 루트에 저장)
 
-- 프론트는 이 서버 URL을 '고급: 내 서버로 자동발급' 동의 화면에 입력 → `setRemoteRpaServer(url, true)`.
-- 이후 폰에서 서류 발급/신청 시 이 서버로 요청 → 서버 크롬이 정부24 조작 → 폰 카톡 승인 → PDF 회수.
+**③ 배포 사이트가 이 서버를 쓰게** — `frontend/`에서 빌드 시 `VITE_RPA_BASE`에 그 주소를 넣어 재배포:
+```bash
+# 체험(개인정보 없음)은 이 서버를 자동 사용, 실제 발급은 방문자 동의(옵트인) 시 사용
+# Git Bash/macOS:
+VITE_RPA_BASE=https://<무작위>.trycloudflare.com npm run deploy
+# Windows PowerShell:
+#   $env:VITE_RPA_BASE="https://<무작위>.trycloudflare.com"; npm run deploy
+```
+→ 배포 사이트 홈에 **‘실제 정부24 자동화 체험’** 버튼이 뜨고, 방문자가 누르면 이 PC의 브라우저가 실제 정부24를
+   조작하는 스크린샷이 나온다(개인정보 0, 인증벽 정지).
+
+**참고**: trycloudflare 무작위 주소는 터널을 껐다 켜면 바뀐다 → 그때마다 ③ 재배포. 고정하려면 cloudflare
+'named tunnel'(무료, 도메인 필요)로 고정 URL을 만들어 VITE_RPA_BASE에 한 번만 박으면 된다.
+
+## 엔드포인트
+
+- **체험(개인정보 없음)**: `POST /api/rpa/demo-start` → `{task_id, download_token}` →
+  `GET /api/documents/rpa-status/{id}?t=token` 폴링(현재단계 + 스크린샷). 실제 정부24 접속·이동 스크린샷,
+  간편인증 화면에서 정지. 방문자 아무나 가능(PII 없음).
+- **실제 발급(옵트인·본인 정보)**: 기존 `POST /api/documents/rpa-issue`·`/api/journey/run`. 프론트는 방문자가
+  '고급: 내 서버로 자동발급'에서 서버 URL+동의를 넣거나(수동), 팀이 VITE_RPA_BASE로 지정한 서버를 쓴다.
+  이름·생년월일·연락처가 서버를 거쳐 정부24에 입력되고 → 폰 카톡/PASS 승인 → 발급 → PDF 회수 후 서버서 삭제.
+
+## 현실적 주의 (시연 안정성)
+
+- **동시성**: PC 한 대의 브라우저 수는 제한적(`RPA_MAX_CONCURRENT`, 큐잉). 수십 명이 동시에 '체험'을 누르면
+  대기가 생긴다. 시연장에선 '체험'을 **순차/대표 시연**으로, 대량 동시 접속은 발견 기능(무한 확장·즉시)으로 받는 게 안전.
+- **PC·터널이 살아있어야** 배포 사이트의 체험 버튼이 동작(끄면 버튼은 뜨되 시작 시 안내 메시지). 발표 중엔 켜둘 것.
+- **안티봇 심화 구간**(로그인·인증·제출)은 실계정 리허설로 확정. 막히면 `RPA_HEADLESS=0`(headed)·실크롬 채널·slow_mo.
 
 ## 현장(복지관 7/13-14)과의 관계
 
