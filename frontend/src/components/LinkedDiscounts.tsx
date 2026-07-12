@@ -28,7 +28,7 @@ export function LinkedDiscounts({ profile }: { profile: UserProfile }) {
         </span>
         <span className="flex-1">
           <span className="block text-sm font-extrabold text-foreground">이건 몰라서 놓치기 쉬워요 — 자격이 되면 <span className="text-peach-700">요금감면도 함께</span></span>
-          <span className="block text-xs text-muted-foreground mt-0.5">통신·전기·도시가스·TV수신료 감면을 <b>한 번에</b>(요금감면 일괄신청) — 복지로·주민센터</span>
+          <span className="block text-xs text-muted-foreground mt-0.5">전기·가스·난방은 <b>정부24 요금감면 일괄신청</b>으로 한 번에 · 통신·TV수신료는 각 신청처 안내</span>
         </span>
         <ChevronDown className={cn('h-4 w-4 shrink-0 text-peach-600 transition-transform', open && 'rotate-180')} />
       </button>

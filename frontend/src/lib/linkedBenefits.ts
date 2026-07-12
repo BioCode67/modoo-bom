@@ -24,11 +24,12 @@ export interface LinkedGroup {
   apply: { label: string; url: string }
 }
 
-// '수급자 등에 대한 요금감면 일괄신청'(통신·전기·도시가스·난방·TV수신료 등)의 실제 신청 관문.
-//   ⚠️ 정부24 rcvfvrStus 딥링크는 soft-404(에러페이지)라 사용 금지 — 복지로(생존 확인)·주민센터로 안내.
+// 정부24 '요금감면 일괄신청'(전기·도시가스·지역난방) 실제 민원 — 2026-07 <title> '요금감면일괄신청'로 생존 검증.
+//   ⚠️ 통신요금(통신사 114)·TV수신료(KBS 1588-1801/주민센터)는 이 일괄신청에 포함 안 됨 → 카드 문구로 별도 안내.
+//   (과거 rcvfvrStus 딥링크는 200이지만 soft-404 에러페이지라 사용 금지 — 반드시 <title> 확인.)
 const ONESTOP = {
-  label: '복지로·주민센터에서 신청',
-  url: 'https://www.bokjiro.go.kr',
+  label: '정부24 요금감면 일괄신청',
+  url: 'https://www.gov.kr/portal/service/serviceInfo/174100000049',
 }
 const BOKJIRO = { label: '복지로에서 확인·신청', url: 'https://www.bokjiro.go.kr' }
 
@@ -47,10 +48,10 @@ export function getLinkedDiscounts(p: UserProfile): LinkedGroup[] {
       label: '기초생활 수급 가구',
       why: '생계·의료급여 수급이 확정되면 아래 요금감면이 함께 적용돼요(주거·교육급여는 감면폭이 달라요).',
       items: [
-        { icon: '📱', name: '통신요금 감면', detail: '이동전화 기본감면 + 통화료 감면 (수급 최대 월 약 3만원대)' },
-        { icon: '💡', name: '전기요금 감면', detail: '월 최대 약 1.6만원(여름 2만원) 한도 감면' },
-        { icon: '🔥', name: '도시가스 감면', detail: '동절기 취사·난방 월 최대 약 2.4만원 감면' },
-        { icon: '📺', name: 'TV 수신료 면제', detail: '생계·의료급여 수급 가구는 월 2,500원 면제' },
+        { icon: '💡', name: '전기요금 감면', detail: '월 최대 16,000원(여름 20,000원) 감면 · 정부24 일괄신청' },
+        { icon: '🔥', name: '도시가스 감면', detail: '동절기 취사·난방 월 24,000원 정액 감면 · 정부24 일괄신청' },
+        { icon: '📱', name: '통신요금 감면', detail: '기본료 최대 26,000원 면제 + 통화료 50%(합산 41,000원 한도) · 통신사 114' },
+        { icon: '📺', name: 'TV 수신료 면제', detail: '생계·의료 수급 월 2,500원 면제 · KBS 1588-1801/주민센터' },
       ],
       apply: ONESTOP,
     })
