@@ -178,8 +178,8 @@ export const WELFARE_POLICIES: Policy[] = [
     name: '의료급여 1종',
     category: '의료',
     target: '기초생활수급자 중 근로 능력 없는 자',
-    benefit: '입·외래 본인부담금 면제 또는 정액',
-    eligibility: '생계·의료급여 수급자 중 1종 해당자 (노인, 장애인, 영·유아 등)',
+    benefit: '입원 무료, 외래 1,000~2,000원 (1종, 본인부담 최소)',
+    eligibility: '생계·의료급여 수급자 중 1종 해당자 (노인, 장애인, 영·유아 등 근로무능력)',
     required_docs: ['의료급여증', '주민등록등본'],
     application: '주민센터 자동 발급',
     department: '보건복지부',
@@ -682,7 +682,7 @@ export const WELFARE_POLICIES: Policy[] = [
   },
   {
     id: 'POL-052',
-    name: '청소년 특별지원 (위기청소년)',
+    name: '청소년 특별지원',
     category: '청소년',
     target: '위기청소년 (9~24세)',
     benefit: '월 최대 65만원 생활비, 의료비, 학업비, 자립비 등 지원',
@@ -862,7 +862,7 @@ export const WELFARE_POLICIES: Policy[] = [
   },
   {
     id: 'POL-067',
-    name: '문화누리카드 (저소득층 문화바우처)',
+    name: '문화누리카드',
     category: '저소득문화',
     target: '기초생활수급자 및 차상위계층',
     benefit: '연 15만원(청소년·60대 초반 16만) 문화·여행·체육 바우처 (2026년 기준, 영화·공연·스포츠 관람 등)',
