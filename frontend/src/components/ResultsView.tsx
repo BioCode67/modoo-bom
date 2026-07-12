@@ -16,6 +16,7 @@ import { ContinuityCard } from '@/components/ContinuityCard'
 import { AiDiscovery } from '@/components/AiDiscovery'
 import { NearMissCard } from '@/components/NearMissCard'
 import { ComboCard } from '@/components/ComboCard'
+import { LinkedDiscounts } from '@/components/LinkedDiscounts'
 import { WelfareScore } from '@/components/WelfareScore'
 import { ShareButton } from '@/components/ShareButton'
 import { Glossary } from '@/components/Glossary'
@@ -326,6 +327,9 @@ export function ResultsView({ result, profile, onReset, helperMode = false }: { 
               </div>
             </div>
           )}
+
+          {/* 🎁 연계 감면 일괄신청 — 자격이 되면 딸려오는 통신·전기·가스·TV수신료 감면을 한 번에(몰라서 못 받는 것) */}
+          <LinkedDiscounts profile={profile} />
 
           {/* 🧩 수급 조합 도우미 — 같이 받을 것 vs 하나만 고를 것(경쟁 서비스에 없는 기능, 공식 출처 기반) */}
           <ComboCard eligible={eligible} />
