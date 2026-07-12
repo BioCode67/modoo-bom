@@ -20,6 +20,8 @@ import { WelfareScore } from '@/components/WelfareScore'
 import { ShareButton } from '@/components/ShareButton'
 import { Glossary } from '@/components/Glossary'
 import { formatWon, sumCashMonthly } from '@/lib/format'
+import { searchPolicies } from '@/lib/search'
+import { getCatalog } from '@/data/catalog'
 import { cn } from '@/lib/utils'
 import { profileSignals } from '@/lib/profileSignals'
 import { JourneyStepper } from '@/components/JourneyStepper'
@@ -43,6 +45,13 @@ export function ResultsView({ result, profile, onReset, helperMode = false }: { 
   // 자활·구직수당처럼 근로능력/상황 전제이거나 중복불가인 항목까지 더해 과장되지 않도록 의도적으로 좁힘.
   const monthly = sumCashMonthly(primary.filter((p) => p.priority === 'high'))
   const highCount = primary.filter((p) => p.priority === 'high').length
+  // 주제 질문 대응 — 자연어 원문(_query)으로 키워드 검색해, 이미 추천된 것 외에 '찾으시는 주제'와 맞는 복지를 보완.
+  //   예: "틀니 지원 있나요"처럼 프로필상 부적격(30세)이라 추천엔 안 뜨는 주제를 정보성으로 안내(자격은 상세 확인).
+  const q = (profile._query || '').trim()
+  const shownIds = new Set(eligible.map((p) => p.id))
+  const topicHits: Policy[] = q.length >= 2
+    ? searchPolicies(getCatalog(), q).filter((p) => !shownIds.has(p.id)).slice(0, 4)
+    : []
   // 에이전트가 '무엇을 파악했는지'를 결과에서도 되비춘다(백엔드 스트림 경로에선 오버레이 신호가 안 보이므로 여기서 보강)
   const signals = profileSignals(profile)
   const tts = useTTS()
@@ -300,6 +309,21 @@ export function ResultsView({ result, profile, onReset, helperMode = false }: { 
                   ))}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* 🔎 찾으시는 주제와 관련된 복지 — 자연어 원문 키워드로 보완(추천엔 없지만 물어본 주제) */}
+          {topicHits.length > 0 && (
+            <div className="mt-6">
+              <h3 className="text-sm font-bold text-foreground flex items-center gap-1.5">
+                🔎 “{q.length > 20 ? q.slice(0, 20) + '…' : q}” 관련해 이런 복지도 있어요
+              </h3>
+              <p className="text-xs text-muted-foreground mt-1 mb-3">물어보신 주제와 맞는 복지예요. 내 조건에 맞는지는 각 정책 상세·문의처에서 확인하세요.</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {topicHits.map((p, i) => (
+                  <PolicyCard key={p.id} policy={p} index={i} onOpen={setSelected} />
+                ))}
+              </div>
             </div>
           )}
 
