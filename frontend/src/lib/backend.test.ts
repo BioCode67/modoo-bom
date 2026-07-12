@@ -237,4 +237,23 @@ describe('체험(데모) 서버 베이스 getDemoRpaBase', () => {
     const b = await import('./backend')
     expect(b.getDemoRpaBase()).toBe('')
   })
+
+  it('VITE_RPA_BASE 지정 + 동의만 → 실제 발급도 그 서버로(URL 타이핑 불필요)', async () => {
+    vi.resetModules()
+    vi.stubEnv('VITE_API_BASE', '')
+    vi.stubEnv('VITE_RPA_BASE', 'https://team-demo.example.com')
+    vi.stubEnv('BASE_URL', '/modoo-bom/')
+    const mem: Record<string, string> = {}
+    vi.stubGlobal('localStorage', {
+      getItem: (k: string) => (k in mem ? mem[k] : null),
+      setItem: (k: string, v: string) => { mem[k] = v },
+      removeItem: (k: string) => { delete mem[k] },
+    })
+    const b = await import('./backend')
+    expect(b.hasEnvRpaServer()).toBe(true)
+    expect(b.getConfiguredRemoteRpa()).toBe('') // 동의 전엔 없음
+    b.setRemoteRpaServer('', true) // URL 없이 동의만
+    expect(b.getConfiguredRemoteRpa()).toBe('https://team-demo.example.com') // 데모 서버로 실제 발급 옵트인
+    vi.unstubAllGlobals()
+  })
 })
