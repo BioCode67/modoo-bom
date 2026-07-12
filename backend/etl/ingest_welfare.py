@@ -140,11 +140,23 @@ _HOUSEHOLD_TAGS = {
     "다문화": ["다문화", "결혼이민", "외국인"], "농어민": ["농업인", "어업인", "농어가"],
 }
 _INCOME_RE = re.compile(r"(중위소득|기준중위소득)\s*(?P<pct>[0-9]{1,3})\s*%|소득인정액|소득[^.]{0,6}이하")
-_AGE_RE = re.compile(r"(?:만\s*)?(?P<lo>[0-9]{1,3})\s*세(?:\s*(?:이상|~|-|부터)\s*(?:만\s*)?(?P<hi>[0-9]{1,3})\s*세)?")
+
+# 나이 조건 — '만 N세' 뒤에 바로 붙는 경계 표현만 신뢰한다.
+#   이상→min · 초과→min+1 · 이하→max · 미만→max-1 · (~ / - / 부터)→범위의 하한
+# 경계어 없는 단독/나열/오타 토큰('만 20세', '만 20세 또는 25세')은 잘못된 자격 차단
+# (오게이트)을 막기 위해 조용히 무시한다. op 그룹은 '세' 바로 뒤 1개만 캡처하므로
+# mid가 다음 절까지 삼키던 문제도 없다.
+MAX_AGE = 120
+_AGE_RE = re.compile(r"(?:만\s*)?(?P<age>[0-9]{1,3})\s*세\s*(?P<op>이상|이하|미만|초과|부터|~|-)?")
 
 
 def extract_conditions(*texts: str) -> dict:
-    """대상/선정기준 문장에서 나이·소득·가구·지역 신호를 구조화(있는 것만)."""
+    """대상/선정기준 문장에서 나이·소득·가구·지역 신호를 구조화(있는 것만).
+
+    나이는 '만 N세 이상/이하/미만/초과' 또는 'N세~M세'(부터/~) 범위처럼 **명시적
+    경계**만 받아들인다. '만 20세 또는 25세'처럼 경계어 없는 나열·오타 텍스트는
+    잘못된 자격 차단(오게이트)을 막기 위해 조용히 건너뛴다. 값을 지어내지 않는다.
+    """
     blob = " ".join(t for t in texts if t)
     conds: dict = {}
     if not blob:
@@ -155,12 +167,46 @@ def extract_conditions(*texts: str) -> dict:
     inc = _INCOME_RE.search(blob)
     if inc:
         conds["income"] = (inc.group("pct") + "% 이하") if inc.group("pct") else "소득 요건 있음"
-    age = _AGE_RE.search(blob)
-    if age:
-        lo = int(age.group("lo"))
-        hi = int(age.group("hi")) if age.group("hi") else None
-        if 0 <= lo <= 120:  # 잡음(연도 등) 배제
-            conds["age"] = {"min": lo, **({"max": hi} if hi and hi <= 120 else {})}
+
+    lo = hi = None
+    range_open = False  # 직전 토큰이 '~'/'부터'로 범위의 하한을 열어둔 상태
+    for m in _AGE_RE.finditer(blob):          # ← 모든 '세' 토큰 순회
+        val = int(m.group("age"))
+        if not (0 <= val <= MAX_AGE):   # 연도·코드 등 잡음 배제
+            continue
+        op = m.group("op")
+        if op == "이상":
+            if lo is None:
+                lo = val
+        elif op == "초과":
+            if lo is None:
+                lo = val + 1
+        elif op == "이하":
+            if hi is None:
+                hi = val
+        elif op == "미만":
+            if hi is None:
+                hi = val - 1
+        elif op in ("~", "-", "부터"):
+            if lo is None:
+                lo = val
+            range_open = True
+        elif range_open and hi is None:   # 범위의 상한 ('N세~M세'의 M)
+            hi = val
+            range_open = False
+        # else: 경계어 없는 단독/모호 토큰 → 무시(오게이트 방지)
+        # ↑ 만약 단독 'N세'를 정확 연령으로 보고 싶다면 이 자리에서
+        #   if lo is None and hi is None: lo = hi = val 로 바꾸면 된다(비권장).
+
+    if lo is not None and hi is not None and lo > hi:
+        lo = hi = None   # 앞뒤가 뒤집힌 모순 파싱은 통째로 버림
+    if lo is not None or hi is not None:
+        age: dict = {}
+        if lo is not None:
+            age["min"] = lo
+        if hi is not None:
+            age["max"] = hi
+        conds["age"] = age
     return conds
 
 
