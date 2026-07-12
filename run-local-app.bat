@@ -11,12 +11,23 @@ rem ─────────────────────────�
 
 cd /d "%~dp0"
 
-rem 1) 프론트 로컬 앱 번들(dist-app)이 없으면 빌드
-if not exist "frontend\dist-app\index.html" (
-  echo [모두봄] 프론트 로컬 앱을 빌드합니다... (최초 1회)
+rem 1) 프론트 로컬 앱 번들(dist-app) — 없거나 소스(git HEAD)가 바뀌었으면 재빌드
+rem    현장에서 'git pull'로 최신화한 뒤 실행해도 stale 화면으로 돌지 않게(정직성 수정 누락 방지).
+rem    .build-commit 에 빌드 당시 커밋을 기록해 현재 HEAD 와 비교 — 같으면 재빌드 생략(빠른 재기동).
+set "NEED_BUILD="
+if not exist "frontend\dist-app\index.html" set "NEED_BUILD=1"
+set "CUR_HEAD="
+for /f "delims=" %%H in ('git rev-parse HEAD 2^>nul') do set "CUR_HEAD=%%H"
+set "BUILT_HEAD="
+if exist "frontend\dist-app\.build-commit" set /p BUILT_HEAD=<"frontend\dist-app\.build-commit"
+rem git 이 있고(커밋 조회 성공) HEAD 가 빌드 당시와 다르면 재빌드
+if defined CUR_HEAD if not "%CUR_HEAD%"=="%BUILT_HEAD%" set "NEED_BUILD=1"
+if defined NEED_BUILD (
+  echo [모두봄] 최신 화면으로 프론트를 빌드합니다... ^(1~2분, 최초/업데이트 시^)
   pushd frontend
   call npm run build:app
   popd
+  if defined CUR_HEAD >"frontend\dist-app\.build-commit" echo %CUR_HEAD%
 )
 if not exist "frontend\dist-app\index.html" (
   echo [오류] 프론트 빌드에 실패했습니다. Node.js 설치 후 frontend에서 "npm install" 하세요.
