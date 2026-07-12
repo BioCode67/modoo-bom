@@ -289,6 +289,13 @@ function checkPolicyDoc(doc: string, name: string, p: UserProfile): CheckResult 
       return { eligible: true, reason: '다문화가족 확인', priority: 'high', confidence: 0.9 }
     return NO
   }
+  // ── 외국인 근로자·이주노동자 지원(체불임금·법률·산재 등) — 다문화/이주 신호 있으면 관련복지로 노출(사각지대, 감사 확정 FN) ──
+  //   '외국인' 단독은 과매칭 위험이라 '외국인 근로자/노동자·이주노동자'로 한정. Korean 일반 프로필엔 노출 안 함.
+  if (/외국인\s*근로자|외국인\s*노동자|이주\s*노동자|이주노동자|이주민\s*근로/.test(doc)) {
+    if (p.household_type === '다문화가족' || (p.life_events || []).some((e) => /외국인|이주|다문화/.test(e)))
+      return { eligible: true, reason: '외국인·이주민 근로자 지원 관련', priority: 'medium', confidence: 0.7 }
+    return NO
+  }
   // ── 국가장학금·학자금 지원 ── ('대학생·소득분위 N구간'은 엔진 토큰이 없어 dead였던 대표 복지 — 재학생 매칭 ──
   //   학생임이 명시됐거나 명백한 대학 연령대(18~24세·직업 미상)만 — 29세 임신부·실직자 등에 오노출 방지.
   if (/국가장학금|학자금\s*지원|국가근로장학|등록금\s*지원/.test(doc)) {
@@ -835,12 +842,18 @@ export function getEligiblePolicies(p: UserProfile): EligiblePolicy[] {
     }
     const inf = inferFromText(policy, p)
     if (!inf) continue
-    // 지자체는 사용자 시·도와 다르면 제외(지역 입력 시에만; 중앙·시드는 전국이라 항상 포함)
-    if (policy.id.startsWith('LOC-') && userSido) {
+    // 지자체는 사용자 시·도와 다르면 제외(지역 입력 시). 미입력이면 숨기지 않되(지역 미상=관할 확정 불가, 과배제 방지)
+    //   '해당 지역 주민 대상' 관할 안내를 붙인다 — 타 지역 정책을 신청 가능한 것처럼 오노출하지 않게(감사, 정직성).
+    let locReason = inf.reason
+    if (policy.id.startsWith('LOC-')) {
       const ps = sidoOf(policy.target)
-      if (ps && ps !== userSido) continue
+      if (userSido) {
+        if (ps && ps !== userSido) continue
+      } else {
+        locReason = `${inf.reason} (거주지 확인 필요 — 해당 지역 주민 대상)`
+      }
     }
-    inferred.push({ ...policy, reason: inf.reason, priority: inf.priority, confidence: inf.confidence })
+    inferred.push({ ...policy, reason: locReason, priority: inf.priority, confidence: inf.confidence })
   }
   // 추론(저신뢰)은 신뢰도 상위 일부만 — 정밀 매칭은 모두 유지.
   // 민간재단(PRV)은 공공 5,000건과 같은 캡을 두고 경쟁시키지 않는다(전용 💝 섹션의 소스이고

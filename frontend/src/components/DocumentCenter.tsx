@@ -191,7 +191,9 @@ export function DocumentCenter() {
           const isCur = j.current === step.name
           const msg = isCur && j.current_message ? j.current_message
             : step.status === 'running' ? '진행 중…'
-            : (step.status === 'done' || step.status === 'completed') ? '발급 완료'
+            // 실발급 신호(saved_path)가 있어야 '발급 완료' — 없으면 완료로 오보하지 않음(감사 확정 정직성, 아이콘 amber와 동일 기준)
+            : (step.status === 'done' || step.status === 'completed')
+              ? (step.saved_path ? '발급 완료' : '발급 미완료 — 화면에서 확인해 주세요')
             : step.status === 'error' ? (step.error || '실패') : '대기 중…'
           // 발급 완료 단계는 taskId+토큰을 실어 '발급 문서 받기' 버튼이 뜨게(서버 RPA/원격에서 PDF 회수)
           next[step.name] = { status: step.status, step: msg, at: s[step.name]?.at, saved: !!step.saved_path, taskId: step.task_id, downloadToken: step.download_token }

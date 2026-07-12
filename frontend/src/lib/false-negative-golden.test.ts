@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { runAnalysis, checkPolicy, type UserProfile } from '@/lib/welfare-engine'
+import { checkPolicy, type UserProfile } from '@/lib/welfare-engine'
+import { isCashBenefit } from '@/lib/format'
 import { WELFARE_POLICIES } from '@/data/policies'
 
 const P = (o: Partial<UserProfile>): UserProfile => ({
@@ -92,5 +93,30 @@ describe('2차 감사 — 과추천(FP) 저신뢰 격하 정직성', () => {
   it('셋째아 양육비(POL-036): 자녀 3명 가구엔 노출', () => {
     const three = P({ age: 38, income_percentile: 60, has_children: true, children_ages: [2, 5, 8] })
     expect(checkPolicy(find('POL-036'), three).eligible).toBe(true)
+  })
+})
+
+describe('3차 감사 — 금액합산·외국인·정직성', () => {
+  it('유아학비 지원(POL-039): 유치원 지급 학비라 현금 합산에서 제외(28만원 과대계상 차단)', () => {
+    const pol = find('POL-039')
+    expect(isCashBenefit(pol.benefit, `${pol.name} ${pol.category}`)).toBe(false)
+  })
+  it('보육료(POL-038)와 동일 기준: 둘 다 현금 합산 제외(비일관 해소)', () => {
+    const b = find('POL-038')
+    expect(isCashBenefit(b.benefit, `${b.name} ${b.category}`)).toBe(false)
+  })
+  it('일반 현금급여(기초연금 POL-001)는 여전히 현금성으로 합산(과격하 방지)', () => {
+    const p = find('POL-001')
+    expect(isCashBenefit(p.benefit, `${p.name} ${p.category}`)).toBe(true)
+  })
+  it('외국인근로자 지원(POL-119): 다문화가족 프로필에 관련복지로 노출(기존 전원 배제)', () => {
+    const mc = P({ age: 40, income_percentile: 50, household_type: '다문화가족', employment_status: 'unemployed' })
+    const r = checkPolicy(find('POL-119'), mc)
+    expect(r.eligible).toBe(true)
+    expect(r.priority).not.toBe('high') // 관련복지(medium) — 강력추천 단정 아님
+  })
+  it('외국인근로자 지원(POL-119): 일반 한국인 프로필엔 과매칭 안 됨(정직성)', () => {
+    const kor = P({ age: 40, income_percentile: 50, household_type: '1인가구', employment_status: 'unemployed' })
+    expect(checkPolicy(find('POL-119'), kor).eligible).toBe(false)
   })
 })
