@@ -91,11 +91,13 @@ async def _lifespan(_app):
 app = FastAPI(title="ModooBom Local Agent", version="0.3.0", lifespan=_lifespan)
 
 # 동일 출처가 기본이지만, 배포 웹(github.io)→로컬 에이전트 '브릿지'도 허용(사용자가 LNA 허용 시).
+# CORS_ORIGINS env(쉼표구분)로 추가 출처 허용 — 자체 도메인·터널·테스트 프론트 포트 등(공개 서버 배포 시 유용).
 _ALLOWED_ORIGINS = [
     "http://localhost:8000", "http://127.0.0.1:8000",
     "http://localhost:5173", "http://127.0.0.1:5173",
     "https://biocode67.github.io",
 ]
+_ALLOWED_ORIGINS += [o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_ALLOWED_ORIGINS,
