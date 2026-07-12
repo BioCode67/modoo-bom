@@ -242,6 +242,13 @@
 .high-contrast a { text-decoration: underline; }
 .high-contrast .card-cute,
 .high-contrast .glass { border-width: 2px !important; border-color: hsl(0 0% 35%) !important; background: #fff !important; }
+/* 새 안내 카드(연계감면·서버설정 등 옅은 색조 배경)도 고대비에선 흰 배경+강한 테두리로 — 저시력 일관성 */
+.high-contrast .bg-peach-50\/50,
+.high-contrast .bg-amber-50\/50,
+.high-contrast .bg-sprout-50\/50 { background: #fff !important; }
+.high-contrast .border-peach-200,
+.high-contrast .border-amber-200\/80,
+.high-contrast .border-sprout-200 { border-color: hsl(0 0% 35%) !important; }
 .high-contrast .btn-primary { background: #0a6b2f !important; }
 .high-contrast .chip,
 .high-contrast .chip-sprout, .high-contrast .chip-peach, .high-contrast .chip-sky, .high-contrast .chip-sun {
