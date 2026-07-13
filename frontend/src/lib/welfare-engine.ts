@@ -391,7 +391,8 @@ function checkPolicyDoc(doc: string, name: string, p: UserProfile): CheckResult 
     if (p.is_pregnant) return { eligible: true, reason: '임신 중 확인', priority: 'high', confidence: 0.96 }
     return NO
   }
-  if (doc.includes('출산') && anyIn(doc, ['산모', '출생', '출생 후'])) {
+  if (doc.includes('출산') && anyIn(doc, ['산모', '출생', '출생 후', '출산 전후', '출산휴가'])) {
+    // '출산 전후 휴가급여'(POL-016, 통상임금 100%×90일)가 '산모/출생'만 보던 게이트에서 누락되던 것 포함(감사 확정)
     if (p.is_pregnant || (p.has_children && (p.children_ages || []).some((a) => a === 0)))
       return { eligible: true, reason: '출산(예정) 가정 조건 충족', priority: 'high', confidence: 0.94 }
     return NO

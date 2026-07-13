@@ -248,4 +248,8 @@ describe('7차 감사(페르소나) — 소득 미입력 시 대표급여 오배
     const hp = P({ age: 32, household_type: '한부모가족', has_children: true, children_ages: [5], income_percentile: 80, income_known: false })
     expect(getNearMisses(hp)).toEqual([])
   })
+  it('출산전후휴가급여(POL-016): 0세아 출산가정에 노출(출산 전후 휴가 게이트 누락 수정)', () => {
+    const mom = P({ age: 32, has_children: true, children_ages: [0], is_pregnant: false, life_events: ['출산'] })
+    expect(checkPolicy(find('POL-016'), mom).eligible).toBe(true)
+  })
 })

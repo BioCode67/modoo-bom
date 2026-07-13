@@ -61,7 +61,8 @@ export function Navbar() {
               )}
             >
               <Eye className="h-4 w-4" />
-              <span className="hidden sm:inline">{elderly ? '큰글씨 ON' : '큰글씨'}</span>
+              {/* 큰글씨 라벨은 모바일에서도 항상 노출 — 어르신 최우선 접근성 컨트롤이 아이콘만 남아 안 보이던 것(감사 확정) */}
+              <span>{elderly ? '큰글씨 ON' : '큰글씨'}</span>
             </button>
             <button
               onClick={toggleHighContrast}
