@@ -61,7 +61,7 @@ export function Hero() {
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
-          className="order-2 lg:order-1 text-center lg:text-left"
+          className="order-1 text-center lg:text-left"
         >
           <span className="chip-sprout inline-flex mb-5">
             <Sparkles className="h-3.5 w-3.5" /> AI가 찾아주는 내 복지 혜택
@@ -150,14 +150,14 @@ export function Hero() {
           initial={{ opacity: 0, scale: 0.92 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.7, delay: 0.1 }}
-          className="order-1 lg:order-2 relative"
+          className="order-2 relative"
         >
           {/* 말풍선 — 마스코트 '위쪽'에 흐름 배치(꼬리가 아래 새싹이를 가리켜 말하는 느낌).
               절대배치(z-20 오버레이)는 데스크탑에서 새싹이 얼굴을 가려 제거함. */}
           <div className="relative z-20 px-2 -mb-2">
             <HeroAgentBubble onFocusInput={focusInput} />
           </div>
-          <div className="h-[300px] sm:h-[420px] lg:h-[440px]">
+          <div className="h-[240px] sm:h-[420px] lg:h-[440px]">
             <MascotCanvas />
           </div>
         </motion.div>

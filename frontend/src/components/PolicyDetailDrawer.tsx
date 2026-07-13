@@ -444,7 +444,7 @@ function DrawerBody({
           <Section title="🔗 함께 보면 좋은 복지">
             <ul className="space-y-1.5">
               {related.map((r) => {
-                const rm = parseMonthly(r.benefit)
+                const rm = isCashBenefit(r.benefit, `${r.name} ${r.category}`) ? parseMonthly(r.benefit) : 0
                 return (
                   <li key={r.id}>
                     <button onClick={() => onOpen(r)} className="w-full flex items-center gap-2 rounded-xl border border-sprout-100 px-3 py-2 text-left hover:bg-sprout-50 transition-colors">
@@ -475,7 +475,7 @@ function DrawerBody({
             {aiRelated && aiRelated.length > 0 && (
               <ul className="space-y-1.5">
                 {aiRelated.map(({ policy: r }) => {
-                  const rm = parseMonthly(r.benefit)
+                  const rm = isCashBenefit(r.benefit, `${r.name} ${r.category}`) ? parseMonthly(r.benefit) : 0
                   return (
                     <li key={r.id}>
                       <button onClick={() => onOpen(r)} className="flex w-full items-center gap-2 rounded-xl border border-sprout-100 px-3 py-2 text-left transition-colors hover:bg-sprout-50">

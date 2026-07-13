@@ -139,13 +139,13 @@ export function MascotChat({ onSubmit }: { onSubmit: (p: UserProfile) => void })
   return (
     <div className="card-cute p-0 max-w-xl mx-auto overflow-hidden">
       {/* 헤더 — 마스코트 + 진행률 */}
-      <div className="flex items-center gap-3 bg-gradient-to-r from-sprout-500 to-emerald-500 px-5 py-3.5 text-white">
+      <div className="flex items-center gap-3 bg-gradient-to-r from-sprout-700 to-emerald-700 px-5 py-3.5 text-white">
         <motion.div animate={{ y: [0, -3, 0] }} transition={{ repeat: Infinity, duration: 2.4, ease: 'easeInOut' }} className="shrink-0">
           <SproutLogo withFace className="h-10 w-10 drop-shadow" />
         </motion.div>
         <div className="flex-1 min-w-0">
           <p className="font-extrabold leading-tight">모두봄 에이전트</p>
-          <p className="text-xs text-white/85">말 걸듯 답만 골라주세요 · {done ? '완료!' : `${pct}%`}</p>
+          <p className="text-xs text-white">말 걸듯 답만 골라주세요 · {done ? '완료!' : `${pct}%`}</p>
         </div>
         <div className="flex gap-1">
           {tts.supported && (

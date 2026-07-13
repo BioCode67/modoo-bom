@@ -67,8 +67,17 @@ export interface OneTapResult {
 
 export async function oneTapApply(application: string, policyName: string | undefined, profile: UserProfile | null, rpaInfo?: RpaInfo): Promise<OneTapResult> {
   const url = bestApplyUrl(application, policyName)
-  // ⚠️ 새 탭은 사용자 제스처 안에서 '먼저' 열어야 한다. clipboard await 뒤에 open하면 제스처 체인이
-  //    끊겨 모바일 Safari 등에서 팝업이 차단된다 → 반드시 window.open을 동기적으로 먼저 호출.
+  // ⚠️ 순서가 핵심(적대 감사 확정 결함): clipboard.writeText는 '문서가 포커스된 동안' 개시해야 한다.
+  //    window.open('_blank')은 새 탭으로 포커스를 옮기므로, open 뒤에 writeText하면 크롬이
+  //    'Document is not focused'로 거부해 이름 복사가 조용히 실패했다. 그래서 ① 복사를 '개시'(await 금지)
+  //    → ② window.open을 동기 호출(팝업 제스처 체인 유지) → ③ 마지막에 복사 프라미스 정리 순으로 한다.
+  // 정부 신청서는 필드별 input이라 '이름' 값만 복사하고 나머지는 신청 키트에서 항목별 복사(정직한 한 번-붙여넣기).
+  // 이름이 비어 있으면(새로고침 후 기본 상태) 복사하지 않는다 — 다른 값을 이름이라 안내하는 오류 방지.
+  let copyPromise: Promise<void> | null = null
+  try {
+    const name = buildPrefill(profile, rpaInfo).find((f) => f.label === '이름')
+    if (name) copyPromise = navigator.clipboard?.writeText(name.value) ?? null
+  } catch { /* 클립보드 미지원/비허용 환경은 무시 */ }
   // ⚠️ features에 'noopener'를 넣으면 스펙상 성공해도 null을 반환해 팝업 차단을 감지할 수 없다 —
   //    핸들을 받아 opener를 수동 절단(동등한 보안)하고, null일 때만 진짜 차단으로 판정한다.
   let opened = false
@@ -80,15 +89,6 @@ export async function oneTapApply(application: string, policyName: string | unde
     }
   } catch { /* 팝업 차단 등 */ }
   let copied = false
-  try {
-    // 정부 신청서는 필드별 input이라 '라벨: 값' 전체 블롭은 붙여넣기가 안 된다 —
-    // '이름' 값만 복사하고, 나머지는 신청 키트에서 항목별 복사(정직한 한 번-붙여넣기).
-    // 이름이 비어 있으면(새로고침 후 기본 상태) 복사하지 않는다 — 다른 값을 이름이라 안내하는 오류 방지.
-    const name = buildPrefill(profile, rpaInfo).find((f) => f.label === '이름')
-    if (name) {
-      await navigator.clipboard.writeText(name.value)
-      copied = true
-    }
-  } catch { /* 클립보드 미지원/비허용 환경은 무시 */ }
+  try { if (copyPromise) { await copyPromise; copied = true } } catch { /* 클립보드 미지원/비허용 환경은 무시 */ }
   return { copied, opened, url }
 }

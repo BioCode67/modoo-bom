@@ -278,11 +278,11 @@ export function ChatWidget() {
             style={{ height: 'min(70vh, 520px)' }}
             role="dialog" aria-label="복지 도우미 챗봇"
           >
-            <div className="flex items-center gap-2.5 bg-gradient-to-r from-sprout-500 to-emerald-500 px-4 py-3 text-white">
+            <div className="flex items-center gap-2.5 bg-gradient-to-r from-sprout-700 to-emerald-700 px-4 py-3 text-white">
               <AgentAvatar thinking={thinking} reduce={reduce} />
               <div>
                 <p className="font-bold leading-tight">새싹이 · 복지 에이전트</p>
-                <p className="text-[11px] text-white/80">{thinking ? '생각하는 중이에요…' : aiChat ? '물어보면 바로 찾아드려요 · 내 정보는 기기 안에서' : profile ? `${profile.name || '회원'}님 맞춤 · 담기까지 도와드려요` : '무엇이든 물어보세요'}</p>
+                <p className="text-[11px] text-white">{thinking ? '생각하는 중이에요…' : aiChat ? '물어보면 바로 찾아드려요 · 내 정보는 기기 안에서' : profile ? `${profile.name || '회원'}님 맞춤 · 담기까지 도와드려요` : '무엇이든 물어보세요'}</p>
               </div>
             </div>
 

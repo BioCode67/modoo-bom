@@ -103,7 +103,8 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
         if (!mountedRef.current) return  // 언마운트 후 setState/fetch 중단
         const st = await fetch(`${getRpaBase()}/api/apply/status/${task_id}${tq}`).then((r) => r.json())
         if (!mountedRef.current) return
-        setRun({ status: st.status, step: st.current_step || st.status, shot: st.screenshot_b64 || undefined })
+        // 초기 at(75행)을 보존해야 30초 무진행 stale 판정이 동작(폴백 배너). 함수형 업데이트로 at 유지(감사 확정).
+        setRun((s) => ({ status: st.status, step: st.current_step || st.status, shot: st.screenshot_b64 || undefined, at: s?.at }))
         if (['done', 'error', 'completed'].includes(st.status)) break
       }
     } catch (e) {

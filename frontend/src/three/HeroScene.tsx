@@ -67,7 +67,8 @@ export default function HeroScene({ animate = true }: HeroSceneProps) {
   return (
     <Canvas
       shadows
-      dpr={[1, 2]}
+      // dpr 상한·섀도맵을 낮춰 모바일 GPU 발열·프레임드랍 완화(카툰 마스코트라 시각 차이 미미, 감사 권고)
+      dpr={[1, 1.5]}
       gl={{ antialias: true, alpha: true }}
       camera={{ position: [0, 0.5, 6], fov: 42 }}
       style={{ width: '100%', height: '100%' }}
@@ -77,7 +78,7 @@ export default function HeroScene({ animate = true }: HeroSceneProps) {
       <ambientLight intensity={0.45} />
       <directionalLight
         position={[4, 6, 5]} intensity={1.6} castShadow
-        shadow-mapSize={[2048, 2048]} shadow-bias={-0.0004}
+        shadow-mapSize={[1024, 1024]} shadow-bias={-0.0004}
       />
       <directionalLight position={[-5, 2, -3]} intensity={0.5} color="#bae6fd" />
       <pointLight position={[0, 3, 2]} intensity={0.55} color="#fde68a" />

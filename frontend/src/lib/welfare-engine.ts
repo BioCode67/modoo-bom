@@ -221,7 +221,11 @@ function checkPolicyDoc(doc: string, name: string, p: UserProfile): CheckResult 
     }
     return NO
   }
-  if (anyIn(doc, ['만 60세', '60세 이상', '만60세', '만 66세'])) {
+  // 만 66세 전용(생애전환기 건강검진 등) — '만 66세'를 60세 게이트에 묶으면 만 60~65세에게 오노출(감사 확정 FP)
+  if (doc.includes('만 66세')) {
+    return p.age >= 66 ? { eligible: true, reason: `만 ${p.age}세로 연령 기준 충족`, priority: 'medium', confidence: 0.9 } : NO
+  }
+  if (anyIn(doc, ['만 60세', '60세 이상', '만60세'])) {
     if (p.age >= 60) return { eligible: true, reason: `만 ${p.age}세로 연령 기준 충족`, priority: 'medium', confidence: 0.9 }
     return NO
   }
@@ -329,8 +333,9 @@ function checkPolicyDoc(doc: string, name: string, p: UserProfile): CheckResult 
   }
 
   // ── 아동·영유아 계열 ──
-  if (doc.includes('만 9세 미만') || doc.includes('만 0~8세') || doc.includes('만 8세 미만') || doc.includes('0세~7세') || doc.includes('만 0~7세')) {
+  if (doc.includes('만 9세 미만') || doc.includes('만 0~8세') || doc.includes('만 8세 미만') || doc.includes('만 8세 이하') || doc.includes('0세~7세') || doc.includes('만 0~7세')) {
     // 아동수당: 2026년 지급 연령 만 8세 미만 → 9세 미만으로 확대(매년 1세씩 상향)
+    // '만 8세 이하'(육아휴직급여 POL-017 등, 0~8세=a<9)도 포함 — 미포함 시 대표급여가 통째로 미노출됐음
     if (p.has_children && (p.children_ages || []).some((a) => a < 9))
       return { eligible: true, reason: '만 9세 미만 자녀 보유', priority: 'high', confidence: 0.97 }
     return NO
@@ -548,8 +553,13 @@ export function demographicMismatch(name: string, doc: string, p: UserProfile): 
   if (/셋째|세\s*자녀|자녀\s*3명|3명\s*이상\s*자녀/.test(name) && ages.length > 0 && ages.length < 3 && !(p.household_type || '').includes('다자녀')) return true
   // 유치원 학비(유아학비·누리과정)는 만 3~5세 대상 — 아이 나이가 적혀 있는데 3~5세가 없으면 제외.
   if (/유아학비|유치원|누리과정/.test(name) && ages.length > 0 && !ages.some((a) => a >= 3 && a <= 5)) return true
-  // 미취업 전용(일경험·구직지원)인데 이미 직업(재직·자영·은퇴)이 있으면 제외 — 연령만 맞아 강력추천되던 오류 차단.
-  if (/미취업|일경험|구직/.test(name) && ['employed', 'self', 'retired'].includes(p.employment_status)) return true
+  // 미취업 전용(일경험·구직지원)인데 이미 직업(재직·은퇴)이 있으면 제외 — 연령만 맞아 강력추천되던 오류 차단.
+  //   단 자영업자(self)는 '실직·폐업' 생애이벤트가 있으면 차단하지 않는다 — 폐업자 실업급여 구제(checkPolicyDoc)가
+  //   실제로 실행되게(감사 확정: 구제 코드가 '구직' 이름 정책에서 사문화돼 있던 내부모순 FN).
+  if (/미취업|일경험|구직/.test(name)) {
+    if (['employed', 'retired'].includes(p.employment_status)) return true
+    if (p.employment_status === 'self' && !(p.life_events || []).some((e) => /실직|폐업|해고|권고사직/.test(e))) return true
+  }
   // 재직·근로소득 전제 정책(내일채움공제·내일저축·미래적금·희망저축 등)인데 실직·학생이면 제외.
   //   (근로소득 있는 재직자만 가입 — 감사: 실직 청년에게 '청년 내일채움공제'가 1위로 오노출되던 문제)
   if (/내일채움공제|내일저축계좌|미래적금|희망저축|자산형성/.test(name) && ['unemployed', 'student'].includes(p.employment_status)) return true

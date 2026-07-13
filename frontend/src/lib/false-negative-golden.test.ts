@@ -193,3 +193,33 @@ describe('5차 — 장학금 뻥튀기 차단(진짜 쓸 수 있는 것만)', ()
     if (univScholar) expect(demographicMismatch(univScholar.name, `${univScholar.eligibility} ${univScholar.target} ${univScholar.name}`, uni)).toBe(false)
   })
 })
+
+describe('6차 감사 — 연령토큰·폐업자 구제(win-audit 확정 결함 고정)', () => {
+  it('육아휴직급여(POL-017, 250만원): 만 8세 이하 자녀 둔 재직 부모에게 노출("만 8세 이하" 토큰 누락으로 통째로 사장되던 FN)', () => {
+    const parent = P({ age: 34, income_percentile: 50, has_children: true, children_ages: [3], employment_status: 'employed' })
+    expect(checkPolicy(find('POL-017'), parent).eligible).toBe(true)
+  })
+  it('노인건강진단(POL-109, 만 66세): 만 60~65세에겐 노출 안 됨(60세 게이트에 66세를 묶던 FP 차단)', () => {
+    const sixtyThree = P({ age: 63, income_percentile: 50, household_type: '노인가구' })
+    expect(checkPolicy(find('POL-109'), sixtyThree).eligible).toBe(false)
+  })
+  it('노인건강진단(POL-109): 만 66세 이상에겐 정상 노출(정당한 대상자 회귀 방지)', () => {
+    const sixtySeven = P({ age: 67, income_percentile: 50, household_type: '노인가구' })
+    expect(checkPolicy(find('POL-109'), sixtySeven).eligible).toBe(true)
+  })
+  it('실업급여: 폐업 자영업자(고용보험 임의가입)는 하드배제 안 함 — 폐업 생애이벤트 시 구제 경로로', () => {
+    const closed = WELFARE_POLICIES.find((s) => /실업급여|구직급여/.test(s.name))!
+    const selfClosed = P({ age: 50, income_percentile: 45, employment_status: 'self', life_events: ['폐업'] })
+    expect(demographicMismatch(closed.name, `${closed.eligibility} ${closed.target} ${closed.name}`, selfClosed)).toBe(false)
+  })
+  it('정직성: 폐업 신호 없는 자영업자에겐 실업급여(구직) 여전히 배제', () => {
+    const closed = WELFARE_POLICIES.find((s) => /실업급여|구직급여/.test(s.name))!
+    const selfRunning = P({ age: 50, income_percentile: 45, employment_status: 'self', life_events: [] })
+    expect(demographicMismatch(closed.name, `${closed.eligibility} ${closed.target} ${closed.name}`, selfRunning)).toBe(true)
+  })
+  it('정직성: 재직자에겐 구직 지원 여전히 배제(폐업자 예외가 재직자로 새지 않음)', () => {
+    const closed = WELFARE_POLICIES.find((s) => /실업급여|구직급여/.test(s.name))!
+    const employed = P({ age: 50, income_percentile: 45, employment_status: 'employed', life_events: ['폐업'] })
+    expect(demographicMismatch(closed.name, `${closed.eligibility} ${closed.target} ${closed.name}`, employed)).toBe(true)
+  })
+})

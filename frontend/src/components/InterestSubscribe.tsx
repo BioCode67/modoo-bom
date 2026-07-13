@@ -57,7 +57,7 @@ export function InterestSubscribe({ onOpenPolicy }: { onOpenPolicy: (id: string)
               aria-pressed={on}
               className={
                 'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-semibold transition-all ' +
-                (on ? 'border-peach-500 bg-peach-500 text-white shadow-sm'
+                (on ? 'border-peach-700 bg-peach-700 text-white shadow-sm'
                   : 'border-peach-200 bg-white text-foreground hover:border-peach-400')
               }
             >
