@@ -295,6 +295,12 @@ function checkPolicyDoc(doc: string, name: string, p: UserProfile): CheckResult 
         return { eligible: true, reason: `등록 중증장애인(${p.disability_grade}) — 단, 서비스 지원 종합조사(구간 판정)를 받아야 대상이에요`, priority: 'medium', confidence: 0.6 }
       return { eligible: true, reason: `등록 중증장애인(${p.disability_grade}) 조건 충족`, priority: 'high', confidence: 0.93 }
     }
+    // 등록장애인이나 등급을 모르는 경우('기타'/빈값 — 2019 등급제 폐지로 본인 등급 모르는 중증장애인이 흔함) →
+    //   하드배제하면 장애인연금·활동지원 두 핵심 급여가 통째로 증발한다(감사 확정) → 저신뢰로 노출+'장애 정도 확인' 안내.
+    //   등급을 아는 경증(4급 등)은 제외 유지(중증 전용 급여 과추천 방지).
+    const gradeUnknown = !p.disability_grade || /기타|모름|모르/.test(p.disability_grade)
+    if (p.disability && gradeUnknown)
+      return { eligible: true, reason: '등록 장애인 — 중증(심한 장애) 판정·서비스 종합조사에 따라 대상이에요(장애 정도 확인 필요)', priority: 'medium', confidence: 0.55 }
     return NO
   }
   if (doc.includes('발달장애인')) {

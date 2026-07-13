@@ -261,4 +261,17 @@ describe('7차 감사(페르소나) — 소득 미입력 시 대표급여 오배
   it('incomeCeiling: 부모 소득 중위 100% 조항을 본인 상한으로 잡지 않는다(본인 60%)', () => {
     expect(incomeCeiling('만 19~34세, 기준 중위소득 60% 이하, 부모 소득 중위 100% 이하')).toBe(60)
   })
+  it('장애 등급 미상(기타): 장애인연금(POL-003)이 하드배제 안 되고 노출 — 단, high 단정 아님', () => {
+    const unk = P({ age: 53, disability: true, disability_grade: '기타' })
+    const r = checkPolicy(find('POL-003'), unk)
+    expect(r.eligible).toBe(true)
+    expect(r.priority).not.toBe('high')
+  })
+  it('정직성: 등급 아는 경증(4급)에겐 중증 전용 급여(POL-003) 여전히 제외', () => {
+    const mild = P({ age: 53, disability: true, disability_grade: '4급' })
+    expect(checkPolicy(find('POL-003'), mild).eligible).toBe(false)
+  })
+  it('parseQuery: "장사하다 폐업했어요"는 폐업 생애이벤트 기록(폐업자 구제 경로 발동)', () => {
+    expect(parseProfileFromText('장사하다 폐업했어요 몸도 아파요').life_events).toContain('폐업')
+  })
 })
