@@ -67,6 +67,14 @@ describe('agentReply — 개인화·행동형 응답', () => {
     // 프로필 기반이면 ✅ 또는 조건 확인 코멘트가 붙는다
     expect(r.text).toMatch(/✅|조건 확인/)
   })
+  it('특정 정책 지식질문("기초연금 자격이 뭐야")은 개인화가 아니라 검색으로 — 프로필 요구로 새지 않음(감사 #12)', () => {
+    const r = agentReply('기초연금 자격이 뭐야', { profile: null, result: null })
+    expect((r.policies ?? []).length).toBeGreaterThan(0) // 검색 결과(기초연금) 반환 = eligibility 유도(0건) 아님
+  })
+  it('"복지 추천해줘"는 개인화 추천으로 라우팅(프로필 있으면 자격 정책 반환)', () => {
+    const r = agentReply('복지 추천해줘', { profile, result })
+    expect(r.policies?.[0]?.name).toBe('기초연금')
+  })
 })
 
 const mkP = (id: string, name: string): Policy =>
