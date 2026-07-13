@@ -45,7 +45,9 @@ export function BackendAgentStream({ profile, onDone, onFallback }: { profile: U
     try {
       ws = new WebSocket(`${API_BASE.replace(/^http/, 'ws')}/ws/analyze`)
     } catch { fallback(); return }
-    ws.onopen = () => { setWoke(true); ws!.send(JSON.stringify({ type: 'start_analysis', profile })) }
+    // ⚠️ 실명은 분석에 불필요(백엔드 인사말은 없으면 '사용자'로 폴백) + 프라이버시 헤드라인('내 정보는 기기 안에서')
+    //    정합 위해 클라우드 전송 전에 이름을 제거한다(디스크 이름제거 규율과 동일). 나머지 신호만 분석에 사용.
+    ws.onopen = () => { setWoke(true); ws!.send(JSON.stringify({ type: 'start_analysis', profile: { ...profile, name: '' } })) }
     ws.onmessage = (e) => {
       try {
         const m = JSON.parse(e.data)

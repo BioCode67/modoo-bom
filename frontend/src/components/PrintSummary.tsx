@@ -29,7 +29,10 @@ export function PrintSummary() {
   const fromResult = isHelper ? (helperResult?.eligible_policies ?? []) : (result?.eligible_policies ?? [])
   const helperTracked = isHelper ? (helper?.tracked ?? []).map((t) => map[t.policyId]).filter(Boolean) : []
   const fromTracked = isHelper ? helperTracked : tracked.map((t) => map[t.policyId]).filter(Boolean)
-  const policies = fromResult.length > 0 ? fromResult : fromTracked
+  // '나의 복지' 탭에서 인쇄하면 화면과 같이 '담은 목록'을 출력한다(과거 분석결과가 아니라).
+  //   그 외 뷰에선 분석결과 우선(없으면 담은 목록) — 화면-인쇄 불일치 해소(감사 확정).
+  const inMy = !isHelper && view === 'my'
+  const policies = inMy ? fromTracked : (fromResult.length > 0 ? fromResult : fromTracked)
   // ⚠️ 화면 헤드라인과 동일하게 '현금성'만 합산한다(isCashBenefit). raw parseMonthly로 전부 더하면
   //   서비스 이용 한도액·바우처·감면·고용주 지원까지 개인 현금소득처럼 부풀려져 인쇄물이 과장된다.
   const monthlyTotal = sumCashMonthly(policies)

@@ -31,7 +31,7 @@ export function AnnualCashflow({ policies }: { policies: CashflowInput[] }) {
         <span className="text-sm font-bold">올해 복지 현금흐름</span>
       </div>
       <h3 className="mt-1.5 text-lg font-extrabold sm:text-xl">
-        앞으로 1년, <span className="text-sprout-700">{formatWon(cf.annualTotal)}</span> 받을 것으로 보여요
+        앞으로 1년, 최대 <span className="text-sprout-700">{formatWon(cf.annualTotal)}</span> 받을 수 있어요
       </h3>
       <p className="mt-1 text-sm text-muted-foreground">
         매월 <b className="text-foreground">{formatWon(cf.monthlyRecurring)}</b>

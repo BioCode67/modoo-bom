@@ -204,9 +204,12 @@
   .print-foot { margin-top: 14px; border-top: 1px solid #cbd5e1; padding-top: 8px; font-size: 11px; color: #666; }
 
   /* ── 주민센터 방문 키트(단일 정책, 큰 글씨) — vk-printing일 때만 이 문서만 인쇄 ── */
-  body.vk-printing #root { display: none !important; }        /* 앱 본문 숨김 */
+  /* #root를 display:none으로 숨기면 그 안의 .vk-doc(드로어 내부)까지 사라져 백지 인쇄됨(감사 확정) →
+     visibility 격리로 .vk-doc만 보이게 하고 좌상단 배치. */
+  body.vk-printing #root * { visibility: hidden !important; }
+  body.vk-printing .vk-doc, body.vk-printing .vk-doc * { visibility: visible !important; }
   body.vk-printing .print-doc { display: none !important; }   /* 전체 결과 인쇄물과 충돌 방지 */
-  body.vk-printing .vk-doc { position: static !important; box-shadow: none !important; max-height: none !important; overflow: visible !important; }
+  body.vk-printing .vk-doc { position: absolute !important; top: 0 !important; left: 0 !important; width: 100% !important; box-shadow: none !important; max-height: none !important; overflow: visible !important; }
   body.vk-printing .modal-overlay { position: static !important; background: #fff !important; backdrop-filter: none !important; display: block !important; padding: 0 !important; }
 }
 /* vk 인쇄 문서 스타일(화면 미리보기 = 인쇄물) */

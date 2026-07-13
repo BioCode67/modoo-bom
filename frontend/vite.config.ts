@@ -22,12 +22,18 @@ export default defineConfig(({ command, mode }) => {
       // 해시 자산만 precache(안전), 새 배포 시 자동 갱신. policies.json은 항상 네트워크 우선.
       workbox: {
         cleanupOutdatedCaches: true,
+        // ⚠️ injectRegister:'script-defer'면 skipWaiting/clientsClaim이 자동 주입되지 않아 autoUpdate가
+        //    무력화(새 SW가 waiting에 멈춰 재배포가 재방문자에게 반영 안 됨) → 명시적으로 켠다(감사 확정).
+        skipWaiting: true,
+        clientsClaim: true,
         // 선제 알림 클릭 핸들러를 SW에 병합(public/sw-notify.js → 배포 시 /modoo-bom/sw-notify.js)
         importScripts: ['sw-notify.js'],
         navigateFallbackDenylist: [/policies\.json$/],
         // 온디바이스 AI(transformers.js)의 ONNX WASM 등 대용량 파일은 precache 제외
         // (런타임에 CDN에서 로드) — SW 프리캐시 비대화·빌드 실패 방지.
-        globIgnores: ['**/*.wasm', '**/ort-*'],
+        // 지연로드(옵트인) 청크(AI 임베딩·3D 히어로 ~2.3MB)도 precache 제외 → 첫 방문 SW가 강제
+        //   백그라운드 다운로드하지 않게. 실제 사용(온라인) 시에만 지연 import로 로드(감사 확정).
+        globIgnores: ['**/*.wasm', '**/ort-*', '**/transformers*.js', '**/HeroScene-*.js'],
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
         runtimeCaching: [
           {

@@ -31,21 +31,23 @@ export function buildAiAnswer(items: AiAnswerItem[], query: string): string {
   const won = cashMax > 0 ? formatWon(cashMax) : ''
 
   // 질의 언어로 답한다(외국인·다문화 사각지대) — 규칙 템플릿이라 환각 없음.
-  // 정책명은 한국어 유지(실제 신청 시스템·기관이 한국어) + 통역 지원되는 ☎129 안내.
+  // 정책명은 한국어 유지(실제 신청 시스템·기관이 한국어) + 다누리콜센터 ☎1577-1366(13개국어 통역)·☎129 안내.
+  // ⚠️ 다누리는 아랍어 미지원 → 아랍어는 ☎129만 안내(거짓 통역 약속 금지, i18nLite 배너와 정합).
+  // ⚠️ 현금 최대액은 '검색된 복지 전체' 기준(명시 3건이 아닐 수 있음) → 문구에 범위를 명확히(과장 방지).
   if (code !== 'ko') {
     const wonIntl = cashMax > 0 ? formatWonIntl(cashMax) : '' // 외국어엔 '만원' 대신 ₩+천단위(명확)
     const T: Record<string, (l: string, w: string) => string> = {
-      en: (l, w) => `These welfare programs match you best: ${l}.${w ? ` Cash support up to ${w}/month.` : ''} (Program names are in Korean — call ☎129 Danuri/Welfare hotline for interpreter help.)`,
-      vi: (l, w) => `Các chế độ phúc lợi phù hợp nhất với bạn: ${l}.${w ? ` Hỗ trợ tiền mặt tối đa ${w}/tháng.` : ''} (Tên chương trình bằng tiếng Hàn — gọi ☎129 để được hỗ trợ thông dịch.)`,
-      zh: (l, w) => `最适合您的福利项目：${l}。${w ? `每月最高现金支持 ${w}。` : ''}（项目名称为韩文 — 可拨打 ☎129 获得翻译协助。）`,
-      ja: (l, w) => `あなたに最も合う福祉制度：${l}。${w ? `現金支援は月最大 ${w}。` : ''}（制度名は韓国語です — ☎129 で通訳サポートを受けられます。）`,
-      th: (l, w) => `สวัสดิการที่เหมาะกับคุณที่สุด: ${l}${w ? ` เงินช่วยเหลือสูงสุด ${w}/เดือน` : ''} (ชื่อโครงการเป็นภาษาเกาหลี — โทร ☎129 เพื่อขอล่ามช่วยเหลือ)`,
-      ru: (l, w) => `Наиболее подходящие вам программы: ${l}.${w ? ` Денежная поддержка до ${w}/мес.` : ''} (Названия на корейском — звоните ☎129, есть переводчик.)`,
-      ar: (l, w) => `أنسب برامج الرعاية لك: ${l}.${w ? ` دعم نقدي حتى ${w}/شهر.` : ''} (الأسماء بالكورية — اتصل بـ ☎129 للمساعدة بالترجمة.)`,
+      en: (l, w) => `These welfare programs match you best: ${l}.${w ? ` Among matches, cash support up to ${w}/month.` : ''} (Program names are in Korean — call ☎1577-1366 (Danuri, interpreters) or ☎129 for help.)`,
+      vi: (l, w) => `Các chế độ phúc lợi phù hợp nhất với bạn: ${l}.${w ? ` Trong số đó, hỗ trợ tiền mặt tối đa ${w}/tháng.` : ''} (Tên chương trình bằng tiếng Hàn — gọi ☎1577-1366 (Danuri, thông dịch) hoặc ☎129.)`,
+      zh: (l, w) => `最适合您的福利项目：${l}。${w ? `其中每月最高现金支持 ${w}。` : ''}（项目名称为韩文 — 可拨打 ☎1577-1366（Danuri 翻译）或 ☎129。）`,
+      ja: (l, w) => `あなたに最も合う福祉制度：${l}。${w ? `うち現金支援は月最大 ${w}。` : ''}（制度名は韓国語です — ☎1577-1366（タヌリ・通訳）または ☎129 へ。）`,
+      th: (l, w) => `สวัสดิการที่เหมาะกับคุณที่สุด: ${l}${w ? ` ในจำนวนนี้ เงินช่วยเหลือสูงสุด ${w}/เดือน` : ''} (ชื่อโครงการเป็นภาษาเกาหลี — โทร ☎1577-1366 (Danuri ล่าม) หรือ ☎129)`,
+      ru: (l, w) => `Наиболее подходящие вам программы: ${l}.${w ? ` Из них денежная поддержка до ${w}/мес.` : ''} (Названия на корейском — звоните ☎1577-1366 (Danuri, переводчик) или ☎129.)`,
+      ar: (l, w) => `أنسب برامج الرعاية لك: ${l}.${w ? ` من بينها دعم نقدي حتى ${w}/شهر.` : ''} (الأسماء بالكورية — اتصل بـ ☎129 للمساعدة.)`,
     }
     const t = T[code] || T.en
     return t(list, wonIntl)
   }
-  const amt = won ? ` 현금성 지원은 월 최대 ${won}이에요.` : ''
+  const amt = won ? ` 검색된 복지 중 현금성 지원은 월 최대 ${won}이에요.` : ''
   return `이런 복지가 가장 잘 맞아요: ${list}.${amt}`
 }

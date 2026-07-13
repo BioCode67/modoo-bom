@@ -182,8 +182,12 @@ export const useAppStore = create<AppState>()(
         // 복지관 현장: 어르신 한 분 상담이 끝나면 다음 분 전에 이전 분의 흔적(PII·분석·담은목록·발급기록)을 전부 비운다.
         // resetNonce++ 로 챗 대화(msgs 등 persist 밖 로컬 상태)까지 비우도록 신호를 준다(이전 어르신 실명·상담내용 노출 차단).
         try { localStorage.removeItem('modoo:profileHistory') } catch { /* noop */ }
+        // MascotChat 대화 초안(sessionStorage)엔 이전 상담자의 나이·소득·장애 등 인구통계가 남아
+        //   다음 사용자에게 복원됐다(감사 확정 PII 잔존) → 함께 제거. helper(타인 프로필)·aiQuery 자유입력도 정리.
+        try { sessionStorage.removeItem('modoo-chat-draft-v1') } catch { /* noop */ }
         set((s) => ({
           profile: null, result: null, pendingProfile: null, tracked: [], docDone: {},
+          helper: null, aiQuery: '', aiIntent: false,
           rpaInfo: { name: '', birth_date: '', phone: '', carrier: '', sido: '', sigungu: '', auth_provider: 'kakao' },
           resetNonce: s.resetNonce + 1,
         }))

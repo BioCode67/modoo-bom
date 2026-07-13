@@ -125,6 +125,10 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
         <ShieldCheck className="h-3.5 w-3.5 text-sprout-500 shrink-0 mt-0.5" />
         에이전트가 복지로 로그인→서비스 이동→양식 작성까지 진행해요. <b>카카오 본인인증과 최종 제출은 본인이 직접</b> 하셔야 안전해요.
       </p>
+      {/* 옵트인 원격 서버로 신청 시: 이름·생년월일·연락처가 서버를 거친다는 고지(정직성, DocumentCenter와 일치) */}
+      {rpaReady && caps?.rpaRemote && (
+        <p className="mt-2 text-xs text-amber-700">🔒 내 서버로 자동신청 중 — 이름·생년월일·연락처가 지정 서버를 거쳐요(본인인증은 내 폰에서).</p>
+      )}
 
       {!run ? (
         <>
