@@ -185,6 +185,8 @@ export const useAppStore = create<AppState>()(
         // MascotChat 대화 초안(sessionStorage)엔 이전 상담자의 나이·소득·장애 등 인구통계가 남아
         //   다음 사용자에게 복원됐다(감사 확정 PII 잔존) → 함께 제거. helper(타인 프로필)·aiQuery 자유입력도 정리.
         try { sessionStorage.removeItem('modoo-chat-draft-v1') } catch { /* noop */ }
+        // 복귀 확인 대기(앞 어르신이 신청/발급하러 간 기록)도 제거 — 다음 상담 중 '신청하셨나요?' 배너가 튀지 않게(감사 확정)
+        try { sessionStorage.removeItem('modoo:pendingReturn') } catch { /* noop */ }
         set((s) => ({
           profile: null, result: null, pendingProfile: null, tracked: [], docDone: {},
           helper: null, aiQuery: '', aiIntent: false,

@@ -66,6 +66,10 @@ export function My() {
           <button onClick={() => setView('analyze')} className="btn-primary"><Sparkles className="h-4 w-4" /> 내 복지 찾기</button>
           <button onClick={() => setView('explore')} className="btn-secondary"><Compass className="h-4 w-4" /> 정책 둘러보기</button>
         </div>
+        {/* 공용 기기·현장 상담 전환 — 담은 게 없어도(분석·챗만 한 흐름) 초기화가 도달 가능해야 이전 사용자 PII가 안 남는다(감사 확정) */}
+        <button onClick={startNewUser} className="mx-auto mt-5 inline-flex items-center gap-1.5 text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground">
+          <UserPlus className="h-3.5 w-3.5" /> 공용 기기인가요? 새 사용자로 시작 (이전 기록 지우기)
+        </button>
         {/* 담은 게 없어도 관심 분야는 구독할 수 있게 — 능동 안내의 진입점 */}
         <div className="mx-auto mt-8 max-w-xl text-left">
           <InterestSubscribe onOpenPolicy={(id) => { const p = POLICY_MAP[id]; if (p) setSelected(p) }} />

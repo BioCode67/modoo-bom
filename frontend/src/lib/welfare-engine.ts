@@ -464,8 +464,14 @@ function checkPolicyDoc(doc: string, name: string, p: UserProfile): CheckResult 
     // employment_status='unemployed'뿐 아니라 실직/폐업 life_event도 인정 — 자영업 폐업자(employment='self')가
     //   실직 신호가 있어도 긴급복지·실업급여에서 탈락하던 사각지대 해소.
     const jobless = p.employment_status === 'unemployed' || (p.life_events || []).some((e) => /실직|실업|폐업|해고|권고사직/.test(e))
-    if (jobless)
+    if (jobless) {
+      // 실업급여 등 '비자발적 이직' 요건이 명시된 정책은 자발/비자발을 앱이 구분할 수 없다('퇴사'는 보통 자진퇴사).
+      //   그렇다고 medium으로 낮추면 정말 실직한 저소득자에게 대표 급여가 가이드(상위5)에서 사라진다 → 노출은
+      //   유지하되 reason에 '비자발적 이직' 조건을 명시해 자진퇴사자에게 경고하고 '자격 있음' 단정만 제거(감사 확정).
+      if (/비자발적/.test(doc))
+        return { eligible: true, reason: '소득상실 지원 — 실업급여는 비자발적 이직(해고·계약만료·권고사직 등)일 때 대상이니, 자진퇴사라면 이직 사유를 먼저 확인하세요', priority: 'high', confidence: 0.85 }
       return { eligible: true, reason: '실직·폐업 등 소득상실로 신청 자격 있음', priority: 'high', confidence: 0.85 }
+    }
     // ⚠️ 긴급복지 등 '위기' 정책은 eligibility에 '실직, 사망, 화재 등'을 나열한다 — '실직' 문자열이 먼저 매칭돼
     //   사망·질병·재난으로 위기를 맞은 '재직 중' 가구가 탈락하던 결함(감사 확정). 위기 정책 + 위기 신호면 인정.
     const crisisPolicy = /긴급복지|위기상황|위기사유|긴급\s*지원/.test(doc)
