@@ -72,6 +72,9 @@ describe('resetForNextUser — 복지관 공용PC 상담 전환 시 이전 어�
       tracked: [{ policyId: 'POL-001', name: '기초연금', status: 'interested', checkedDocs: [] }] as never,
       docDone: { 주민등록등본: Date.now() },
       rpaInfo: { name: '김복순', birth_date: '19540101', phone: '01000000000', carrier: 'SKT', sido: '서울', sigungu: '중구', auth_provider: 'pass' },
+      helper: { profile: { name: '타인', age: 60 }, tracked: [] } as never, // 도우미(타인 프로필) 세션 잔존
+      aiQuery: '이전 자유입력',
+      aiIntent: true,
     })
     const before = useAppStore.getState().resetNonce
     s.resetForNextUser()
@@ -80,6 +83,9 @@ describe('resetForNextUser — 복지관 공용PC 상담 전환 시 이전 어�
     expect(after.result).toBeNull()
     expect(after.tracked).toEqual([])
     expect(after.docDone).toEqual({})
+    expect(after.helper).toBeNull()      // 타인 프로필 세션도 정리(감사 #14)
+    expect(after.aiQuery).toBe('')       // 자유입력 잔존 제거
+    expect(after.aiIntent).toBe(false)
     expect(after.rpaInfo.name).toBe('')
     expect(after.rpaInfo.birth_date).toBe('')
     expect(after.rpaInfo.phone).toBe('')

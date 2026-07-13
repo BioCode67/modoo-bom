@@ -355,7 +355,7 @@ export function ResultsView({ result, profile, onReset, helperMode = false }: { 
         </div>
       )}
 
-      <PolicyDetailDrawer policy={selected} onClose={() => setSelected(null)} onOpen={setSelected} />
+      <PolicyDetailDrawer policy={selected} onClose={() => setSelected(null)} onOpen={setSelected} helperMode={helperMode} />
     </div>
   )
 }

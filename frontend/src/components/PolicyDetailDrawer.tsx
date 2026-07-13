@@ -34,10 +34,12 @@ export function PolicyDetailDrawer({
   policy,
   onClose,
   onOpen,
+  helperMode = false, // 도우미(남의 복지 대신보기) 모드: 담기·서류기록·신청이 '내' 저장소를 오염시키지 않게 게이팅
 }: {
   policy: Policy | EligiblePolicy | null
   onClose: () => void
   onOpen?: (p: Policy | EligiblePolicy) => void
+  helperMode?: boolean
 }) {
   const { isSaved, toggleSaved, setStatus, setView } = useAppStore()
   const panelRef = useRef<HTMLElement>(null)
@@ -105,7 +107,7 @@ export function PolicyDetailDrawer({
             aria-label={`${policy.name} 상세`}
           >
             {/* key=policy.id — 드로어 안에서 '비슷한 복지'로 다른 정책 이동 시 이전 정책의 로컬상태(applied 배너·AI유사목록)가 잔존하지 않도록 재마운트 */}
-            <DrawerBody key={policy.id} policy={policy} onClose={onClose} onOpen={onOpen} ctx={{ isSaved, toggleSaved, setStatus, setView }} />
+            <DrawerBody key={policy.id} policy={policy} onClose={onClose} onOpen={onOpen} helperMode={helperMode} ctx={{ isSaved, toggleSaved, setStatus, setView }} />
           </motion.aside>
         </>
       )}
@@ -117,11 +119,13 @@ function DrawerBody({
   policy,
   onClose,
   onOpen,
+  helperMode = false,
   ctx,
 }: {
   policy: Policy | EligiblePolicy
   onClose: () => void
   onOpen?: (p: Policy | EligiblePolicy) => void
+  helperMode?: boolean
   ctx: {
     isSaved: (id: string) => boolean
     toggleSaved: (p: { id: string; name: string; category: string }) => void
@@ -177,12 +181,13 @@ function DrawerBody({
   //  ① 내 정보(이름)를 클립보드에 자동 복사 → ② 공식 신청 페이지를 새 탭으로 열기
   //  → ③ 사용자는 정부 공식 사이트에서 간편인증(카카오 등)만 하고 붙여넣어 제출. (인증·제출은 안전상 본인 몫)
   const startApply = async () => {
-    if (!saved) ctx.toggleSaved({ id: policy.id, name: policy.name, category: policy.category })
+    // 도우미 모드에선 '내' 저장소를 건드리지 않는다(담기·상태·복귀확인 기록 생략) — 공식 신청 페이지 열기만 도와준다
+    if (!helperMode && !saved) ctx.toggleSaved({ id: policy.id, name: policy.name, category: policy.category })
     // 이미 '신청 완료/수급 중'인 정책을 다시 열람(갱신 여정)해도 상태를 'tracking'으로 강등하지 않는다
     const cur = trackedList.find((t) => t.policyId === policy.id)?.status
-    if (!cur || cur === 'idle') ctx.setStatus(policy.id, 'tracking')
+    if (!helperMode && (!cur || cur === 'idle')) ctx.setStatus(policy.id, 'tracking')
     const r = await oneTapApply(policy.application, policy.name, profile, rpaInfo) // 정보 복사 + 공식 신청 페이지 열기
-    if (r.opened) setPendingReturn({ kind: 'apply', policyId: policy.id, name: policy.name }) // 복귀 시 '신청하셨나요?' 확인
+    if (!helperMode && r.opened) setPendingReturn({ kind: 'apply', policyId: policy.id, name: policy.name }) // 복귀 시 '신청하셨나요?' 확인
     // 팝업 차단이면 '이동했어요'라고 거짓 안내하지 않는다 — 직접 이동 링크를 배너로 제공
     setBlockedUrl(r.url)
     setApplied(r.opened ? (r.copied ? 'copied' : 'opened') : 'blocked')
@@ -352,10 +357,11 @@ function DrawerBody({
                   return (
                     <li key={d} className={`flex items-center gap-2 rounded-lg px-1.5 py-1 text-sm ${ok ? 'text-muted-foreground' : 'text-foreground/80'}`}>
                       <button
-                        onClick={() => toggleDocDone(d)}
+                        onClick={() => { if (!helperMode) toggleDocDone(d) }}
+                        disabled={helperMode}
                         aria-pressed={ok}
                         aria-label={`${d} 준비 ${ok ? '완료 취소' : '완료 표시'}`}
-                        className="shrink-0"
+                        className={cn('shrink-0', helperMode && 'opacity-40 cursor-default')}
                       >
                         {ok
                           ? <CheckCircle2 className="h-5 w-5 text-sprout-600" />
@@ -363,7 +369,7 @@ function DrawerBody({
                       </button>
                       <span className={`flex-1 ${ok ? 'line-through' : ''}`}>{d}</span>
                       <a href={dl.url} target="_blank" rel="noopener noreferrer"
-                        onClick={() => { if (dl.issue) beginDocIssue(d, rpaInfo.name || profile?.name) }}
+                        onClick={() => { if (!helperMode && dl.issue) beginDocIssue(d, rpaInfo.name || profile?.name) }}
                         className="text-xs font-semibold text-sky2-700 hover:underline inline-flex items-center gap-0.5 shrink-0">
                         발급 <ExternalLink className="h-3 w-3" />
                       </a>
@@ -514,12 +520,14 @@ function DrawerBody({
       )}
       {/* 하단 고정 액션 */}
       <div className="sticky bottom-0 bg-background/95 backdrop-blur border-t border-sprout-100 p-4 flex gap-2">
-        <button
-          onClick={() => ctx.toggleSaved({ id: policy.id, name: policy.name, category: policy.category })}
-          className={cn('btn-secondary !px-4', saved && '!bg-peach-50 !border-peach-200 !text-peach-600')}
-        >
-          <Heart className={cn('h-4 w-4', saved && 'fill-current')} /> {saved ? tr(uiLang, 'saved') : tr(uiLang, 'save')}
-        </button>
+        {!helperMode && (
+          <button
+            onClick={() => ctx.toggleSaved({ id: policy.id, name: policy.name, category: policy.category })}
+            className={cn('btn-secondary !px-4', saved && '!bg-peach-50 !border-peach-200 !text-peach-600')}
+          >
+            <Heart className={cn('h-4 w-4', saved && 'fill-current')} /> {saved ? tr(uiLang, 'saved') : tr(uiLang, 'save')}
+          </button>
+        )}
         <button onClick={startApply} className="btn-primary flex-1">
           <Rocket className="h-4 w-4" /> {uiLang === 'ko' ? '내 정보 복사 + 공식 신청 이동' : tr(uiLang, 'goApply')}
         </button>
