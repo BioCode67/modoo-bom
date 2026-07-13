@@ -285,7 +285,7 @@ modoo-bom/
 │   ├── api/                         # routes.py(REST), websocket.py, chat.py
 │   ├── rpa/                         # Playwright 자동화: gov24/nhis/work24/apply + base/manager
 │   ├── etl/ingest_welfare.py        # 공공데이터 → policies.json (중앙 --api / 지자체 --local / CSV)
-│   └── tests/test_mock_mode.py      # pytest 12
+│   └── tests/test_mock_mode.py      # pytest 130
 └── frontend/                        # 메인 — 백엔드 없이 동작 (정적 배포)
     ├── src/
     │   ├── App.tsx                  # 셸 + 상태기반 뷰(home/analyze/explore/my) + 챗봇/공유/인쇄
@@ -299,7 +299,7 @@ modoo-bom/
     │   │                            #   MonitorFeed, WelfareCalendar, HouseholdAnalyzer,
     │   │                            #   EmergencyHelp, DocumentCenter, AgentSubmitButton,
     │   │                            #   PolicyCard/Drawer, BenefitCharts, ChatWidget, ShareButton …
-    │   └── lib/*.test.ts            # vitest 15 (engine/simulate)
+    │   └── lib/*.test.ts            # vitest (engine/simulate 등 54파일 644)
     └── public/                      # favicon, 404.html, robots.txt, (policies.json: ETL 생성)
 ```
 
@@ -385,7 +385,7 @@ modoo-bom/
 
 - **정직성 코드화**: 민간재단·서민금융은 심사·상환형이라 `priority high/신뢰도 0.68↑` 표시가 테스트에서 거부됨.
   현금성 합산은 보수적(바우처·대출 제외). 모집종료 정책은 추천 제외(`isClosedForNew`).
-- **품질 게이트**(차트 4): 프론트 vitest 564 · 백엔드 pytest 130 · 실브라우저 E2E 10여정(+대화온보딩·저장흐름·확장연동·라이브체크
+- **품질 게이트**(차트 4): 프론트 vitest 644 · 백엔드 pytest 130 · 실브라우저 E2E 10여정(+대화온보딩·저장흐름·확장연동·라이브체크
   전용 게이트) · lint 0 · tsc 0 — 매 변경마다 실행.
 - **멀티에이전트 상호감사**: 29개 AI 에이전트가 데이터·URL·코드·문구·보안 5차원을 감사하고 발견마다 별도 검증자가 반박 시도 —
   확정 23건 전부 즉시 정정(오탐 1건은 반박으로 기각). "AI가 만들고 AI가 감사하는" 개발 프로세스 자체가 차별점.

@@ -40,9 +40,12 @@ export function statusCheckLink(policy: Policy | undefined): { label: string; ur
 /** 갱신 주기가 '매년' 류인지 — 연 1회 재확인 알림 대상 */
 function isAnnualRenewal(renewal: string): boolean {
   const r = renewal || ''
-  // '1회·사용·유효기한·이내' 등 기간/1회성 표현은 매년 갱신이 아님 — '1회 (출생 후 1년 이내 사용)'을 '1년' 부분매칭으로 오판하던 문제 방지
+  // '연 1회(매년 재확인)'·매년 신호를 1회성 게이트보다 '먼저' 판정 — '연 1회'가 '1회'로 오검출돼 죽던 것(감사 확정, calendar와 동일)
+  if (/매년|연\s*1회|재확인|재산정|재판정/.test(r)) return true
+  // '1회·사용·유효기한·이내' 등 기간/1회성 표현은 매년 갱신이 아님 — '1회 (출생 후 1년 이내 사용)' 오판 방지
   if (/1회|사용|유효|만기|소진|이내|일시/.test(r)) return false
-  return /매년|연\s*1회|연간|1년\s*(?:마다|단위|주기)|매\s*학기|학기\s*(?:마다|별|당)|재확인|재산정|재판정/.test(r)
+  // '연간 운영·서비스 제공'(상시 프로그램)은 매년 재확인이 아님 → 바(bare) '연간' 제외. 명시적 주기만.
+  return /1년\s*(?:마다|단위|주기)|매\s*학기|학기\s*(?:마다|별|당)/.test(r)
 }
 
 export function monitorItem(item: TrackedItem, policy: Policy | undefined, globalDocDone: Record<string, number> = {}): ItemMonitor {

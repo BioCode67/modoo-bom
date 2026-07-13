@@ -6,7 +6,7 @@
  * 정직성: isCashBenefit(현금성)만 반복으로, 바우처·대출·서비스 한도·현물은 제외(BenefitBreakdown과 동일 기준).
  * 서버 전송 없음 — 결과의 eligible_policies에서 전부 기기 내 계산.
  */
-import { parseMonthly, isCashBenefit, isNonCashKind } from './format'
+import { parseMonthly, isCashBenefit, isNonCashKind, isWageReplacement } from './format'
 
 // 일시금(한 번 지급) 신호 — 월 반복이 아닌 목돈. 정책명/혜택 문구로 감지.
 const ONETIME_RE = /일시금|한\s*번|1회성?|첫만남|해산급여|출산.*지원금|축하금|정착금|장려금.*일시|출산장려/
@@ -44,6 +44,9 @@ export function annualCashflow(
   for (const p of policies || []) {
     const benefit = p.benefit || ''
     const ctx = `${p.name} ${p.category || ''}`
+    // 임금대체(육아휴직·출산전후휴가급여)는 '일을 그만두고' 받는 돈이라 순증 현금흐름이 아님 → 제외(sumCashMonthly와
+    //   동일 기준으로 통일. 안 하면 '앞으로 1년 최대 3천만원'처럼 헤드라인이 부풀고 상단 합계와 한 화면서 모순, 감사 확정).
+    if (isWageReplacement(`${benefit} ${ctx}`)) continue
     const monthly = isCashBenefit(benefit, ctx) ? parseMonthly(benefit) : 0
     if (monthly > 0) {
       monthlyRecurring += monthly

@@ -73,6 +73,19 @@ def start_tunnel_and_get_url():
         if m:
             url = m.group(0)
             break
+    # ⚠️ break 이후에도 stdout을 계속 비워야 한다 — 안 그러면 cloudflared가 재연결·메트릭 로그로
+    #    OS 파이프 버퍼(~64KB)를 채우고 write가 블록돼 부하 중 터널이 얼어붙는다(감사 확정 PIPE 교착).
+    #    데몬 스레드로 지속 배수해 시연·투표 트래픽 중에도 서빙이 멈추지 않게 한다.
+    import threading
+
+    def _drain():
+        try:
+            for _ in proc.stdout:
+                pass
+        except Exception:
+            pass
+
+    threading.Thread(target=_drain, daemon=True).start()
     return proc, url
 
 

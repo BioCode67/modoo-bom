@@ -11,6 +11,16 @@ describe('annualCashflow', () => {
     expect(cf.annualTotal).toBe(440000 * 12)
   })
 
+  it('임금대체(육아휴직급여)는 순증 현금흐름에서 제외 — 상단 합계와 정합, 헤드라인 과장 방지(감사 4차 #2)', () => {
+    const cf = annualCashflow([
+      P('부모급여', '0세 월 100만원', '육아'),
+      P('육아휴직급여', '통상임금 100%, 월 최대 250만원', '육아'), // 임금대체 → 제외
+    ])
+    expect(cf.monthlyRecurring).toBe(1000000)        // 육아휴직 250만 미포함
+    expect(cf.items.some((i) => i.name === '육아휴직급여')).toBe(false)
+    expect(cf.annualTotal).toBe(1000000 * 12)
+  })
+
   it('일시금(현금)은 첫 달에만 스파이크 + 연간에 1회 합산', () => {
     // 해산급여 = 현금 일시금. (첫만남이용권은 국민행복카드 '바우처'라 현금흐름에서 제외 — 아래 테스트 참고)
     const cf = annualCashflow([P('기초연금', '월 30만원'), P('해산급여', '70만원 일시금')])
