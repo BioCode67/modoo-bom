@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { MessageCircleHeart, X, Send, Mic, Compass, Sparkles, ArrowRight, Plus, Check } from 'lucide-react'
 import type { Policy } from '@/data/policies'
 import { useSpeech } from '@/lib/useSpeech'
@@ -16,6 +16,50 @@ interface Msg { role: 'user' | 'bot'; text: string; policies?: Policy[]; cta?: A
 
 const SUGGESTIONS = ['내가 받을 수 있는 거', '기초연금', '출산·육아', '청년', '실업급여']
 
+/**
+ * 살아있는 에이전트 아바타 — 새싹이가 평소엔 숨쉬듯 둥실, AI가 답을 찾는 중(thinking)엔
+ * 고개를 갸웃대며 생각 말풍선(💭)을 띄운다. 실제 3D 캔버스를 작은 챗창에 넣는 대신(성능·데이터),
+ * 캐릭터를 '반응하게' 해 AI 에이전트다운 생동감을 준다. reduced-motion이면 애니메이션 없음(접근성).
+ */
+function AgentAvatar({ thinking, reduce }: { thinking: boolean; reduce: boolean | null }) {
+  const idle = { y: [0, -2.5, 0] }
+  const busy = { rotate: [0, -9, 9, -6, 0], y: [0, -2, 0] }
+  return (
+    <motion.div
+      className="relative h-8 w-8 shrink-0 rounded-full bg-white/20 p-0.5"
+      animate={reduce ? undefined : thinking ? busy : idle}
+      transition={reduce ? undefined : { duration: thinking ? 0.9 : 2.6, repeat: Infinity, ease: 'easeInOut' }}
+      style={{ transformOrigin: '50% 85%' }}
+    >
+      <SproutLogo withFace className="h-full w-full" />
+      {thinking && (
+        <motion.span
+          aria-hidden
+          className="absolute -right-1.5 -top-1.5 text-[11px]"
+          animate={reduce ? undefined : { opacity: [0.3, 1, 0.3], scale: [0.8, 1.15, 0.8] }}
+          transition={reduce ? undefined : { duration: 1, repeat: Infinity, ease: 'easeInOut' }}
+        >💭</motion.span>
+      )}
+    </motion.div>
+  )
+}
+
+/** 새싹이가 답을 찾는 중 — 통통 튀는 점 3개(타이핑 인디케이터). reduced-motion이면 정적. */
+function TypingDots({ reduce }: { reduce: boolean | null }) {
+  return (
+    <span className="ml-1.5 inline-flex items-center gap-1 align-middle" aria-hidden>
+      {[0, 1, 2].map((i) => (
+        <motion.span
+          key={i}
+          className="h-1.5 w-1.5 rounded-full bg-sprout-400"
+          animate={reduce ? undefined : { y: [0, -4, 0], opacity: [0.4, 1, 0.4] }}
+          transition={reduce ? undefined : { duration: 0.9, repeat: Infinity, ease: 'easeInOut', delay: i * 0.15 }}
+        />
+      ))}
+    </span>
+  )
+}
+
 export function ChatWidget() {
   const [open, setOpen] = useState(false)
   const [msgs, setMsgs] = useState<Msg[]>([])
@@ -25,6 +69,8 @@ export function ChatWidget() {
   const [multiSel, setMultiSel] = useState<{ v: string; l: string }[]>([])
   const [guideName, setGuideName] = useState('') // 상담 중 성함(선택) — 실명이면 인증 자동입력에 활용
   const [guideAge, setGuideAge] = useState('')   // 정확한 나이 직접 입력(연령대 대표값 대신)
+  const reduce = useReducedMotion()
+  const thinking = msgs.some((m) => m.pending) // AI가 답을 찾는 중 — 아바타·타이핑 모션 트리거
   const setView = useAppStore((s) => s.setView)
   const view = useAppStore((s) => s.view)
   const profile = useAppStore((s) => s.profile)
@@ -233,10 +279,10 @@ export function ChatWidget() {
             role="dialog" aria-label="복지 도우미 챗봇"
           >
             <div className="flex items-center gap-2.5 bg-gradient-to-r from-sprout-500 to-emerald-500 px-4 py-3 text-white">
-              <SproutLogo withFace className="h-8 w-8 bg-white/20 rounded-full p-0.5" />
+              <AgentAvatar thinking={thinking} reduce={reduce} />
               <div>
                 <p className="font-bold leading-tight">새싹이 · 복지 에이전트</p>
-                <p className="text-[11px] text-white/80">{aiChat ? '물어보면 바로 찾아드려요 · 내 정보는 기기 안에서' : profile ? `${profile.name || '회원'}님 맞춤 · 담기까지 도와드려요` : '무엇이든 물어보세요'}</p>
+                <p className="text-[11px] text-white/80">{thinking ? '생각하는 중이에요…' : aiChat ? '물어보면 바로 찾아드려요 · 내 정보는 기기 안에서' : profile ? `${profile.name || '회원'}님 맞춤 · 담기까지 도와드려요` : '무엇이든 물어보세요'}</p>
               </div>
             </div>
 
@@ -244,7 +290,7 @@ export function ChatWidget() {
               {msgs.map((m, i) => (
                 <div key={i} className={m.role === 'user' ? 'flex justify-end' : 'flex flex-col items-start gap-1.5'}>
                   <div className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm whitespace-pre-line leading-relaxed ${m.role === 'user' ? 'bg-sprout-700 text-white rounded-br-sm self-end' : 'bg-white border border-sprout-100 rounded-bl-sm'}`}>
-                    {m.text}
+                    {m.text}{m.pending && <TypingDots reduce={reduce} />}
                   </div>
                   {m.role === 'bot' && m.ai && (
                     <span className="text-[10px] text-sky2-700 font-semibold -mt-0.5">🌱 복지를 찾아 정리한 답변이에요</span>

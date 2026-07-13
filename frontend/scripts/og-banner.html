@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<style>
+  /* 모두봄 공유 배너(OG) — 앱의 정식 새싹이(SproutLogo) 캐릭터를 크고 생동감 있게.
+     1200×1200. 렌더: frontend/scripts/render-og.py (backend venv playwright) */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1200px; height: 1200px; overflow: hidden; }
+  body {
+    font-family: 'Pretendard', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+    background:
+      radial-gradient(1100px 700px at 78% 12%, #fef3c7 0%, rgba(254,243,199,0) 55%),
+      radial-gradient(900px 800px at 12% 88%, #dcfce7 0%, rgba(220,252,231,0) 60%),
+      linear-gradient(150deg, #eafaf0 0%, #f4fbe9 45%, #fff7ed 100%);
+    position: relative;
+  }
+  /* 부드러운 배경 블롭 */
+  .blob { position: absolute; border-radius: 9999px; filter: blur(60px); }
+  .b1 { width: 420px; height: 420px; background: rgba(134,239,172,.45); top: -90px; right: -60px; }
+  .b2 { width: 360px; height: 360px; background: rgba(253,186,116,.38); bottom: -70px; left: -50px; }
+  .b3 { width: 300px; height: 300px; background: rgba(125,211,252,.30); bottom: 120px; right: 90px; }
+
+  .wrap { position: relative; height: 100%; display: flex; flex-direction: column;
+          align-items: center; justify-content: center; text-align: center; padding: 70px; }
+
+  /* 새싹이 무대 — 흰 원 글로우 위에 캐릭터 + 떠다니는 혜택 아이콘 */
+  .stage { position: relative; width: 560px; height: 560px; margin-top: -8px; }
+  .halo { position: absolute; inset: 40px; border-radius: 9999px; background: #ffffff;
+          box-shadow: 0 30px 80px rgba(34,197,94,.22), inset 0 0 0 10px rgba(255,255,255,.9); }
+  .halo::after { content: ''; position: absolute; inset: -26px; border-radius: 9999px;
+          background: radial-gradient(circle, rgba(134,239,172,.55) 0%, rgba(134,239,172,0) 70%); z-index: -1; }
+  .mascot { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .mascot svg { width: 100%; height: 100%; filter: drop-shadow(0 16px 22px rgba(22,101,52,.18)); }
+
+  /* 떠다니는 혜택 요소 — "AI가 내 복지를 찾아준다" 서사 */
+  .float { position: absolute; display: flex; align-items: center; justify-content: center;
+           border-radius: 9999px; background: #fff; box-shadow: 0 12px 26px rgba(16,64,32,.14); }
+  .f-coin { top: 42px; left: 6px; width: 96px; height: 96px; font-size: 50px; }
+  .f-doc  { top: 20px; right: 28px; width: 84px; height: 84px; font-size: 42px; }
+  .f-heart{ bottom: 60px; left: 20px; width: 80px; height: 80px; font-size: 40px; }
+  .f-star { bottom: 34px; right: 44px; width: 72px; height: 72px; font-size: 36px; }
+  .badge-ai { position: absolute; top: 150px; right: -6px; background: linear-gradient(135deg,#16a34a,#15803d);
+           color: #fff; font-weight: 800; font-size: 30px; padding: 12px 22px; border-radius: 9999px;
+           box-shadow: 0 14px 30px rgba(21,128,61,.35); letter-spacing: -.5px; }
+
+  .brand { margin-top: 26px; font-size: 168px; font-weight: 900; letter-spacing: -6px; line-height: 1;
+           background: linear-gradient(100deg,#16a34a 0%, #22c55e 38%, #f97316 100%);
+           -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .tag { margin-top: 20px; font-size: 62px; font-weight: 800; color: #14532d; letter-spacing: -2px; }
+  .sub { margin-top: 16px; font-size: 39px; font-weight: 600; color: #4b6b52; letter-spacing: -1px; }
+
+  .badges { margin-top: 40px; display: flex; gap: 20px; }
+  .pill { font-size: 37px; font-weight: 800; padding: 18px 34px; border-radius: 9999px; letter-spacing: -1px; }
+  .pill-green { background: #16a34a; color: #fff; box-shadow: 0 12px 26px rgba(21,128,61,.28); }
+  .pill-orange { background: #fff; color: #ea580c; border: 4px solid #fdba74; }
+</style>
+</head>
+<body>
+  <div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div>
+  <div class="wrap">
+    <div class="stage">
+      <div class="halo"></div>
+      <div class="mascot">
+        <!-- 앱의 정식 새싹이(SproutLogo, withFace)와 동일한 캐릭터 -->
+        <svg viewBox="0 0 64 64" role="img" aria-label="모두봄 새싹 마스코트" fill="none">
+          <path d="M18 44 H46 L43 60 H21 Z" fill="#fb923c" />
+          <rect x="15" y="40" width="34" height="6" rx="3" fill="#f97316" />
+          <ellipse cx="32" cy="41" rx="14" ry="2" fill="#6b4423" />
+          <rect x="30" y="22" width="4" height="20" rx="2" fill="#22c55e" />
+          <ellipse cx="20" cy="30" rx="10" ry="5" transform="rotate(-28 20 30)" fill="#22c55e" />
+          <ellipse cx="44" cy="30" rx="10" ry="5" transform="rotate(28 44 30)" fill="#22c55e" />
+          <circle cx="32" cy="18" r="11" fill="#4ade80" />
+          <path d="M32 7 q4 -4 7 0 q-3 3 -7 2 Z" fill="#86efac" />
+          <circle cx="28.5" cy="18" r="1.6" fill="#1f3d2b" />
+          <circle cx="35.5" cy="18" r="1.6" fill="#1f3d2b" />
+          <circle cx="29.1" cy="17.4" r="0.55" fill="#ffffff" />
+          <circle cx="36.1" cy="17.4" r="0.55" fill="#ffffff" />
+          <circle cx="26" cy="21" r="2" fill="#fb7185" opacity="0.6" />
+          <circle cx="38" cy="21" r="2" fill="#fb7185" opacity="0.6" />
+          <path d="M30 22 q2 2 4 0" stroke="#1f3d2b" stroke-width="1.2" stroke-linecap="round" />
+        </svg>
+      </div>
+      <div class="float f-coin">🪙</div>
+      <div class="float f-doc">📄</div>
+      <div class="float f-heart">💚</div>
+      <div class="float f-star">⭐</div>
+      <div class="badge-ai">AI 맞춤</div>
+    </div>
+
+    <div class="brand">모두봄</div>
+    <div class="tag">내 복지 혜택, 모두 찾아드릴게요 🌱</div>
+    <div class="sub">AI가 확인부터 신청·서류 발급·관리까지</div>
+    <div class="badges">
+      <span class="pill pill-green">회원가입 없이 무료</span>
+      <span class="pill pill-orange">복지 5,000여 건</span>
+    </div>
+  </div>
+</body>
+</html>
