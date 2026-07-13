@@ -33,6 +33,19 @@ export function clearPendingReturn(): void {
   try { sessionStorage.removeItem(KEY) } catch { /* noop */ }
 }
 
+/**
+ * 전자증명서 발급 시작 공용 처리 — 새 탭은 호출부의 <a>/제스처가 직접 열고, 여기선
+ * ① 복귀 시 '발급하셨나요?' 확인 대기 기록 ② 정부 폼 첫 칸에 붙여넣을 이름을 클립보드에 준비.
+ * DocumentCenter·PolicyDetailDrawer가 같은 헬퍼를 써 무설치 '한 탭 + 내 정보' 경험을 일치시킨다
+ * (감사 확정: 드로어 발급 링크가 이름복사·복귀확인을 건너뛰어 절반만 동작하던 불일치 해소).
+ * ⚠️ 클립보드 쓰기는 새 탭이 열리기 '전에'(문서 포커스 유지) onClick에서 개시해야 성공한다.
+ */
+export function beginDocIssue(doc: string, name?: string): void {
+  setPendingReturn({ kind: 'doc', doc })
+  const nm = (name || '').trim()
+  if (nm) navigator.clipboard?.writeText(nm).catch(() => { /* 클립보드 미지원/비허용 환경 무시 */ })
+}
+
 /** '아직이에요' — 기록은 남기되 이 세션에선 다시 묻지 않는다 */
 export function dismissPendingReturn(): void {
   const p = getPendingReturn()

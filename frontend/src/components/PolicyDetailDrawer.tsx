@@ -19,7 +19,7 @@ import { VisitKit } from '@/components/VisitKit'
 import { t as tr, RTL } from '@/lib/i18nLite'
 import { ApplyKit } from '@/components/ApplyKit'
 import { oneTapApply, bestApplyUrl } from '@/lib/quickApply'
-import { setPendingReturn } from '@/lib/returnPrompt'
+import { setPendingReturn, beginDocIssue } from '@/lib/returnPrompt'
 import { useAppStore } from '@/store/useAppStore'
 import { buildPrefill } from '@/lib/prefill'
 import { buildEvents, downloadICS, futureEvents } from '@/lib/calendar'
@@ -362,7 +362,9 @@ function DrawerBody({
                           : <Square className="h-5 w-5 text-sky2-400" />}
                       </button>
                       <span className={`flex-1 ${ok ? 'line-through' : ''}`}>{d}</span>
-                      <a href={dl.url} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-sky2-700 hover:underline inline-flex items-center gap-0.5 shrink-0">
+                      <a href={dl.url} target="_blank" rel="noopener noreferrer"
+                        onClick={() => { if (dl.issue) beginDocIssue(d, rpaInfo.name || profile?.name) }}
+                        className="text-xs font-semibold text-sky2-700 hover:underline inline-flex items-center gap-0.5 shrink-0">
                         발급 <ExternalLink className="h-3 w-3" />
                       </a>
                     </li>

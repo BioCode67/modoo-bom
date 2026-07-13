@@ -7,7 +7,7 @@ import { docLink, isRpaSupported, isCertIssuable, certKind, CERT_WALLET } from '
 import { getRpaBase } from '@/lib/backend'
 import { useBackend } from '@/lib/useBackend'
 import { detectExtension, issueViaExtension, issueManyViaExtension, getExtensionTrace, onExtensionStatus, sameDocName } from '@/lib/extension'
-import { setPendingReturn } from '@/lib/returnPrompt'
+import { beginDocIssue } from '@/lib/returnPrompt'
 import { RpaInfoForm } from '@/components/RpaInfoForm'
 import { RemoteRpaSetup } from '@/components/RemoteRpaSetup'
 import { cn } from '@/lib/utils'
@@ -151,11 +151,7 @@ export function DocumentCenter() {
 
   // 무설치 전자발급 시작 — 새 탭은 <a>가 사용자 제스처 안에서 직접 열고, 여기선
   // ① 폼 첫 칸에 붙여넣을 이름을 클립보드에 준비 ② 복귀 시 '발급하셨나요?' 확인 대기만 건다
-  const openIssue = (doc: string) => {
-    setPendingReturn({ kind: 'doc', doc })
-    const nm = (rpaInfo.name || profile?.name || '').trim()
-    if (nm) navigator.clipboard?.writeText(nm).catch(() => { /* 미지원 환경 무시 */ })
-  }
+  const openIssue = (doc: string) => beginDocIssue(doc, rpaInfo.name || profile?.name) // 공용 헬퍼(드로어와 일치)
   // 로컬 백엔드(데스크탑앱) 연쇄 발급 — 한 번 카카오 인증으로 서류들을 순차 발급(orchestrator journey).
   const runJourneyViaBackend = async (docList: string[]) => {
     const res = await fetch(`${getRpaBase()}/api/journey/run`, {
