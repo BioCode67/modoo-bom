@@ -58,6 +58,13 @@ export function ForeignerWelcome() {
           ))}
         </div>
         <p className="mt-3 text-xs text-muted-foreground/80">+ 한국어·기타 언어도 지원 — 입력 언어를 자동으로 감지해요.</p>
+        {/* 국적/체류자격 고지 — 외국인이 못 받는 급여를 '받을 수 있다'고 오해하지 않게(감사 #8).
+            어설픈 다국어 번역 대신 한국어+영어만 병기(검증 가능한 정확 문구, 정직성). */}
+        <p className="mt-2 rounded-xl bg-white/70 border border-violet-100 px-3 py-2 text-[11px] leading-relaxed text-violet-900/80">
+          ℹ️ 일부 복지는 <b>국적·체류자격</b> 요건이 있어 외국인은 대상이 아닐 수 있어요.
+          정확한 자격은 다누리콜센터 <b>☎1577-1366</b>(13개 언어 통역)에서 확인하세요.
+          <span className="block">Some benefits require Korean nationality or a specific visa/residency status. Check with Danuri ☎1577-1366 (interpreters).</span>
+        </p>
       </motion.div>
     </section>
   )
