@@ -187,5 +187,8 @@ export function parseProfileFromText(text: string): UserProfile {
   if (/임신|임산부|산모|미혼모|할머니|어머니|엄마|아내|여성|여자|딸/.test(t)) p.gender = 'female'
   else if (/할아버지|아버지|아빠|남편|남성|남자|아들/.test(t)) p.gender = 'male'
 
+  // 소득 신호가 하나라도 매칭됐는지 — 어떤 income 분기도 80을 세팅하지 않으므로 '≠80'이면 입력/언급됨.
+  //   false(미입력)면 checkPolicy가 소득상한 하드배제 대신 '소득 확인 필요'로 노출하고 UI도 %를 단정하지 않음.
+  p.income_known = p.income_percentile !== 80
   return p
 }

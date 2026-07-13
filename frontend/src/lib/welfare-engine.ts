@@ -20,6 +20,10 @@ export interface UserProfile {
   life_events: string[]
   /** 자연어 질의 원문(선택) — 주제어(틀니·전세·창업 등)를 랭킹에 반영하기 위해 보관. 자격판정엔 영향 없음. */
   _query?: string
+  /** 소득이 실제로 입력/언급됐는지. false=자연어에 소득신호가 없어 기본값(80%)을 쓴 상태 → 소득상한 정책을
+   *  하드배제하지 않고 '소득 확인 필요'로 노출하고, UI도 특정 %를 사실처럼 표기하지 않는다.
+   *  미설정(undefined)=입력됨으로 취급(위저드 등 명시 입력 경로 무영향). */
+  income_known?: boolean
 }
 
 export interface EligiblePolicy extends Policy {
@@ -138,7 +142,7 @@ export function extractKeywords(p: UserProfile): { summary: string; keywords: st
 
   const summary =
     `${p.name || '사용자'}님(${p.age}세${regionNote}${householdNote})의 프로필을 분석했습니다. ` +
-    `소득수준 기준중위소득 ${p.income_percentile}%로, ` +
+    `${p.income_known === false ? '소득은 입력되지 않아 기본값으로 분석했어요(정확한 판정은 소득 입력이 필요해요), ' : `소득수준 기준중위소득 ${p.income_percentile}%로, `}` +
     `${p.disability ? '장애인 등록 상태이며 ' : ''}` +
     `${p.is_pregnant ? '임신 중이며 ' : ''}` +
     `맞춤 복지 정책 ${deduped.length}개 키워드로 검색합니다.`
@@ -688,8 +692,19 @@ export function checkPolicy(policy: Policy, p: UserProfile): CheckResult {
   if (demographicMismatch(policy.name, doc, p)) return NO
   // 소득 상한이 명시돼 있고 사용자가 명백히 초과하면 대상 아님(연령만 맞아도 제외)
   const ceil = incomeCeiling(doc)
-  if (ceil !== null && p.income_percentile > ceil) return NO
-  const res = checkPolicyDoc(doc, policy.name, p)
+  const incomeUnknown = p.income_known === false // 자연어에 소득 신호 없음(기본 80) → 하드배제 대신 조건부 노출
+  if (ceil !== null && !incomeUnknown && p.income_percentile > ceil) return NO
+  let res = checkPolicyDoc(doc, policy.name, p)
+  // 소득 미입력 + 소득상한 정책: 하드배제하면 한부모 양육비·국민취업 I유형 같은 대표 현금급여가 통째로
+  //   사라진다(감사 확정). 대신 노출하되 우선순위·신뢰도를 낮추고 '소득 확인 필요'를 명시(단정 아님, 정직성).
+  if (res.eligible && incomeUnknown && ceil !== null) {
+    res = {
+      ...res,
+      priority: res.priority === 'high' ? 'medium' : res.priority,
+      confidence: Math.min(res.confidence ?? 0.8, 0.7),
+      reason: `${res.reason} · 소득이 기준 중위 ${ceil}% 이하일 때 대상 (소득을 입력하면 정확히 확인해 드려요)`,
+    }
+  }
   // 대출·심사/선발형은 '자격 충족(강력추천)'으로 단정하지 않고 저신뢰 '관련 복지'로 격하(정직성, 감사 확정 FP).
   //   대출은 상환의무·심사, 공모·선발은 경쟁으로 선정 — 신청하면 다 받는 현금급여와 다르다.
   if (res.eligible && res.priority !== 'low' && (isLoanPolicy(policy) || isSelectivePolicy(policy))) {

@@ -21,6 +21,8 @@ export function getNearMisses(p: UserProfile, opts: { margin?: number; limit?: n
   const margin = opts.margin ?? 25
   const limit = opts.limit ?? 5
   const out: NearMiss[] = []
+  // 소득 미입력(자연어에 소득신호 없음)이면 기본값 80%를 근거로 '당신은 N%라 아깝게 놓침'이라 오통보하지 않는다(감사 확정).
+  if (p.income_known === false) return out
   for (const policy of getCatalog()) {
     if (!/^POL-/.test(policy.id)) continue // 정밀 자격판정이 가능한 큐레이션 시드만
     const doc = `${policy.eligibility} ${policy.target} ${policy.name}`

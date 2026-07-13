@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { checkPolicy, demographicMismatch, type UserProfile } from '@/lib/welfare-engine'
+import { parseProfileFromText } from '@/lib/parseQuery'
+import { getNearMisses } from '@/lib/nearMiss'
 import { isCashBenefit } from '@/lib/format'
 import { WELFARE_POLICIES } from '@/data/policies'
 
@@ -221,5 +223,29 @@ describe('6차 감사 — 연령토큰·폐업자 구제(win-audit 확정 결함
     const closed = WELFARE_POLICIES.find((s) => /실업급여|구직급여/.test(s.name))!
     const employed = P({ age: 50, income_percentile: 45, employment_status: 'employed', life_events: ['폐업'] })
     expect(demographicMismatch(closed.name, `${closed.eligibility} ${closed.target} ${closed.name}`, employed)).toBe(true)
+  })
+})
+
+describe('7차 감사(페르소나) — 소득 미입력 시 대표급여 오배제·오표기 방지', () => {
+  it('parseQuery: 소득 신호 없는 문장은 income_known=false', () => {
+    expect(parseProfileFromText('서울 사는 한부모, 5살 아이 키워요').income_known).toBe(false)
+  })
+  it('parseQuery: 소득 신호 있으면 income_known=true', () => {
+    expect(parseProfileFromText('72세 혼자 사는데 소득이 적어요').income_known).toBe(true)
+  })
+  it('소득 미입력 한부모: 대표 양육비(POL-012)가 하드배제되지 않고 노출 — 단, high 단정 아니고 소득확인 안내', () => {
+    const hp = P({ age: 32, household_type: '한부모가족', has_children: true, children_ages: [5], income_percentile: 80, income_known: false })
+    const r = checkPolicy(find('POL-012'), hp)
+    expect(r.eligible).toBe(true)
+    expect(r.priority).not.toBe('high')
+    expect(r.reason).toMatch(/소득/)
+  })
+  it('정직성: 소득이 실제로 상한 초과(입력됨)면 여전히 하드배제', () => {
+    const rich = P({ age: 32, household_type: '한부모가족', has_children: true, children_ages: [5], income_percentile: 80, income_known: true })
+    expect(checkPolicy(find('POL-012'), rich).eligible).toBe(false)
+  })
+  it('니어미스: 소득 미입력이면 "당신은 N%라 아깝게 놓침" 오통보를 하지 않는다(빈 목록)', () => {
+    const hp = P({ age: 32, household_type: '한부모가족', has_children: true, children_ages: [5], income_percentile: 80, income_known: false })
+    expect(getNearMisses(hp)).toEqual([])
   })
 })
