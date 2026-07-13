@@ -29,8 +29,13 @@ def token_ok(t, token) -> bool:
         return False
 
 
-# 상태 응답에서 토큰 미인가 시 제거할 민감 필드(정부 페이지 스샷·실명·민감 서류종).
-_SENSITIVE_STATUS_FIELDS = ("screenshot_b64", "user_name", "doc_name")
+# 상태 응답에서 토큰 미인가 시 제거할 민감 필드(정부 페이지 스샷·실명·민감 서류종·저장경로·주소 등).
+#  ⚠️ steps·result·saved_path에도 서류종·파일경로·주소가 담겨, 미인가 task_id 보유자에게 새던 것 차단(감사 4차 #10).
+#     데모/미인가 UI는 status·current_step·screenshot(인가 시)만 사용하므로 아래 제거해도 표시에 지장 없음.
+_SENSITIVE_STATUS_FIELDS = (
+    "screenshot_b64", "user_name", "doc_name", "steps", "result",
+    "saved_path", "saved_docs", "file_path", "download_path", "address", "birth_date", "phone",
+)
 
 
 def redact_status(d: dict, authorized: bool) -> dict:

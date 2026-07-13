@@ -38,6 +38,11 @@ def journey_view(journey_id: str, t: str = ""):
     steps_view = []
     for step in j.get("steps", []):
         s = dict(step)
+        # 미인가면 각 단계의 파일경로·서류종·실명·주소도 제거 — saved_docs만 가리고 steps[].saved_path가
+        #   그대로 새던 것 차단(감사 4차 #11, redact_status와 동일 기준).
+        if not authorized:
+            for k in ("saved_path", "saved_docs", "user_name", "file_path", "download_path", "doc_name", "address", "birth_date", "phone", "screenshot_b64"):
+                s.pop(k, None)
         tid = step.get("task_id")
         if tid:
             task = get_task(tid)

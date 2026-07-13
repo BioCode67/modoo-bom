@@ -25,9 +25,9 @@ function emptyMember(relation = '배우자', age = 40): Member {
 }
 
 function toProfile(m: Member, income: number, household: string, childrenAges: number[] = []): UserProfile {
-  // '자녀' 나이는 부모(본인·배우자)에게만 주입 — 자녀 본인/조부모에게 부모용 아동복지가 붙지 않게
-  const isParent = m.relation === '본인' || m.relation === '배우자'
-  const kids = isParent ? childrenAges : []
+  // '자녀' 나이는 부모 '한 명(본인)'에게만 주입 — 본인·배우자 둘 다 주면 아동수당·부모급여가 부모 2명에게
+  //   중복 표시돼 가구 금액이 부풀려진다(감사 4차 #9). 가구 전체 고유정책 합산에도 한 번만 반영되게.
+  const kids = m.relation === '본인' ? childrenAges : []
   return {
     name: m.relation, age: m.age, gender: 'other', region: '', household_type: household,
     // 장애 체크만으론 중증 단정 불가 → 등급 비움('등록 장애' 일반 분기로만 매칭, 중증 전용 오노출 방지)
