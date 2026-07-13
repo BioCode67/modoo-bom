@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Heart, Wallet, Scale, Sparkles, Compass, Printer, Cloud, ChevronDown, Wrench } from 'lucide-react'
+import { Heart, Wallet, Scale, Sparkles, Compass, Printer, Cloud, ChevronDown, Wrench, UserPlus } from 'lucide-react'
 import type { Policy } from '@/data/policies'
 import { usePolicyMap } from '@/data/useCatalog'
 import type { EligiblePolicy } from '@/lib/welfare-engine'
@@ -32,7 +32,7 @@ const FILTERS: { key: AppStatus | 'all'; label: string }[] = [
 ]
 
 export function My() {
-  const { tracked, setView } = useAppStore()
+  const { tracked, setView, resetForNextUser } = useAppStore()
   const [filter, setFilter] = useState<AppStatus | 'all'>('all')
   const [selected, setSelected] = useState<Policy | EligiblePolicy | null>(null)
   const [compare, setCompare] = useState(false)
@@ -47,6 +47,14 @@ export function My() {
   const applied = tracked.filter((t) => t.status === 'applied' || t.status === 'done').length
   const shown = filter === 'all' ? tracked : tracked.filter((t) => t.status === filter)
   const comparePolicies = tracked.map((t) => POLICY_MAP[t.policyId]).filter(Boolean).slice(0, 4)
+
+  // 공용 기기·시연·현장 상담 전환 — 이 기기에 남은 '내 기록'을 한 번에 비우고 새 사용자로 시작.
+  // (로그인이 없는 온디바이스 설계라, 같은 브라우저를 다른 사람이 쓰면 기록이 이어 보이므로 명시적 초기화 제공)
+  const startNewUser = () => {
+    if (!window.confirm('이 기기에 저장된 내 정보(담은 복지·프로필·진행 기록·발급 기록)를 모두 지우고 새 사용자로 시작할까요?\n\n※ 다른 사람에게 넘기거나 공용 기기에서 쓸 때 사용하세요. 지운 기록은 되돌릴 수 없어요.')) return
+    resetForNextUser()
+    setView('home')
+  }
 
   if (tracked.length === 0) {
     return (
@@ -79,8 +87,20 @@ export function My() {
       <InterestSubscribe onOpenPolicy={(id) => { const p = POLICY_MAP[id]; if (p) setSelected(p) }} />
 
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
-        <h1 className="text-2xl sm:text-3xl font-extrabold">나의 복지 <Heart className="inline h-6 w-6 text-peach-400 fill-peach-400" /></h1>
-        <p className="text-muted-foreground mt-1">담아둔 복지의 신청 준비와 진행 상황을 한눈에 관리하세요.</p>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold">나의 복지 <Heart className="inline h-6 w-6 text-peach-400 fill-peach-400" /></h1>
+            <p className="text-muted-foreground mt-1">담아둔 복지의 신청 준비와 진행 상황을 한눈에 관리하세요.</p>
+          </div>
+          {/* 공용 기기·다른 사람에게 넘길 때 — 이 기기의 내 기록을 비우고 새로 시작 */}
+          <button
+            onClick={startNewUser}
+            className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-sprout-200 bg-white px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:border-sprout-300 hover:text-foreground transition-colors"
+            title="이 기기에 저장된 내 정보를 지우고 새 사용자로 시작해요"
+          >
+            <UserPlus className="h-3.5 w-3.5" /> 새 사용자로 시작
+          </button>
+        </div>
         <SyncBadge />
 
         {/* 요약/계산기 */}
