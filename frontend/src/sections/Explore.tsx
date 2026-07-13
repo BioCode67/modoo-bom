@@ -470,7 +470,7 @@ export function Explore() {
               </button>
             )}
             {tts.supported && noVoice && (
-              <span className="shrink-0 text-[11px] text-muted-foreground max-w-[7rem] leading-tight">이 기기에 해당 언어 음성이 없어 텍스트로만 안내해요</span>
+              <span className="shrink-0 text-[11px] text-muted-foreground max-w-[8rem] leading-tight">이 기기에 해당 언어 음성이 없어 텍스트로만 안내해요<span className="block opacity-80">Text only (no voice for this language).</span></span>
             )}
           </div>
         </div>
@@ -479,9 +479,10 @@ export function Explore() {
       {filtered.length === 0 ? (
         <div className="py-20 text-center text-muted-foreground">
           {aiMode && q.trim() && aiProgress ? (
-            <><p className="text-4xl mb-2">🧠</p>AI가 뜻을 이해하는 중이에요… 잠시만요.</>
+            /* 외국인도 읽을 수 있게 한/영 병기(어설픈 다국어 번역 대신 정확한 영어만, 감사 #14) */
+            <><p className="text-4xl mb-2">🧠</p>AI가 뜻을 이해하는 중이에요… 잠시만요.<span className="block text-xs opacity-80">AI is understanding your question…</span></>
           ) : aiMode && q.trim() && aiError ? (
-            <><p className="text-4xl mb-2">🔌</p>AI 검색을 불러오지 못했어요. AI 토글을 끄고 <b>일반 검색</b>으로 찾아보세요.</>
+            <><p className="text-4xl mb-2">🔌</p>AI 검색을 불러오지 못했어요. AI 토글을 끄고 <b>일반 검색</b>으로 찾아보세요.<span className="block text-xs opacity-80">Couldn’t load AI search. Turn off AI and use normal search.</span></>
           ) : (
             /* 막다른 길 금지 — 0건이어도 바로 눌러볼 다음 행동을 준다 */
             <>
