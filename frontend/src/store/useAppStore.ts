@@ -187,6 +187,8 @@ export const useAppStore = create<AppState>()(
         try { sessionStorage.removeItem('modoo-chat-draft-v1') } catch { /* noop */ }
         // 복귀 확인 대기(앞 어르신이 신청/발급하러 간 기록)도 제거 — 다음 상담 중 '신청하셨나요?' 배너가 튀지 않게(감사 확정)
         try { sessionStorage.removeItem('modoo:pendingReturn') } catch { /* noop */ }
+        // 서류 발급 때 OS 클립보드에 복사된 앞 어르신 실명을 비운다 — 다음 사용자가 붙여넣기로 볼 수 없게(감사 확정 PII)
+        try { navigator.clipboard?.writeText('').catch(() => { /* 포커스·권한 없으면 무시 */ }) } catch { /* noop */ }
         set((s) => ({
           profile: null, result: null, pendingProfile: null, tracked: [], docDone: {},
           helper: null, aiQuery: '', aiIntent: false,
