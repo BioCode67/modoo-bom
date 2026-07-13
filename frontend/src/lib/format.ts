@@ -98,10 +98,20 @@ export function isNonCashKind(text: string): boolean {
   return false
 }
 
-/** 현금성 혜택의 월 합계(최대치). 중복지원 제한은 반영하지 않으므로 '최대'로만 안내해야 함. */
+/**
+ * 임금 대체성 급여(육아휴직급여·출산전후휴가급여 등) — 부모 한 명이 '일을 그만두고(무급 휴직)' 받는 임금 대체금이라,
+ * 부모급여·아동수당 같은 '순증' 복지와 나란히 더하면 '핵심 현금지원 월 최대'가 실제 순증의 몇 배로 부풀려진다(감사 확정).
+ * 개별 정책 카드의 금액 배지는 그대로 두되(값 자체는 사실), sumCashMonthly '합산'에서만 제외해 헤드라인 과장을 막는다.
+ */
+export function isWageReplacement(text: string): boolean {
+  return /육아휴직|출산\s*전후\s*휴가|육아기\s*근로시간\s*단축/.test(text || '')
+}
+
+/** 현금성 혜택의 월 합계(최대치). 중복지원 제한은 반영하지 않으므로 '최대'로만 안내해야 함. 임금대체는 순증 아님 → 제외. */
 export function sumCashMonthly(items: { benefit: string; name?: string; category?: string }[]): number {
-  return items.reduce(
-    (s, p) => s + (isCashBenefit(p.benefit, `${p.name || ''} ${p.category || ''}`) ? parseMonthly(p.benefit) : 0),
-    0,
-  )
+  return items.reduce((s, p) => {
+    const ctx = `${p.name || ''} ${p.category || ''}`
+    if (isWageReplacement(`${p.benefit} ${ctx}`)) return s // 임금대체(육아휴직·출산휴가)는 '순증 합산'에서 제외(개별 카드엔 표시)
+    return s + (isCashBenefit(p.benefit, ctx) ? parseMonthly(p.benefit) : 0)
+  }, 0)
 }

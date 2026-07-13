@@ -63,6 +63,14 @@ describe('isCashBenefit / sumCashMonthly', () => {
     ]
     expect(sumCashMonthly(items)).toBe(349700 + 230000)
   })
+  it('임금대체(육아휴직·출산휴가)는 순증 합산 제외 — 헤드라인 과장 방지(감사 #9)', () => {
+    const items = [
+      { benefit: '0세 월 100만원', name: '부모급여', category: '육아' },       // 순증 현금 100만
+      { benefit: '월 10만원', name: '아동수당', category: '육아' },            // 순증 현금 10만
+      { benefit: '통상임금 100%, 월 최대 250만원', name: '육아휴직급여', category: '육아' }, // 임금대체 → 제외
+    ]
+    expect(sumCashMonthly(items)).toBe(1000000 + 100000) // 육아휴직 250만 미포함
+  })
 })
 
 describe('formatWon', () => {
