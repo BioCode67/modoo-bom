@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { checkPolicy, demographicMismatch, type UserProfile } from '@/lib/welfare-engine'
+import { checkPolicy, demographicMismatch, incomeCeiling, type UserProfile } from '@/lib/welfare-engine'
 import { parseProfileFromText } from '@/lib/parseQuery'
 import { getNearMisses } from '@/lib/nearMiss'
 import { isCashBenefit } from '@/lib/format'
@@ -251,5 +251,14 @@ describe('7차 감사(페르소나) — 소득 미입력 시 대표급여 오배
   it('출산전후휴가급여(POL-016): 0세아 출산가정에 노출(출산 전후 휴가 게이트 누락 수정)', () => {
     const mom = P({ age: 32, has_children: true, children_ages: [0], is_pregnant: false, life_events: ['출산'] })
     expect(checkPolicy(find('POL-016'), mom).eligible).toBe(true)
+  })
+  it('활동지원(POL-011): 서비스 지원 종합조사 전제라 중증등록만으론 high 단정 아님(장기요양과 정합)', () => {
+    const sev = P({ age: 40, disability: true, disability_grade: '1급' })
+    const r = checkPolicy(find('POL-011'), sev)
+    expect(r.eligible).toBe(true)
+    expect(r.priority).not.toBe('high')
+  })
+  it('incomeCeiling: 부모 소득 중위 100% 조항을 본인 상한으로 잡지 않는다(본인 60%)', () => {
+    expect(incomeCeiling('만 19~34세, 기준 중위소득 60% 이하, 부모 소득 중위 100% 이하')).toBe(60)
   })
 })

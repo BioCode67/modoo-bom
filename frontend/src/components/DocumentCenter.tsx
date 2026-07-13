@@ -396,7 +396,8 @@ export function DocumentCenter() {
                     onClick={kind ? () => openIssue(doc) : undefined}
                     className={kind === 'wallet' && !backend ? 'btn-primary !px-3 !py-2 text-xs' : 'btn-secondary !px-3 !py-2 text-xs'}
                   >
-                    <ExternalLink className="h-4 w-4" /> {kind === 'wallet' ? '전자발급' : '발급'}
+                    {/* kind 없는 서류(신분증='본인 지참', 동의서='주민센터 작성')는 원클릭 '발급'이 아니므로 라벨을 정직하게(감사 확정) */}
+                    <ExternalLink className="h-4 w-4" /> {kind === 'wallet' ? '전자발급' : kind ? '발급' : '준비 방법'}
                   </a>
                 )}
                 <button

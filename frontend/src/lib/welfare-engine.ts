@@ -288,8 +288,13 @@ function checkPolicyDoc(doc: string, name: string, p: UserProfile): CheckResult 
   if (doc.includes('중증장애인')) {
     // 지적·자폐성 장애는 한국 법상 항상 '심한 장애(중증)'로 등록되므로 중증에 포함(1·2급만 보면 발달장애인이 오배제됨).
     const severe = p.disability && (['1급', '2급', '1', '2', '지적', '자폐'].some((g) => (p.disability_grade || '').includes(g)) || /중증|심한/.test(p.disability_grade || ''))
-    if (severe)
+    if (severe) {
+      // 활동지원 등 '서비스 지원 종합조사(42점)'로 구간·대상이 정해지는 서비스는 중증 등록만으로 전원 대상이 아니다 —
+      //   장기요양·노인돌봄과 동일하게 medium·저신뢰 + 안내(감사 확정: 활동지원만 이 정직성 기준이 빠져 과대약속이었음).
+      if (/종합조사|활동지원/.test(doc))
+        return { eligible: true, reason: `등록 중증장애인(${p.disability_grade}) — 단, 서비스 지원 종합조사(구간 판정)를 받아야 대상이에요`, priority: 'medium', confidence: 0.6 }
       return { eligible: true, reason: `등록 중증장애인(${p.disability_grade}) 조건 충족`, priority: 'high', confidence: 0.93 }
+    }
     return NO
   }
   if (doc.includes('발달장애인')) {
@@ -629,6 +634,9 @@ export function demographicMismatch(name: string, doc: string, p: UserProfile): 
  */
 export function incomeCeiling(doc: string): number | null {
   let ceil: number | null = null
+  // '부모/원가구/부양의무자 소득 중위 N%'는 신청자 '본인' 소득 상한이 아니라 피부양 요건 → 본인 상한 계산에서 제외.
+  //   (청년 월세 특별지원 등: 본인 60% + 부모 100%인데 100%를 본인 상한으로 잡아 90%ile 고소득자가 통과하던 FP, 감사 확정)
+  doc = doc.replace(/(부모|원가구|부양의무자|가구원)\s*(?:등\s*)?소득[^,·.]*?중위(?:소득)?\s*[0-9]{2,3}\s*%/g, '')
   // '기준 중위소득 N%'는 프로필의 income_percentile과 같은 단위 → 그대로 상한
   const mid = /중위(?:소득)?\s*([0-9]{2,3})\s*%/g
   let m: RegExpExecArray | null
