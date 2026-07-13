@@ -17,6 +17,8 @@ const PATTERNS: { re: RegExp; label: (m: RegExpMatchArray) => string; urgent: bo
   { re: /(출생|출산)\s*후\s*(\d+)\s*(개월|년)\s*(?:이내|내)/, label: (m) => `${m[1]} 후 ${m[2]}${m[3]} 내 신청`, urgent: false },
   { re: /(퇴직|이직|실직|퇴사)\s*후\s*(\d+)\s*(일|개월|년)\s*(?:이내|내)?/, label: (m) => `${m[1]} 후 ${m[2]}${m[3]} 내 신청`, urgent: true },
   { re: /(\d+)\s*일\s*(?:이내|내|안)\s*(?:신청|신고|접수)/, label: (m) => `${m[1]}일 내 신청`, urgent: true },
+  // '개월 이내 신청'(퇴원 6개월 이내 신청 등 한시성). '신청/신고/접수' 앵커로 'N개월 이내 사용'(바우처)엔 오탐 안 남(감사 4차 #15)
+  { re: /(\d+)\s*개월\s*이내\s*(?:신청|신고|접수)/, label: (m) => `${m[1]}개월 내 신청`, urgent: true },
   { re: /(\d+)\s*일\s*이내/, label: (m) => `${m[1]}일 내 신청`, urgent: true },
   { re: /한시\s*(?:사업|지원|운영|적용)?/, label: () => '한시 사업 (기간 한정)', urgent: true },
   { re: /(신청|접수|모집)\s*기간|기간\s*내\s*신청|마감/, label: () => '신청 기간 한정', urgent: false },

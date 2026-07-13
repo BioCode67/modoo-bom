@@ -149,7 +149,7 @@ export const GOV_PROGRAMS: Policy[] = [
     benefit: '건강보험 전액본인부담금 및 비급여 진료비 지원. 미숙아 체중별 최고 2,000만원, 선천성이상아 최고 700만원 (2026)',
     eligibility: '소득무관(2024년부터 소득제한 폐지). 미숙아(24시간 내 신생아중환자실 입원)·선천성이상아(2년 내 진단·수술) 요건 충족',
     required_docs: ['신청서', '진료비 영수증·세부내역서', '입금계좌 사본', '출생증명서 또는 진단서'],
-    application: '주소지 관할 보건소 또는 e보건소·아이마중앱(퇴원 6개월 이내): https://www.gov.kr/portal/service/serviceInfo/SME000000110',
+    application: '주소지 관할 보건소 또는 e보건소·아이마중앱(퇴원 6개월 이내 신청): https://www.gov.kr/portal/service/serviceInfo/SME000000110',
     department: '보건복지부 · 관할 보건소',
     renewal: '(최종)퇴원일로부터 6개월 이내 신청',
     contact: '129',

@@ -60,14 +60,14 @@ export function queryConcepts(q: string): string[][] {
   const meaningful = words.filter((w) => !GENERIC.test(w))
   const seeds = meaningful.length > 0 ? meaningful : words.length > 0 ? words : [base]
   return seeds.map((w) => {
-    const grp = SYNONYM_GROUPS.find((g) =>
-      g.some((t) => {
-        const tl = t.toLowerCase()
-        return w.includes(tl) || tl.includes(w)
-      }),
-    )
+    // 첫 매칭 그룹만 쓰면(.find) '일자리'(고용&알바)·'대출'(빚&서민금융)·'월세'(주거&위기주거)처럼 2개 그룹에
+    //   중복 등장하는 시드어의 뒤 그룹 고유 동의어가 도달 불가 → 매칭되는 '모든' 그룹의 합집합으로(감사 4차 #14).
     const set = new Set<string>([w])
-    if (grp) grp.forEach((t) => set.add(t.toLowerCase()))
+    for (const g of SYNONYM_GROUPS) {
+      if (g.some((t) => { const tl = t.toLowerCase(); return w.includes(tl) || tl.includes(w) })) {
+        g.forEach((t) => set.add(t.toLowerCase()))
+      }
+    }
     return [...set]
   })
 }

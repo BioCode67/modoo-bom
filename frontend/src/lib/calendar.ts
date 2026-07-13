@@ -44,9 +44,12 @@ export function buildEvents(tracked: TrackedItem[], map: Record<string, Policy>)
         note: `${hint ? `기한: ${hint.label} · ` : ''}필요 서류: ${(p.required_docs || []).join(', ') || '주민센터 확인'}`,
       })
     }
-    if (t.status === 'applied' && t.appliedAt) {
+    if (t.status === 'applied') {
+      // appliedAt이 없는(레거시·클라우드 병합) 'applied' 항목도 savedAt로 폴백 — monitoring(appliedAt ?? savedAt)과
+      //   일치시켜 캘린더/.ics에도 진행점검 이벤트가 뜨게(감사 4차 #16, 두 화면 어긋남 해소).
+      const base = t.appliedAt || t.savedAt
       events.push({
-        id: `${t.policyId}-check`, date: t.appliedAt + 14 * DAY, kind: 'check',
+        id: `${t.policyId}-check`, date: base + 14 * DAY, kind: 'check',
         title: `${p.name} 진행상황 점검`, note: '복지로 신청내역 또는 ☎129에서 심사 진행을 확인하세요.',
       })
     }
