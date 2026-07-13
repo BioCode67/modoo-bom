@@ -68,6 +68,20 @@ _MAX_TASKS = max(50, int(os.getenv("RPA_MAX_TASKS", "200")))          # 저장�
 _sem: Optional[asyncio.Semaphore] = None
 _active = 0     # 현재 브라우저를 점유 중인 태스크 수
 _waiting = 0    # 슬롯을 기다리는(큐) 태스크 수
+# 승인(can_accept)~_guarded_run 진입 사이의 '예약' 수 — 이 갭에서 _waiting이 아직 0이라 동시 요청이
+#   전부 게이트를 통과하던 TOCTOU를 막는다(감사 5차 확정 DoS). start_* 동기 시점에 예약하고 _guarded_run
+#   진입 시 _waiting으로 인계한다. _guarded_run은 스케줄되면 반드시 첫 줄이 실행되므로 누수 없음.
+_reserved = 0
+
+
+def _reserve() -> None:
+    global _reserved
+    _reserved += 1
+
+
+def _unreserve() -> None:
+    global _reserved
+    _reserved = max(0, _reserved - 1)
 
 
 def _get_sem() -> asyncio.Semaphore:
@@ -87,8 +101,8 @@ def _spawn_bg(coro) -> asyncio.Task:
 
 
 def can_accept() -> bool:
-    """새 RPA 요청을 받아들일 여력이 있는지(대기 큐가 넘치지 않았는지)."""
-    return _waiting < _MAX_QUEUE
+    """새 RPA 요청을 받아들일 여력이 있는지(대기 큐가 넘치지 않았는지). 예약분(_reserved) 포함해 판정."""
+    return (_waiting + _reserved) < _MAX_QUEUE
 
 
 def capacity() -> dict:
@@ -203,6 +217,7 @@ async def rpa_slot():
 async def _guarded_run(task: "RPATask", run_coro) -> None:
     """태스크를 동시성 상한·타임아웃·정리 안에서 실행한다. run_coro는 인자 없는 async 팩토리."""
     global _active, _waiting
+    _unreserve()  # start_*의 예약을 여기서 _waiting으로 인계 — 승인~진입 TOCTOU 갭 종료
     _waiting += 1
     if _active >= _MAX_CONCURRENT:
         task.update("queued", "대기 중… 앞의 자동화가 끝나면 자동으로 시작해요")
@@ -268,6 +283,7 @@ def start_apply_task(service_name: str, user_name: str, profile: dict) -> str:
         from rpa.apply_rpa import run_apply_rpa
         await run_apply_rpa(task, service_name, profile)
 
+    _reserve()  # 승인 시점 동기 예약 — _guarded_run 진입 시 _waiting으로 인계(TOCTOU 갭 차단)
     _spawn_bg(_guarded_run(task, run_coro))
     return task_id
 
@@ -294,6 +310,7 @@ def start_rpa_task(doc_name: str, user_name: str, user_info: dict = None) -> str
             from rpa.work24_rpa import run_work24_rpa
             await run_work24_rpa(task, _info)
 
+    _reserve()  # 승인 시점 동기 예약 — _guarded_run 진입 시 _waiting으로 인계(TOCTOU 갭 차단)
     _spawn_bg(_guarded_run(task, run_coro))
     return task_id
 
@@ -309,5 +326,6 @@ def start_demo_task(doc_name: str = "주민등록등본") -> str:
         from rpa.demo_rpa import run_demo_rpa
         await run_demo_rpa(task, doc_name or "주민등록등본")
 
+    _reserve()  # 승인 시점 동기 예약 — _guarded_run 진입 시 _waiting으로 인계(TOCTOU 갭 차단)
     _spawn_bg(_guarded_run(task, run_coro))
     return task_id

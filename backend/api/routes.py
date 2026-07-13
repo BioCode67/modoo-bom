@@ -1,7 +1,7 @@
 """FastAPI REST 라우터"""
 import hmac
 import os
-from fastapi import APIRouter, HTTPException, Header, Depends
+from fastapi import APIRouter, HTTPException, Header, Depends, Request
 from fastapi.responses import HTMLResponse, FileResponse
 from pydantic import BaseModel, Field
 from rag.search import search_policies
@@ -215,9 +215,12 @@ async def db_status(_: bool = Depends(require_admin)):
 
 
 @router.post("/session/reset")
-async def session_reset():
+async def session_reset(request: Request):
     """공용 PC '다음 분 상담' 전환 — 발급 서류 폴더의 이전 사용자 PII 문서를 서버에서 삭제(local_server 패리티)."""
-    from rpa.base import clear_docs_dir
+    # ⚠️ 파일 삭제 엔드포인트 CSRF 방어(감사 5차 확정, local_server와 동일) — 정상 프론트 Origin만 통과.
+    from rpa.base import clear_docs_dir, csrf_origin_ok
+    if not csrf_origin_ok(request.headers.get("origin")):
+        raise HTTPException(status_code=403, detail="허용되지 않은 출처의 요청입니다.")
     return {"cleared": clear_docs_dir()}
 
 

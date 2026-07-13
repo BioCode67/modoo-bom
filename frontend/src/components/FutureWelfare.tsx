@@ -44,6 +44,13 @@ export function FutureWelfare({ profile, onOpen }: { profile: UserProfile; onOpe
                 <span className="chip-peach"><TrendingUp className="h-3.5 w-3.5" /> 월 +{formatWon(s.monthlyGain)}</span>
               )}
             </div>
+            {s.monthlyGain > 0 && (
+              // ‘순증’ 과장 방지 — 기초연금은 생계급여 수급자에게 소득으로 잡혀 생계급여가 감액(줬다 뺏는 연금)되므로
+              //   실제 순증은 더 적을 수 있다. ResultsView와 동일한 정직성 캐비앳(감사 5차 확정).
+              <p className="mt-1.5 text-[11px] text-muted-foreground leading-relaxed">
+                ※ <b>‘최대’ 추정치</b>예요 — 중복수급 제한·기존 급여 감액(예: 기초연금을 받으면 생계급여가 줄어드는 경우)은 반영 전이라, 실제 늘어나는 금액은 더 적을 수 있어요.
+              </p>
+            )}
 
             <ul className="mt-3 space-y-1.5">
               {s.newPolicies.map((p) => (

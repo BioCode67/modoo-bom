@@ -8,6 +8,29 @@ from datetime import datetime
 from typing import Optional, Callable
 
 
+# ── 상태변경 엔드포인트 CSRF 방어(감사 5차 확정) ──────────────────────────────
+#   session_reset 등 '파일 삭제' 엔드포인트가 인가 없이 열려, 크로스오리진 CSRF(브라우저)나
+#   공개 터널 직접호출(비브라우저)로 피해자 PC의 발급 서류가 삭제될 수 있었다.
+#   브라우저는 크로스오리진 POST에 Origin을 반드시·위조불가로 붙이므로, Origin 화이트리스트로 차단한다.
+_CANONICAL_ALLOWED_ORIGINS = [
+    "http://localhost:8000", "http://127.0.0.1:8000",
+    "http://localhost:5173", "http://127.0.0.1:5173",
+    "https://biocode67.github.io",
+]
+
+
+def allowed_origins() -> list:
+    """정상 프론트 오리진 + CORS_ORIGINS env(공개 터널·자체 도메인 등)."""
+    return _CANONICAL_ALLOWED_ORIGINS + [o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()]
+
+
+def csrf_origin_ok(origin) -> bool:
+    """상태변경(파일삭제 등) 엔드포인트 CSRF 방어. Origin이 허용목록에 있어야 True.
+    Origin이 없거나(비브라우저 스크립트·터널 직접호출) 허용목록 밖 크로스오리진이면 False.
+    정상 프론트(github.io/localhost)만 통과."""
+    return bool(origin) and origin in allowed_origins()
+
+
 def get_launch_options(slow_mo: int = None) -> dict:
     """모든 RPA가 공통으로 쓰는 브라우저 실행 옵션.
 

@@ -35,7 +35,7 @@ _BASE = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
 if str(_BASE) not in sys.path:
     sys.path.insert(0, str(_BASE))
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import Response as _Response
@@ -213,10 +213,14 @@ async def _selftest_browser():
 #   한쪽만 고치면 드리프트가 생기므로, routes.py 의 RPA 엔드포인트를 바꾸면 여기도 함께 반영할 것.
 #   backend 감사가 안정화되면 chromadb 비의존 공유 라우터(api/rpa_routes.py)로 추출해 중복을 없앨 것.
 @app.post("/api/session/reset")
-async def session_reset():
+async def session_reset(request: Request):
     """공용 PC '다음 분 상담' 전환 — 발급 서류 폴더의 이전 사용자 PII 문서를 서버에서 삭제.
     (프론트의 localStorage 리셋과 짝. 로컬 앱/서버 RPA 공통.)"""
-    from rpa.base import clear_docs_dir
+    # ⚠️ 파일 삭제 엔드포인트 — 인가 없이 열려 크로스오리진 CSRF/터널 직접호출로 피해자 발급서류가
+    #   삭제되던 것 차단(감사 5차 확정). 정상 프론트 Origin만 통과.
+    from rpa.base import clear_docs_dir, csrf_origin_ok
+    if not csrf_origin_ok(request.headers.get("origin")):
+        raise HTTPException(status_code=403, detail="허용되지 않은 출처의 요청입니다.")
     return {"cleared": clear_docs_dir()}
 
 
