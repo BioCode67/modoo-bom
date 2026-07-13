@@ -3,8 +3,8 @@ import { Bot, Loader2, ExternalLink, ShieldCheck, AlertCircle } from 'lucide-rea
 import type { Policy } from '@/data/policies'
 import type { EligiblePolicy } from '@/lib/welfare-engine'
 import { useBackend } from '@/lib/useBackend'
-import { isApplyAutomatable, applyLink } from '@/lib/officialLinks'
-import { bestApplyUrl } from '@/lib/quickApply'
+import { isApplyAutomatable } from '@/lib/officialLinks'
+import { bestApplyUrl, bestApplyLabel } from '@/lib/quickApply'
 import { getRpaBase } from '@/lib/backend'
 import { detectExtension, applyViaExtension, onExtensionStatus, sameDocName } from '@/lib/extension'
 import { RpaInfoForm } from '@/components/RpaInfoForm'
@@ -63,7 +63,7 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
           <b> 본인인증·최종 제출은 본인이 직접</b> 하셔야 해요. (파워유저·시연용: 크롬 확장을 설치하면 로그인·이동·양식 작성까지 에이전트가 대신해요)
         </p>
         <a href={bestApplyUrl(policy.application, policy.name)} target="_blank" rel="noopener noreferrer" className="btn-secondary !py-2 mt-2 text-xs">
-          <ExternalLink className="h-3.5 w-3.5" /> {applyLink(policy.application).label}
+          <ExternalLink className="h-3.5 w-3.5" /> {bestApplyLabel(policy.application, policy.name)}
         </a>
       </div>
     )

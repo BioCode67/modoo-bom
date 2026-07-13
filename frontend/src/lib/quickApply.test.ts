@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { bestApplyUrl, isGenericHome, oneTapApply, KNOWN_APPLY_URLS } from './quickApply'
+import { bestApplyUrl, bestApplyLabel, isGenericHome, oneTapApply, KNOWN_APPLY_URLS } from './quickApply'
 
 describe('isGenericHome — 일반 홈 착지 패턴 판정', () => {
   it('홈(트레일링 슬래시·portal/main 변형 포함)은 generic', () => {
@@ -37,6 +37,20 @@ describe('bestApplyUrl — 착지 우선순위', () => {
   })
   it("'주민센터 방문' 채널은 검색 폴백 금지(오프라인 전용을 온라인처럼 오도하지 않음)", () => {
     expect(bestApplyUrl('주민센터 방문 신청', '어떤 방문형 복지')).toBe('https://www.bokjiro.go.kr')
+  })
+})
+
+describe('bestApplyLabel — 라벨이 실제 착지와 일치(라벨-URL 불일치 방지)', () => {
+  it('정부24 검색 폴백이면 라벨도 "정부24에서 검색해 신청"(복지로 라벨로 오도 안 함)', () => {
+    expect(bestApplyUrl('복지로 신청', '희귀정책명')).toContain('gov.kr/search') // 착지는 검색
+    expect(bestApplyLabel('복지로 신청', '희귀정책명')).toBe('정부24에서 검색해 신청') // 라벨도 검색으로 일치
+  })
+  it('복지로 딥링크(KNOWN_APPLY_URLS) 착지면 검색 라벨이 아니라 원 라벨 유지', () => {
+    expect(bestApplyUrl('복지로 온라인 신청', '아동수당')).toContain('WLF00001171') // 착지는 복지로 딥링크
+    expect(bestApplyLabel('복지로 온라인 신청', '아동수당')).not.toBe('정부24에서 검색해 신청')
+  })
+  it("'주민센터 방문' 채널은 검색 폴백을 안 하므로 검색 라벨로 바뀌지 않음", () => {
+    expect(bestApplyLabel('주민센터 방문 신청', '어떤 방문형 복지')).not.toBe('정부24에서 검색해 신청')
   })
 })
 

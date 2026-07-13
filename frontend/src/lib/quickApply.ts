@@ -56,6 +56,18 @@ export function bestApplyUrl(application: string, policyName?: string): string {
   return link.url
 }
 
+/**
+ * bestApplyUrl이 실제 착지하는 곳과 일치하는 버튼 라벨 — 라벨-URL 불일치 방지(감사 확정).
+ * bestApplyUrl과 동일 분기: 복지로 딥링크(②)면 원 라벨 유지, 정부24 검색 폴백(③)이면 '정부24에서 검색해 신청'.
+ * (기존엔 검색으로 착지하면서도 라벨은 '복지로에서 신청'으로 남아 사용자가 헤매던 문제.)
+ */
+export function bestApplyLabel(application: string, policyName?: string): string {
+  const link = applyLink(application)
+  if (policyName && KNOWN_APPLY_URLS[policyName] && isGenericHome(link.url)) return link.label
+  if (policyName && isGenericHome(link.url) && !link.label.includes('주민센터')) return '정부24에서 검색해 신청'
+  return link.label
+}
+
 export interface OneTapResult {
   /** 클립보드 복사 성공 여부(안내 문구 분기용) */
   copied: boolean

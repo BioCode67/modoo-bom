@@ -9,7 +9,7 @@ import type { EligiblePolicy } from '@/lib/welfare-engine'
 import { generateGuides, matchFacts } from '@/lib/welfare-engine'
 import { categoryMeta, parseMonthly, formatWon, isCashBenefit, PRIORITY_META } from '@/lib/format'
 import { deadlineHint } from '@/lib/deadline'
-import { docLink, applyLink, isApplyAutomatable } from '@/lib/officialLinks'
+import { docLink, isApplyAutomatable } from '@/lib/officialLinks'
 import { trustInfo } from '@/lib/trust'
 import { useBackend } from '@/lib/useBackend'
 import { AgentSubmitButton } from '@/components/AgentSubmitButton'
@@ -18,7 +18,7 @@ import { TermText } from '@/components/TermText'
 import { VisitKit } from '@/components/VisitKit'
 import { t as tr, RTL } from '@/lib/i18nLite'
 import { ApplyKit } from '@/components/ApplyKit'
-import { oneTapApply, bestApplyUrl } from '@/lib/quickApply'
+import { oneTapApply, bestApplyUrl, bestApplyLabel } from '@/lib/quickApply'
 import { setPendingReturn, beginDocIssue } from '@/lib/returnPrompt'
 import { useAppStore } from '@/store/useAppStore'
 import { buildPrefill } from '@/lib/prefill'
@@ -323,7 +323,7 @@ function DrawerBody({
             rel="noopener noreferrer"
             className="btn-primary w-full justify-center"
           >
-            <ExternalLink className="h-4 w-4" /> {applyLink(policy.application).label}
+            <ExternalLink className="h-4 w-4" /> {bestApplyLabel(policy.application, policy.name)}
           </a>
           <div className="mt-2.5">
             <ApplyKit />
@@ -528,7 +528,7 @@ function DrawerBody({
           target="_blank"
           rel="noopener noreferrer"
           className="btn-warm !px-4"
-          title={applyLink(policy.application).label}
+          title={bestApplyLabel(policy.application, policy.name)}
         >
           <ExternalLink className="h-4 w-4" />
         </a>

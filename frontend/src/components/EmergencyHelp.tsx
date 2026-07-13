@@ -2,8 +2,7 @@ import { useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { LifeBuoy, X, Phone, ExternalLink } from 'lucide-react'
 import { CRISES, matchEmergency } from '@/lib/emergency'
-import { applyLink } from '@/lib/officialLinks'
-import { bestApplyUrl } from '@/lib/quickApply'
+import { bestApplyUrl, bestApplyLabel } from '@/lib/quickApply'
 import { parseMonthly, formatWon, categoryMeta, isCashBenefit } from '@/lib/format'
 import { useModalFocus } from '@/hooks/useModalFocus'
 import { cn } from '@/lib/utils'
@@ -105,7 +104,7 @@ export function EmergencyHelp() {
                             </div>
                             <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{p.benefit}</p>
                             <a href={bestApplyUrl(p.application, p.name)} target="_blank" rel="noopener noreferrer" className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-sprout-700 hover:underline">
-                              {applyLink(p.application).label} <ExternalLink className="h-3 w-3" />
+                              {bestApplyLabel(p.application, p.name)} <ExternalLink className="h-3 w-3" />
                             </a>
                           </li>
                         )
