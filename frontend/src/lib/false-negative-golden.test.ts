@@ -274,4 +274,11 @@ describe('7차 감사(페르소나) — 소득 미입력 시 대표급여 오배
   it('parseQuery: "장사하다 폐업했어요"는 폐업 생애이벤트 기록(폐업자 구제 경로 발동)', () => {
     expect(parseProfileFromText('장사하다 폐업했어요 몸도 아파요').life_events).toContain('폐업')
   })
+  it('고소득 부정 오분류 방지(감사 4차 #7): "여유가 있진 않아요"는 고소득(130) 아님', () => {
+    expect(parseProfileFromText('여유가 있진 않아요').income_percentile).not.toBe(130)
+    expect(parseProfileFromText('잘 사는 편은 아니에요').income_percentile).not.toBe(130)
+  })
+  it('정직성: 진짜 여유 표현("여유가 좀 있어요")은 고소득 유지(과교정 아님)', () => {
+    expect(parseProfileFromText('여유가 좀 있어요').income_percentile).toBe(130)
+  })
 })

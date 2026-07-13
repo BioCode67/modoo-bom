@@ -56,7 +56,7 @@ export function EmergencyHelp() {
                       onClick={() => toggle(c.key)}
                       aria-pressed={sel.includes(c.key)}
                       className={cn('flex items-center gap-2 rounded-xl border-2 px-3 py-2.5 text-sm font-semibold text-left transition-all active:scale-95',
-                        sel.includes(c.key) ? 'bg-rose-500 border-rose-500 text-white' : 'bg-white border-rose-100 hover:border-rose-200')}
+                        sel.includes(c.key) ? 'bg-rose-700 border-rose-700 text-white' : 'bg-white border-rose-100 hover:border-rose-200')}
                     >
                       <span className="text-lg">{c.emoji}</span> {c.label}
                     </button>

@@ -68,7 +68,7 @@ export function TrackedCard({ item, policy, onOpen }: { item: TrackedItem; polic
             rel="noopener noreferrer"
             onClick={() => markChecked(item.policyId)}
             className={cn('mt-2 inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-bold transition-colors',
-              mon.reCheckDue ? 'bg-amber-400 text-white hover:bg-amber-500' : 'bg-white border border-sprout-200 text-sprout-700 hover:bg-sprout-50')}
+              mon.reCheckDue ? 'bg-amber-700 text-white hover:bg-amber-800' : 'bg-white border border-sprout-200 text-sprout-700 hover:bg-sprout-50')}
           >
             <RefreshCw className="h-3 w-3" /> {mon.reCheckDue ? '지금 점검하기' : '진행상황 점검'} <ExtLink className="h-3 w-3" />
           </a>

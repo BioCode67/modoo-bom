@@ -923,9 +923,14 @@ const QUERY_STOPWORDS = new Set([
   '소득', '저소득', '노인', '어르신', '고령', '장애', '장애인', '청년', '아동', '자녀', '혼자', '가구', '가족',
   '많이', '너무', '조금', '그냥', '정말', '아주', '살아요', '살고', '있는데', '싶습니다',
 ])
+// 검증된 2음절 주제어 화이트리스트 — 3글자 제한에서 탈락하던 흔한 복지 키워드를 부스트에 포함(감사 4차 #5).
+//   ('소득/사업/수당' 등 위험 2음절어는 화이트리스트 밖이라 과부스트 위험 없음)
+const TOPIC2 = new Set(['틀니', '전세', '월세', '창업', '취업', '치매', '난방', '요양', '간병', '보청', '이사', '수술'])
 function queryTopicBoost(text: string, query: string): number {
-  // 3글자 이상 주제어만(2글자 '소득'이 정책명 '저소득'에 부분일치해 과부스트하던 문제 방지) + 불용어 제외.
-  const toks = (query.match(/[가-힣]{3,}/g) || []).filter((w) => !QUERY_STOPWORDS.has(w))
+  // 3글자 이상 주제어 + 화이트리스트 2음절어. 불용어 제외.
+  const toks3 = query.match(/[가-힣]{3,}/g) || []
+  const toks2 = (query.match(/[가-힣]{2}/g) || []).filter((w) => TOPIC2.has(w))
+  const toks = [...toks3, ...toks2].filter((w) => !QUERY_STOPWORDS.has(w))
   let boost = 0
   const seen = new Set<string>()
   for (const w of toks) {

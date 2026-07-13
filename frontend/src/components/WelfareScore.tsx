@@ -26,6 +26,9 @@ export function WelfareScore({ eligible, onOpen }: { eligible: EligiblePolicy[];
   const top3 = unacted.slice(0, 3)
   // '놓치고 있는 잠재 혜택' 합계도 현금성만 — 서비스 한도·바우처를 현금처럼 더하지 않는다(정직성).
   const potential = sumCashMonthly(unacted.filter((p) => p.priority === 'high'))
+  // 미조치 강력추천이 남았는지(비현금이라 potential=0이어도) — potential===0을 곧 '완료'로 오해석하지 않게(감사 4차 #4).
+  //   활동지원 등 서비스형 급여가 핵심인 장애인·노인에서 '모두 챙기셨어요' 거짓 축하 + 그 아래 담기목록 모순 방지.
+  const hasUnactedHigh = unacted.some((p) => p.priority === 'high')
 
   // 게이지(원형)
   const R = 36, C = 2 * Math.PI * R
@@ -56,6 +59,9 @@ export function WelfareScore({ eligible, onOpen }: { eligible: EligiblePolicy[];
             <p className="mt-2 inline-flex items-center gap-1.5 rounded-xl bg-peach-100 px-3 py-1.5 text-sm font-bold text-peach-800">
               <Sparkles className="h-4 w-4" /> 지금 챙기면 월 +{formatWon(potential)} 더!
             </p>
+          ) : hasUnactedHigh ? (
+            // 비현금 강력추천(활동지원 등)이 남음 — '완료'가 아니라 확인 권유(아래 목록과 정합)
+            <p className="mt-2 text-sm font-semibold text-sprout-700">아래 <b>강력 추천 복지</b>를 확인해 보세요.</p>
           ) : (
             <p className="mt-2 text-sm font-semibold text-sprout-700">강력 추천 복지를 모두 챙기셨어요! 🎉</p>
           )}
