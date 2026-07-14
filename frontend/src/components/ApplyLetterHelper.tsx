@@ -32,8 +32,9 @@ export function ApplyLetterHelper({ profile, policy }: { profile: UserProfile | 
     const w = window.open('', '_blank', 'width=640,height=840')
     if (!w) return
     const safe = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    const docTitle = mode === 'proxy' ? '위임장' : '신청 사유서'
     w.document.write(
-      `<title>신청 사유서</title><pre style="font-family:'Pretendard','Malgun Gothic',sans-serif;font-size:16px;line-height:2;white-space:pre-wrap;padding:40px;color:#111;">${safe}</pre>`,
+      `<title>${docTitle}</title><pre style="font-family:'Pretendard','Malgun Gothic',sans-serif;font-size:16px;line-height:2;white-space:pre-wrap;padding:40px;color:#111;">${safe}</pre>`,
     )
     w.document.close(); w.focus(); setTimeout(() => w.print(), 200)
   }
