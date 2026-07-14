@@ -194,7 +194,9 @@ function DrawerBody({
     // 이미 '신청 완료/수급 중'인 정책을 다시 열람(갱신 여정)해도 상태를 'tracking'으로 강등하지 않는다
     const cur = trackedList.find((t) => t.policyId === policy.id)?.status
     if (!helperMode && (!cur || cur === 'idle')) ctx.setStatus(policy.id, 'tracking')
-    const r = await oneTapApply(policy.application, policy.name, profile, rpaInfo) // 정보 복사 + 공식 신청 페이지 열기
+    // 도우미 모드에선 '내' rpaInfo(이름·생년월일)를 복사하지 않는다 — 도움받는 분의 정부 폼에 도우미 신원이
+    // 붙는 것을 막는다(잘못된 신청 방지). 공식 페이지 열기만 도와주고, 신원 입력은 본인이 직접.
+    const r = await oneTapApply(policy.application, policy.name, profile, helperMode ? undefined : rpaInfo)
     if (!helperMode && r.opened) setPendingReturn({ kind: 'apply', policyId: policy.id, name: policy.name }) // 복귀 시 '신청하셨나요?' 확인
     // 팝업 차단이면 '이동했어요'라고 거짓 안내하지 않는다 — 직접 이동 링크를 배너로 제공
     setBlockedUrl(r.url)
@@ -328,7 +330,8 @@ function DrawerBody({
         {/* 신청 키트 — 자동화 흐름 + 공식 신청 페이지 직결 + 내 정보 미리채움(복사) */}
         <Section title={`📝 ${tr(uiLang,'applyKit')}`}>
           <div className="mb-2.5">
-            <ApplyFlow automatable={isApplyAutomatable(policy.name)} hasBackend={hasBackend} hasPrefill={buildPrefill(profile, rpaInfo).length > 0} matched={matched} />
+            {/* 도우미 모드에선 '내 정보 미리채움'을 없는 것으로 — 내 rpaInfo를 남의 신청 흐름에 노출하지 않는다 */}
+            <ApplyFlow automatable={isApplyAutomatable(policy.name)} hasBackend={hasBackend} hasPrefill={!helperMode && buildPrefill(profile, rpaInfo).length > 0} matched={matched} />
           </div>
           <a
             href={bestApplyUrl(policy.application, policy.name)}
@@ -338,9 +341,13 @@ function DrawerBody({
           >
             <ExternalLink className="h-4 w-4" /> {bestApplyLabel(policy.application, policy.name)}
           </a>
-          <div className="mt-2.5">
-            <ApplyKit />
-          </div>
+          {/* 신청 키트(내 정보 복사·편집)는 개인 신원 도구 — 도우미 모드에선 숨김.
+              setRpaInfo 편집이 '내' 저장된 RPA 신원을 덮어쓰고, 내 정보를 남의 신청에 복사하는 것을 막는다. */}
+          {!helperMode && (
+            <div className="mt-2.5">
+              <ApplyKit />
+            </div>
+          )}
           {/* 신청 사유서 도우미 — 긴급복지·위기·장학·재단 신청의 '사유 작성' 장벽 해소(규칙기반 초안, 환각 0) */}
           <ApplyLetterHelper profile={profile} policy={policy} />
         </Section>
@@ -551,7 +558,8 @@ function DrawerBody({
           </button>
         )}
         <button onClick={startApply} className="btn-primary flex-1">
-          <Rocket className="h-4 w-4" /> {uiLang === 'ko' ? '내 정보 복사 + 공식 신청 이동' : tr(uiLang, 'goApply')}
+          {/* 도우미 모드에선 '내 정보 복사'라고 하지 않는다 — 복사하는 신원이 없어(도움받는 분 이름 미포함) 오해 소지 */}
+          <Rocket className="h-4 w-4" /> {uiLang === 'ko' ? (helperMode ? '공식 신청 페이지 열기' : '내 정보 복사 + 공식 신청 이동') : tr(uiLang, 'goApply')}
         </button>
         <a
           href={bestApplyUrl(policy.application, policy.name)}
