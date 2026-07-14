@@ -69,6 +69,7 @@ export function ApplyLetterHelper({ profile, policy }: { profile: UserProfile | 
           />
           <p className="mt-1 text-[11px] text-muted-foreground">
             ※ <b>초안이에요</b> — 사실과 맞는지 확인하고 상황에 맞게 고쳐서 쓰세요. 입력하신 상황만 문장으로 옮겼어요(지어낸 내용 없음).
+            <span className="block opacity-80">This is a Korean application letter (drafts only) — check it, then submit to the office as is.</span>
           </p>
           <div className="mt-2 flex gap-2">
             <button onClick={copy} className="btn-primary !py-2 text-xs">
