@@ -431,6 +431,12 @@ function DrawerBody({
             </a>
           )
         })()}
+        {/* 전화가 막막한 분 안내 — 대본은 위 '신청 키트 › 서류 대신 써드려요'의 📞 탭에(중복 UI 대신 발견 힌트) */}
+        {policy.contact && profile && (
+          <p className="-mt-3 text-[11px] text-muted-foreground pl-1">
+            💬 뭐라고 말할지 막막하면 — 위 <b>신청 키트</b>의 ‘서류 대신 써드려요’에서 <b>📞 전화 대본</b>을 열어보세요.
+          </p>
+        )}
 
         {/* 주민센터 방문용 인쇄 — 어르신·디지털 소외층의 실제 신청 경로(창구 방문) 지원 */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
