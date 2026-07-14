@@ -18,6 +18,7 @@ import { TermText } from '@/components/TermText'
 import { VisitKit } from '@/components/VisitKit'
 import { t as tr, RTL } from '@/lib/i18nLite'
 import { ApplyKit } from '@/components/ApplyKit'
+import { ApplyLetterHelper } from '@/components/ApplyLetterHelper'
 import { oneTapApply, bestApplyUrl, bestApplyLabel } from '@/lib/quickApply'
 import { setPendingReturn, beginDocIssue } from '@/lib/returnPrompt'
 import { useAppStore } from '@/store/useAppStore'
@@ -333,6 +334,8 @@ function DrawerBody({
           <div className="mt-2.5">
             <ApplyKit />
           </div>
+          {/* 신청 사유서 도우미 — 긴급복지·위기·장학·재단 신청의 '사유 작성' 장벽 해소(규칙기반 초안, 환각 0) */}
+          <ApplyLetterHelper profile={profile} policy={policy} />
         </Section>
 
         {/* 에이전트 자동 신청 (지원 서비스 + 백엔드 있을 때) */}

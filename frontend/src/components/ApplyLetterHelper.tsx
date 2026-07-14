@@ -1,0 +1,65 @@
+import { useState } from 'react'
+import { FileText, Copy, Check, Printer, ChevronDown } from 'lucide-react'
+import type { UserProfile, EligiblePolicy } from '@/lib/welfare-engine'
+import type { Policy } from '@/data/policies'
+import { generateApplyLetter } from '@/lib/applyLetter'
+import { cn } from '@/lib/utils'
+
+/**
+ * 신청 사유서 도우미 — 긴급복지·위기지원·장학·민간재단 신청 시 필요한 '신청 사유/상황 설명'을
+ * 프로필 신호로 정중한 초안(규칙 기반·환각 0)으로 만들어 복사·인쇄하게 한다. 어르신·외국인·저학력층의
+ * 최대 장벽('무엇을 어떻게 써야 할지')을 해소. 초안이며 확인·수정 후 사용하도록 안내한다.
+ */
+export function ApplyLetterHelper({ profile, policy }: { profile: UserProfile | null; policy: Policy | EligiblePolicy }) {
+  const [open, setOpen] = useState(false)
+  const [text, setText] = useState('')
+  const [copied, setCopied] = useState(false)
+  if (!profile) return null
+
+  const toggle = () => {
+    if (!open && !text) setText(generateApplyLetter(profile, policy))
+    setOpen((o) => !o)
+  }
+  const copy = () => {
+    navigator.clipboard?.writeText(text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500) }).catch(() => { /* 미지원 무시 */ })
+  }
+  const print = () => {
+    const w = window.open('', '_blank', 'width=640,height=840')
+    if (!w) return
+    const safe = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    w.document.write(
+      `<title>신청 사유서</title><pre style="font-family:'Pretendard','Malgun Gothic',sans-serif;font-size:16px;line-height:2;white-space:pre-wrap;padding:40px;color:#111;">${safe}</pre>`,
+    )
+    w.document.close(); w.focus(); setTimeout(() => w.print(), 200)
+  }
+
+  return (
+    <div className="mt-2 rounded-xl border border-sky2-200 bg-sky2-50/50">
+      <button onClick={toggle} aria-expanded={open} className="flex w-full items-center gap-2 px-3 py-2.5 text-left">
+        <FileText className="h-4 w-4 shrink-0 text-sky2-600" />
+        <span className="flex-1 text-sm font-bold text-sky2-800">📝 신청 사유서 초안 만들기 <span className="font-normal text-sky2-600">— 뭐라고 쓸지 대신 써드려요</span></span>
+        <ChevronDown className={cn('h-4 w-4 text-sky2-600 transition-transform', open && 'rotate-180')} />
+      </button>
+      {open && (
+        <div className="px-3 pb-3">
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            rows={9}
+            aria-label="신청 사유서 초안"
+            className="w-full resize-y rounded-lg border border-sky2-200 bg-white p-3 text-[13px] leading-relaxed text-foreground focus-ring"
+          />
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            ※ <b>초안이에요</b> — 사실과 맞는지 확인하고 상황에 맞게 고쳐서 쓰세요. 입력하신 상황만 문장으로 옮겼어요(지어낸 내용 없음).
+          </p>
+          <div className="mt-2 flex gap-2">
+            <button onClick={copy} className="btn-primary !py-2 text-xs">
+              {copied ? <><Check className="h-4 w-4" /> 복사됐어요</> : <><Copy className="h-4 w-4" /> 복사</>}
+            </button>
+            <button onClick={print} className="btn-secondary !py-2 text-xs"><Printer className="h-4 w-4" /> 인쇄</button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
