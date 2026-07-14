@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { CheckCircle2, X } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
-import { getPendingReturn, clearPendingReturn, dismissPendingReturn, markPendingLeft, type PendingReturn } from '@/lib/returnPrompt'
+import { getPendingReturn, clearPendingReturn, dismissPendingReturn, markPendingLeft, markPendingReturned, type PendingReturn } from '@/lib/returnPrompt'
 
 /** 공식 사이트 탭에서 돌아오자마자 프롬프트가 뜨면 오탐(팝업 차단·잘못 클릭) — 최소 체류 시간 */
 const MIN_AWAY_MS = 8000
@@ -12,9 +12,20 @@ const MIN_AWAY_MS = 8000
  * '완료하셨나요?'를 1탭으로 묻는다. '네'를 눌러야만 상태가 기록된다(자동 낙관 처리 없음 — 정직성 원칙).
  * App 셸에 1회만 마운트(중복 프롬프트 방지). iOS Safari의 visibilitychange 발화 편차에 대비해 focus도 병행 청취.
  */
+/** away 구간(left→returned) 확정값 — 짧은 왕복(2초)이 나중 refocus에서 8초 넘게 계산되던 오탐 차단(16차) */
+function awayMs(p: PendingReturn): number {
+  if (!p.left) return 0
+  return (p.returned ?? Date.now()) - p.left
+}
+
 export function ReturnConfirm() {
   const { tracked, setStatus, markChecked, toggleDocDone, isDocDone } = useAppStore()
+  const resetNonce = useAppStore((s) => s.resetNonce)
   const [pending, setPending] = useState<PendingReturn | null>(null)
+
+  // '다음 분 상담 시작'(현장 초기화) 시 표시 중이던 배너도 내린다 — 이전 상담자의 정책·서류명이
+  // 남아 있다가 '네'를 누르면 새 세션 docDone을 오염시켰다(16차 검증).
+  useEffect(() => { if (resetNonce > 0) setPending(null) }, [resetNonce])
 
   useEffect(() => {
     const check = () => {
@@ -24,9 +35,11 @@ export function ReturnConfirm() {
         markPendingLeft()
         return
       }
+      // 복귀 시각 확정(away 구간 고정) — 이후 focus 이벤트가 와도 away가 늘지 않는다
+      markPendingReturned()
       const p = getPendingReturn()
-      // left(실제 이탈)가 있고, 이탈 후 최소 체류를 지나 돌아온 경우에만 — '클릭 후 경과'가 아니라 '떠나 있던 시간' 기준
-      if (p && !p.dismissed && p.left && Date.now() - p.left > MIN_AWAY_MS) setPending(p)
+      // '실제 떠나 있던 시간'이 최소 체류를 넘은 경우에만(짧은 왕복 오탐 차단)
+      if (p && !p.dismissed && awayMs(p) > MIN_AWAY_MS) setPending(p)
     }
     // 복귀 중 원래 탭이 메모리에서 내려가 페이지가 리로드되면(모바일 탭 퇴거·PWA 재기동)
     // visibilitychange/focus가 발화하지 않는다 — 마운트 시점에도 1회 확인(left는 sessionStorage에 생존).
@@ -56,14 +69,14 @@ export function ReturnConfirm() {
     }
     // 큐에서 이 기록만 제거 — 연속 발급 시 다음 서류 확인이 이어서 뜬다(15차: 단일 슬롯 유실 해소)
     clearPendingReturn(pending.at)
-    // 다음 활성 항목이 있으면 이어서 확인(이미 돌아와 있는 상태라 left 조건은 그 항목의 것으로 판단)
+    // 다음 활성 항목이 있으면 이어서 확인(away 구간 기준 — 짧은 왕복은 묻지 않음)
     const next = getPendingReturn()
-    setPending(next && next.left && Date.now() - next.left > MIN_AWAY_MS ? next : null)
+    setPending(next && awayMs(next) > MIN_AWAY_MS ? next : null)
   }
   const later = () => {
     dismissPendingReturn(pending.at)
     const next = getPendingReturn()
-    setPending(next && next.left && Date.now() - next.left > MIN_AWAY_MS ? next : null)
+    setPending(next && awayMs(next) > MIN_AWAY_MS ? next : null)
   }
 
   const title = pending.kind === 'apply' ? `「${pending.name}」 신청을 완료하셨나요?` : `「${pending.doc}」 발급을 완료하셨나요?`

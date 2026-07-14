@@ -247,7 +247,10 @@ export function Explore() {
     // ⚠️ 'ko' 다운그레이드는 '한글 질의'일 때만 — 게이트 미달 라틴 한 단어('housing'·'h')로
     //   외국인이 명시 선택한 자국어 UI를 한국어로 영구 회귀시키던 결함(15차 감사: LangSuggest는
     //   재노출되지 않아 복구 불가). 비ko 감지는 그대로 승격, 한글이 보이면 ko 복귀(원래 목적 유지).
-    if (isUiLang(code) && code !== 'ko') setUiLang(code)
+    // ⚠️ 'en' 승격도 현재 UI가 ko/en일 때만 — 성조가 옅은 베트남어 구절('tìm nhà')이 en으로 감지돼
+    //   선택된 vi UI를 영어로 측면 덮던 문제(16차 검증). 비라틴·vi UI는 en이 덮지 않는다.
+    const cur = useAppStore.getState().uiLang
+    if (isUiLang(code) && code !== 'ko' && (code !== 'en' || cur === 'ko' || cur === 'en')) setUiLang(code)
     else if (/[가-힣]/.test(q)) setUiLang('ko')
   }, [q, setUiLang])
 

@@ -11,8 +11,8 @@
  *    '완료하셨나요?'가 튀던 오탐 차단. 탭 전환(hidden)·같은 탭 이동(pagehide) 시 마킹.
  */
 export type PendingReturn =
-  | { kind: 'apply'; policyId: string; name: string; at: number; left?: number; dismissed?: boolean }
-  | { kind: 'doc'; doc: string; at: number; left?: number; dismissed?: boolean }
+  | { kind: 'apply'; policyId: string; name: string; at: number; left?: number; returned?: number; dismissed?: boolean }
+  | { kind: 'doc'; doc: string; at: number; left?: number; returned?: number; dismissed?: boolean }
 
 const KEY = 'modoo:pendingReturn'
 const MAX_QUEUE = 8 // 폭주 방지(한 세션에 수십 건 쌓임 방지)
@@ -43,15 +43,30 @@ export function setPendingReturn(p: { kind: 'apply'; policyId: string; name: str
   // at은 큐 내 식별자로도 쓰인다 — 같은 밀리초에 연속 기록되면 dismiss/clear(at)가 여러 항목을 지우므로 고유화
   const now = Date.now()
   const at = rest.length ? Math.max(now, ...rest.map((x) => x.at + 1)) : now
-  writeQueue([...rest, { ...p, at }])
+  // ⚠️ 이미 hidden(새 탭이 먼저 열린 뒤 async 경유로 기록되는 startApply 경로)이면 left를 즉시 셋 —
+  //   hidden 이벤트가 기록보다 먼저 지나가 left가 영영 안 찍혀 복귀 배너가 죽던 회귀(16차 검증).
+  const left = typeof document !== 'undefined' && document.visibilityState === 'hidden' ? now : undefined
+  writeQueue([...rest, { ...p, at, ...(left ? { left } : {}) }])
 }
 
-/** 사용자가 실제로 페이지를 떠났음을 큐 전체에 마킹(탭 전환·페이지 이탈 시 호출) */
+/** 사용자가 실제로 페이지를 떠났음을 큐 전체에 마킹(탭 전환·페이지 이탈 시 호출).
+ *  이미 복귀(returned)했던 항목은 '새 이탈'로 리셋 — away 구간을 다시 잰다. */
 export function markPendingLeft(): void {
   const q = readQueue()
   if (!q.length) return
   const now = Date.now()
-  writeQueue(q.map((p) => (p.left ? p : { ...p, left: now })))
+  writeQueue(q.map((p) => {
+    if (p.returned) return { ...p, left: now, returned: undefined }
+    return p.left ? p : { ...p, left: now }
+  }))
+}
+
+/** 사용자가 돌아왔음을 마킹 — away 구간(left→returned)을 확정해 '짧은 왕복' 오탐을 막는다(16차). */
+export function markPendingReturned(): void {
+  const q = readQueue()
+  if (!q.length) return
+  const now = Date.now()
+  writeQueue(q.map((p) => (p.left && !p.returned ? { ...p, returned: now } : p)))
 }
 
 /** 물어볼 첫 활성 항목(미응답·실제 이탈 있음) — 없으면 null */
