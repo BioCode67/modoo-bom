@@ -35,6 +35,17 @@ describe('monitorItem', () => {
   })
   it('done + 매년 갱신 + 330일 경과 → 갱신 경고(high)', () => {
     const m = monitorItem(mk({ status: 'done', appliedAt: Date.now() - 340 * DAY }), policy)
+    expect(m.alerts.some((a) => a.kind === 'renew' && a.level === 'high')).toBe(true)
+  })
+  it('감사 회귀: 갱신 후 점검(lastChecked 최근)하면 갱신 경고가 리셋 — 영구 stale 방지', () => {
+    // 첫 신청은 오래됐어도 최근에 점검(갱신 완료 표시)했으면 high 갱신 경고가 사라져야 함
+    const m = monitorItem(mk({ status: 'done', appliedAt: Date.now() - 400 * DAY, lastChecked: Date.now() - 5 * DAY }), policy)
+    expect(m.alerts.some((a) => a.kind === 'renew' && a.level === 'high')).toBe(false)
+    expect(m.alerts.some((a) => a.kind === 'renew' && a.level === 'info')).toBe(true) // 매년 재확인 안내는 유지
+  })
+  it('감사 회귀: "연간 재선정"도 매년 갱신으로 인식(자활근로 등)', () => {
+    const reElect: Policy = { ...policy, name: '자활근로 사업', renewal: '연간 재선정' }
+    const m = monitorItem(mk({ status: 'done', appliedAt: Date.now() - 340 * DAY }), reElect)
     expect(m.alerts.some((a) => a.kind === 'renew')).toBe(true)
   })
   it('1회성 바우처(1년 이내 사용)는 매년 갱신 오알림 없음 — "1년" 부분매칭 회귀', () => {

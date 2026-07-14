@@ -31,4 +31,18 @@ describe('deadlineHint', () => {
     // '5년 만기'는 신청 기한이 아님 → null
     expect(deadlineHint(mk({ name: '청년도약계좌', benefit: '5년 만기 시 5000만원' }))).toBeNull()
   })
+  it('감사 회귀: 앵커 없는 긴 기한(퇴원 180일)은 기한 표시하되 급박(빨강) 아님', () => {
+    const h = deadlineHint(mk({ name: '재난적 의료비 지원', application: '국민건강보험공단 지사 방문(퇴원 180일 이내)' }))
+    expect(h).toBeTruthy()
+    expect(h?.label).toMatch(/180일/)
+    expect(h?.urgent).toBe(false) // 6개월은 '기한이 짧아요'가 아님
+  })
+  it('감사 회귀: 짧은 기한(14일 이내)은 급박', () => {
+    expect(deadlineHint(mk({ application: '사유 발생 14일 이내 신고' }))?.urgent).toBe(true)
+  })
+  it('감사 회귀: 바우처 사용기한(N일 이내 사용)은 신청기한으로 오표기 안 함', () => {
+    // '포인트 30일 이내 사용'은 신청이 아님 → 신청 라벨로 오인 금지(매칭 안 돼 null이 정상)
+    const h = deadlineHint(mk({ benefit: '문화포인트 30일 이내 사용' }))
+    expect(h?.label ?? '').not.toMatch(/신청/)
+  })
 })

@@ -41,7 +41,8 @@ export function statusCheckLink(policy: Policy | undefined): { label: string; ur
 function isAnnualRenewal(renewal: string): boolean {
   const r = renewal || ''
   // '연 1회(매년 재확인)'·매년 신호를 1회성 게이트보다 '먼저' 판정 — '연 1회'가 '1회'로 오검출돼 죽던 것(감사 확정, calendar와 동일)
-  if (/매년|연\s*1회|재확인|재산정|재판정/.test(r)) return true
+  // '재선정·재계약'(자활근로 '연간 재선정'·주거 '연 단위 재계약')도 매년 갱신 신호 — bare '연간'은 상시운영이라 제외 유지(감사 확정)
+  if (/매년|연\s*1회|재확인|재산정|재판정|재선정|재계약/.test(r)) return true
   // '1회·사용·유효기한·이내' 등 기간/1회성 표현은 매년 갱신이 아님 — '1회 (출생 후 1년 이내 사용)' 오판 방지
   if (/1회|사용|유효|만기|소진|이내|일시/.test(r)) return false
   // '연간 운영·서비스 제공'(상시 프로그램)은 매년 재확인이 아님 → 바(bare) '연간' 제외. 명시적 주기만.
@@ -90,7 +91,9 @@ export function monitorItem(item: TrackedItem, policy: Policy | undefined, globa
     case 'done':
       nextAction = policy?.renewal ? `수급 중이에요 🎉 갱신: ${policy.renewal}` : '수급 중이에요 🎉'
       if (policy && isAnnualRenewal(policy.renewal)) {
-        const base = item.appliedAt || item.savedAt
+        // 갱신 시계의 기준은 '가장 최근 시점' — 신청/저장뿐 아니라 마지막 점검(lastChecked)도 반영해야
+        // 사용자가 '점검'(갱신 완료 표시)을 누르면 알림이 리셋된다(안 그러면 첫 주기 이후 영구 '갱신 임박' + 점검 버튼 무력, 감사 확정).
+        const base = Math.max(item.appliedAt ?? item.savedAt, item.lastChecked ?? 0)
         const d = daysSince(base)
         if (d !== null && d >= 330) alerts.push({ level: 'high', kind: 'renew', text: '갱신(재확인) 시기가 다가왔어요. 자격 재확인이 필요할 수 있어요.' })
         else alerts.push({ level: 'info', kind: 'renew', text: '매년 자격 재확인이 필요한 혜택이에요. 갱신 시기를 챙겨드릴게요.' })
