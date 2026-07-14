@@ -29,7 +29,8 @@ export function RpaShowcase() {
           eyebrow="찾기에서 끝나지 않아요"
           title={<>말하면 → 추천 → <span className="gradient-text">신청까지</span>, 설치 없이</>}
         />
-        <p className="text-center text-muted-foreground -mt-4 mb-10 max-w-2xl mx-auto text-sm leading-relaxed">
+        {/* 음수 마진(-mt-4)이 제목 h2와 16px 겹쳐 전 폭에서 글자가 관통해 보였다(14차 감사 실측) → 양수 마진 */}
+        <p className="text-center text-muted-foreground mt-3 mb-10 max-w-2xl mx-auto text-sm leading-relaxed">
           앱 설치도, 크롬 전용도 아니에요. <b className="text-foreground">어떤 브라우저·폰</b>에서든 말로 상황을 말하면 맞춤 복지를 찾고,
           <b className="text-foreground"> [신청] 한 번</b>으로 내 정보를 복사해 공식 신청 페이지까지 데려다드려요. 정부 사이트에서 <b className="text-foreground">인증만</b> 하면 끝.
         </p>

@@ -66,7 +66,8 @@ export function Hero() {
           <span className="chip-sprout inline-flex mb-5">
             <Sparkles className="h-3.5 w-3.5" /> AI가 찾아주는 내 복지 혜택
           </span>
-          <h1 className="text-4xl sm:text-5xl lg:text-[3.4rem] font-extrabold tracking-tight leading-[1.12] text-balance">
+          {/* break-keep — 320px에서 '받을 수 있/는'처럼 단어 중간 줄바꿈 방지(14차) */}
+          <h1 className="text-4xl sm:text-5xl lg:text-[3.4rem] font-extrabold tracking-tight leading-[1.12] text-balance break-keep">
             받을 수 있는 <span className="gradient-text">복지 혜택</span>,<br />
             <span className="gradient-text-warm">모두</span> 찾아드릴게요 🌱
           </h1>
@@ -136,9 +137,11 @@ export function Hero() {
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3 + i * 0.1 }}
-                className="card-cute px-3 py-3 text-center"
+                className="card-cute px-2 sm:px-3 py-3 text-center"
               >
-                <p className="text-2xl font-extrabold gradient-text">{s.value}</p>
+                {/* 320~360px에서 text-2xl '5,300+'가 카드 폭을 넘겨 gradient-text(투명 클리핑)로 '5,30'처럼
+                    잘려 보였다(14차 실측: scrollWidth 86 > clientWidth 62) → 작은 화면은 폰트·패딩 축소(64.5≤70px 수용) */}
+                <p className="text-lg sm:text-2xl font-extrabold gradient-text whitespace-nowrap">{s.value}</p>
                 <p className="text-xs font-semibold text-muted-foreground mt-0.5">{s.label}</p>
               </motion.div>
             ))}

@@ -24,10 +24,11 @@ function emptyMember(relation = '배우자', age = 40): Member {
   return { id: uid(), relation, age, disability: false, is_pregnant: false, unemployed: false }
 }
 
-function toProfile(m: Member, income: number, household: string, childrenAges: number[] = []): UserProfile {
-  // '자녀' 나이는 부모 '한 명(본인)'에게만 주입 — 본인·배우자 둘 다 주면 아동수당·부모급여가 부모 2명에게
-  //   중복 표시돼 가구 금액이 부풀려진다(감사 4차 #9). 가구 전체 고유정책 합산에도 한 번만 반영되게.
-  const kids = m.relation === '본인' ? childrenAges : []
+function toProfile(m: Member, income: number, household: string, childrenAges: number[] = [], anchorId = ''): UserProfile {
+  // '자녀' 나이는 부모 '한 명(앵커)'에게만 주입 — 부모 둘 다 주면 아동수당·부모급여가 2명에게
+  //   중복 표시돼 가구 금액이 부풀려진다(감사 4차 #9). 앵커는 '본인' 우선, 없으면 첫 성인
+  //   (14차: '본인' 행 삭제·관계 변경 시 아동 급여가 가구 전체에서 소실되던 문제).
+  const kids = m.id === anchorId ? childrenAges : []
   return {
     name: m.relation, age: m.age, gender: 'other', region: '', household_type: household,
     // 장애 체크만으론 중증 단정 불가 → 등급 비움('등록 장애' 일반 분기로만 매칭, 중증 전용 오노출 방지)
@@ -54,8 +55,10 @@ export function HouseholdAnalyzer({ onOpen }: { onOpen: (p: Policy | EligiblePol
   const analysis = useMemo(() => {
     // 미성년 '자녀' 구성원의 나이를 모아 부모 프로필에 주입 — 아동수당·부모급여 등이 매칭되게(구조적 누락 수정)
     const childrenAges = members.filter((m) => m.relation === '자녀' && m.age < 18).map((m) => m.age)
+    // 주입 앵커: '본인' 우선 → 없으면 첫 성인 → 그래도 없으면 첫 구성원(아동 급여 소실 방지, 14차)
+    const anchor = members.find((m) => m.relation === '본인') ?? members.find((m) => m.age >= 19 && m.relation !== '자녀') ?? members[0]
     const per = members.map((m) => {
-      const elig = getEligiblePolicies(toProfile(m, income, household, childrenAges))
+      const elig = getEligiblePolicies(toProfile(m, income, household, childrenAges, anchor?.id))
       // 현금성만 합산 — 서비스 한도·바우처를 가구 현금소득처럼 부풀리지 않는다(정직성).
       const monthly = sumCashMonthly(elig)
       return { member: m, elig, monthly }

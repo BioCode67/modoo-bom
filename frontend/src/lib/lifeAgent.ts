@@ -27,13 +27,16 @@ function agedProfile(p: UserProfile, y: number): UserProfile {
   return { ...p, age: p.age + y, children_ages: (p.children_ages || []).map((a) => a + y) }
 }
 
-// 해당 연도(y년 후)에 넘어가는 생애 임계점을 찾는다. 엔진 임계값(60·65·19·35, 자녀 2·9·18)과 정렬.
+// 해당 연도(y년 후)에 넘어가는 생애 임계점을 찾는다. 엔진 임계값과 정렬:
+//   성인 19·35·40·60·65 · 자녀 2·3·6·9·13·18 (14차 감사: 3·6·13·40 누락 시 트리거 없는 해의 변화가
+//   다음 트리거 이벤트에 통째로 귀속돼 시점·원인이 틀리게 안내됨).
 function triggerAt(p: UserProfile, y: number): { trigger: string; emoji: string; prep: string } | null {
   const prevAge = p.age + y - 1
   const age = p.age + y
   const crosses = (th: number) => prevAge < th && age >= th
   if (crosses(65)) return { trigger: '만 65세가 되는 해', emoji: '🎂', prep: '기초연금은 만 65세 생일이 속한 달의 한 달 전부터 신청할 수 있어요. 신분증·통장을 준비해 두세요.' }
   if (crosses(60)) return { trigger: '만 60세가 되는 해', emoji: '🌳', prep: '노인 일자리·경로 우대 등 준비를 시작할 시기예요.' }
+  if (crosses(40)) return { trigger: '만 40세가 되는 해', emoji: '⏳', prep: '만 19~39세 대상 청년 지원이 종료돼요. 중장년 대상 지원으로 전환을 준비하세요.' }
   if (crosses(35)) return { trigger: '만 35세가 되는 해', emoji: '⏳', prep: '청년 대상 복지 일부가 종료돼요. 지금 받을 수 있는 청년 혜택(청년도약계좌 등)을 미리 챙기세요.' }
   if (crosses(19)) return { trigger: '만 19세가 되는 해', emoji: '🧑', prep: '청년 대상 복지가 새로 열려요.' }
 
@@ -43,7 +46,10 @@ function triggerAt(p: UserProfile, y: number): { trigger: string; emoji: string;
     const now = a0 + y
     const kc = (th: number) => prev < th && now >= th
     if (kc(2)) return { trigger: '자녀가 만 2세가 되는 해', emoji: '🍼', prep: '부모급여가 줄고 어린이집 보육료로 전환돼요. 어린이집 대기 신청을 미리 해두세요.' }
+    if (kc(3)) return { trigger: '자녀가 만 3세가 되는 해', emoji: '🧒', prep: '만 0~2세 전용 지원이 종료되고 유아 대상 지원으로 넘어가요.' }
+    if (kc(6)) return { trigger: '자녀가 만 6세가 되는 해', emoji: '🏫', prep: '보육료·유아학비가 종료되고 초등 입학 — 교육급여(초·중·고)를 신청할 수 있어요.' }
     if (kc(9)) return { trigger: '자녀가 만 9세가 되는 해', emoji: '📚', prep: '아동수당(만 8세까지)이 종료돼요. 교육급여·방과후 돌봄으로 전환을 준비하세요.' }
+    if (kc(13)) return { trigger: '자녀가 만 13세가 되는 해', emoji: '🎒', prep: '만 12세 이하 대상 지원(돌봄 등)이 종료돼요. 청소년 대상 지원으로 전환을 확인하세요.' }
     if (kc(18)) return { trigger: '자녀가 만 18세가 되는 해', emoji: '🎓', prep: '아동·청소년 지원이 종료되고, 자녀가 청년 대상 복지를 받을 수 있게 돼요.' }
   }
   return null

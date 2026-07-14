@@ -25,9 +25,12 @@ export function simulateFuture(profile: UserProfile): FutureScenario[] {
   const add = (key: string, emoji: string, label: string, desc: string, variant: UserProfile) => {
     const gained = getEligiblePolicies(variant).filter((p) => !baseIds.has(p.id))
     if (gained.length === 0) return
+    // 표시 6개는 '현금 기여 큰 순'으로 — 카드의 '월 +금액' 출처가 화면 목록에 보이게(14차 감사:
+    // 표시된 정책은 현금 0인데 +금액이 찍혀 서로 다른 집합처럼 보이던 불일치 해소). 합산은 전체 기준 유지.
+    const shown = [...gained].sort((a, b) => sumCashMonthly([b]) - sumCashMonthly([a])).slice(0, 6)
     out.push({
       key, emoji, label, desc,
-      newPolicies: gained.slice(0, 6),
+      newPolicies: shown,
       // 현금성만 합산 — 재가급여(서비스 한도)·바우처·감면을 현금 증가처럼 부풀리지 않는다(정직성).
       monthlyGain: sumCashMonthly(gained),
     })

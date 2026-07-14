@@ -34,7 +34,8 @@ export function ForeignerWelcome() {
           <span className="text-sm font-bold">For everyone in Korea · 외국인·다문화 환영</span>
         </div>
         <h2 className="mt-2 text-2xl sm:text-3xl font-extrabold leading-tight">
-          어떤 언어로 물어도 괜찮아요<br className="hidden sm:block" />
+          {/* br이 sm+ 전용이라 모바일에서 '괜찮아요Ask in…'로 붙었다(14차) → 모바일은 공백으로 분리 */}
+          어떤 언어로 물어도 괜찮아요<span className="sm:hidden"> </span><br className="hidden sm:block" />
           <span className="gradient-text">Ask in your language.</span>
         </h2>
         <p className="mt-2 text-sm sm:text-base text-muted-foreground max-w-2xl">

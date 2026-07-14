@@ -244,9 +244,15 @@ export function MascotChat({ onSubmit }: { onSubmit: (p: UserProfile) => void })
 
               {step === 'household' && (
                 <ChoiceGrid cols2>
-                  {HOUSEHOLD_OPTIONS.map((h) => (
-                    <ChoiceBtn key={h.label} emoji={h.emoji} onClick={() => advance({ ...profile, household_type: h.label }, h.label)}>{h.label}</ChoiceBtn>
-                  ))}
+                  {HOUSEHOLD_OPTIONS.map((h) => {
+                    // 한부모·다자녀·조손은 정의상 자녀(손자녀) 양육 가구 — has_children을 함께 세워
+                    // '한부모인데 자녀 없음' 모순 프로필로 아동양육비(월 23만)가 통째로 빠지는 것을 막고,
+                    // 자녀나이 질문도 자연히 활성화한다(14차 감사: 청소년 자녀 한부모가 대표 급여를 놓침).
+                    const impliesChildren = /한부모|다자녀|조손/.test(h.label)
+                    return (
+                      <ChoiceBtn key={h.label} emoji={h.emoji} onClick={() => advance({ ...profile, household_type: h.label, ...(impliesChildren ? { has_children: true } : {}) }, h.label)}>{h.label}</ChoiceBtn>
+                    )
+                  })}
                 </ChoiceGrid>
               )}
 
@@ -307,15 +313,18 @@ export function MascotChat({ onSubmit }: { onSubmit: (p: UserProfile) => void })
                   </ChoiceGrid>
                   <button
                     onClick={() => {
-                      // 건너뛰면 나이 미상으로 유지(자리표시 0세 금지 — 신생아 오추천 방지).
-                      // 단 '최근 아기를 낳았어요'로 이미 [0]이 잡혔으면, 여기서 손위 자녀 나이를 골라도
+                      // '최근 아기를 낳았어요'로 이미 [0]이 잡혔으면, 여기서 손위 자녀 나이를 골라도
                       // [0]을 잃지 않도록 '병합'한다(덮어쓰면 부모급여·첫만남 등 영아 지원이 통째로 탈락).
+                      // ⚠️ 나이 미상([])으로 두면 엔진의 아동 연령 게이트가 전부 hard NO → 아동수당·한부모
+                      //    양육비 등 대표 현금급여가 '무고지'로 통째 소실된다(14차 감사 실측). guidedChat과
+                      //    동일하게 대표값(만 5세)을 가정하고, 그 가정을 대화에 그대로 고지한다(날조 아님).
+                      const base = profile.children_ages || []
                       const picked = ages.length
-                        ? Array.from(new Set([...(profile.children_ages || []), ...ages])).sort((a, b) => a - b)
-                        : profile.children_ages
+                        ? Array.from(new Set([...base, ...ages])).sort((a, b) => a - b)
+                        : base.length ? base : [5]
                       const label = ages.length
                         ? CHILD_AGE_OPTIONS.filter((c) => ages.includes(c.age)).map((c) => c.label).join(', ')
-                        : '나중에 알려줄게요'
+                        : base.length ? '나중에 알려줄게요' : '나중에 알려줄게요 (우선 5세 기준으로 볼게요 — 나이에 따라 달라져요)'
                       advance({ ...profile, children_ages: picked }, label)
                     }}
                     className="btn-primary w-full mt-3"

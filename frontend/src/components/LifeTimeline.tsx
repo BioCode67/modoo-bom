@@ -48,7 +48,8 @@ export function LifeTimeline({ profile, onOpen }: { profile: UserProfile; onOpen
                   {e.monthlyDelta !== 0 && (
                     <span className={`inline-flex items-center gap-1 text-sm font-extrabold ${e.monthlyDelta > 0 ? 'text-sprout-700' : 'text-amber-700'}`}>
                       {e.monthlyDelta > 0 ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
-                      월 {formatWon(Math.abs(e.monthlyDelta))} {e.monthlyDelta > 0 ? '증가' : '감소'}
+                      {/* '최대' 명시 — 감액·중복 미반영 추정치를 확정 금액처럼 표기하지 않는다(14차, FutureWelfare와 통일) */}
+                      월 최대 {formatWon(Math.abs(e.monthlyDelta))} {e.monthlyDelta > 0 ? '증가' : '감소'}
                     </span>
                   )}
                 </div>
