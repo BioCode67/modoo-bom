@@ -23,6 +23,11 @@ describe('generateApplyLetter — 규칙 기반 신청 사유서(환각 0)', () 
     expect(letter).not.toContain('장애로')
     expect(letter).not.toContain('출산')
   })
+  it('확장 상황 신호 반영: 다자녀·다문화·자립준비', () => {
+    expect(generateApplyLetter(P({ has_children: true, children_ages: [3, 6, 9] }), pol)).toContain('여러 자녀')
+    expect(generateApplyLetter(P({ household_type: '다문화가족' }), pol)).toContain('한국 생활에 적응')
+    expect(generateApplyLetter(P({ age: 22, life_events: ['자립준비'] }), pol)).toContain('홀로 자립')
+  })
   it('한부모·출산·장애 신호를 각각 정확히 반영', () => {
     expect(generateApplyLetter(P({ household_type: '한부모가족', has_children: true, children_ages: [5] }), pol)).toContain('혼자 자녀를 양육')
     expect(generateApplyLetter(P({ is_pregnant: true, life_events: ['출산'] }), pol)).toContain('출산')
