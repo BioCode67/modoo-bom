@@ -346,7 +346,7 @@ export function ResultsView({ result, profile, onReset, helperMode = false }: { 
           <NearMissCard profile={profile} onOpen={setSelected} />
 
           {/* 🧠 AI 의미 발견 — 자격 있는 복지와 의미가 가까운 숨은 복지를 온디바이스로 추가 발굴 */}
-          <AiDiscovery eligible={primary.length ? primary : eligible} profile={profile} onOpen={setSelected} />
+          <AiDiscovery eligible={primary.length ? primary : eligible} profile={profile} onOpen={setSelected} helperMode={helperMode} />
         </>
       )}
 

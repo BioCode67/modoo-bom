@@ -15,10 +15,12 @@ export function AiDiscovery({
   eligible,
   profile,
   onOpen,
+  helperMode = false, // 도우미 모드: 발굴 카드의 하트가 '내' 관심목록을 오염시키지 않게(PolicyCard로 전달)
 }: {
   eligible: EligiblePolicy[]
   profile: UserProfile
   onOpen: (p: Policy | EligiblePolicy) => void
+  helperMode?: boolean
 }) {
   const [state, setState] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
   const [hits, setHits] = useState<SemanticHit[]>([])
@@ -113,7 +115,7 @@ export function AiDiscovery({
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {hits.map((h, i) => (
-              <PolicyCard key={h.policy.id} policy={h.policy} index={i} onOpen={onOpen} />
+              <PolicyCard key={h.policy.id} policy={h.policy} index={i} onOpen={onOpen} helperMode={helperMode} />
             ))}
           </div>
         </>

@@ -39,6 +39,14 @@ describe('generateApplyLetter — 규칙 기반 신청 사유서(환각 0)', () 
     expect(generateApplyLetter(P({ is_pregnant: true, life_events: ['출산'] }), pol)).toContain('출산')
     expect(generateApplyLetter(P({ disability: true, disability_grade: '1급' }), pol)).toContain('장애로')
   })
+  it('본인 장애(장애진단)를 자녀 장애로 날조하지 않는다(환각 0)', () => {
+    // guidedChat/parseQuery는 본인 장애를 life_events ['장애진단']으로 저장 — /장애/ 넓은 매칭이 이를 자녀로 오포착하면 안 됨
+    const letter = generateApplyLetter(P({ disability: true, has_children: true, children_ages: [10], life_events: ['장애진단'] }), pol)
+    expect(letter).toContain('장애로')              // 본인 장애 문장은 있음
+    expect(letter).not.toContain('장애가 있는 자녀') // 자녀 장애는 지어내지 않음
+    // 실제 자녀 장애 신호가 있으면 그때만 노출
+    expect(generateApplyLetter(P({ has_children: true, children_ages: [10], life_events: ['장애아동'] }), pol)).toContain('장애가 있는 자녀')
+  })
   it('인사말에 가구형태 코드를 인물 수식어로 끼워 넣지 않는다(어색한 문장 방지)', () => {
     // '72세 다문화가족 홍길동' 같은 표현 금지 — 가구형태는 본문 상황 문장으로만 다룬다
     const letter = generateApplyLetter(P({ name: '홍길동', age: 72, household_type: '다문화가족' }), pol)

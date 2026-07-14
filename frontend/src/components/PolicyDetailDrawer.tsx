@@ -531,7 +531,7 @@ function DrawerBody({
           <span className="flex-1">
             {applied === 'blocked' ? (
               <>⚠️ 팝업이 차단돼 새 탭을 못 열었어요 — <a href={blockedUrl} target="_blank" rel="noopener noreferrer"
-                onClick={() => setPendingReturn({ kind: 'apply', policyId: policy.id, name: policy.name })}
+                onClick={() => { if (!helperMode) setPendingReturn({ kind: 'apply', policyId: policy.id, name: policy.name }) }}
                 className="underline font-bold">여기를 눌러 공식 신청 페이지로 이동</a>하세요.</>
             ) : (
               <>{applied === 'copied' ? '✅ 이름을 복사했어요. ' : '✅ 공식 신청 페이지를 열었어요. '}열린 공식 사이트에서 <b>간편인증(카카오 등)</b> 후 {applied === 'copied' ? '첫 칸에 붙여넣고(나머지는 아래 신청 키트에서 항목별 복사) ' : ''}제출하면 끝이에요. 🔒 인증은 정부 사이트에서만 — 안전해요.</>
