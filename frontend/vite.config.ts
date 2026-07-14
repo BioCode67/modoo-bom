@@ -9,10 +9,21 @@ import path from 'path'
 //   동일 출처라 base='/', API는 동일출처('') 사용. PWA(SW)는 로컬 API 가로채기 방지 위해 제외.
 export default defineConfig(({ command, mode }) => {
   const isApp = mode === 'app'
+  // 서버측 RPA 활성화(enable_web_rpa.py)가 process.env로 넘기는 터널 오리진. 미설정이 정상(정적 배포).
+  const rpaBase = process.env.VITE_RPA_BASE || ''
   return {
   base: isApp ? '/' : command === 'build' ? '/modoo-bom/' : '/',
   plugins: [
     react(),
+    // index.html CSP의 %VITE_RPA_BASE% 플레이스홀더 안전 치환 — 설정 시 그 오리진을, 미설정 시 제거.
+    // 미설정 배포에서 리터럴이 남으면 브라우저가 'invalid source' 콘솔 에러를 낸다(무해하나 지저분) → 제거.
+    {
+      name: 'resolve-rpa-base-csp',
+      transformIndexHtml: {
+        order: 'post' as const,
+        handler: (html: string) => html.replace(/ ?%VITE_RPA_BASE%/g, rpaBase ? ` ${rpaBase}` : ''),
+      },
+    },
     ...(isApp ? [] : [
     VitePWA({
       registerType: 'autoUpdate',
