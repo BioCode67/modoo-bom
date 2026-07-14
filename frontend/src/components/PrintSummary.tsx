@@ -33,11 +33,25 @@ export function PrintSummary() {
   //   그 외 뷰에선 분석결과 우선(없으면 담은 목록) — 화면-인쇄 불일치 해소(감사 확정).
   const inMy = !isHelper && view === 'my'
   const policies = inMy ? fromTracked : (fromResult.length > 0 ? fromResult : fromTracked)
+  // '수혜 가능'은 화면과 동일하게 핵심(정밀 판정 POL-)만 — 저신뢰 '관련'(GOV/LOC)과 심사·선발형
+  //   민간재단(PRV)까지 합치면 인쇄물이 화면 주장보다 부풀려진다(12차 감사). 관련·민간은 건수만 병기.
+  const primary = policies.filter((p) => p.id.startsWith('POL-'))
+  const othersCount = policies.length - primary.length
   // ⚠️ 화면 헤드라인과 동일하게 '현금성'만 합산한다(isCashBenefit). raw parseMonthly로 전부 더하면
   //   서비스 이용 한도액·바우처·감면·고용주 지원까지 개인 현금소득처럼 부풀려져 인쇄물이 과장된다.
-  const monthlyTotal = sumCashMonthly(policies)
+  //   합산 대상도 핵심(POL-)만 — 담은 목록 인쇄(inMy)는 사용자가 고른 것이라 전체 합산 유지.
+  const monthlyTotal = sumCashMonthly(inMy ? policies : primary)
 
-  if (policies.length === 0) return null
+  // 0건이어도 백지를 인쇄하지 않는다 — main 전체가 no-print라 이 컴포넌트가 유일한 인쇄물(12차 감사).
+  if (policies.length === 0) {
+    return (
+      <div className="print-only print-doc">
+        <header className="print-head"><h1>모두봄 · 내 복지 안내서 🌱</h1></header>
+        <p>아직 인쇄할 복지 목록이 없어요. 먼저 <b>복지 찾기</b>에서 분석하거나, 마음에 드는 복지를 <b>담아</b> 주세요.</p>
+        <p className="print-dept">모두봄 — https://biocode67.github.io/modoo-bom/ · 복지 상담 ☎129</p>
+      </div>
+    )
+  }
 
   return (
     <div className="print-only print-doc">
@@ -45,7 +59,10 @@ export function PrintSummary() {
         <h1>모두봄 · {isHelper ? '가족 복지 안내서' : '내 복지 안내서'} 🌱</h1>
         <p className="print-sub">
           {displayName ? `${displayName} 님` : '신청자'} 맞춤 복지 정리 ·
-          수혜 가능 {policies.length}건{monthlyTotal > 0 ? ` · 예상 현금성 월 합계 최대 ${formatWon(monthlyTotal)}(중복수급 미반영)` : ''}
+          {inMy
+            ? ` 담은 복지 ${policies.length}건`
+            : ` 핵심 수혜 가능 ${primary.length}건${othersCount > 0 ? ` · 관련·민간 ${othersCount}건(자격·심사 별도 확인)` : ''}`}
+          {monthlyTotal > 0 ? ` · 예상 현금성 월 합계 최대 ${formatWon(monthlyTotal)}(중복수급 미반영)` : ''}
         </p>
       </header>
 

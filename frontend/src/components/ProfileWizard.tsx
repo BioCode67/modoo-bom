@@ -195,7 +195,9 @@ export function ProfileWizard({ onSubmit }: { onSubmit: (p: UserProfile) => void
                   <p className="mt-1 text-[11px] text-muted-foreground">만 나이로 적어주세요. 자녀 대상 복지는 보통 만 18세 이하 기준이라, 그보다 많은 나이는 자동 제외돼요.</p>
                 </Field>
               )}
-              <Toggle label="♿ 등록 장애인" on={p.disability} onClick={() => set({ disability: !p.disability, disability_grade: !p.disability ? '1급' : '' })} />
+              {/* 기본값은 '기타(잘 모르겠어요)' — '1급(중증)' 자동 주입은 경증 사용자가 그대로 제출하면
+                  중증 전용 급여(장애인연금 등)를 확신형으로 오추천했다(12차 감사). 등급미상은 엔진이 조건부로 다룬다. */}
+              <Toggle label="♿ 등록 장애인" on={p.disability} onClick={() => set({ disability: !p.disability, disability_grade: !p.disability ? '기타' : '' })} />
               {p.disability && (
                 <Field label="장애 정도 (2019년부터 '심한/심하지 않은'으로 바뀌었어요)">
                   <div className="flex flex-wrap gap-2">
@@ -225,7 +227,10 @@ export function ProfileWizard({ onSubmit }: { onSubmit: (p: UserProfile) => void
         {step < STEPS.length - 1 ? (
           <button onClick={next} className="btn-primary flex-1">다음 <ArrowRight className="h-4 w-4" /></button>
         ) : (
-          <button onClick={() => onSubmit(p)} className="btn-primary flex-1 text-base !py-3.5">
+          // income_known 전달 — 소득을 안 고른 채 제출하면 기본 80%가 '확정 소득'으로 취급돼
+          // 생계·의료급여 등이 하드배제되고 요약이 80%를 사실처럼 단정했다(12차 감사).
+          // 한 문장 경로(parseQuery)와 동일하게 '모름'을 알려 조건부 노출·면책 문구가 나오게.
+          <button onClick={() => onSubmit({ ...p, income_known: incomeTouched } as UserProfile)} className="btn-primary flex-1 text-base !py-3.5">
             <Sparkles className="h-5 w-5" /> 내 복지 분석하기
           </button>
         )}

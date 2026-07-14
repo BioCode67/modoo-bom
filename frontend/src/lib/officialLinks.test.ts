@@ -149,3 +149,26 @@ describe('docLink — 지방세 세목별 과세증명서 CappBizCD(자기리뷰
     expect(docLink('지방세 납세증명서').url).toContain('13100000056')
   })
 })
+
+describe('12차 감사 회귀 — RPA 서류명 정규화·채널 합집합·재학 딥링크', () => {
+  it('resolveRpaDocName: 표기 변형을 백엔드 정규명으로(400 방지)', async () => {
+    const { resolveRpaDocName } = await import('./officialLinks')
+    expect(resolveRpaDocName('자녀 주민등록등본', 'local')).toBe('주민등록등본')
+    expect(resolveRpaDocName('가족관계증명서(출생 확인)', 'local')).toBe('가족관계증명서')
+    expect(resolveRpaDocName('소득 확인서류 (건강보험료 납부확인서 등)', 'local')).toBe('건강보험료 납부확인서')
+    expect(resolveRpaDocName('여권 사본', 'local')).toBeNull() // 미지원은 null(자동 버튼 숨김)
+  })
+  it('isRpaSupported 미지정 채널 = 합집합 — 로컬 전용 4종도 지원으로', async () => {
+    const { isRpaSupported } = await import('./officialLinks')
+    expect(isRpaSupported('건강보험료 납부확인서')).toBe(true)      // 로컬 전용
+    expect(isRpaSupported('건강보험료 납부확인서', 'ext')).toBe(false) // 확장은 미지원(여정 분리 근거)
+    expect(isRpaSupported('국민연금 가입자 증명서', 'local')).toBe(false) // 확장 전용
+    expect(isRpaSupported('국민연금 가입자 증명서')).toBe(true)
+  })
+  it('재학·합격 증명(대학 입학 서류)은 초·중·고가 아닌 대학 민원으로 딥링크', async () => {
+    const { docLink } = await import('./officialLinks')
+    const dl = docLink('재학·합격 증명')
+    expect(dl.url).toContain('13404000010') // 대학교 재학
+    expect(dl.url).not.toContain('13410000017') // 초·중·고 재학(오유도 금지)
+  })
+})

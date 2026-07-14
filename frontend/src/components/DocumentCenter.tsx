@@ -3,7 +3,7 @@ import { motion } from 'framer-motion'
 import { FileText, ExternalLink, Bot, Loader2, CheckCircle2, AlertCircle, Check, Undo2 } from 'lucide-react'
 import { getPolicyMap } from '@/data/catalog'
 import { useAppStore } from '@/store/useAppStore'
-import { docLink, isRpaSupported, isCertIssuable, certKind, CERT_WALLET } from '@/lib/officialLinks'
+import { docLink, isRpaSupported, resolveRpaDocName, isCertIssuable, certKind, CERT_WALLET } from '@/lib/officialLinks'
 import { getRpaBase } from '@/lib/backend'
 import { useBackend } from '@/lib/useBackend'
 import { detectExtension, issueViaExtension, issueManyViaExtension, getExtensionTrace, onExtensionStatus, sameDocName } from '@/lib/extension'
@@ -108,7 +108,8 @@ export function DocumentCenter() {
       const res = await fetch(`${getRpaBase()}/api/documents/rpa-issue`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          doc_name: doc, user_name: rpaInfo.name || profile?.name || '사용자',
+          // 백엔드는 정확일치 게이트 — '자녀 주민등록등본' 같은 표기 변형은 정규명으로(400 방지, 12차 감사)
+          doc_name: resolveRpaDocName(doc, 'local') || doc, user_name: rpaInfo.name || profile?.name || '사용자',
           birth_date: rpaInfo.birth_date, phone: rpaInfo.phone, carrier: rpaInfo.carrier,
           sido: rpaInfo.sido, sigungu: rpaInfo.sigungu,
           auth_provider: rpaInfo.auth_provider || 'kakao', // 어르신은 통신사 PASS가 많음
@@ -141,11 +142,13 @@ export function DocumentCenter() {
 
   // 🚀 연쇄 자동발급 — 지원 서류 전부를 한 흐름으로(정부24는 한 번 로그인으로 이어짐)
   // 이미 '발급 완료'로 표시한 서류는 재발급 대상에서 제외.
+  // isRpaSupported 미지정 = 합집합(확장13∪로컬15) — 표시용. 여정은 채널별 목록으로 정확히(12차 감사:
+  // 교집합 계산으로 로컬 전용 4종이 연쇄에서 늘 빠졌고, 반대로 합집합을 ext 여정에 주면 확장이 모르는 서류가 샌다).
   const rpaDocs = docs.filter((d) => isRpaSupported(d) && !isDocDone(d))
-  // 로컬 백엔드(데스크탑앱)가 실제로 발급 가능한 서류만 — 로컬 여정에 넣을 대상(확장은 rpaDocs 전체)
+  const rpaDocsExt = rpaDocs.filter((d) => isRpaSupported(d, 'ext'))
   const rpaDocsLocal = rpaDocs.filter((d) => isRpaSupported(d, 'local'))
-  // 연쇄 발급 대상: 확장 있으면 전체(13종), 없고 로컬 에이전트면 로컬 지원분(15종)
-  const chainDocs = ext ? rpaDocs : rpaDocsLocal
+  // 연쇄 발급 대상: 확장 있으면 확장 지원분(13종), 없고 로컬 에이전트면 로컬 지원분(15종)
+  const chainDocs = ext ? rpaDocsExt : rpaDocsLocal
   const certAll = docs.filter((d) => isCertIssuable(d)) // 무설치 전자발급(전자증명서) 가능 서류
   const certDocs = certAll.filter((d) => !isDocDone(d)) // 그중 아직 발급 안 한 서류 — 배너 CTA가 순서대로 안내
 
@@ -154,10 +157,12 @@ export function DocumentCenter() {
   const openIssue = (doc: string) => beginDocIssue(doc, rpaInfo.name || profile?.name) // 공용 헬퍼(드로어와 일치)
   // 로컬 백엔드(데스크탑앱) 연쇄 발급 — 한 번 카카오 인증으로 서류들을 순차 발급(orchestrator journey).
   const runJourneyViaBackend = async (docList: string[]) => {
+    // 백엔드는 정규 서류명 정확일치 게이트 — 표기 변형('자녀 주민등록등본' 등)은 정규명으로 변환해 전송(12차 감사)
+    const canonical = [...new Set(docList.map((d) => resolveRpaDocName(d, 'local') || d))]
     const res = await fetch(`${getRpaBase()}/api/journey/run`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        doc_names: docList, user_name: rpaInfo.name || profile?.name || '사용자',
+        doc_names: canonical, user_name: rpaInfo.name || profile?.name || '사용자',
         birth_date: rpaInfo.birth_date, phone: rpaInfo.phone, carrier: rpaInfo.carrier,
         auth_provider: rpaInfo.auth_provider || 'kakao',
         sido: rpaInfo.sido, sigungu: rpaInfo.sigungu, // 연쇄발급에서도 주민등록 주소 자동정정

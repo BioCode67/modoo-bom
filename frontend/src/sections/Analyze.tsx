@@ -73,9 +73,11 @@ export function Analyze() {
         <ModeTab active={mode === 'form'} onClick={() => setMode('form')} icon={<ListChecks className="h-4 w-4" />}>직접 입력</ModeTab>
       </div>
 
-      {mode === 'chat' && <MascotChat onSubmit={handleSubmit} />}
-      {mode === 'quick' && <QuickAsk onSubmit={handleSubmit} />}
-      {mode === 'form' && <ProfileWizard onSubmit={handleSubmit} />}
+      {/* 탭 전환에도 입력 보존 — 조건부 언마운트는 3단계까지 채운 위저드·대화를 통째로 날렸다(12차 감사).
+          hidden 토글로 상태를 유지(가벼운 컴포넌트들이라 동시 마운트 부담 없음). */}
+      <div className={mode === 'chat' ? '' : 'hidden'}><MascotChat onSubmit={handleSubmit} /></div>
+      <div className={mode === 'quick' ? '' : 'hidden'}><QuickAsk onSubmit={handleSubmit} /></div>
+      <div className={mode === 'form' ? '' : 'hidden'}><ProfileWizard onSubmit={handleSubmit} /></div>
     </div>
   )
 }

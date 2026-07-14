@@ -67,7 +67,7 @@ export async function makeCard(count: number, monthlyText: string): Promise<Blob
 }
 
 /** 이미지 카드 공유(파일) 또는 다운로드 폴백 */
-export async function shareOrDownloadCard(blob: Blob): Promise<'shared' | 'downloaded'> {
+export async function shareOrDownloadCard(blob: Blob): Promise<'shared' | 'downloaded' | 'cancelled'> {
   const file = new File([blob], '모두봄_내복지.png', { type: 'image/png' })
   const nav = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean }
   try {
@@ -75,8 +75,10 @@ export async function shareOrDownloadCard(blob: Blob): Promise<'shared' | 'downl
       await nav.share({ files: [file], title: '모두봄 — 내 복지', text: '내가 받을 수 있는 복지를 확인했어요! 🌱' })
       return 'shared'
     }
-  } catch {
-    // 취소/실패 시 다운로드로 폴백
+  } catch (e) {
+    // 사용자가 공유를 '취소'한 것은 실패가 아니다 — 강제 다운로드+'저장됨' 오표시는 의사 무시(12차 감사)
+    if (e instanceof DOMException && e.name === 'AbortError') return 'cancelled'
+    // 그 외 실패 시에만 다운로드로 폴백
   }
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')

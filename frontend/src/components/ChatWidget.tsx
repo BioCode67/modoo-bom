@@ -128,7 +128,15 @@ export function ChatWidget() {
     setAnswers({ situations: [] }); setMultiSel([]); setGuideName(''); setGuideAge('')
   }, [resetNonce])
 
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [msgs, open, step])
+  // 새 메시지 자동 스크롤 — 단, 사용자가 위로 올려 과거 대화를 읽는 중이면 강제로 끌어내리지 않는다(12차 감사).
+  //   바닥 근처(120px 이내)에 있을 때만 따라 내려간다. 열 때(open/step 변화)는 항상 하단으로.
+  const listRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = listRef.current
+    const nearBottom = !el || el.scrollHeight - el.scrollTop - el.clientHeight < 120
+    if (nearBottom) endRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [msgs])
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [open, step])
 
   // 열릴 때 입력창으로 포커스 이동 + ESC로 닫기 — 키보드·스크린리더 접근성(다른 모달과 동작 통일)
   useEffect(() => {
@@ -259,9 +267,11 @@ export function ChatWidget() {
         aria-label={open ? '복지 도우미 챗봇 닫기' : '복지 도우미 챗봇 열기'}
         aria-expanded={open}
         className={cn(
-          'fixed bottom-20 md:bottom-6 right-4 sm:right-6 z-40 h-14 w-14 items-center justify-center rounded-full bg-sprout-700 text-white shadow-cute hover:bg-sprout-600 hover:scale-105 active:scale-95 transition-all',
-          // 모바일 홈 최상단에서 히어로 CTA와 겹치므로 모바일 홈에서만 숨김(데스크톱 홈·다른 뷰는 유지)
-          view === 'home' ? 'hidden md:flex' : 'flex',
+          // iOS 등 safe-area 기기에서 하단 탭바('나의복지' 탭·저장 배지)와 겹치지 않게 안전영역만큼 띄움(12차 감사)
+          'fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] md:bottom-6 right-4 sm:right-6 z-40 h-14 w-14 items-center justify-center rounded-full bg-sprout-700 text-white shadow-cute hover:bg-sprout-600 hover:scale-105 active:scale-95 transition-all',
+          // 모바일 홈 최상단에서 히어로 CTA와 겹치므로 모바일 홈에서만 숨김(데스크톱 홈·다른 뷰는 유지).
+          // 단, 패널이 '열려' 있으면 항상 표시 — 다른 뷰에서 연 채 홈으로 오면 닫을 수단이 사라졌다(12차 감사).
+          view === 'home' && !open ? 'hidden md:flex' : 'flex',
         )}
       >
         <AnimatePresence mode="wait">
@@ -274,19 +284,23 @@ export function ChatWidget() {
         {open && (
           <motion.div
             initial={{ opacity: 0, y: 20, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            className="fixed bottom-36 md:bottom-24 right-4 sm:right-6 z-40 w-[calc(100vw-2rem)] max-w-sm card-cute overflow-hidden flex flex-col"
+            className="fixed bottom-[calc(9rem+env(safe-area-inset-bottom))] md:bottom-24 right-4 sm:right-6 z-40 w-[calc(100vw-2rem)] max-w-sm card-cute overflow-hidden flex flex-col"
             style={{ height: 'min(70vh, 520px)' }}
             role="dialog" aria-label="복지 도우미 챗봇"
           >
             <div className="flex items-center gap-2.5 bg-gradient-to-r from-sprout-700 to-emerald-700 px-4 py-3 text-white">
               <AgentAvatar thinking={thinking} reduce={reduce} />
-              <div>
+              <div className="min-w-0 flex-1">
                 <p className="font-bold leading-tight">새싹이 · 복지 에이전트</p>
                 <p className="text-[11px] text-white">{thinking ? '생각하는 중이에요…' : aiChat ? '물어보면 바로 찾아드려요 · 내 정보는 기기 안에서' : profile ? `${profile.name || '회원'}님 맞춤 · 담기까지 도와드려요` : '무엇이든 물어보세요'}</p>
               </div>
+              {/* 헤더 닫기 — FAB이 가려지는 상황(모바일 홈 등)에서도 항상 닫을 수 있게(이중 안전) */}
+              <button onClick={() => setOpen(false)} aria-label="챗봇 닫기" className="shrink-0 rounded-full p-1.5 hover:bg-white/20 transition-colors">
+                <X className="h-5 w-5" />
+              </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto nice-scroll p-3 space-y-2.5 bg-sprout-50/30" role="log" aria-live="polite" aria-label="대화 내용">
+            <div ref={listRef} className="flex-1 overflow-y-auto nice-scroll p-3 space-y-2.5 bg-sprout-50/30" role="log" aria-live="polite" aria-label="대화 내용">
               {msgs.map((m, i) => (
                 <div key={i} className={m.role === 'user' ? 'flex justify-end' : 'flex flex-col items-start gap-1.5'}>
                   <div className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm whitespace-pre-line leading-relaxed ${m.role === 'user' ? 'bg-sprout-700 text-white rounded-br-sm self-end' : 'bg-white border border-sprout-100 rounded-bl-sm'}`}>

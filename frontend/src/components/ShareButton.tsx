@@ -17,6 +17,7 @@ export function ShareButton({ count, monthlyText }: { count: number; monthlyText
     const blob = await makeCard(count, monthlyText)
     if (!blob) { show('card', '이미지 생성 실패'); return }
     const r = await shareOrDownloadCard(blob)
+    if (r === 'cancelled') return // 사용자가 공유를 취소 — 피드백 없음(강제 다운로드·오표시 금지)
     show('card', r === 'downloaded' ? '이미지 저장됨' : '공유했어요')
   }
 

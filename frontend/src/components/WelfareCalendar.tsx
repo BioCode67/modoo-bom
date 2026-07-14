@@ -21,7 +21,15 @@ export function WelfareCalendar() {
     <motion.section initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="mt-8">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h2 className="text-lg font-extrabold flex items-center gap-2"><CalendarDays className="h-5 w-5 text-sprout-500" /> 복지 일정</h2>
-        <button onClick={() => downloadICS(futureEvents(events))} className="btn-secondary !py-2 !px-3 text-xs">
+        <button
+          onClick={() => {
+            // 과거 일정만 남았으면 빈 VCALENDAR가 다운로드돼 구글 캘린더 가져오기가 실패한다(12차 감사) → 정직한 안내
+            const fut = futureEvents(events)
+            if (fut.length === 0) { alert('지금 캘린더에 넣을 예정 일정이 없어요. (표시된 일정이 모두 지난 날짜예요.)'); return }
+            downloadICS(fut)
+          }}
+          className="btn-secondary !py-2 !px-3 text-xs"
+        >
           <Download className="h-4 w-4" /> 캘린더 저장(.ics)
         </button>
       </div>

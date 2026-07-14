@@ -72,7 +72,9 @@ export function docLink(doc: string): OfficialLink {
   if (/성적증명|생활기록부/.test(d))
     return { label: '정부24에서 발급 (초·중·고 생활기록부) · 대학은 학교 포털', url: 'https://www.gov.kr/mw/AA020InfoCappView.do?CappBizCD=13410000019', issue: 'wallet' }
   if (d.includes('재학') || d.includes('졸업증명') || (d.includes('졸업') && d.includes('증명'))) {
-    const univ = d.includes('대학')
+    // '합격 증명'(행복기숙사 등 대학 입학 서류)도 대학 민원으로 — 초·중·고 재학증명으로 오유도하면
+    // 대상자(대학생·합격생)가 발급 불가한 민원 페이지에 도착한다(12차 감사).
+    const univ = d.includes('대학') || d.includes('합격')
     const grad = d.includes('졸업')
     const capp = grad ? (univ ? '13404000009' : '13410000020') : (univ ? '13404000010' : '13410000017')
     return {
@@ -168,7 +170,24 @@ function docIn(list: string[], doc: string): boolean {
 /** channel: 'ext'=크롬 확장(13종) · 'local'=로컬 백엔드(15종) · 미지정=둘 중 아무거나(최대 집합) */
 export function isRpaSupported(doc: string, channel?: 'ext' | 'local'): boolean {
   if (channel === 'local') return docIn(LOCAL_RPA_DOCS, doc)
-  return docIn(RPA_SUPPORTED_DOCS, doc)
+  if (channel === 'ext') return docIn(RPA_SUPPORTED_DOCS, doc)
+  // 미지정 = 합집합 — 기존엔 확장 13종만 검사해 로컬 전용 4종(건강보험료 납부확인서 등)이
+  // '전부 자동발급' 대상에서 항상 빠졌다(12차 감사).
+  return docIn(RPA_SUPPORTED_DOCS, doc) || docIn(LOCAL_RPA_DOCS, doc)
+}
+/** 정책 required_docs의 표기 변형('자녀 주민등록등본'·'가족관계증명서(출생 확인)')을 백엔드가 아는
+ *  정규 서류명으로 변환. 백엔드는 정확일치 게이트라 원문 그대로 보내면 400이 난다(12차 감사).
+ *  매칭 실패 시 null — 호출부는 지원 안 함으로 처리(자동 버튼 숨김). */
+export function resolveRpaDocName(doc: string, channel?: 'ext' | 'local'): string | null {
+  const d = (doc || '').replace(/\s/g, '')
+  const lists = channel === 'local' ? [LOCAL_RPA_DOCS] : channel === 'ext' ? [RPA_SUPPORTED_DOCS] : [LOCAL_RPA_DOCS, RPA_SUPPORTED_DOCS]
+  for (const list of lists) {
+    // 더 구체적인(긴) 정규명 우선 — '주민등록등본'보다 '주민등록초본'류 오매칭 방지
+    const hit = [...list].sort((a, b) => b.length - a.length)
+      .find((s) => { const c = s.replace(/\s/g, ''); return d.includes(c) || c.includes(d) })
+    if (hit) return hit
+  }
+  return null
 }
 
 /** 에이전트(RPA) 신청 자동화 지원 서비스 (백엔드 manager.py SUPPORTED_SERVICE_NAMES와 일치) */
