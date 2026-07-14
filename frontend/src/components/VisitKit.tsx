@@ -97,6 +97,10 @@ export function VisitKit({ policy, profile, onClose }: { policy: Policy | Eligib
             내 상황(나이·가구·지역) 포함 <span className="text-xs text-muted-foreground">— 이름은 넣지 않아요</span>
           </label>
           <button onClick={doPrint} className="btn-primary w-full"><Printer className="h-4 w-4" /> 큰 글씨로 인쇄 / PDF 저장</button>
+          {/* 가까운 주민센터 — 정부24 기관찾기는 soft-404(실측)라 지도 검색으로(오유도 없는 안전 링크) */}
+          <a href="https://map.kakao.com/?q=행정복지센터" target="_blank" rel="noopener noreferrer" className="btn-secondary w-full justify-center !py-2.5 mt-2">
+            📍 가까운 주민센터 찾기 (지도)
+          </a>
         </div>
       </div>
     </div>

@@ -69,8 +69,12 @@ export function ClerkCard({ policy, lang, onClose }: { policy: Policy | Eligible
           <p className="text-[11px] text-muted-foreground">모두봄 — 몰라서 못 받는 복지를 찾아드립니다 · biocode67.github.io/modoo-bom</p>
         </div>
 
-        <div className="p-4 border-t border-sprout-100 no-print">
+        <div className="p-4 border-t border-sprout-100 no-print space-y-2">
           <button onClick={doPrint} className="btn-primary w-full"><Printer className="h-4 w-4" /> {tr(lang, 'visitPrint')}</button>
+          {/* 가까운 주민센터 — 정부24 기관찾기는 soft-404(실측)라 지도 검색으로(오유도 없는 안전 링크) */}
+          <a href="https://map.kakao.com/?q=행정복지센터" target="_blank" rel="noopener noreferrer" className="btn-secondary w-full justify-center !py-2.5">
+            📍 가까운 주민센터 찾기 (지도)
+          </a>
         </div>
       </div>
     </div>
