@@ -8,6 +8,7 @@ const KEYS = [
   'flowTitle', 'stepRecommend', 'stepInfo', 'stepDocs', 'stepAuth', 'stepSubmit',
   'byAuto', 'byGuide', 'byYou', 'banner',
   'clerkCard', 'clerkHint', // 창구 도움 카드(신규)
+  'confirmApplyQ', 'confirmDocQ', 'yesDone', 'notYet', 'openOfficial', // 복귀 확인·복구 결정 UI(18차)
 ] as const
 
 describe('i18nLite — UI 다국어 사전 완전성', () => {
