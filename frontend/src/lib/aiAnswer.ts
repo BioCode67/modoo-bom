@@ -1,5 +1,5 @@
 import { detectLang } from './detectLang'
-import { parseMonthly, formatWon, formatWonIntl, isCashBenefit } from './format'
+import { parseMonthly, formatWon, formatWonIntl, isCashBenefit, isWageReplacement } from './format'
 
 export interface AiAnswerItem {
   name: string
@@ -24,7 +24,10 @@ export function buildAiAnswer(items: AiAnswerItem[], query: string): string {
   }
   // '현금성 최대'는 반드시 현금성 항목만 — 재가급여(서비스 한도)·바우처·감면·고용주 지원을
   // parseMonthly만으로 합치면 개인 현금소득처럼 과장된다(정직성 게이트 isCashBenefit 재사용).
-  const cashMax = Math.max(0, ...items.slice(0, 12).map((it) => (isCashBenefit(it.benefit, it.name) ? parseMonthly(it.benefit) : 0)))
+  // 임금대체급여(육아휴직급여 등)도 제외 — '일을 그만두고 받는' 임금 대체금이라 순증 현금지원이 아니다
+  // (sumCashMonthly와 동일 기준). 이를 빼지 않으면 '월 최대 250만원' 같은 헤드라인이 과장된다(감사 확정).
+  const cashMax = Math.max(0, ...items.slice(0, 12).map((it) =>
+    (isCashBenefit(it.benefit, it.name) && !isWageReplacement(`${it.benefit} ${it.name}`)) ? parseMonthly(it.benefit) : 0))
   const d = detectLang(query)
   const code = d?.code || 'ko'
   const list = top.join(', ')

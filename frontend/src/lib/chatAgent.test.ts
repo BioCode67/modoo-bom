@@ -106,6 +106,12 @@ describe('matchSaveIntent — 대화 맥락 기억(직전 복지를 가리켜 �
   it('밋밋한 "담아줘" + 여러 개 → 보여준 것 전부', () => {
     expect(matchSaveIntent('담아줘', ctx)).toHaveLength(3)
   })
+  it('감사 회귀: 특정 이름을 말했으나 목록에 없으면 전체 저장하지 않음(오저장 방지)', () => {
+    expect(matchSaveIntent('생계급여 담아줘', ctx)).toBeNull() // 목록에 없는 이름 → 전체 저장 안 함
+    expect(matchSaveIntent('기초 담아줘', ctx)).toBeNull()     // 부분명(불완전) → 전체 저장 안 함
+    // 정확한 전체명은 그대로 매칭
+    expect(matchSaveIntent('기초연금 담아줘', ctx)?.[0].id).toBe('A')
+  })
   it('감사 회귀: 조회 문장("보여줘/알려줘/뭐야")은 저장으로 오인하지 않음', () => {
     expect(matchSaveIntent('관심목록 보여줘', ctx)).toBeNull()
     expect(matchSaveIntent('찜 목록 알려줘', ctx)).toBeNull()

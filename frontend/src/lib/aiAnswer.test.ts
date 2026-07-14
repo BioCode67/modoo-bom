@@ -71,6 +71,15 @@ describe('buildAiAnswer', () => {
     ], '어르신 지원')
     expect(s).toContain('현금성 지원은 월 최대 34만원') // 재가급여(207만)가 아니라 기초연금(34만)
   })
+  it('감사 회귀: 임금대체급여(육아휴직)는 "현금성 최대"에서 제외(sumCashMonthly와 정합)', () => {
+    // 육아휴직급여는 '일을 그만두고' 받는 임금 대체금 → 순증 현금지원으로 헤드라인에 과장하지 않는다
+    const s = buildAiAnswer([
+      { name: '육아휴직급여', benefit: '월 최대 250만원' }, // 임금대체 → 제외
+      { name: '아동수당', benefit: '월 10만원' }, // 현금
+    ], '육아휴직 지원')
+    expect(s).toContain('현금성 지원은 월 최대 10만원') // 육아휴직(250만)이 아니라 아동수당(10만)
+    expect(s).not.toContain('250만원')
+  })
 })
 
 describe('buildAiAnswer — 외국어 금액은 ₩ 표기(만원 배제)', () => {

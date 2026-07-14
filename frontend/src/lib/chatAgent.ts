@@ -190,6 +190,14 @@ export function matchSaveIntent(raw: string, context: Policy[], explicitOnly = f
   if (byName.length) return byName
   if (explicitOnly) return null // 폴백 컨텍스트에선 명시적 지시 없으면 저장하지 않음
   if (/(그거|이거|저거|그것|이것|그걸|이걸)/.test(t) || context.length === 1) return [context[0]]
+  // 특정 이름을 말했는데(그 이름이 목록에 없어) 매칭 실패한 경우, 전체 저장으로 새지 않는다(오저장 방지).
+  //   저장 명령어·지시어·조사·필러를 지운 뒤 남는 '이름 시도'가 있으면 → 못 찾음(null).
+  //   밋밋한 "담아줘/저장해줘"(잔여 없음)만 보여준 것 전부 저장.
+  const residual = t
+    .replace(SAVE_RE, '')
+    .replace(/관심목록|목록|저장|추가|찜하|찜|넣어|넣|해주세요|주세요|해줘|부탁|해|좀|줘|이것들|그것들|이거|그거|저거|이것|그것|저것|전부|모두|전체|모든|다들|다/g, '')
+    .replace(/[을를이가은는에도의로]/g, '')
+  if (residual.length >= 2) return null // 이름을 말했으나 목록에 없음 → 전체 저장 안 함
   return context // 밋밋한 "담아줘" + 여러 개(직접 보여준 목록) → 보여준 것 전부
 }
 
@@ -201,10 +209,11 @@ export function isLocalIntent(raw: string): boolean {
 }
 
 /** 메인 진입점 — 자유문장을 의도로 나눠 개인화·행동형으로 응답 */
-export function agentReply(raw: string, ctx: { profile: UserProfile | null; result: AnalysisResult | null; tracked?: TrackedItem[] }): AgentReply {
+export function agentReply(raw: string, ctx: { profile: UserProfile | null; result: AnalysisResult | null; tracked?: TrackedItem[]; docDone?: Record<string, number> }): AgentReply {
   const q = raw.trim()
   if (!q) return { text: '' }
-  if (GREET_RE.test(q)) return greetingReply(ctx.profile, [])
+  // 인사에도 담아둔 복지(tracked)+발급완료(docDone)를 넘겨 '지금 급한 항목' 브리핑이 빠지지 않게(다른 화면과 일치)
+  if (GREET_RE.test(q)) return greetingReply(ctx.profile, ctx.tracked ?? [], ctx.docDone ?? {})
   if (DOCS_RE.test(q)) return docsReply(ctx.tracked ?? [])
   if (APPLY_RE.test(q)) return applyReply(ctx.tracked ?? [])
   if (ELIG_RE.test(q)) return eligibilityReply(ctx.profile, ctx.result)

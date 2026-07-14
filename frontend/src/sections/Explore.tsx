@@ -158,29 +158,11 @@ export function Explore() {
     return m
   }, [aiHits])
 
-  // AI 답변 요약(환각 없이 검색결과 기반 템플릿) — 입력 언어를 이해했음을 알리고 대표 복지·금액을 한 줄로
-  const aiAnswer = useMemo(() => {
-    if (!aiMode || !aiHits) return ''
-    return buildAiAnswer(aiHits.map((h) => h.policy), q)
-  }, [aiMode, aiHits, q])
-
   // AI 답변의 언어 = 질의 언어(aiAnswer가 질의 언어로 생성) → TTS도 그 언어 보이스로 읽어야 발음이 안 깨진다
   const answerLang = useMemo(() => (aiMode && q.trim() ? (detectLang(q)?.code || 'ko') : 'ko'), [aiMode, q])
   // 해당 언어 보이스가 이 기기에 없으면(한국어 Windows/Android에서 베트남어·태국어 흔함) 한국어 보이스로
   // 외국어를 읽어 발음이 깨지거나 무음이 된다 → 재생 대신 텍스트로 안내(voiceschanged 후 재판단).
   const noVoice = answerLang !== 'ko' && !tts.hasVoice(answerLang)
-
-  // 음성으로 물었으면 AI가 음성으로 답한다(대화형) — 마이크 클릭이 사용자 제스처라 TTS 허용됨
-  useEffect(() => {
-    if (voiceUsed && aiMode && aiAnswer && tts.supported && !noVoice) {
-      tts.speak(aiAnswer, answerLang)
-      setVoiceUsed(false)
-    } else if (voiceUsed && noVoice) {
-      setVoiceUsed(false) // 보이스 없음 — 자동 낭독 생략(아래 안내 문구로 대체)
-    }
-    // tts는 매 렌더 새 객체라 deps에서 제외(speak만 호출)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [aiAnswer, voiceUsed, aiMode, noVoice])
 
   const filtered = useMemo(() => {
     const b = BUCKETS.find((x) => x.key === bucket)
@@ -226,6 +208,26 @@ export function Explore() {
     // 같은 프로그램 중복(문화누리 3중복 등) 접기 — 결과 뷰와 동일 기준. POL- 시드에만 적용, 외부 데이터는 그대로.
     return collapseProgramDuplicates(out)
   }, [q, bucket, catalog, sort, onlyCash, benefitType, region, gungu, aiMode, aiHits])
+
+  // AI 답변 요약(환각 없이 검색결과 기반 템플릿) — 입력 언어를 이해했음을 알리고 대표 복지·금액을 한 줄로.
+  // ⚠️ raw aiHits가 아니라 '실제 표시되는 filtered' 목록으로 요약 — 필터(분야·지역·현금)로 가려진 복지를
+  //    답변카드가 언급해 아래 목록과 어긋나던 불일치 방지(감사 확정).
+  const aiAnswer = useMemo(() => {
+    if (!aiMode || !aiHits) return ''
+    return buildAiAnswer(filtered, q)
+  }, [aiMode, aiHits, filtered, q])
+
+  // 음성으로 물었으면 AI가 음성으로 답한다(대화형) — 마이크 클릭이 사용자 제스처라 TTS 허용됨
+  useEffect(() => {
+    if (voiceUsed && aiMode && aiAnswer && tts.supported && !noVoice) {
+      tts.speak(aiAnswer, answerLang)
+      setVoiceUsed(false)
+    } else if (voiceUsed && noVoice) {
+      setVoiceUsed(false) // 보이스 없음 — 자동 낭독 생략(아래 안내 문구로 대체)
+    }
+    // tts는 매 렌더 새 객체라 deps에서 제외(speak만 호출)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aiAnswer, voiceUsed, aiMode, noVoice])
 
   const detected = aiMode && q.trim() ? detectLang(q) : null
   // 외국어 질의를 감지하면 UI 표시 언어를 그 언어로 — 상세·신청키트가 자국어로 뜬다(외국인 딥퍼널).

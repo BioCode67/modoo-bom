@@ -77,7 +77,7 @@ export function parseProfileFromText(text: string): UserProfile {
   //   가장 흔한 표현이 누락되지 않는다. '거르다'도 '거를/걸러'로 변형되므로 함께.
   // ⚠️ 한국어 활용: '어렵다'=어렵/어려, '힘들다'=ㄹ불규칙(힘들/힘듭/힘드/힘든), '나쁘다'=나빠/나쁨/나쁩/나쁜.
   //   어간 하나만 쓰면 격식체(-습니다)·관형형(-ㄴ)이 통째로 누락됨 → char class로 활용 어미 모두 포괄.
-  else if (!incomeNegated && /저소득|(?:소득|월급|월수입|벌이|수입|연봉).*(없|적|낮|많지\s*않|많진\s*않|많이\s*부족|넉넉[하지]*\s*않|부족|시원찮|신통찮|쥐꼬리)|형편.*(어렵|어려|힘[들듭드든]|안\s*좋|나[쁨쁩쁜]|막막)|(?:생활(?:비)?|생계).*(어렵|어려|힘[들듭드든]|빠듯|쪼들|막막|곤란)|살기.*(어렵|어려|힘[들듭드든]|막막)|돈.*(없|부족|막막)|가난|빈곤|생활고|끼니.*(거르|거를|걸러|굶)|입에\s*풀칠|장사.*안\s*(돼|되|굴러)|매출.*(줄|없|감소|반토막)|폐업|가게.*(접|문\s*닫)/.test(t)) p.income_percentile = 40
+  else if (!incomeNegated && /저소득|(?:소득|월급|월수입|벌이|수입|연봉).*(없|적|낮|많지\s*않|많진\s*않|많이\s*부족|넉넉[하지]*\s*않|부족|시원찮|신통찮|쥐꼬리)|형편.*(어렵|어려|힘[들듭드든]|안\s*좋|나[쁨쁩쁜]|막막|넉넉[하지]*\s*않|많지\s*않|빠듯|쪼들)|(?:생활(?:비)?|생계).*(어렵|어려|힘[들듭드든]|빠듯|쪼들|막막|곤란)|살기.*(어렵|어려|힘[들듭드든]|막막)|돈.*(없|부족|막막|많지\s*않|많진\s*않|넉넉[하지]*\s*않)|가난|빈곤|생활고|끼니.*(거르|거를|걸러|굶)|입에\s*풀칠|장사.*안\s*(돼|되|굴러)|매출.*(줄|없|감소|반토막)|폐업|가게.*(접|문\s*닫)/.test(t)) p.income_percentile = 40
   else if (!richNegated && /고소득|소득.*많|여유.*있|잘\s*사/.test(t)) p.income_percentile = 130
   // 주거 위기(노숙·무주택·길에서 지냄·쪽방) = 명백한 저소득 → 주거급여·긴급복지·생계급여 발굴(else-if 아님: 항상 반영)
   if (/노숙|집이?\s*없|갈\s*곳\s*(이|도)?\s*없|잘\s*곳\s*(이|도)?\s*없|길에서\s*(자|지내|살)|쪽방|한뎃잠|거리\s*생활/.test(t)) {
@@ -110,10 +110,15 @@ export function parseProfileFromText(text: string): UserProfile {
   if (multiKidAges) { p.has_children = true; p.children_ages = multiKidAges }
   else if (kids.length) { p.has_children = true; p.children_ages = kids.map((m) => parseInt(m[1], 10)) }
   else if (!childNegated && /아이|자녀|아들|딸|육아|아기|영유아|어린이집|유치원|키[우워]|쌍둥이|신생아|갓\s*태어|손주|손자|손녀/.test(t)) {
-    p.has_children = true
-    if (/신생아|갓난|갓\s*태어|쌍둥이|0\s*살|돌\s*전|아기|영아|백일|젖먹이|막\s*낳/.test(t)) p.children_ages = /쌍둥이/.test(t) ? [0, 0] : [0]
-    else if (kidCount) p.children_ages = Array(COUNT[kidCount[1]] ?? parseInt(kidCount[1], 10)).fill(5)
-    else if (!p.children_ages.length) p.children_ages = [3]
+    // 임신 중 '첫 아이'는 태아를 가리킨다 — 태어난 자녀 증거(나이·신생아어·양육/기관어)가 없으면
+    // 유령 자녀를 만들지 않는다(임신 신호로 충분). 데모 예시 '임신 중이고 첫 아이예요'의 유령 3살·모순 칩 방지.
+    const bornEvidence = /신생아|갓난|갓\s*태어|쌍둥이|0\s*살|돌\s*전|아기|영아|백일|젖먹이|막\s*낳|육아|유치원|어린이집|영유아|키[우워]|학교|초등|중학|고등|손주|손자|손녀/.test(t)
+    if (!(p.is_pregnant && !bornEvidence)) {
+      p.has_children = true
+      if (/신생아|갓난|갓\s*태어|쌍둥이|0\s*살|돌\s*전|아기|영아|백일|젖먹이|막\s*낳/.test(t)) p.children_ages = /쌍둥이/.test(t) ? [0, 0] : [0]
+      else if (kidCount) p.children_ages = Array(COUNT[kidCount[1]] ?? parseInt(kidCount[1], 10)).fill(5)
+      else if (!p.children_ages.length) p.children_ages = [3]
+    }
   }
   if (p.children_ages.length >= 3) p.household_type = p.household_type || '다자녀가구'
   if (/출산|아기.*낳|애.*낳/.test(t) && !p.life_events.includes('출산')) p.life_events.push('출산')

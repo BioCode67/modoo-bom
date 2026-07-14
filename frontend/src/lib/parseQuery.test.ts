@@ -81,6 +81,25 @@ describe('parseProfileFromText', () => {
     expect(p.gender).toBe('female')
   })
 
+  it('임신 중 "첫 아이"는 태아 — 유령 자녀를 만들지 않는다(데모 예시 회귀)', () => {
+    const p = parseProfileFromText('임신 중이고 첫 아이예요')
+    expect(p.is_pregnant).toBe(true)
+    expect(p.has_children).toBe(false)          // 태어난 자녀 없음(모순 칩·유령 3살 방지)
+    expect(p.children_ages).toEqual([])
+  })
+  it('임신 중이라도 실제 양육 자녀가 있으면 인식(둘째 임신)', () => {
+    const p = parseProfileFromText('임신했고 5살 아이 키워요')
+    expect(p.is_pregnant).toBe(true)
+    expect(p.has_children).toBe(true)
+    expect(p.children_ages).toContain(5)
+  })
+  it('저소득 부정 표현: "돈이 많지 않아요"·"형편이 넉넉하지 않아요"', () => {
+    expect(parseProfileFromText('돈이 많지 않아요').income_percentile).toBeLessThanOrEqual(40)
+    expect(parseProfileFromText('형편이 넉넉하지 않아요').income_percentile).toBeLessThanOrEqual(40)
+    // 고소득은 오탐하지 않음(‘않’ 없이는 저소득 아님)
+    expect(parseProfileFromText('돈이 넉넉해요').income_percentile).toBeGreaterThan(40)
+  })
+
   it('70대 → 약 75세, 경기 거주', () => {
     const p = parseProfileFromText('경기도 사는 70대입니다')
     expect(p.age).toBeGreaterThanOrEqual(70)
