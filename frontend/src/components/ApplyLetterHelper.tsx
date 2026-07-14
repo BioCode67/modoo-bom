@@ -15,22 +15,31 @@ type DocMode = 'letter' | 'proxy'
 export function ApplyLetterHelper({ profile, policy }: { profile: UserProfile | null; policy: Policy | EligiblePolicy }) {
   const [open, setOpen] = useState(false)
   const [mode, setMode] = useState<DocMode>('letter')
-  const [text, setText] = useState('')
+  // 모드별로 편집분을 따로 보존 — 탭을 오가도 사용자가 고친 내용을 덮어쓰지 않는다(데이터 손실 방지)
+  const [texts, setTexts] = useState<Record<DocMode, string>>({ letter: '', proxy: '' })
   const [copied, setCopied] = useState(false)
   if (!profile) return null
 
   const gen = (m: DocMode) => (m === 'proxy' ? generateProxyLetter(profile, policy) : generateApplyLetter(profile, policy))
+  const text = texts[mode]
+  const setText = (v: string) => setTexts((t) => ({ ...t, [mode]: v }))
+  const ensure = (m: DocMode) => setTexts((t) => (t[m] ? t : { ...t, [m]: gen(m) }))
   const toggle = () => {
-    if (!open && !text) setText(gen(mode))
+    if (!open) ensure(mode)
     setOpen((o) => !o)
   }
-  const switchMode = (m: DocMode) => { setMode(m); setText(gen(m)) }
+  const switchMode = (m: DocMode) => { ensure(m); setMode(m) }
   const copy = () => {
     navigator.clipboard?.writeText(text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500) }).catch(() => { /* 미지원 무시 */ })
   }
   const print = () => {
     const w = window.open('', '_blank', 'width=640,height=840')
-    if (!w) return
+    if (!w) {
+      // 모바일 팝업 차단 시 — 무반응 대신 클립보드 복사로 폴백해 사용자가 막다른 길에 빠지지 않게
+      copy()
+      alert('인쇄 창이 차단됐어요. 내용을 복사해드렸으니 메모장 등에 붙여 넣어 인쇄하세요.')
+      return
+    }
     const safe = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     const docTitle = mode === 'proxy' ? '위임장' : '신청 사유서'
     w.document.write(

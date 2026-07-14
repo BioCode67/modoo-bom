@@ -187,27 +187,35 @@ export function ResultsView({ result, profile, onReset, helperMode = false }: { 
               </div>
             )}
             {/* 에이전트가 대신 해줄 다음 행동을 앞세운다 — '목록을 준' 게 아니라 '함께 진행하는' 느낌.
-                하나씩 담을 필요 없이 '한 번에 담고, 원치 않는 건 빼는' 흐름을 기본으로. */}
-            <div className="mt-3 flex flex-wrap gap-2">
-              <button
-                onClick={() => {
-                  // 추천(정밀 POL-)을 한 번에 전부 담고 바로 '나의 복지'로 — 거기서 원치 않는 건 빼고 신청 준비
-                  primary.forEach((p) => { if (!isSaved(p.id)) toggleSaved({ id: p.id, name: p.name, category: p.category }) })
-                  setSavedAll(true)
-                  setTimeout(() => setView('my'), 500)
-                }}
-                className="inline-flex items-center gap-1.5 rounded-full bg-sprout-700 px-3.5 py-2 text-xs font-bold text-white hover:bg-sprout-800 transition-colors"
-              >
-                {savedAll ? <><Check className="h-3.5 w-3.5" /> 담았어요 — 나의 복지로 이동 중…</> : <><Heart className="h-3.5 w-3.5" /> 추천 {primary.length}개 한 번에 담고 신청 준비</>}
-              </button>
-              <button
-                onClick={() => setView('my')}
-                className="inline-flex items-center gap-1.5 rounded-full border-2 border-sprout-200 bg-white px-3.5 py-2 text-xs font-bold text-sprout-700 hover:border-sprout-300 transition-colors"
-              >
-                <FileText className="h-3.5 w-3.5" /> 나의 복지 열기 <ArrowRight className="h-3.5 w-3.5" />
-              </button>
-            </div>
-            <p className="mt-1.5 text-[11px] text-muted-foreground">💡 하나씩 담을 필요 없어요 — 한 번에 담고, 원치 않는 복지는 ‘나의 복지’에서 빼시면 돼요.</p>
+                하나씩 담을 필요 없이 '한 번에 담고, 원치 않는 건 빼는' 흐름을 기본으로.
+                도우미 모드에선 '담기·나의 복지'가 '내' 저장소를 오염시키므로 감춘다(격리) — 대신 아래 각 카드에서 상세·신청만 돕는다. */}
+            {!helperMode && (
+              <>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    onClick={() => {
+                      // 추천(정밀 POL-)을 한 번에 전부 담고 바로 '나의 복지'로 — 거기서 원치 않는 건 빼고 신청 준비
+                      primary.forEach((p) => { if (!isSaved(p.id)) toggleSaved({ id: p.id, name: p.name, category: p.category }) })
+                      setSavedAll(true)
+                      setTimeout(() => setView('my'), 500)
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-sprout-700 px-3.5 py-2 text-xs font-bold text-white hover:bg-sprout-800 transition-colors"
+                  >
+                    {savedAll ? <><Check className="h-3.5 w-3.5" /> 담았어요 — 나의 복지로 이동 중…</> : <><Heart className="h-3.5 w-3.5" /> 추천 {primary.length}개 한 번에 담고 신청 준비</>}
+                  </button>
+                  <button
+                    onClick={() => setView('my')}
+                    className="inline-flex items-center gap-1.5 rounded-full border-2 border-sprout-200 bg-white px-3.5 py-2 text-xs font-bold text-sprout-700 hover:border-sprout-300 transition-colors"
+                  >
+                    <FileText className="h-3.5 w-3.5" /> 나의 복지 열기 <ArrowRight className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                <p className="mt-1.5 text-[11px] text-muted-foreground">💡 하나씩 담을 필요 없어요 — 한 번에 담고, 원치 않는 복지는 ‘나의 복지’에서 빼시면 돼요.</p>
+              </>
+            )}
+            {helperMode && (
+              <p className="mt-3 text-[11px] text-muted-foreground">💚 아래 각 복지를 눌러 상세를 보고 <b>서류·신청·사유서</b>를 도와주세요. (이 결과는 도움받는 분의 것으로, 내 ‘나의 복지’에는 저장되지 않아요.)</p>
+            )}
           </div>
         </motion.div>
       )}
@@ -277,7 +285,7 @@ export function ResultsView({ result, profile, onReset, helperMode = false }: { 
           <h2 className="mt-8 mb-3 text-lg font-extrabold">맞춤 추천 복지 <span className="text-sprout-700">{primary.length}</span></h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {primary.map((p, i) => (
-              <PolicyCard key={p.id} policy={p} index={i} onOpen={setSelected} />
+              <PolicyCard key={p.id} policy={p} index={i} onOpen={setSelected} helperMode={helperMode} />
             ))}
           </div>
 
@@ -291,7 +299,7 @@ export function ResultsView({ result, profile, onReset, helperMode = false }: { 
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {privateRel.map((p, i) => (
-                  <PolicyCard key={p.id} policy={p} index={i} onOpen={setSelected} />
+                  <PolicyCard key={p.id} policy={p} index={i} onOpen={setSelected} helperMode={helperMode} />
                 ))}
               </div>
             </div>
@@ -306,7 +314,7 @@ export function ResultsView({ result, profile, onReset, helperMode = false }: { 
               {showRelated && (
                 <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {related.map((p, i) => (
-                    <PolicyCard key={p.id} policy={p} index={i} onOpen={setSelected} />
+                    <PolicyCard key={p.id} policy={p} index={i} onOpen={setSelected} helperMode={helperMode} />
                   ))}
                 </div>
               )}
@@ -322,7 +330,7 @@ export function ResultsView({ result, profile, onReset, helperMode = false }: { 
               <p className="text-xs text-muted-foreground mt-1 mb-3">물어보신 주제와 맞는 복지예요. 내 조건에 맞는지는 각 정책 상세·문의처에서 확인하세요.</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {topicHits.map((p, i) => (
-                  <PolicyCard key={p.id} policy={p} index={i} onOpen={setSelected} />
+                  <PolicyCard key={p.id} policy={p} index={i} onOpen={setSelected} helperMode={helperMode} />
                 ))}
               </div>
             </div>
@@ -355,16 +363,17 @@ export function ResultsView({ result, profile, onReset, helperMode = false }: { 
         </div>
       )}
 
-      <PolicyDetailDrawer policy={selected} onClose={() => setSelected(null)} onOpen={setSelected} helperMode={helperMode} />
+      <PolicyDetailDrawer policy={selected} onClose={() => setSelected(null)} onOpen={setSelected} helperMode={helperMode} profile={profile} />
     </div>
   )
 }
 
 function StatBox({ icon, value, label, highlight }: { icon: React.ReactNode; value: string; label: string; highlight?: boolean }) {
   return (
-    <div className={`rounded-2xl px-3 py-3 text-center ${highlight ? 'bg-sprout-700 text-white' : 'bg-white border border-sprout-100'}`}>
+    <div className={`rounded-2xl px-2 py-3 sm:px-3 text-center min-w-0 ${highlight ? 'bg-sprout-700 text-white' : 'bg-white border border-sprout-100'}`}>
       <div className={`flex items-center justify-center gap-1 ${highlight ? 'text-white' : 'text-sprout-500'}`}>{icon}</div>
-      <p className={`text-base font-extrabold mt-0.5 ${highlight ? 'text-white' : 'text-foreground'}`}>{value}</p>
+      {/* 320px에서 '월 63만 9천원' 같은 값이 타일 밖으로 넘치지 않게 — 작은 화면은 폰트 축소 + break-keep(단어 안 쪼갬) */}
+      <p className={`text-[13px] sm:text-base font-extrabold mt-0.5 leading-tight break-keep ${highlight ? 'text-white' : 'text-foreground'}`}>{value}</p>
       <p className={`text-[11px] font-semibold ${highlight ? 'text-white' : 'text-muted-foreground'}`}>{label}</p>
     </div>
   )

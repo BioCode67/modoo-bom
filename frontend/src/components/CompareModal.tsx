@@ -11,7 +11,7 @@ export function CompareModal({ policies, onClose }: { policies: Policy[]; onClos
   const rows: { label: string; get: (p: Policy) => string }[] = [
     { label: '카테고리', get: (p) => p.category },
     // 현금성 혜택만 '월 N원'(바우처·감면·서비스한도는 현금 아님 → '상세 확인')
-    { label: '예상 월 혜택', get: (p) => { const m = isCashBenefit(p.benefit) ? parseMonthly(p.benefit) : 0; return m > 0 ? `월 ${formatWon(m)}` : '상세 확인' } },
+    { label: '예상 월 혜택', get: (p) => { const m = isCashBenefit(p.benefit, `${p.name} ${p.category}`) ? parseMonthly(p.benefit) : 0; return m > 0 ? `월 ${formatWon(m)}` : '상세 확인' } },
     { label: '지원 대상', get: (p) => p.target },
     { label: '필요 서류', get: (p) => p.required_docs.join(', ') },
     { label: '신청처', get: (p) => p.application },

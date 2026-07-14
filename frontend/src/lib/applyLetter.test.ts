@@ -39,6 +39,13 @@ describe('generateApplyLetter — 규칙 기반 신청 사유서(환각 0)', () 
     expect(generateApplyLetter(P({ is_pregnant: true, life_events: ['출산'] }), pol)).toContain('출산')
     expect(generateApplyLetter(P({ disability: true, disability_grade: '1급' }), pol)).toContain('장애로')
   })
+  it('인사말에 가구형태 코드를 인물 수식어로 끼워 넣지 않는다(어색한 문장 방지)', () => {
+    // '72세 다문화가족 홍길동' 같은 표현 금지 — 가구형태는 본문 상황 문장으로만 다룬다
+    const letter = generateApplyLetter(P({ name: '홍길동', age: 72, household_type: '다문화가족' }), pol)
+    expect(letter).toContain('72세 홍길동입니다')
+    expect(letter).not.toContain('다문화가족 홍길동')
+    expect(letter).toContain('한국 생활에 적응') // 가구형태는 본문에 문장으로 반영됨
+  })
 })
 
 describe('generateProxyLetter — 위임장(가족이 대신 신청)', () => {

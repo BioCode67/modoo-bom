@@ -5,7 +5,7 @@ import { useTTS } from '@/lib/useTTS'
 import { relatedPolicies, type SemanticHit } from '@/lib/semanticSearch'
 import type { Policy } from '@/data/policies'
 import { getCatalog } from '@/data/catalog'
-import type { EligiblePolicy } from '@/lib/welfare-engine'
+import type { EligiblePolicy, UserProfile } from '@/lib/welfare-engine'
 import { generateGuides, matchFacts } from '@/lib/welfare-engine'
 import { categoryMeta, parseMonthly, formatWon, isCashBenefit, PRIORITY_META } from '@/lib/format'
 import { deadlineHint } from '@/lib/deadline'
@@ -36,11 +36,13 @@ export function PolicyDetailDrawer({
   onClose,
   onOpen,
   helperMode = false, // 도우미(남의 복지 대신보기) 모드: 담기·서류기록·신청이 '내' 저장소를 오염시키지 않게 게이팅
+  profile, // 도우미 모드에선 '도움받는 분'의 프로필 — 사유서·자격근거를 그분 기준으로(미지정 시 전역 store 사용)
 }: {
   policy: Policy | EligiblePolicy | null
   onClose: () => void
   onOpen?: (p: Policy | EligiblePolicy) => void
   helperMode?: boolean
+  profile?: UserProfile
 }) {
   const { isSaved, toggleSaved, setStatus, setView } = useAppStore()
   const panelRef = useRef<HTMLElement>(null)
@@ -108,7 +110,7 @@ export function PolicyDetailDrawer({
             aria-label={`${policy.name} 상세`}
           >
             {/* key=policy.id — 드로어 안에서 '비슷한 복지'로 다른 정책 이동 시 이전 정책의 로컬상태(applied 배너·AI유사목록)가 잔존하지 않도록 재마운트 */}
-            <DrawerBody key={policy.id} policy={policy} onClose={onClose} onOpen={onOpen} helperMode={helperMode} ctx={{ isSaved, toggleSaved, setStatus, setView }} />
+            <DrawerBody key={policy.id} policy={policy} onClose={onClose} onOpen={onOpen} helperMode={helperMode} profileProp={profile} ctx={{ isSaved, toggleSaved, setStatus, setView }} />
           </motion.aside>
         </>
       )}
@@ -121,12 +123,14 @@ function DrawerBody({
   onClose,
   onOpen,
   helperMode = false,
+  profileProp,
   ctx,
 }: {
   policy: Policy | EligiblePolicy
   onClose: () => void
   onOpen?: (p: Policy | EligiblePolicy) => void
   helperMode?: boolean
+  profileProp?: UserProfile
   ctx: {
     isSaved: (id: string) => boolean
     toggleSaved: (p: { id: string; name: string; category: string }) => void
@@ -143,7 +147,10 @@ function DrawerBody({
   const tts = useTTS()
   const { ready, caps } = useBackend()
   const hasBackend = ready === true && !!caps?.rpa
-  const { profile, rpaInfo, uiLang } = useAppStore()
+  const { profile: storeProfile, rpaInfo, uiLang } = useAppStore()
+  // 도우미 모드면 '도움받는 분'의 프로필(profileProp)을 쓰고, 일반 모드면 내 전역 프로필.
+  // → 사유서·'왜 나에게 맞는지'·방문키트가 대상자 기준으로 정확해진다(#1 결함 수정).
+  const profile = profileProp ?? storeProfile
   const analysisResult = useAppStore((s) => s.result)
   const trackedList = useAppStore((s) => s.tracked)
   const docDoneMap = useAppStore((s) => s.docDone) // 반응형 구독(전역 서류 준비완료)
@@ -481,7 +488,19 @@ function DrawerBody({
                 <Sparkles className="h-4 w-4" /> {aiRelLoading ? 'AI가 의미로 찾는 중…' : '의미가 비슷한 복지 찾기'}
               </button>
             )}
-            {aiRelErr && <p className="text-xs text-rose-600">비슷한 복지를 불러오지 못했어요.</p>}
+            {/* 실패 시 막다른 길 금지 — 재시도 버튼을 함께 제공(일시적 로드 실패가 잦다) */}
+            {aiRelErr && (
+              <div className="flex items-center gap-2">
+                <p className="flex-1 text-xs text-rose-600">비슷한 복지를 불러오지 못했어요.</p>
+                <button
+                  onClick={findAiRelated}
+                  disabled={aiRelLoading}
+                  className="inline-flex items-center gap-1 rounded-lg border border-sprout-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-sprout-700 hover:border-sprout-300 disabled:opacity-60"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" /> 다시 시도
+                </button>
+              </div>
+            )}
             {aiRelated && aiRelated.length === 0 && <p className="text-xs text-muted-foreground">비슷한 복지를 찾지 못했어요.</p>}
             {aiRelated && aiRelated.length > 0 && (
               <ul className="space-y-1.5">

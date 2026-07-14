@@ -16,16 +16,18 @@ export function PolicyCard({
   policy,
   onOpen,
   index = 0,
+  helperMode = false, // 도우미(남의 복지 대신보기) 모드: 하트로 '내' 관심목록을 오염시키지 않게 숨김
 }: {
   policy: Policy | EligiblePolicy
   onOpen: (p: Policy | EligiblePolicy) => void
   index?: number
+  helperMode?: boolean
 }) {
   const { isSaved, toggleSaved } = useAppStore()
   const saved = isSaved(policy.id)
   const meta = categoryMeta(policy.category)
   // 현금성 혜택일 때만 '월 N까지' 배지 — 감면·할인·바우처(예: 다자녀 전기요금 감면)를 현금처럼 오표기하지 않게.
-  const monthly = isCashBenefit(policy.benefit) ? parseMonthly(policy.benefit) : 0
+  const monthly = isCashBenefit(policy.benefit, `${policy.name} ${policy.category}`) ? parseMonthly(policy.benefit) : 0
   const eligible = isEligible(policy)
   // 지자체(LOC) 정책은 target 앞 "[시도 시군구]"에서 지역 배지 추출(시군구 우선)
   const rm = policy.id.startsWith('LOC-') ? policy.target.match(/^\[([^\]]+)\]/) : null
@@ -68,19 +70,22 @@ export function PolicyCard({
               스크린리더는 카드의 '자세히' 버튼(aria-label=정책명 상세 보기)으로 정책명을 안내받는다. */}
           <p className="font-bold text-[15px] leading-snug mt-0.5 truncate">{policy.name}</p>
         </div>
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            toggleSaved({ id: policy.id, name: policy.name, category: policy.category })
-          }}
-          aria-label={saved ? '관심목록에서 제거' : '관심목록에 추가'}
-          className={cn(
-            'shrink-0 rounded-full p-2 transition-all active:scale-90',
-            saved ? 'bg-peach-100 text-peach-500' : 'bg-muted text-muted-foreground hover:bg-peach-50 hover:text-peach-400',
-          )}
-        >
-          <Heart className={cn('h-4 w-4', saved && 'fill-current')} />
-        </button>
+        {!helperMode && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              toggleSaved({ id: policy.id, name: policy.name, category: policy.category })
+            }}
+            aria-label={saved ? '관심목록에서 제거' : '관심목록에 추가'}
+            aria-pressed={saved}
+            className={cn(
+              'shrink-0 rounded-full p-2 transition-all active:scale-90',
+              saved ? 'bg-peach-100 text-peach-500' : 'bg-muted text-muted-foreground hover:bg-peach-50 hover:text-peach-400',
+            )}
+          >
+            <Heart className={cn('h-4 w-4', saved && 'fill-current')} />
+          </button>
+        )}
       </div>
 
       <p className="mt-3 text-xs text-muted-foreground line-clamp-2 leading-relaxed">{targetText}</p>

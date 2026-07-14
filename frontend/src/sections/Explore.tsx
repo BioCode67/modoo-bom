@@ -378,11 +378,12 @@ export function Explore() {
         </div>
 
         {/* 카테고리 칩 */}
-        <div className="mt-4 flex gap-2 overflow-x-auto pb-2 nice-scroll -mx-1 px-1">
+        <div className="mt-4 flex gap-2 overflow-x-auto pb-2 nice-scroll -mx-1 px-1" role="group" aria-label="복지 분야 필터">
           {BUCKETS.map((b) => (
             <button
               key={b.key}
               onClick={() => setBucket(b.key)}
+              aria-pressed={bucket === b.key}
               className={`shrink-0 inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold border-2 transition-all ${
                 bucket === b.key ? 'bg-sprout-700 border-sprout-700 text-white shadow-soft' : 'bg-white border-sprout-100 text-muted-foreground hover:border-sprout-200'
               }`}
@@ -394,13 +395,15 @@ export function Explore() {
         {/* 정렬·필터 */}
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <ArrowDownWideNarrow className="h-4 w-4 text-muted-foreground" />
+          <span role="group" aria-label="정렬 방식" className="contents">
           {([['default', '기본순'], ['amount', '금액 높은순'], ['name', '이름순']] as [SortKey, string][]).map(([k, l]) => (
-            <button key={k} onClick={() => setSort(k)}
+            <button key={k} onClick={() => setSort(k)} aria-pressed={sort === k}
               className={cn('rounded-full px-3 py-1.5 text-xs font-semibold border transition-colors', sort === k ? 'bg-sprout-700 border-sprout-700 text-white' : 'bg-white border-sprout-100 text-muted-foreground hover:border-sprout-200')}>
               {l}
             </button>
           ))}
-          <button onClick={() => setOnlyCash((v) => !v)}
+          </span>
+          <button onClick={() => setOnlyCash((v) => !v)} aria-pressed={onlyCash}
             className={cn('ml-1 rounded-full px-3 py-1.5 text-xs font-semibold border transition-colors', onlyCash ? 'bg-peach-400 border-peach-400 text-white' : 'bg-white border-sprout-100 text-muted-foreground hover:border-sprout-200')}>
             💰 현금 지원만
           </button>

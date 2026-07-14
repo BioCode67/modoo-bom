@@ -21,7 +21,7 @@ export function TrackedCard({ item, policy, onOpen }: { item: TrackedItem; polic
   const [open, setOpen] = useState(false)
   const meta = categoryMeta(item.category)
   // 현금성 혜택만 '월 N원'으로 표시(PolicyCard와 동일 게이트) — 바우처·감면·서비스한도를 현금처럼 과장 금지
-  const monthly = policy && isCashBenefit(policy.benefit) ? parseMonthly(policy.benefit) : 0
+  const monthly = policy && isCashBenefit(policy.benefit, `${policy.name} ${policy.category}`) ? parseMonthly(policy.benefit) : 0
   const docs = policy?.required_docs ?? []
   // 서류 도우미의 '발급 완료' 기억(docDone)도 준비된 것으로 집계 — monitoring 산출(mon.nextAction)과 배지가 어긋나지 않게
   const isPrepared = (d: string) => item.checkedDocs.includes(d) || !!globalDocDone[d.replace(/\s/g, '')]
@@ -43,12 +43,14 @@ export function TrackedCard({ item, policy, onOpen }: { item: TrackedItem; polic
         </button>
       </div>
 
-      {/* 상태 단계 선택 */}
-      <div className="mt-3 grid grid-cols-4 gap-1">
+      {/* 상태 단계 선택 — 색·링만으론 스크린리더가 현재 상태를 못 읽으므로 group + aria-pressed로 노출 */}
+      <div className="mt-3 grid grid-cols-4 gap-1" role="group" aria-label={`${item.name} 신청 진행 상태`}>
         {STATUS_ORDER.map((s) => (
           <button
             key={s}
             onClick={() => setStatus(item.policyId, s)}
+            aria-pressed={item.status === s}
+            aria-label={`${STATUS_META[s].label}${item.status === s ? ' (현재 상태)' : '(으)로 변경'}`}
             className={cn('rounded-xl py-1.5 text-[11px] font-bold transition-all',
               item.status === s ? STATUS_META[s].cls + ' ring-2 ring-offset-1 ring-current/30' : 'bg-muted/60 text-muted-foreground hover:bg-muted')}
           >

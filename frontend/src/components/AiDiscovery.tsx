@@ -90,7 +90,13 @@ export function AiDiscovery({
                 </p>
               )}
               {state === 'error' && (
-                <p className="mt-2 text-sm text-rose-600">지금은 AI 검색을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.</p>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <p className="text-sm text-rose-600">지금은 AI 검색을 불러오지 못했어요.</p>
+                  {/* 막다른 길 금지 — 재시도 버튼 제공(임베딩 다운로드가 일시적으로 끊길 수 있음) */}
+                  <button onClick={run} className="inline-flex items-center gap-1 rounded-lg border border-violet-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-violet-700 hover:border-violet-400">
+                    <Sparkles className="h-3.5 w-3.5" /> 다시 시도
+                  </button>
+                </div>
               )}
               {state === 'done' && hits.length === 0 && (
                 <p className="mt-2 text-sm text-muted-foreground">이미 위에서 핵심 복지를 대부분 찾았어요. 추가로 발견된 숨은 복지는 없네요. 👍</p>

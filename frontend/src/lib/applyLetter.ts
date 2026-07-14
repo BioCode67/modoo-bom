@@ -73,7 +73,9 @@ function policyIntent(policy: Policy | EligiblePolicy): string {
 
 export function generateApplyLetter(p: UserProfile, policy: Policy | EligiblePolicy): string {
   const name = (p.name || '').trim()
-  const who = [p.age > 0 ? `${p.age}세` : '', (p.household_type || '').trim(), name].filter(Boolean).join(' ')
+  // 인사말은 '나이+이름'만 — 가구형태(한부모·다문화 등)는 situationSentences가 온전한 문장으로 다루므로
+  // 여기에 끼워 넣으면 '72세 다문화가구 홍길동' 같은 어색한 수식이 된다(정직·자연스러움).
+  const who = [p.age > 0 ? `${p.age}세` : '', name].filter(Boolean).join(' ')
   const sits = situationSentences(p)
   const intent = policyIntent(policy)
   const body = [sits.length > 0 ? sits.join(' ') : '현재 생활에 어려움이 있어 도움이 필요한 상황입니다.', intent].filter(Boolean).join(' ')

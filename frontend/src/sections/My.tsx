@@ -129,13 +129,14 @@ export function My() {
       {/* ② 신청 — 담은 복지 목록(각 카드에서 상태·서류·다음 할 일 관리) */}
       <section id="journey-apply" className="scroll-mt-24">
         {/* 필터 + 비교 */}
-        <div className="mt-6 flex items-center gap-2 overflow-x-auto nice-scroll pb-1">
+        <div className="mt-6 flex items-center gap-2 overflow-x-auto nice-scroll pb-1" role="group" aria-label="담은 복지 상태 필터">
           {FILTERS.map((f) => {
             const count = f.key === 'all' ? tracked.length : tracked.filter((t) => t.status === f.key).length
             return (
               <button
                 key={f.key}
                 onClick={() => setFilter(f.key)}
+                aria-pressed={filter === f.key}
                 className={cn('shrink-0 rounded-full px-4 py-2 text-sm font-semibold border-2 transition-all',
                   filter === f.key ? 'bg-sprout-700 border-sprout-700 text-white' : 'bg-white border-sprout-100 text-muted-foreground hover:border-sprout-200')}
               >
