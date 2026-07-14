@@ -228,13 +228,14 @@ def test_chat_dedup_by_name():
     assert [p.get("name") for p in out] == ["청년 월세 한시 특별지원", "기초연금"]
 
 
-# ── 데스크탑앱 서류 자동발급 커버리지 확장(6→11종) 회귀 ──
+# ── 데스크탑앱 서류 자동발급 커버리지 확장(6→11→15종) 회귀 ──
 def test_gov24_doc_coverage_expanded():
     from rpa.gov24_rpa import DOC_CAPP, DOC_URLS, ISSUE_URLS, APPLY_FORM_URLS
     from rpa.manager import SUPPORTED_DOC_NAMES, _SUPPORTED_DOCS
-    # gov24 9종 + nhis + work24 = 11
-    assert len(DOC_CAPP) == 9
-    assert len(SUPPORTED_DOC_NAMES) == 11
+    # gov24 13종(07-11 AA020 실측 확장: 국세납세·출입국·병적·건보납부 추가) + nhis + work24 = 15.
+    # '==' 고정: 지원 서류가 늘거나 줄면(커버리지 회귀) 여기서 잡는다 — 확장 시 의도적으로 갱신할 것.
+    assert len(DOC_CAPP) == 13
+    assert len(SUPPORTED_DOC_NAMES) == 15
     # CDP 검증 5종이 실제로 추가됐고 CappBizCD가 URL에 반영
     for d, capp in {
         "소득금액증명": "12100000021",

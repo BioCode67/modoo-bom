@@ -88,15 +88,25 @@ async def test_exception_frees_slot():
 
 @pytest.mark.asyncio
 async def test_store_eviction_caps_memory():
-    async def noop():
-        return
-
+    """퇴거는 '끝난(done/error)' 태스크만 — 진행 중 태스크를 지우면 폴링하던 화면이 404로 멈춘다(감사 반영).
+    ① 종료 태스크가 상한을 넘으면 오래된 것부터 퇴거 ② 진행 중(pending) 태스크는 상한 초과여도 보존."""
+    # ① 종료 태스크 9개 → 상한 5로 퇴거
     for i in range(9):  # _MAX_TASKS=5 초과
         t = manager.RPATask(f"e{i}", "주민등록등본", "사용자")
         manager._rpa_tasks[t.task_id] = t
-        await manager._guarded_run(t, noop)
 
-    assert len(manager._rpa_tasks) <= 5, "저장소가 상한을 넘어 무한 증가함"
+        async def done_run(task=t):
+            task.update("done", "완료")
+
+        await manager._guarded_run(t, done_run)
+    assert len(manager._rpa_tasks) <= 5, "종료 태스크 저장소가 상한을 넘어 무한 증가함"
+
+    # ② 진행 중 태스크는 퇴거 금지 — 사용자가 폴링 중인 status가 사라지면 안 됨
+    live = manager.RPATask("live-1", "주민등록등본", "사용자")
+    live.status = "running"
+    manager._rpa_tasks[live.task_id] = live.to_dict()
+    manager._evict_old()
+    assert "live-1" in manager._rpa_tasks, "진행 중 태스크가 퇴거됨(폴링 404 유발)"
 
 
 def test_rpa_file_endpoint_guards():
