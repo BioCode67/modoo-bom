@@ -147,8 +147,9 @@ export function DocumentCenter() {
   const rpaDocs = docs.filter((d) => isRpaSupported(d) && !isDocDone(d))
   const rpaDocsExt = rpaDocs.filter((d) => isRpaSupported(d, 'ext'))
   const rpaDocsLocal = rpaDocs.filter((d) => isRpaSupported(d, 'local'))
-  // 연쇄 발급 대상: 확장 있으면 확장 지원분(13종), 없고 로컬 에이전트면 로컬 지원분(15종)
-  const chainDocs = ext ? rpaDocsExt : rpaDocsLocal
+  // 연쇄 발급 대상 = 실제로 탈 여정의 채널과 일치시킨다(13차 검증: 어긋나면 허위 running·카드-여정 불일치).
+  //   로컬 에이전트가 있으면 로컬 여정 우선(15종 — 확장 13종보다 넓고, 개별 카드 라우팅도 로컬 우선이라 일관).
+  const chainDocs = localAgent ? rpaDocsLocal : rpaDocsExt
   const certAll = docs.filter((d) => isCertIssuable(d)) // 무설치 전자발급(전자증명서) 가능 서류
   const certDocs = certAll.filter((d) => !isDocDone(d)) // 그중 아직 발급 안 한 서류 — 배너 CTA가 순서대로 안내
 
@@ -217,8 +218,8 @@ export function DocumentCenter() {
       auth_provider: rpaInfo.auth_provider || 'kakao', // 확장 연쇄발급에도 인증수단 전달
     }
     setRpa((s) => ({ ...s, ...Object.fromEntries(chainDocs.map((d) => [d, { status: 'running', step: '대기열에 추가됨…', at: Date.now() }])) }))
-    // 로컬 에이전트(데스크탑앱) 우선 — 확장이 없거나 로컬만 있을 때 백엔드 여정으로 연쇄 발급.
-    if (localAgent && !ext) {
+    // 로컬 에이전트(데스크탑앱) 우선 — 확장과 동시 연결이어도 로컬 여정(15종, chainDocs와 동일 채널)으로.
+    if (localAgent) {
       try {
         await runJourneyViaBackend(chainDocs)
       } catch (e) {
@@ -226,14 +227,16 @@ export function DocumentCenter() {
       }
       return
     }
-    const r = await issueManyViaExtension(rpaDocs, userInfo)
-    if (!r.ok) { setRpa((s) => ({ ...s, [rpaDocs[0]]: { status: 'error', step: r.error || '연쇄 발급을 시작하지 못했어요.', at: Date.now() } })); return }
+    // ⚠️ 전송·후처리 모두 chainDocs(확장 지원분)로 — rpaDocs(합집합)를 보내면 로컬 전용 서류가 확장에서
+    //    조용히 버려진 뒤 '같은 서류로 함께 발급돼요…' 허위 running으로 영구 고정된다(13차 검증 확정).
+    const r = await issueManyViaExtension(chainDocs, userInfo)
+    if (!r.ok) { setRpa((s) => ({ ...s, [chainDocs[0]]: { status: 'error', step: r.error || '연쇄 발급을 시작하지 못했어요.', at: Date.now() } })); return }
     // 확장이 표기변형을 정규화·디듑해 실제 큐에 들어간 목록(r.docs)만 진행 대상 — 나머지 카드는
     // 중복(같은 서류)이므로 '동일 서류로 함께 발급됨'으로 표시(영구 '대기열…' 방지)
     if (r.docs && r.docs.length) {
       setRpa((s) => {
         const next = { ...s }
-        for (const d of rpaDocs) {
+        for (const d of chainDocs) {
           if (!r.docs!.some((rd) => sameDocName(rd, d))) next[d] = { status: 'running', step: '같은 서류로 함께 발급돼요…', at: Date.now() }
         }
         return next
@@ -330,8 +333,9 @@ export function DocumentCenter() {
       <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
         {docs.map((doc) => {
           const link = docLink(doc)
-          // 확장 있으면 13종, 로컬 백엔드만이면 로컬 지원 15종만 '자동' 표시(과대 표시 시 클릭 오류 — 감사 실측)
-          const supported = ext ? isRpaSupported(doc) : isRpaSupported(doc, 'local')
+          // 실제로 발급 가능한 채널이 '연결돼' 있을 때만 '자동' 표시 — 합집합으로 판정하면 ext-only 환경에서
+          // 로컬 전용 4종에 버튼이 떠 클릭 즉시 '지원하지 않는 서류' 오류(13차 검증, 과대표시 결함의 거울상 재발 차단)
+          const supported = (ext && isRpaSupported(doc, 'ext')) || (localAgent && isRpaSupported(doc, 'local'))
           const kind = certKind(doc) // 'wallet'=전자증명서(지갑 유통) · 'online'=온라인 발급 · undefined=오프라인/본인준비
           const done = isDocDone(doc)
           const st = rpa[doc]

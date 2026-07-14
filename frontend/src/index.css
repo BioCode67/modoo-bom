@@ -210,6 +210,14 @@
   /* ⚠️ 표시 규칙에도 #root 포함 필수 — 위 숨김(1-1-1)이 ID 없는 표시(0-2-x)를 특이성으로 항상 이겨
      .vk-doc까지 hidden으로 남아 '완전 백지'가 인쇄됐다(12차 감사, 헤드리스 실측 확정). */
   body.vk-printing #root .vk-doc, body.vk-printing #root .vk-doc * { visibility: visible !important; }
+  /* ⚠️ 특이성만으론 부족(13차 검증, 헤드리스 실측): ① .vk-doc의 조상 main.no-print가 display:none으로
+     접히면 visibility:visible로 부활 불가 → vk 인쇄 동안 main만 되살린다(내용은 여전히 visibility로 숨김).
+     ② 드로어 aside(fixed+overflow+스크롤)가 absolute .vk-doc의 containing block이라 스크롤 위치로
+     클리핑돼 페이지 밖(y<0)에 그려짐 → aside를 흐름 배치로 중립화. */
+  /* height:0+overflow:hidden — visibility:hidden 콘텐츠가 차지하는 레이아웃 공간을 접어 '빈 페이지 10장'
+     인쇄 방지. absolute .vk-doc은 (aside가 static이라) 초기 컨테이닝 블록 기준이므로 이 클리핑에 안 잘린다. */
+  body.vk-printing main.no-print { display: block !important; height: 0 !important; overflow: hidden !important; }
+  body.vk-printing aside { position: static !important; overflow: visible !important; max-height: none !important; transform: none !important; inset: auto !important; }
   body.vk-printing .print-doc { display: none !important; }   /* 전체 결과 인쇄물과 충돌 방지 */
   body.vk-printing .vk-doc { position: absolute !important; top: 0 !important; left: 0 !important; width: 100% !important; box-shadow: none !important; max-height: none !important; overflow: visible !important; }
   body.vk-printing .modal-overlay { position: static !important; background: #fff !important; backdrop-filter: none !important; display: block !important; padding: 0 !important; }

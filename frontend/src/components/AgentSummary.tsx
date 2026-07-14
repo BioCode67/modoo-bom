@@ -34,11 +34,17 @@ export function AgentSummary() {
         applyable += 1 // 로컬 에이전트: 내장 자동신청 6종만
       }
       ;(p.required_docs || []).forEach((d) => {
-        if (extLike ? isRpaSupported(d) : isRpaSupported(d, 'local')) docs.add(d)
+        // 채널별 정직 집계 — ext 연결 시 확장 지원분만(합집합이면 로컬 전용 4종이 과대 합산, 13차 검증).
+        //   둘 다 연결이면 합집합(개별 발급은 로컬로 실제 동작), 미설치 유도 카드는 확장 기준.
+        const ok = ext && localAgent ? isRpaSupported(d)
+          : ext ? isRpaSupported(d, 'ext')
+          : localAgent ? isRpaSupported(d, 'local')
+          : isRpaSupported(d, 'ext') // 미설치 — '설치하면 가능한' 확장 기준
+        if (ok) docs.add(d)
       })
     })
     return { applyable, docCount: docs.size }
-  }, [tracked, ext, active])
+  }, [tracked, ext, active, localAgent])
 
   if (applyable === 0 && docCount === 0) return null
 

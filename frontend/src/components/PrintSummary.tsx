@@ -32,15 +32,18 @@ export function PrintSummary() {
   // '나의 복지' 탭에서 인쇄하면 화면과 같이 '담은 목록'을 출력한다(과거 분석결과가 아니라).
   //   그 외 뷰에선 분석결과 우선(없으면 담은 목록) — 화면-인쇄 불일치 해소(감사 확정).
   const inMy = !isHelper && view === 'my'
+  // '분석 결과'가 아니라 담은 목록 '폴백'으로 인쇄되는 경우(분석 전 홈·탐색에서 인쇄) — 자격 판정을
+  //   거치지 않은 저장 목록이라 '수혜 가능'으로 단정하면 안 된다(13차 검증: 저장≠판정). '담은 복지'로 표기.
+  const usedTrackedFallback = !inMy && fromResult.length === 0
   const policies = inMy ? fromTracked : (fromResult.length > 0 ? fromResult : fromTracked)
   // '수혜 가능'은 화면과 동일하게 핵심(정밀 판정 POL-)만 — 저신뢰 '관련'(GOV/LOC)과 심사·선발형
   //   민간재단(PRV)까지 합치면 인쇄물이 화면 주장보다 부풀려진다(12차 감사). 관련·민간은 건수만 병기.
   const primary = policies.filter((p) => p.id.startsWith('POL-'))
   const othersCount = policies.length - primary.length
-  // ⚠️ 화면 헤드라인과 동일하게 '현금성'만 합산한다(isCashBenefit). raw parseMonthly로 전부 더하면
-  //   서비스 이용 한도액·바우처·감면·고용주 지원까지 개인 현금소득처럼 부풀려져 인쇄물이 과장된다.
-  //   합산 대상도 핵심(POL-)만 — 담은 목록 인쇄(inMy)는 사용자가 고른 것이라 전체 합산 유지.
-  const monthlyTotal = sumCashMonthly(inMy ? policies : primary)
+  // ⚠️ 화면 헤드라인과 동일하게 '현금성'만 + '강력 추천(high)'만 합산한다 — 모수가 화면(StatBox)보다
+  //   넓으면 인쇄물 금액이 화면보다 커져 과장(13차 검증). 담은 목록(inMy·폴백)은 사용자가 고른 것이라 전체 합산.
+  const fromMyList = inMy || usedTrackedFallback
+  const monthlyTotal = sumCashMonthly(fromMyList ? policies : primary.filter((x) => (x as { priority?: string }).priority === 'high'))
 
   // 0건이어도 백지를 인쇄하지 않는다 — main 전체가 no-print라 이 컴포넌트가 유일한 인쇄물(12차 감사).
   if (policies.length === 0) {
@@ -59,8 +62,8 @@ export function PrintSummary() {
         <h1>모두봄 · {isHelper ? '가족 복지 안내서' : '내 복지 안내서'} 🌱</h1>
         <p className="print-sub">
           {displayName ? `${displayName} 님` : '신청자'} 맞춤 복지 정리 ·
-          {inMy
-            ? ` 담은 복지 ${policies.length}건`
+          {fromMyList
+            ? ` 담은 복지 ${policies.length}건(자격은 신청 기관에서 확인)`
             : ` 핵심 수혜 가능 ${primary.length}건${othersCount > 0 ? ` · 관련·민간 ${othersCount}건(자격·심사 별도 확인)` : ''}`}
           {monthlyTotal > 0 ? ` · 예상 현금성 월 합계 최대 ${formatWon(monthlyTotal)}(중복수급 미반영)` : ''}
         </p>
