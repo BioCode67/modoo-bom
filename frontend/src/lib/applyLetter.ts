@@ -96,6 +96,33 @@ export function generateApplyLetter(p: UserProfile, policy: Policy | EligiblePol
 }
 
 /**
+ * 전화 대본 — 어르신·저시력·통화가 부담스러운 분이 ☎129/담당기관에 전화할 때 그대로 읽는 문장.
+ * situationSentences 재사용(입력한 상황만, 환각 0). 물어볼 것 체크리스트 포함 — 통화 중 빠뜨림 방지.
+ */
+export function generatePhoneScript(p: UserProfile, policy: Policy | EligiblePolicy): string {
+  const who = [p.age > 0 ? `${p.age}세` : '', (p.region || '').trim() && `${p.region} 거주`].filter(Boolean).join(', ')
+  const sits = situationSentences(p).slice(0, 2) // 통화용은 짧게(핵심 1~2문장)
+  return [
+    `📞 이렇게 말하세요`,
+    '',
+    `"안녕하세요. 「${policy.name}」 자격이 되는지 여쭤보려고 전화했어요."`,
+    who ? `"저는 ${who}입니다."` : '',
+    ...sits.map((s) => `"${s}"`),
+    '',
+    `✅ 꼭 물어보세요`,
+    `· 제가 자격이 되나요?`,
+    `· 신청은 어디서, 어떻게 하나요?`,
+    `· 필요한 서류는 무엇인가요?`,
+    `· 언제까지 신청해야 하나요?`,
+    '',
+    `✍️ 들은 내용 메모`,
+    `· 담당자 이름: ______________`,
+    `· 안내받은 내용: ______________`,
+    `· 다음에 할 일: ______________`,
+  ].filter((s) => s !== '').join('\n')
+}
+
+/**
  * 위임장 초안 — 거동이 불편한 어르신·장애인을 대신해 가족·보호자가 복지를 신청할 때 필요한 위임장.
  * 위임인(본인) 정보는 프로필에서, 수임인(대신 신청하는 사람) 정보는 빈칸으로 두어 직접 채우게 한다(개인정보 최소).
  */

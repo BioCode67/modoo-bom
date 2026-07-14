@@ -2,10 +2,10 @@ import { useState } from 'react'
 import { FileText, Copy, Check, Printer, ChevronDown } from 'lucide-react'
 import type { UserProfile, EligiblePolicy } from '@/lib/welfare-engine'
 import type { Policy } from '@/data/policies'
-import { generateApplyLetter, generateProxyLetter } from '@/lib/applyLetter'
+import { generateApplyLetter, generateProxyLetter, generatePhoneScript } from '@/lib/applyLetter'
 import { cn } from '@/lib/utils'
 
-type DocMode = 'letter' | 'proxy'
+type DocMode = 'letter' | 'proxy' | 'phone'
 
 /**
  * 신청 사유서 도우미 — 긴급복지·위기지원·장학·민간재단 신청 시 필요한 '신청 사유/상황 설명'을
@@ -16,11 +16,14 @@ export function ApplyLetterHelper({ profile, policy }: { profile: UserProfile | 
   const [open, setOpen] = useState(false)
   const [mode, setMode] = useState<DocMode>('letter')
   // 모드별로 편집분을 따로 보존 — 탭을 오가도 사용자가 고친 내용을 덮어쓰지 않는다(데이터 손실 방지)
-  const [texts, setTexts] = useState<Record<DocMode, string>>({ letter: '', proxy: '' })
+  const [texts, setTexts] = useState<Record<DocMode, string>>({ letter: '', proxy: '', phone: '' })
   const [copied, setCopied] = useState(false)
   if (!profile) return null
 
-  const gen = (m: DocMode) => (m === 'proxy' ? generateProxyLetter(profile, policy) : generateApplyLetter(profile, policy))
+  const gen = (m: DocMode) =>
+    m === 'proxy' ? generateProxyLetter(profile, policy)
+    : m === 'phone' ? generatePhoneScript(profile, policy)
+    : generateApplyLetter(profile, policy)
   const text = texts[mode]
   const setText = (v: string) => setTexts((t) => ({ ...t, [mode]: v }))
   const ensure = (m: DocMode) => setTexts((t) => (t[m] ? t : { ...t, [m]: gen(m) }))
@@ -41,7 +44,7 @@ export function ApplyLetterHelper({ profile, policy }: { profile: UserProfile | 
       return
     }
     const safe = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    const docTitle = mode === 'proxy' ? '위임장' : '신청 사유서'
+    const docTitle = mode === 'proxy' ? '위임장' : mode === 'phone' ? '전화 대본' : '신청 사유서'
     w.document.write(
       `<title>${docTitle}</title><pre style="font-family:'Pretendard','Malgun Gothic',sans-serif;font-size:16px;line-height:2;white-space:pre-wrap;padding:40px;color:#111;">${safe}</pre>`,
     )
@@ -52,14 +55,14 @@ export function ApplyLetterHelper({ profile, policy }: { profile: UserProfile | 
     <div className="mt-2 rounded-xl border border-sky2-200 bg-sky2-50/50">
       <button onClick={toggle} aria-expanded={open} className="flex w-full items-center gap-2 px-3 py-2.5 text-left">
         <FileText className="h-4 w-4 shrink-0 text-sky2-600" />
-        <span className="flex-1 text-sm font-bold text-sky2-800">📝 신청 서류 대신 써드려요 <span className="font-normal text-sky2-600">— 사유서·위임장 초안</span></span>
+        <span className="flex-1 text-sm font-bold text-sky2-800">📝 신청 서류 대신 써드려요 <span className="font-normal text-sky2-600">— 사유서·위임장·전화 대본</span></span>
         <ChevronDown className={cn('h-4 w-4 text-sky2-600 transition-transform', open && 'rotate-180')} />
       </button>
       {open && (
         <div className="px-3 pb-3">
           {/* 문서 종류 — 신청 사유서(본인) / 위임장(가족이 대신 신청) */}
           <div className="mb-2 flex gap-1.5">
-            {([['letter', '신청 사유서'], ['proxy', '위임장(대신 신청)']] as [DocMode, string][]).map(([m, label]) => (
+            {([['letter', '신청 사유서'], ['proxy', '위임장(대신 신청)'], ['phone', '📞 전화 대본']] as [DocMode, string][]).map(([m, label]) => (
               <button
                 key={m}
                 onClick={() => switchMode(m)}

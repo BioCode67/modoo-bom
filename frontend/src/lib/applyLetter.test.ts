@@ -65,3 +65,21 @@ describe('generateProxyLetter — 위임장(가족이 대신 신청)', () => {
     expect(letter).toContain('수임인(대리 신청인)')
   })
 })
+
+describe('generatePhoneScript — 전화 대본(환각 0)', () => {
+  it('정책명·프로필 신호를 통화 문장으로 + 질문 체크리스트·메모칸 포함', async () => {
+    const { generatePhoneScript } = await import('./applyLetter')
+    const s = generatePhoneScript(P({ age: 72, region: '서울', employment_status: 'unemployed', life_events: ['실직'] }), pol)
+    expect(s).toContain('긴급복지 생계지원')
+    expect(s).toContain('72세')
+    expect(s).toContain('일자리를 잃어')     // 입력 신호만
+    expect(s).toContain('자격이 되나요')     // 질문 체크리스트
+    expect(s).toContain('들은 내용 메모')    // 메모칸
+  })
+  it('입력하지 않은 상황은 지어내지 않는다', async () => {
+    const { generatePhoneScript } = await import('./applyLetter')
+    const s = generatePhoneScript(P({ age: 40, income_percentile: 80 }), pol)
+    expect(s).not.toContain('장애로')
+    expect(s).not.toContain('일자리를 잃어')
+  })
+})
