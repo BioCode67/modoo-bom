@@ -98,8 +98,10 @@ export function ResultsView({ result, profile, onReset, helperMode = false }: { 
     <div className="page-container py-8 sm:py-10">
       {/* 스크린리더 전용: 결과 도착 안내 */}
       <p className="sr-only" role="status" aria-live="polite">{liveMsg}</p>
-      {/* 연속성 에이전트 — 지난 방문 이후 달라진 점 + 새로 열린 복지 */}
-      <ContinuityCard profile={profile} onOpen={setSelected} />
+      {/* 연속성 에이전트 — 지난 방문 이후 달라진 점 + 새로 열린 복지.
+          도우미 모드에선 숨김: recordSnapshot이 '내' 연속성 스냅샷을 남의 프로필로 덮어써 오염시키고
+          ('다시 오셨네요' 비교가 서로 다른 사람이 됨), 기능 자체가 개인 재방문 맥락이라 무의미(격리). */}
+      {!helperMode && <ContinuityCard profile={profile} onOpen={setSelected} />}
       {/* 헤더 요약 */}
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="card-cute p-6 sm:p-8 bg-gradient-to-br from-sprout-50 via-white to-sky2-50 relative overflow-hidden">
         <div className="absolute -top-10 -right-10 h-40 w-40 rounded-full bg-sprout-200/40 blur-2xl" />
@@ -249,7 +251,9 @@ export function ResultsView({ result, profile, onReset, helperMode = false }: { 
       {/* 마감 임박 복지 — 놓침 방지(자격 있는 것 중 기한 짧은 것 먼저) */}
       <DeadlineAlert policies={eligible} onOpen={setSelected} />
 
-      <WelfareScore eligible={primary} onOpen={setSelected} />
+      {/* 복지 수혜 점수·담기는 '내 저장 진행률' 개인 기능 — 도우미 모드(내 store로 남의 결과를 판정)에선
+          점수가 무의미하고 담기 버튼이 내 관심목록을 오염시키므로 통째로 숨긴다(격리 완성). */}
+      {!helperMode && <WelfareScore eligible={primary} onOpen={setSelected} />}
 
       {/* 포트폴리오 분석 (전문 시각화, 정밀 추천 기준) */}
       {primary.length > 0 && (
