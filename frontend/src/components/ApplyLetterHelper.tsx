@@ -2,8 +2,10 @@ import { useState } from 'react'
 import { FileText, Copy, Check, Printer, ChevronDown } from 'lucide-react'
 import type { UserProfile, EligiblePolicy } from '@/lib/welfare-engine'
 import type { Policy } from '@/data/policies'
-import { generateApplyLetter } from '@/lib/applyLetter'
+import { generateApplyLetter, generateProxyLetter } from '@/lib/applyLetter'
 import { cn } from '@/lib/utils'
+
+type DocMode = 'letter' | 'proxy'
 
 /**
  * 신청 사유서 도우미 — 긴급복지·위기지원·장학·민간재단 신청 시 필요한 '신청 사유/상황 설명'을
@@ -12,14 +14,17 @@ import { cn } from '@/lib/utils'
  */
 export function ApplyLetterHelper({ profile, policy }: { profile: UserProfile | null; policy: Policy | EligiblePolicy }) {
   const [open, setOpen] = useState(false)
+  const [mode, setMode] = useState<DocMode>('letter')
   const [text, setText] = useState('')
   const [copied, setCopied] = useState(false)
   if (!profile) return null
 
+  const gen = (m: DocMode) => (m === 'proxy' ? generateProxyLetter(profile, policy) : generateApplyLetter(profile, policy))
   const toggle = () => {
-    if (!open && !text) setText(generateApplyLetter(profile, policy))
+    if (!open && !text) setText(gen(mode))
     setOpen((o) => !o)
   }
+  const switchMode = (m: DocMode) => { setMode(m); setText(gen(m)) }
   const copy = () => {
     navigator.clipboard?.writeText(text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500) }).catch(() => { /* 미지원 무시 */ })
   }
@@ -37,11 +42,24 @@ export function ApplyLetterHelper({ profile, policy }: { profile: UserProfile | 
     <div className="mt-2 rounded-xl border border-sky2-200 bg-sky2-50/50">
       <button onClick={toggle} aria-expanded={open} className="flex w-full items-center gap-2 px-3 py-2.5 text-left">
         <FileText className="h-4 w-4 shrink-0 text-sky2-600" />
-        <span className="flex-1 text-sm font-bold text-sky2-800">📝 신청 사유서 초안 만들기 <span className="font-normal text-sky2-600">— 뭐라고 쓸지 대신 써드려요</span></span>
+        <span className="flex-1 text-sm font-bold text-sky2-800">📝 신청 서류 대신 써드려요 <span className="font-normal text-sky2-600">— 사유서·위임장 초안</span></span>
         <ChevronDown className={cn('h-4 w-4 text-sky2-600 transition-transform', open && 'rotate-180')} />
       </button>
       {open && (
         <div className="px-3 pb-3">
+          {/* 문서 종류 — 신청 사유서(본인) / 위임장(가족이 대신 신청) */}
+          <div className="mb-2 flex gap-1.5">
+            {([['letter', '신청 사유서'], ['proxy', '위임장(대신 신청)']] as [DocMode, string][]).map(([m, label]) => (
+              <button
+                key={m}
+                onClick={() => switchMode(m)}
+                aria-pressed={mode === m}
+                className={cn('chip text-xs transition-colors', mode === m ? 'bg-sky2-700 text-white' : 'bg-white border border-sky2-200 text-sky2-700 hover:bg-sky2-50')}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
