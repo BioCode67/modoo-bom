@@ -25,11 +25,17 @@ _msg_buckets: dict[str, list] = defaultdict(lambda: [0, 0.0])   # ip -> [count, 
 _conn_buckets: dict[str, list] = defaultdict(lambda: [0, 0.0])
 
 
+_TRUSTED_HOPS = max(1, int(os.getenv("TRUSTED_PROXY_HOPS", "1") or "1"))
+
+
 def _client_ip(ws) -> str:
-    """프록시(Render 등) 뒤에서는 X-Forwarded-For 첫 IP. (위조 가능 → 버킷 상한으로 방어)"""
+    """실제 클라이언트 IP — X-Forwarded-For '최우측(신뢰 프록시가 붙인)' 홉 사용.
+    최좌측은 클라이언트가 위조 가능해 XFF 회전으로 IP별 상한을 완전 우회할 수 있다(19차 감사)."""
     xff = ws.headers.get("x-forwarded-for", "") if hasattr(ws, "headers") else ""
-    if xff:
-        return xff.split(",")[0].strip()
+    parts = [p.strip() for p in xff.split(",") if p.strip()]
+    if parts:
+        idx = len(parts) - _TRUSTED_HOPS
+        return parts[idx] if 0 <= idx < len(parts) else parts[-1]
     client = getattr(ws, "client", None)
     return getattr(client, "host", None) or "unknown"
 

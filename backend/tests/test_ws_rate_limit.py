@@ -6,7 +6,8 @@ import api.ws_rate_limit as wr
 class _FakeWS:
     """WS 헤더/클라이언트를 흉내 — x-forwarded-for로 IP 지정."""
     def __init__(self, ip="1.2.3.4", via_xff=True):
-        self.headers = {"x-forwarded-for": f"{ip}, 10.0.0.1"} if via_xff else {}
+        # 실제 클라이언트 IP는 신뢰 프록시(Render)가 붙이는 '최우측' — 최좌측은 클라 위조 가능(19차 감사).
+        self.headers = {"x-forwarded-for": f"1.1.1.1, {ip}"} if via_xff else {}
         self._ip = ip
 
         class _C:

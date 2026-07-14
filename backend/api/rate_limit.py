@@ -43,11 +43,18 @@ def _limit_for(path: str) -> int | None:
     return None
 
 
+_TRUSTED_HOPS = max(1, int(os.getenv("TRUSTED_PROXY_HOPS", "1") or "1"))
+
+
 def _client_ip(request: Request) -> str:
-    # 프록시(Render 등) 뒤에서는 X-Forwarded-For 첫 IP 사용.
+    # ⚠️ X-Forwarded-For의 '최좌측'은 클라이언트가 위조할 수 있다(Render 등 신뢰 프록시가 실제 IP를
+    #   '오른쪽에 append'). 최좌측을 신뢰하면 봇이 XFF 첫 토큰을 회전시켜 IP별 레이트리밋을 완전 우회해
+    #   LLM 쿼터를 소진할 수 있다(19차 감사). → 신뢰 프록시가 붙인 '오른쪽에서 N번째' 홉을 사용.
     xff = request.headers.get("x-forwarded-for", "")
-    if xff:
-        return xff.split(",")[0].strip()
+    parts = [p.strip() for p in xff.split(",") if p.strip()]
+    if parts:
+        idx = len(parts) - _TRUSTED_HOPS
+        return parts[idx] if 0 <= idx < len(parts) else parts[-1]
     return request.client.host if request.client else "unknown"
 
 
