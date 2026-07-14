@@ -9,9 +9,11 @@ import type { TrackedItem } from '@/store/useAppStore'
  */
 const TABLE = 'tracked_policies'
 
-/** 항목을 마지막으로 손댄 시점(저장/신청/점검 중 최신) — 병합 우선순위 기준 */
+/** 항목을 마지막으로 손댄 시점(저장/신청/점검/편집 중 최신) — 병합 우선순위 기준.
+ *  editedAt: 서류 체크(toggleDoc)·상태 되돌림처럼 기존 타임스탬프를 안 바꾸는 편집도 반영 —
+ *  없으면 로컬 최신 체크리스트가 원격 옛 사본에 조용히 덮였다(15차 감사). */
 function freshness(t: TrackedItem): number {
-  return Math.max(t.savedAt || 0, t.appliedAt || 0, t.lastChecked || 0)
+  return Math.max(t.savedAt || 0, t.appliedAt || 0, t.lastChecked || 0, t.editedAt || 0)
 }
 
 /**

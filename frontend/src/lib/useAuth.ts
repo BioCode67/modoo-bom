@@ -60,11 +60,17 @@ export function useAuth() {
         for (const id of prevIds) if (!curIds.has(id)) pendingRemovals.add(id)
         for (const id of curIds) pendingRemovals.delete(id) // 다시 담으면 삭제 취소
         prevIds = curIds
+        // ⚠️ '삭제'는 디바운스를 태우지 않고 즉시 전파 — 800ms 안에 새로고침·탭 종료('다음 분 상담 시작'
+        //   직후가 전형)면 삭제가 클라우드에 못 가고, 톰스톤 없는 union 병합이 이전 상담자의 담은 복지를
+        //   다음 사용자에게 되살렸다(15차 감사, PII). 업서트만 디바운스 유지.
+        if (pendingRemovals.size) {
+          const rm = [...pendingRemovals]
+          pendingRemovals.clear()
+          for (const id of rm) void deleteTracked(uid, id)
+        }
         if (timer) clearTimeout(timer)
         timer = setTimeout(() => {
           void pushTracked(uid, cur)
-          for (const id of pendingRemovals) void deleteTracked(uid, id)
-          pendingRemovals.clear()
         }, 800)
       })
     })()

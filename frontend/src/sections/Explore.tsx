@@ -244,7 +244,11 @@ export function Explore() {
     // 사용자가 실제로 입력(비-공백)했거나, 비-공백→공백으로 '지운' 순간에만 언어를 재판정한다.
     if (!q.trim() && !prev.trim()) return
     const code = detectUiLang(q)
-    setUiLang(isUiLang(code) ? code : 'ko')
+    // ⚠️ 'ko' 다운그레이드는 '한글 질의'일 때만 — 게이트 미달 라틴 한 단어('housing'·'h')로
+    //   외국인이 명시 선택한 자국어 UI를 한국어로 영구 회귀시키던 결함(15차 감사: LangSuggest는
+    //   재노출되지 않아 복구 불가). 비ko 감지는 그대로 승격, 한글이 보이면 ko 복귀(원래 목적 유지).
+    if (isUiLang(code) && code !== 'ko') setUiLang(code)
+    else if (/[가-힣]/.test(q)) setUiLang('ko')
   }, [q, setUiLang])
 
   return (

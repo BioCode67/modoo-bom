@@ -19,6 +19,9 @@ export interface TrackedItem {
   appliedAt?: number
   /** 마지막으로 진행상황을 점검한 시점 — 재점검 알림 계산 기준 */
   lastChecked?: number
+  /** 마지막 편집 시점(서류 체크·상태 변경 등) — 동기화 병합 우선순위(freshness)용.
+   *  이게 없으면 다른 기기의 옛 사본이 로컬 최신 체크리스트를 조용히 덮는다(15차 감사). */
+  editedAt?: number
 }
 
 interface AppState {
@@ -132,7 +135,11 @@ export const useAppStore = create<AppState>()(
       view: 'home',
       setView: (v) => {
         set({ view: v })
-        if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' })
+        // prefers-reduced-motion 존중 — 멀미 민감 사용자에게 스크롤 애니메이션 강제 금지(ScrollTop과 통일, 15차)
+        if (typeof window !== 'undefined') {
+          const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+          window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' })
+        }
       },
       aiIntent: false,
       setAiIntent: (v) => set({ aiIntent: v }),
@@ -193,6 +200,8 @@ export const useAppStore = create<AppState>()(
           profile: null, result: null, pendingProfile: null, tracked: [], docDone: {},
           helper: null, aiQuery: '', aiIntent: false,
           rpaInfo: { name: '', birth_date: '', phone: '', carrier: '', sido: '', sigungu: '', auth_provider: 'kakao' },
+          // 이전 상담자의 '선호 흔적'까지 정리 — 구독 분야·UI 언어가 다음 분에게 남지 않게(15차 감사)
+          subscribedCategories: [], uiLang: 'ko',
           resetNonce: s.resetNonce + 1,
         }))
       },
@@ -219,7 +228,8 @@ export const useAppStore = create<AppState>()(
             // 신청 완료·수급 중으로 바뀌는 순간 시점 기록(심사 기간·갱신 시기 계산 기준).
             //   'done'을 신청 단계 없이 바로 골라도 오래된 savedAt이 갱신 기준이 돼 즉시 '갱신 임박' 오알림 뜨던 문제 방지.
             const appliedAt = (status === 'applied' || status === 'done') && !t.appliedAt ? Date.now() : t.appliedAt
-            return { ...t, status, appliedAt }
+            // editedAt — 상태 '되돌림'(applied→tracking)은 appliedAt을 안 바꿔 동기화 freshness에 안 잡혔다(15차)
+            return { ...t, status, appliedAt, editedAt: Date.now() }
           }),
         })),
       toggleDoc: (policyId, doc) =>
@@ -227,7 +237,8 @@ export const useAppStore = create<AppState>()(
           tracked: s.tracked.map((t) => {
             if (t.policyId !== policyId) return t
             const has = t.checkedDocs.includes(doc)
-            return { ...t, checkedDocs: has ? t.checkedDocs.filter((d) => d !== doc) : [...t.checkedDocs, doc] }
+            // editedAt — 서류 체크는 어떤 타임스탬프도 안 바꿔 원격 옛 사본에 덮이던 문제(15차)
+            return { ...t, checkedDocs: has ? t.checkedDocs.filter((d) => d !== doc) : [...t.checkedDocs, doc], editedAt: Date.now() }
           }),
         })),
       markChecked: (policyId) =>

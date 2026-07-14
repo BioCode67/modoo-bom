@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { CheckCircle2, X } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
-import { getPendingReturn, clearPendingReturn, dismissPendingReturn, type PendingReturn } from '@/lib/returnPrompt'
+import { getPendingReturn, clearPendingReturn, dismissPendingReturn, markPendingLeft, type PendingReturn } from '@/lib/returnPrompt'
 
 /** 공식 사이트 탭에서 돌아오자마자 프롬프트가 뜨면 오탐(팝업 차단·잘못 클릭) — 최소 체류 시간 */
 const MIN_AWAY_MS = 8000
@@ -18,18 +18,28 @@ export function ReturnConfirm() {
 
   useEffect(() => {
     const check = () => {
-      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
+        // 실제로 페이지를 떠나는 순간을 기록 — 클릭만 하고 안 떠난(팝업 차단·취소) 기록엔
+        // 나중 refocus에 배너를 띄우지 않기 위한 근거(15차 감사).
+        markPendingLeft()
+        return
+      }
       const p = getPendingReturn()
-      if (p && !p.dismissed && Date.now() - p.at > MIN_AWAY_MS) setPending(p)
+      // left(실제 이탈)가 있고, 이탈 후 최소 체류를 지나 돌아온 경우에만 — '클릭 후 경과'가 아니라 '떠나 있던 시간' 기준
+      if (p && !p.dismissed && p.left && Date.now() - p.left > MIN_AWAY_MS) setPending(p)
     }
     // 복귀 중 원래 탭이 메모리에서 내려가 페이지가 리로드되면(모바일 탭 퇴거·PWA 재기동)
-    // visibilitychange/focus가 발화하지 않는다 — 마운트 시점에도 1회 확인.
+    // visibilitychange/focus가 발화하지 않는다 — 마운트 시점에도 1회 확인(left는 sessionStorage에 생존).
     check()
+    // 같은 탭 이동(모바일이 target=_blank를 무시하는 경우)은 pagehide로 이탈을 마킹
+    const onHide = () => markPendingLeft()
     document.addEventListener('visibilitychange', check)
     window.addEventListener('focus', check)
+    window.addEventListener('pagehide', onHide)
     return () => {
       document.removeEventListener('visibilitychange', check)
       window.removeEventListener('focus', check)
+      window.removeEventListener('pagehide', onHide)
     }
   }, [])
 
@@ -44,16 +54,16 @@ export function ReturnConfirm() {
     } else if (!isDocDone(pending.doc)) {
       toggleDocDone(pending.doc)
     }
-    // 배너가 떠 있는 동안 사용자가 다른 발급/신청 링크를 눌러 새 대기 기록이 쓰였을 수 있다 —
-    // 화면의 것과 같은 기록일 때만 지운다(새 기록을 소실시키지 않게)
-    const stored = getPendingReturn()
-    if (stored && stored.at === pending.at) clearPendingReturn()
-    setPending(null)
+    // 큐에서 이 기록만 제거 — 연속 발급 시 다음 서류 확인이 이어서 뜬다(15차: 단일 슬롯 유실 해소)
+    clearPendingReturn(pending.at)
+    // 다음 활성 항목이 있으면 이어서 확인(이미 돌아와 있는 상태라 left 조건은 그 항목의 것으로 판단)
+    const next = getPendingReturn()
+    setPending(next && next.left && Date.now() - next.left > MIN_AWAY_MS ? next : null)
   }
   const later = () => {
-    const stored = getPendingReturn()
-    if (stored && stored.at === pending.at) dismissPendingReturn()
-    setPending(null)
+    dismissPendingReturn(pending.at)
+    const next = getPendingReturn()
+    setPending(next && next.left && Date.now() - next.left > MIN_AWAY_MS ? next : null)
   }
 
   const title = pending.kind === 'apply' ? `「${pending.name}」 신청을 완료하셨나요?` : `「${pending.doc}」 발급을 완료하셨나요?`

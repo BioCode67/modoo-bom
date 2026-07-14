@@ -91,12 +91,14 @@ export function getLinkedDiscounts(p: UserProfile): LinkedGroup[] {
     groups.push({
       id: 'multichild',
       label: '다자녀 가구',
-      why: '자녀 수 기준(혜택별 2자녀/3자녀)을 충족하면 아래 감면·할인이 적용돼요.',
+      // 일괄신청(ONESTOP)은 전기·가스 등 '요금감면' 전용 — KTX·취득세는 그 민원으로 신청 불가라
+      // 각 항목 detail에 실제 신청처를 명시(15차 감사: CTA가 신청 불가 항목까지 묶어 오안내).
+      why: '자녀 수 기준(혜택별 2자녀/3자녀)을 충족하면 아래 감면·할인이 적용돼요. 일괄신청은 전기·가스 요금감면용이에요.',
       items: [
         { icon: '💡', name: '전기요금 감면', detail: '3자녀 이상 30%, 월 최대 약 1.6만원' },
         { icon: '🔥', name: '도시가스 감면', detail: '동절기 월 최대 약 1.8만원' },
-        { icon: '🚄', name: 'KTX·SRT 할인', detail: '어른 운임 할인(2자녀 이상)' },
-        { icon: '🚗', name: '자동차 취득세 감면', detail: '2자녀 50%·3자녀 이상 100%(한도 내)' },
+        { icon: '🚄', name: 'KTX·SRT 할인', detail: '어른 운임 할인(2자녀 이상) — 코레일·SR 멤버십에서 별도 신청' },
+        { icon: '🚗', name: '자동차 취득세 감면', detail: '2자녀 50%·3자녀 이상 100%(한도 내) — 차량 등록 시 시·군·구청 신청' },
       ],
       apply: ONESTOP,
     })
