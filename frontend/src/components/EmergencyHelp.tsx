@@ -70,6 +70,11 @@ export function EmergencyHelp() {
                     <a href="tel:129" className="btn-warm !bg-rose-500 hover:!bg-rose-600 !py-2.5 flex-1"><Phone className="h-4 w-4" /> 129 긴급복지 상담</a>
                     <a href="https://www.bokjiro.go.kr" target="_blank" rel="noopener noreferrer" className="btn-secondary !py-2.5"><ExternalLink className="h-4 w-4" /> 복지로</a>
                   </div>
+                  {/* 마음건강·외국어 상담 — 위기·외국인 사각 보완(129만으론 부족). 1393=자살예방 24h, 1577-1366=다누리 통역 */}
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <a href="tel:1393" className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-rose-200 bg-white px-3 py-2 text-xs font-semibold text-rose-700 hover:border-rose-400 transition-colors"><Phone className="h-3.5 w-3.5" /> 1393 마음이 힘들 때(24시간)</a>
+                    <a href="tel:1577-1366" className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-rose-200 bg-white px-3 py-2 text-xs font-semibold text-rose-700 hover:border-rose-400 transition-colors"><Phone className="h-3.5 w-3.5" /> 1577-1366 외국어 상담</a>
+                  </div>
                   <p className="mt-2 text-[11px] text-rose-700">긴급복지지원은 ‘선지원 후심사’ — 주민센터·129에 먼저 알리면 빠르게 도움받을 수 있어요.</p>
                 </div>
 
