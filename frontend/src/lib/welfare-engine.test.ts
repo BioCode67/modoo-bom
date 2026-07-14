@@ -458,3 +458,18 @@ describe('프로그램 중복 그룹 접기(2026 데이터검증)', () => {
     expect(count(senior, /틀니|임플란트/)).toBeLessThanOrEqual(1)
   })
 })
+
+describe('10차 감사 회귀 — 질의 주제 존중(주거) · 정신건강 오노출 게이트(2026-07)', () => {
+  it('주거 질의("살 집 구해요") 상위 3개 안에 주거 정책 — 정신건강이 덮지 않음', () => {
+    const r = runAnalysis({ ...base, age: 27, _query: '독립하려는 청년, 살 집 구해요' } as UserProfile)
+    const pol = r.eligible_policies.filter((x) => x.id.startsWith('POL-'))
+    expect(pol.slice(0, 3).map((x) => x.name).join(' ')).toMatch(/주택|임대|월세|주거/)
+    const mind = pol.find((x) => /정신건강|마음건강/.test(x.name))
+    expect(mind?.priority).not.toBe('high') // 마음 신호 없으면 강력추천 아님(오노출 게이트)
+  })
+  it('마음 신호("우울·스트레스") 있으면 정신건강 high 유지', () => {
+    const r = runAnalysis({ ...base, age: 27, _query: '우울하고 스트레스 받는 청년이에요' } as UserProfile)
+    const mind = r.eligible_policies.find((x) => /정신건강|마음건강/.test(x.name))
+    expect(mind?.priority).toBe('high')
+  })
+})

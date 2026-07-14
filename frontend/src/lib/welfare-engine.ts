@@ -250,6 +250,19 @@ function checkPolicyDoc(doc: string, name: string, p: UserProfile): CheckResult 
     }
   }
   // ── 청년 계열 ──
+  // 청년 정신건강(마음이음·마음건강 바우처) — 나이만 맞으면 전 청년의 최상단을 '강력 추천'으로 도배하던
+  //   오노출 게이트. 마음 신호(우울·스트레스·상담 등)가 있을 때만 high, 없으면 medium(자격은 유지하되
+  //   주거·취업 등 본인이 물은 주제를 덮지 않게). 예: '살 집 구해요' 청년 1위가 정신건강이던 문제(감사 확정).
+  if (/정신건강|마음건강|마음이음/.test(`${name} ${doc}`) && /청년/.test(`${name} ${doc}`)) {
+    if (p.age < 19 || p.age > 34) return NO
+    const mindSignal = /마음|우울|정신|스트레스|불안|공황|무기력|외로|번아웃|상담/.test(`${(p.life_events || []).join(' ')} ${p._query || ''}`)
+    return {
+      eligible: true,
+      reason: mindSignal ? '마음 건강 고민이 있는 청년 지원 대상' : `만 ${p.age}세 청년 심리지원 대상 (필요 시 이용)`,
+      priority: mindSignal ? 'high' : 'medium',
+      confidence: mindSignal ? 0.92 : 0.8,
+    }
+  }
   // 만 19~20세 전용(예: 청년 문화예술패스) — 넓은 청년 룰보다 먼저 정밀 판정(21~34세 오노출 방지)
   if (anyIn(doc, ['만 19~20세', '19~20세', '만 19세·20세'])) {
     if (p.age >= 19 && p.age <= 20)
@@ -931,6 +944,9 @@ function queryTopicBoost(text: string, query: string): number {
   const toks3 = query.match(/[가-힣]{3,}/g) || []
   const toks2 = (query.match(/[가-힣]{2}/g) || []).filter((w) => TOPIC2.has(w))
   const toks = [...toks3, ...toks2].filter((w) => !QUERY_STOPWORDS.has(w))
+  // 생활어 동의어 프리패스 — '살 집 구해요/독립/자취'는 토큰화(3글자·화이트리스트)에 안 걸려
+  //   주거 정책이 부스트를 못 받았다(감사 확정: 주거 질의 1위가 정신건강). 주거 행정용어를 주입.
+  if (/살\s*집|집(을|이)?\s*구하|독립|자취|방\s*구하|보증금/.test(query)) toks.push('주택', '임대', '월세', '전세', '주거')
   let boost = 0
   const seen = new Set<string>()
   for (const w of toks) {
