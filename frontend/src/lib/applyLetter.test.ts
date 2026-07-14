@@ -28,6 +28,12 @@ describe('generateApplyLetter — 규칙 기반 신청 사유서(환각 0)', () 
     expect(generateApplyLetter(P({ household_type: '다문화가족' }), pol)).toContain('한국 생활에 적응')
     expect(generateApplyLetter(P({ age: 22, life_events: ['자립준비'] }), pol)).toContain('홀로 자립')
   })
+  it('정책 종류에 맞춘 취지 문장(장학→학업, 의료→치료)', () => {
+    const scholar = { ...pol, name: '국가장학금', category: '교육' } as Policy
+    const medical = { ...pol, name: '재난적 의료비 지원', category: '의료' } as Policy
+    expect(generateApplyLetter(P({ age: 20 }), scholar)).toContain('학업')
+    expect(generateApplyLetter(P({ age: 50 }), medical)).toContain('치료')
+  })
   it('한부모·출산·장애 신호를 각각 정확히 반영', () => {
     expect(generateApplyLetter(P({ household_type: '한부모가족', has_children: true, children_ages: [5] }), pol)).toContain('혼자 자녀를 양육')
     expect(generateApplyLetter(P({ is_pregnant: true, life_events: ['출산'] }), pol)).toContain('출산')

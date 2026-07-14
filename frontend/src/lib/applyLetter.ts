@@ -59,11 +59,24 @@ function todayKo(): string {
   return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일`
 }
 
+/** 정책 종류에 맞춘 신청 취지 한 문장 — 사유서를 그 복지 성격에 어울리게(장학=학업·의료=치료·긴급=시급). */
+function policyIntent(policy: Policy | EligiblePolicy): string {
+  const t = `${policy.name} ${policy.category || ''}`
+  if (/장학|학자금|교육/.test(t)) return '학업을 이어가고자 하는 의지가 있으나 경제적 여건이 어려워 도움을 구합니다.'
+  if (/의료|치료|수술|건강|질환|재활/.test(t)) return '적기의 치료와 건강 회복을 위해 지원이 절실히 필요합니다.'
+  if (/긴급|위기/.test(t)) return '갑작스러운 위기로 당장의 생계가 어려워 신속한 도움이 필요합니다.'
+  if (/주거|전세|월세|임대|주택/.test(t)) return '안정적인 주거를 마련·유지하기 위해 도움이 필요합니다.'
+  if (/일자리|취업|구직|창업|자립/.test(t)) return '다시 일어서서 자립하기 위한 발판이 필요합니다.'
+  if (/양육|보육|아동|출산|육아/.test(t)) return '아이를 건강하게 키우기 위해 양육 부담을 덜 수 있는 도움이 필요합니다.'
+  return ''
+}
+
 export function generateApplyLetter(p: UserProfile, policy: Policy | EligiblePolicy): string {
   const name = (p.name || '').trim()
   const who = [p.age > 0 ? `${p.age}세` : '', (p.household_type || '').trim(), name].filter(Boolean).join(' ')
   const sits = situationSentences(p)
-  const body = sits.length > 0 ? sits.join(' ') : '현재 생활에 어려움이 있어 도움이 필요한 상황입니다.'
+  const intent = policyIntent(policy)
+  const body = [sits.length > 0 ? sits.join(' ') : '현재 생활에 어려움이 있어 도움이 필요한 상황입니다.', intent].filter(Boolean).join(' ')
   return [
     `[${policy.name} 신청 사유서]`,
     '',
