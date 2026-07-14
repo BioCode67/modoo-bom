@@ -49,6 +49,9 @@ export function buildProfile(a: GuideAnswers): UserProfile {
     name: (a.name || '').trim(), age, gender: 'other', region: '',
     household_type: s.has('singleparent') ? '한부모가족' : '',
     income_percentile: a.income ?? 80,
+    // 소득을 답하지 않았으면 '모름'을 명시 — 기본 80이 확정 소득으로 취급되면 생계·의료급여가
+    // 하드배제되고 요약이 80%를 단정한다(위저드와 동일 결함, 12차 감사 자매 케이스). parseQuery와 대칭.
+    income_known: a.income !== undefined,
     disability: s.has('disability'),
     // ⚠️ 장애 정도를 '1급'으로 단정하지 않는다 — 그러면 경증 사용자에게도 중증(1·2급) 전용 장애인연금이
     //   자격 있는 것처럼 과장된다. 미상('')으로 두면 일반 장애 복지는 그대로 뜨고 중증 전용만 정밀 분석으로 넘긴다.

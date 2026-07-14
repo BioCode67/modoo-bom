@@ -52,3 +52,14 @@ describe('recommend', () => {
     expect(r.text).toContain('만 5세로 가정')
   })
 })
+
+describe('14차 감사 회귀 — 소득 미답 시 income_known=false(하드배제 방지)', () => {
+  it('소득을 답하지 않으면 income_known=false — 저소득 급여 조건부 노출 경로', async () => {
+    const { buildProfile } = await import('./guidedChat')
+    const p = buildProfile({ situations: [] })
+    expect(p.income_percentile).toBe(80)
+    expect(p.income_known).toBe(false)
+    // 소득을 답하면 known=true
+    expect(buildProfile({ situations: [], income: 40 }).income_known).toBe(true)
+  })
+})
