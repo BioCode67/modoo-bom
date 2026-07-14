@@ -55,19 +55,21 @@ export function ApplyLetterHelper({ profile, policy }: { profile: UserProfile | 
     <div className="mt-2 rounded-xl border border-sky2-200 bg-sky2-50/50">
       <button onClick={toggle} aria-expanded={open} className="flex w-full items-center gap-2 px-3 py-2.5 text-left">
         <FileText className="h-4 w-4 shrink-0 text-sky2-600" />
-        <span className="flex-1 text-sm font-bold text-sky2-800">📝 신청 서류 대신 써드려요 <span className="font-normal text-sky2-600">— 사유서·위임장·전화 대본</span></span>
+        {/* 부제 sky2-600은 sky2-50/50 위 3.9:1(AA 미달, 18차) → 700 승격 */}
+        <span className="flex-1 text-sm font-bold text-sky2-800">📝 신청 서류 대신 써드려요 <span className="font-normal text-sky2-700">— 사유서·위임장·전화 대본</span></span>
         <ChevronDown className={cn('h-4 w-4 text-sky2-600 transition-transform', open && 'rotate-180')} />
       </button>
       {open && (
         <div className="px-3 pb-3">
-          {/* 문서 종류 — 신청 사유서(본인) / 위임장(가족이 대신 신청) */}
-          <div className="mb-2 flex gap-1.5">
+          {/* 문서 종류 — 사유서/위임장/전화대본. flex-wrap+nowrap: 큰글씨·좁은 화면에서 칩이
+              음절 중간에서 꺾이지 않고 칩 단위로 줄바꿈(18차) */}
+          <div className="mb-2 flex flex-wrap gap-1.5">
             {([['letter', '신청 사유서'], ['proxy', '위임장(대신 신청)'], ['phone', '📞 전화 대본']] as [DocMode, string][]).map(([m, label]) => (
               <button
                 key={m}
                 onClick={() => switchMode(m)}
                 aria-pressed={mode === m}
-                className={cn('chip text-xs transition-colors', mode === m ? 'bg-sky2-700 text-white' : 'bg-white border border-sky2-200 text-sky2-700 hover:bg-sky2-50')}
+                className={cn('chip text-xs transition-colors whitespace-nowrap', mode === m ? 'bg-sky2-700 text-white' : 'bg-white border border-sky2-200 text-sky2-700 hover:bg-sky2-50')}
               >
                 {label}
               </button>
@@ -82,7 +84,8 @@ export function ApplyLetterHelper({ profile, policy }: { profile: UserProfile | 
           />
           <p className="mt-1 text-[11px] text-muted-foreground">
             ※ <b>초안이에요</b> — 사실과 맞는지 확인하고 상황에 맞게 고쳐서 쓰세요. 입력하신 상황만 문장으로 옮겼어요(지어낸 내용 없음).
-            <span className="block opacity-80">This is a Korean application letter (drafts only) — check it, then submit to the office as is.</span>
+            {/* opacity-80이 전역 대비 승격을 우회해 3.8:1(AA 미달, 18차) → 불투명 유지 */}
+            <span className="block">This is a Korean application letter (drafts only) — check it, then submit to the office as is.</span>
           </p>
           <div className="mt-2 flex gap-2">
             <button onClick={copy} className="btn-primary !py-2 text-xs">

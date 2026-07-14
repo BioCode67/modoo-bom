@@ -18,6 +18,7 @@ type Key =
   | 'flowTitle' | 'stepRecommend' | 'stepPick' | 'stepInfo' | 'stepDocs' | 'stepAuth' | 'stepSubmit'
   | 'byAuto' | 'byGuide' | 'byYou' | 'banner' | 'translateCta'
   | 'clerkCard' | 'clerkHint'
+  | 'confirmApplyQ' | 'confirmDocQ' | 'yesDone' | 'notYet' | 'openOfficial'
 
 const DICT: Record<UiLang, Record<Key, string>> = {
   ko: {
@@ -31,6 +32,7 @@ const DICT: Record<UiLang, Record<Key, string>> = {
     banner: '제도명·내용은 한국어예요. 통역이 필요하면 ☎1577-1366(다누리콜) 또는 ☎129로 도움받을 수 있어요.',
     translateCta: '이 복지 내용 번역해서 보기',
     clerkCard: '창구에서 보여줄 카드', clerkHint: '주민센터 창구에서 이 카드를 직원에게 보여주세요.',
+    confirmApplyQ: '신청을 완료하셨나요?', confirmDocQ: '발급을 완료하셨나요?', yesDone: '네, 완료했어요', notYet: '아직이에요', openOfficial: '공식 신청 페이지 열기',
   },
   en: {
     benefit: 'Benefit', target: 'Who is eligible', eligibility: 'Requirements', howToApply: 'How to apply',
@@ -43,6 +45,7 @@ const DICT: Record<UiLang, Record<Key, string>> = {
     banner: 'Program names and details are in Korean. For an interpreter, call ☎1577-1366 (Danuri) or ☎129.',
     translateCta: 'Translate this welfare into English',
     clerkCard: 'Card to show at the counter', clerkHint: 'Show this card to the staff at the community center.',
+    confirmApplyQ: 'Did you finish applying?', confirmDocQ: 'Did you get the document?', yesDone: 'Yes, done', notYet: 'Not yet', openOfficial: 'Open official apply page',
   },
   vi: {
     benefit: 'Quyền lợi', target: 'Đối tượng', eligibility: 'Điều kiện', howToApply: 'Cách đăng ký',
@@ -55,6 +58,7 @@ const DICT: Record<UiLang, Record<Key, string>> = {
     banner: 'Tên và nội dung chương trình bằng tiếng Hàn. Cần thông dịch, gọi ☎1577-1366 (Danuri) hoặc ☎129.',
     translateCta: 'Dịch phúc lợi này sang tiếng Việt',
     clerkCard: 'Thẻ đưa cho nhân viên quầy', clerkHint: 'Hãy đưa thẻ này cho nhân viên tại trung tâm.',
+    confirmApplyQ: 'Bạn đã nộp đơn xong chưa?', confirmDocQ: 'Bạn đã nhận giấy tờ chưa?', yesDone: 'Rồi, xong rồi', notYet: 'Chưa', openOfficial: 'Mở trang đăng ký chính thức',
   },
   zh: {
     benefit: '福利内容', target: '申请对象', eligibility: '申请条件', howToApply: '申请方法',
@@ -67,6 +71,7 @@ const DICT: Record<UiLang, Record<Key, string>> = {
     banner: '项目名称与内容为韩文。需要翻译请拨打 ☎1577-1366（Danuri）或 ☎129。',
     translateCta: '将此福利翻译成中文',
     clerkCard: '窗口出示卡', clerkHint: '请在社区中心把这张卡出示给工作人员。',
+    confirmApplyQ: '您完成申请了吗？', confirmDocQ: '您领到文件了吗？', yesDone: '是，完成了', notYet: '还没有', openOfficial: '打开官方申请页面',
   },
   ja: {
     benefit: '給付内容', target: '対象者', eligibility: '要件', howToApply: '申請方法',
@@ -79,6 +84,7 @@ const DICT: Record<UiLang, Record<Key, string>> = {
     banner: '制度名・内容は韓国語です。通訳が必要なら ☎1577-1366（タヌリ）または ☎129 へ。',
     translateCta: 'この福祉を日本語に翻訳',
     clerkCard: '窓口で見せるカード', clerkHint: '住民センターの窓口でこのカードを職員に見せてください。',
+    confirmApplyQ: '申請は完了しましたか？', confirmDocQ: '書類は発行できましたか？', yesDone: 'はい、完了しました', notYet: 'まだです', openOfficial: '公式申請ページを開く',
   },
   th: {
     benefit: 'สิทธิประโยชน์', target: 'ผู้มีสิทธิ', eligibility: 'เงื่อนไข', howToApply: 'วิธีสมัคร',
@@ -91,6 +97,7 @@ const DICT: Record<UiLang, Record<Key, string>> = {
     banner: 'ชื่อและรายละเอียดโครงการเป็นภาษาเกาหลี ต้องการล่ามโทร ☎1577-1366 (Danuri) หรือ ☎129',
     translateCta: 'แปลสวัสดิการนี้เป็นภาษาไทย',
     clerkCard: 'บัตรสำหรับแสดงที่เคาน์เตอร์', clerkHint: 'แสดงบัตรนี้ให้เจ้าหน้าที่ที่ศูนย์ชุมชน',
+    confirmApplyQ: 'สมัครเสร็จแล้วหรือยัง?', confirmDocQ: 'ได้รับเอกสารแล้วหรือยัง?', yesDone: 'เสร็จแล้ว', notYet: 'ยังไม่เสร็จ', openOfficial: 'เปิดหน้าสมัครทางการ',
   },
   ru: {
     benefit: 'Льгота', target: 'Кому положено', eligibility: 'Условия', howToApply: 'Как подать',
@@ -103,6 +110,7 @@ const DICT: Record<UiLang, Record<Key, string>> = {
     banner: 'Названия и детали программ на корейском. Для переводчика звоните ☎1577-1366 (Danuri) или ☎129.',
     translateCta: 'Перевести эту льготу на русский',
     clerkCard: 'Карточка для окна приёма', clerkHint: 'Покажите эту карточку сотруднику в центре.',
+    confirmApplyQ: 'Вы завершили подачу?', confirmDocQ: 'Вы получили документ?', yesDone: 'Да, готово', notYet: 'Ещё нет', openOfficial: 'Открыть официальную страницу',
   },
   ar: {
     benefit: 'المزايا', target: 'من يستحق', eligibility: 'الشروط', howToApply: 'كيفية التقديم',
@@ -115,6 +123,7 @@ const DICT: Record<UiLang, Record<Key, string>> = {
     banner: 'أسماء البرامج وتفاصيلها بالكورية. للمساعدة اتصل بـ ☎129. (دانوري ☎1577-1366 لا يدعم العربية.)',
     translateCta: 'ترجمة هذه الرعاية إلى العربية',
     clerkCard: 'بطاقة للعرض عند المكتب', clerkHint: 'أرِ هذه البطاقة للموظف في المركز.',
+    confirmApplyQ: 'هل أنهيت التقديم؟', confirmDocQ: 'هل حصلت على المستند؟', yesDone: 'نعم، تم', notYet: 'ليس بعد', openOfficial: 'افتح صفحة التقديم الرسمية',
   },
 }
 

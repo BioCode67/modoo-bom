@@ -258,10 +258,16 @@
 /* 새 안내 카드(연계감면·서버설정 등 옅은 색조 배경)도 고대비에선 흰 배경+강한 테두리로 — 저시력 일관성 */
 .high-contrast .bg-peach-50\/50,
 .high-contrast .bg-amber-50\/50,
-.high-contrast .bg-sprout-50\/50 { background: #fff !important; }
+.high-contrast .bg-sprout-50\/50,
+.high-contrast .bg-sky2-50,
+.high-contrast .bg-sky2-50\/50 { background: #fff !important; }
+/* sky2 계열(창구 카드 힌트·사유서 도우미·문의처·외국어 배너)도 승격 — 누락 시 고대비에서
+   옅은 하늘색+~1.1:1 테두리로 남아 저시력 일관성이 깨졌다(18차 감사). */
 .high-contrast .border-peach-200,
 .high-contrast .border-amber-200\/80,
-.high-contrast .border-sprout-200 { border-color: hsl(0 0% 35%) !important; }
+.high-contrast .border-sprout-200,
+.high-contrast .border-sky2-100,
+.high-contrast .border-sky2-200 { border-color: hsl(0 0% 35%) !important; }
 .high-contrast .btn-primary { background: #0a6b2f !important; }
 .high-contrast .chip,
 .high-contrast .chip-sprout, .high-contrast .chip-peach, .high-contrast .chip-sky, .high-contrast .chip-sun {

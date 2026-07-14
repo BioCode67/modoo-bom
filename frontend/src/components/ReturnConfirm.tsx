@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { CheckCircle2, X } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
 import { getPendingReturn, clearPendingReturn, dismissPendingReturn, markPendingLeft, markPendingReturned, type PendingReturn } from '@/lib/returnPrompt'
+import { t as tr, RTL } from '@/lib/i18nLite'
 
 /** 공식 사이트 탭에서 돌아오자마자 프롬프트가 뜨면 오탐(팝업 차단·잘못 클릭) — 최소 체류 시간 */
 const MIN_AWAY_MS = 8000
@@ -21,6 +22,7 @@ function awayMs(p: PendingReturn): number {
 export function ReturnConfirm() {
   const { tracked, setStatus, markChecked, toggleDocDone, isDocDone } = useAppStore()
   const resetNonce = useAppStore((s) => s.resetNonce)
+  const uiLang = useAppStore((s) => s.uiLang)
   const [pending, setPending] = useState<PendingReturn | null>(null)
 
   // '다음 분 상담 시작'(현장 초기화) 시 표시 중이던 배너도 내린다 — 이전 상담자의 정책·서류명이
@@ -79,8 +81,11 @@ export function ReturnConfirm() {
     setPending(next && awayMs(next) > MIN_AWAY_MS ? next : null)
   }
 
-  const title = pending.kind === 'apply' ? `「${pending.name}」 신청을 완료하셨나요?` : `「${pending.doc}」 발급을 완료하셨나요?`
-  const yesLabel = pending.kind === 'apply' ? '네, 신청했어요' : '네, 발급했어요'
+  // 상태를 '기록'하는 결정 UI — 외국어 퍼널(번역된 goApply)로 도달하는 사용자가 읽을 수 있어야
+  // '네를 눌러야만 기록' 정직성 장치가 성립한다(18차 감사). 정책명은 원칙대로 한국어 유지.
+  const target = pending.kind === 'apply' ? pending.name : pending.doc
+  const title = `「${target}」 ${tr(uiLang, pending.kind === 'apply' ? 'confirmApplyQ' : 'confirmDocQ')}`
+  const yesLabel = uiLang === 'ko' ? (pending.kind === 'apply' ? '네, 신청했어요' : '네, 발급했어요') : tr(uiLang, 'yesDone')
 
   return (
     <AnimatePresence>
@@ -89,14 +94,16 @@ export function ReturnConfirm() {
         className="fixed bottom-4 inset-x-4 sm:inset-x-auto sm:right-6 sm:w-[380px] z-[70]"
         role="status" aria-live="polite"
       >
-        <div className="rounded-2xl border-2 border-sprout-200 bg-white shadow-xl p-4">
+        <div dir={RTL.includes(uiLang) ? 'rtl' : 'ltr'} className="rounded-2xl border-2 border-sprout-200 bg-white shadow-xl p-4">
           <div className="flex items-start gap-2.5">
             <CheckCircle2 className="h-5 w-5 text-sprout-500 shrink-0 mt-0.5" />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-bold leading-snug">{title}</p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">
-                {pending.kind === 'apply' ? '기록해두면 진행상황·갱신 알림을 챙겨드려요.' : '기록해두면 남은 서류만 추려서 보여드려요.'}
-              </p>
+              {uiLang === 'ko' && (
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  {pending.kind === 'apply' ? '기록해두면 진행상황·갱신 알림을 챙겨드려요.' : '기록해두면 남은 서류만 추려서 보여드려요.'}
+                </p>
+              )}
             </div>
             <button onClick={later} aria-label="닫기" className="shrink-0 rounded-md p-1 text-muted-foreground hover:bg-sprout-50">
               <X className="h-4 w-4" />
@@ -104,7 +111,7 @@ export function ReturnConfirm() {
           </div>
           <div className="mt-3 flex gap-2">
             <button onClick={confirm} className="btn-primary flex-1 !py-2 text-xs justify-center">{yesLabel}</button>
-            <button onClick={later} className="btn-secondary !py-2 text-xs">아직이에요</button>
+            <button onClick={later} className="btn-secondary !py-2 text-xs">{tr(uiLang, 'notYet')}</button>
           </div>
         </div>
       </motion.div>

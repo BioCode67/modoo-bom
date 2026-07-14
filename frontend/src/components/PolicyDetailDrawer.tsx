@@ -554,7 +554,7 @@ function DrawerBody({
             {applied === 'blocked' ? (
               <>⚠️ 팝업이 차단돼 새 탭을 못 열었어요 — <a href={blockedUrl} target="_blank" rel="noopener noreferrer"
                 onClick={() => { if (!helperMode) setPendingReturn({ kind: 'apply', policyId: policy.id, name: policy.name }) }}
-                className="underline font-bold">여기를 눌러 공식 신청 페이지로 이동</a>하세요.</>
+                className="underline font-bold">{uiLang === 'ko' ? '여기를 눌러 공식 신청 페이지로 이동' : tr(uiLang, 'openOfficial')}</a>{uiLang === 'ko' ? '하세요.' : ''}</>
             ) : (
               <>{applied === 'copied' ? '✅ 이름을 복사했어요. ' : '✅ 공식 신청 페이지를 열었어요. '}열린 공식 사이트에서 <b>간편인증(카카오 등)</b> 후 {applied === 'copied' ? '첫 칸에 붙여넣고(나머지는 아래 신청 키트에서 항목별 복사) ' : ''}제출하면 끝이에요. 🔒 인증은 정부 사이트에서만 — 안전해요.</>
             )}
@@ -573,8 +573,10 @@ function DrawerBody({
           </button>
         )}
         <button onClick={startApply} className="btn-primary flex-1">
-          {/* 도우미 모드에선 '내 정보 복사'라고 하지 않는다 — 복사하는 신원이 없어(도움받는 분 이름 미포함) 오해 소지 */}
-          <Rocket className="h-4 w-4" /> {uiLang === 'ko' ? (helperMode ? '공식 신청 페이지 열기' : '내 정보 복사 + 공식 신청 이동') : tr(uiLang, 'goApply')}
+          {/* 도우미 모드에선 '내 정보 복사'라고 하지 않는다 — 복사하는 신원이 없어 오해 소지(비ko 포함, 18차) */}
+          <Rocket className="h-4 w-4" /> {helperMode
+            ? (uiLang === 'ko' ? '공식 신청 페이지 열기' : tr(uiLang, 'openOfficial'))
+            : (uiLang === 'ko' ? '내 정보 복사 + 공식 신청 이동' : tr(uiLang, 'goApply'))}
         </button>
         <a
           href={bestApplyUrl(policy.application, policy.name)}
