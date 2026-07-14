@@ -37,9 +37,9 @@ export function ApplyKit() {
       <div className="rounded-2xl bg-sprout-50/70 border border-sprout-100 p-3">
         <p className="text-xs font-bold text-sprout-700 mb-2">신청서에 쓸 내 정보 입력</p>
         <div className="space-y-2">
-          <input value={rpaInfo.name || ''} onChange={(e) => setRpaInfo({ name: e.target.value })} placeholder="이름" className="input-cute" />
-          <input value={rpaInfo.birth_date || ''} onChange={(e) => setRpaInfo({ birth_date: e.target.value })} placeholder="생년월일 (예: 1953-11-01)" inputMode="numeric" className="input-cute" />
-          <input value={rpaInfo.phone || ''} onChange={(e) => setRpaInfo({ phone: e.target.value })} placeholder="휴대폰 (예: 010-1234-5678)" inputMode="tel" className="input-cute" />
+          <input value={rpaInfo.name || ''} onChange={(e) => setRpaInfo({ name: e.target.value })} placeholder="이름" aria-label="이름" className="input-cute" />
+          <input value={rpaInfo.birth_date || ''} onChange={(e) => setRpaInfo({ birth_date: e.target.value })} placeholder="생년월일 (예: 1953-11-01)" aria-label="생년월일" inputMode="numeric" className="input-cute" />
+          <input value={rpaInfo.phone || ''} onChange={(e) => setRpaInfo({ phone: e.target.value })} placeholder="휴대폰 (예: 010-1234-5678)" aria-label="휴대폰 번호" inputMode="tel" className="input-cute" />
           <div className="flex flex-wrap gap-1.5" role="group" aria-label="통신사">
             {CARRIERS.map((c) => (
               <button

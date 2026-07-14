@@ -257,6 +257,16 @@
 .high-contrast .chip-sprout, .high-contrast .chip-peach, .high-contrast .chip-sky, .high-contrast .chip-sun {
   border: 1.5px solid currentColor;
 }
+/* 그라데이션 강조어(히어로 헤드라인 '복지 혜택'·로고 '모두봄'·섹션 제목)는 하드코딩 색이라
+   변수 오버라이드가 안 닿아, 고대비를 켜도 밝은 초록/복숭아(크림 배경 2.2:1)로 남았다 → 첫인상 요소를
+   어두운 단색으로 강제해 실제로 대비가 올라가게(고대비 시연이 눈에 띄게 달라지도록, 감사 확정). */
+.high-contrast .gradient-text,
+.high-contrast .gradient-text-warm,
+.high-contrast .gradient-text-sky {
+  background: none !important;
+  -webkit-text-fill-color: hsl(145 85% 18%) !important;
+  color: hsl(145 85% 18%) !important;
+}
 
 /* 큰글씨(어르신) 모드 */
 .elderly-mode { line-height: 1.85; }
@@ -269,4 +279,17 @@
 .elderly-mode .text-\[11px\] { font-size: 0.85rem !important; }
 .elderly-mode .text-\[12px\],
 .elderly-mode .text-\[13px\] { font-size: 0.95rem !important; }
+/* 큰 본문·제목(text-lg~3xl)도 함께 키운다 — 작은 캡션만 커지고 큰 문장은 그대로라 위계가 뒤집히던 문제 해소.
+   (text-base=1.2rem보다 항상 크게 유지해 어르신 모드에서 크기 순서가 자연스럽게, 감사 확정) */
+.elderly-mode .text-lg { font-size: 1.35rem !important; }
+.elderly-mode .text-xl { font-size: 1.5rem !important; }
+.elderly-mode .text-2xl { font-size: 1.7rem !important; }
+.elderly-mode .text-3xl { font-size: 2rem !important; }
+/* 반응형(sm 이상에서 text-lg로 해석되는) 히어로 부제 등도 데스크탑 큰글씨에서 확대되게 */
+@media (min-width: 640px) {
+  .elderly-mode .sm\:text-lg { font-size: 1.35rem !important; }
+  .elderly-mode .sm\:text-xl { font-size: 1.5rem !important; }
+  .elderly-mode .sm\:text-2xl { font-size: 1.7rem !important; }
+  .elderly-mode .sm\:text-3xl { font-size: 2rem !important; }
+}
 .elderly-mode button, .elderly-mode input, .elderly-mode select { min-height: 50px; }

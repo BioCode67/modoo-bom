@@ -74,11 +74,12 @@ export function RpaInfoForm() {
           aria-label="주민등록상 시군구"
         />
       </div>
-      <div className="flex flex-wrap gap-1">
+      <div className="flex flex-wrap gap-1" role="group" aria-label="통신사">
         {CARRIERS.map((c) => (
           <button
             key={c}
             onClick={() => setRpaInfo({ carrier: rpaInfo.carrier === c ? '' : c })}
+            aria-pressed={rpaInfo.carrier === c}
             className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold border transition-colors ${
               rpaInfo.carrier === c ? 'bg-sprout-700 border-sprout-700 text-white' : 'bg-white border-sprout-100 text-muted-foreground hover:border-sprout-200'
             }`}

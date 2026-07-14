@@ -106,11 +106,14 @@ export function HouseholdAnalyzer({ onOpen }: { onOpen: (p: Policy | EligiblePol
                 <label className="text-xs text-muted-foreground flex items-center gap-1">만
                   <input type="number" min={0} max={120} value={m.age} onChange={(e) => update(m.id, { age: +e.target.value })} className="w-16 rounded-lg border border-sprout-100 px-2 py-1 text-sm" />세
                 </label>
-                {(['disability', 'is_pregnant', 'unemployed'] as const).map((k) => (
-                  <button key={k} onClick={() => update(m.id, { [k]: !m[k] })} className={cn('rounded-lg px-2.5 py-1 text-[11px] font-semibold border', m[k] ? 'bg-sprout-700 border-sprout-700 text-white' : 'bg-white border-sprout-100 text-muted-foreground')}>
-                    {k === 'disability' ? '장애' : k === 'is_pregnant' ? '임신' : '미취업'}
-                  </button>
-                ))}
+                {(['disability', 'is_pregnant', 'unemployed'] as const).map((k) => {
+                  const label = k === 'disability' ? '장애' : k === 'is_pregnant' ? '임신' : '미취업'
+                  return (
+                    <button key={k} onClick={() => update(m.id, { [k]: !m[k] })} aria-pressed={!!m[k]} aria-label={`${label} 여부`} className={cn('rounded-lg px-2.5 py-1 text-[11px] font-semibold border', m[k] ? 'bg-sprout-700 border-sprout-700 text-white' : 'bg-white border-sprout-100 text-muted-foreground')}>
+                      {label}
+                    </button>
+                  )
+                })}
                 <div className="ml-auto flex items-center gap-2">
                   <span className="text-xs font-extrabold text-sprout-700">복지 {elig.length}개{monthly > 0 ? ` · 월 ${formatWon(monthly)}` : ''}</span>
                   {members.length > 1 && (

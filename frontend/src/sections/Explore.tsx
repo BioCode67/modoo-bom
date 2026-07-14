@@ -296,6 +296,10 @@ export function Explore() {
             </button>
           )}
         </div>
+        {/* 음성 인식·자동 낭독 상태를 스크린리더에 소리로 안내(버튼 라벨은 포커스해야 읽혀서 상태 변화를 놓친다) */}
+        <p className="sr-only" role="status" aria-live="polite">
+          {listening ? '음성 인식 중입니다. 말씀하세요.' : tts.speaking ? 'AI 답변을 읽는 중입니다.' : ''}
+        </p>
 
         {/* 온디바이스 AI 다국어 의미 검색 토글 */}
         <div className="mt-3 max-w-xl">
@@ -406,7 +410,7 @@ export function Explore() {
           ))}
           </span>
           <button onClick={() => setOnlyCash((v) => !v)} aria-pressed={onlyCash}
-            className={cn('ml-1 rounded-full px-3 py-1.5 text-xs font-semibold border transition-colors', onlyCash ? 'bg-peach-400 border-peach-400 text-white' : 'bg-white border-sprout-100 text-muted-foreground hover:border-sprout-200')}>
+            className={cn('ml-1 rounded-full px-3 py-1.5 text-xs font-semibold border transition-colors', onlyCash ? 'bg-peach-700 border-peach-700 text-white' : 'bg-white border-sprout-100 text-muted-foreground hover:border-sprout-200')}>
             💰 현금 지원만
           </button>
           {/* 지원형태 파셋 — 지자체 4,598건도 텍스트 신호로 분류(현금 필터가 못 잡던 것 보완) */}
@@ -414,7 +418,7 @@ export function Explore() {
             value={benefitType}
             onChange={(e) => setBenefitType(e.target.value)}
             aria-label="지원형태 선택"
-            className={cn('rounded-full px-3 py-1.5 text-xs font-semibold border transition-colors cursor-pointer', benefitType ? 'bg-violet-500 border-violet-500 text-white' : 'bg-white border-sprout-100 text-muted-foreground hover:border-sprout-200')}
+            className={cn('rounded-full px-3 py-1.5 text-xs font-semibold border transition-colors cursor-pointer', benefitType ? 'bg-violet-700 border-violet-700 text-white' : 'bg-white border-sprout-100 text-muted-foreground hover:border-sprout-200')}
           >
             <option value="">🎁 지원형태</option>
             {(Object.keys(BENEFIT_TYPE_META) as BenefitType[]).map((k) => (

@@ -27,7 +27,7 @@ export function HelperView() {
       {/* 도우미 배너 — 누구를 돕는지, 내 데이터가 아님을 명확히 */}
       <div className="sticky top-0 z-30 no-print">
         <motion.div initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
-          className="bg-gradient-to-r from-violet-500 to-sky2-500 text-white px-4 py-2.5">
+          className="bg-gradient-to-r from-violet-600 to-sky2-700 text-white px-4 py-2.5">
           <div className="page-container flex items-center gap-2 justify-between">
             <p className="text-sm font-bold flex items-center gap-2 min-w-0">
               <Users className="h-4 w-4 shrink-0" />

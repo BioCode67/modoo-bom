@@ -43,10 +43,10 @@ export function IncomeCalculator({
 
       {/* 가구원 수 */}
       <div className="mt-3">
-        <label className="block text-xs font-bold mb-1">가구원 수</label>
-        <div className="flex flex-wrap gap-1.5">
+        <label className="block text-xs font-bold mb-1" id="income-size-label">가구원 수</label>
+        <div className="flex flex-wrap gap-1.5" role="group" aria-labelledby="income-size-label">
           {[1, 2, 3, 4, 5, 6, 7].map((n) => (
-            <button key={n} onClick={() => setSize(n)}
+            <button key={n} onClick={() => setSize(n)} aria-pressed={size === n} aria-label={`${n}${n === 7 ? '인 이상' : '인'} 가구`}
               className={cn('rounded-lg px-3 py-1.5 text-sm font-semibold border transition-colors', size === n ? 'bg-sky2-700 border-sky2-700 text-white' : 'bg-white border-sprout-100 text-muted-foreground hover:border-sky2-200')}>
               {n}{n === 7 ? '+' : ''}
             </button>
