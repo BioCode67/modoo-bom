@@ -195,6 +195,27 @@ def main() -> int:
             page.wait_for_selector("text=Tiếng Việt", timeout=5000)
             print("[e2e] ✅ 4.8 외국인·다문화 다국어 진입로")
 
+            # 4.85) 🪪 창구 도움 카드 — 실제 외국인 여정: 영어 2단어 검색 → uiLang 자동 전환(en) →
+            #        정책 상세에 CTA → 카드(직원용 한국어·통역) 열림. 끝나면 한글 검색으로 ko 복귀(게이트 규칙 그대로 검증).
+            page.click("text=정책 탐색")
+            page.fill('input[placeholder*="검색"]', "housing support")
+            page.wait_for_timeout(800)  # uiLang 자동 전환(en) 반영
+            page.fill('input[placeholder*="검색"]', "")  # 비우기 — 빈 질의는 언어 유지(15차 게이트), 전체 목록 복귀
+            page.wait_for_timeout(500)
+            page.wait_for_selector("text=자세히", timeout=8000)
+            page.locator("text=자세히").first.click()
+            page.wait_for_selector("text=Card to show at the counter", timeout=8000)
+            page.click("text=Card to show at the counter")
+            page.wait_for_selector("text=한국어가 서툽니다", timeout=5000)   # 직원용 한국어
+            page.wait_for_selector("text=1577-1366", timeout=3000)          # 통역(비아랍어)
+            page.keyboard.press("Escape")  # 카드 닫기
+            page.keyboard.press("Escape")  # 드로어 닫기
+            page.fill('input[placeholder*="검색"]', "복지")  # 한글 질의 → ko 복귀(15차 게이트 규칙)
+            page.wait_for_timeout(600)
+            page.fill('input[placeholder*="검색"]', "")
+            page.click("text=홈")
+            print("[e2e] ✅ 4.85 창구 도움 카드(영어 검색→자동 전환→직원용 한국어·통역)")
+
             # 4.9) 데스크탑 앱 원클릭 다운로드 CTA — exe 직접 다운로드 링크(릴리스 latest 자산) 회귀 고정
             #      (Windows UA에서만 노출 — e2e 크로뮴은 Windows UA)
             btn = page.wait_for_selector('a:has-text("Windows 앱 바로 받기")', timeout=8000)
