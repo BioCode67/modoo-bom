@@ -19,6 +19,7 @@ import { VisitKit } from '@/components/VisitKit'
 import { t as tr, RTL } from '@/lib/i18nLite'
 import { ApplyKit } from '@/components/ApplyKit'
 import { ApplyLetterHelper } from '@/components/ApplyLetterHelper'
+import { ClerkCard } from '@/components/ClerkCard'
 import { oneTapApply, bestApplyUrl, bestApplyLabel } from '@/lib/quickApply'
 import { setPendingReturn, beginDocIssue } from '@/lib/returnPrompt'
 import { useAppStore } from '@/store/useAppStore'
@@ -158,6 +159,7 @@ function DrawerBody({
   // 이 정책이 실제 '내 분석 결과'에서 나온 것인지 — 신청 흐름 1단계의 '자동 선별 완료' 표기 정직성 근거.
   const matched = !!analysisResult?.eligible_policies.some((e) => e.id === policy.id)
   const [visitKit, setVisitKit] = useState(false)
+  const [clerkCard, setClerkCard] = useState(false) // 창구 도움 카드(외국어 UI에서 노출)
   const [applied, setApplied] = useState<false | 'copied' | 'opened' | 'blocked'>(false)
   const [blockedUrl, setBlockedUrl] = useState('')
   const related = onOpen
@@ -242,10 +244,17 @@ function DrawerBody({
           return (
             <div dir={RTL.includes(uiLang) ? 'rtl' : 'ltr'} className="rounded-2xl bg-sky2-50 border border-sky2-100 px-3.5 py-2.5 text-xs leading-relaxed text-sky2-800">
               <p>🌐 {tr(uiLang, 'banner')}</p>
-              <a href={gurl} target="_blank" rel="noopener noreferrer"
-                className="mt-1.5 inline-flex items-center gap-1 font-bold text-sky2-700 underline hover:text-sky2-800">
-                {tr(uiLang, 'translateCta')} <ExternalLink className="h-3 w-3" />
-              </a>
+              <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+                <a href={gurl} target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 font-bold text-sky2-700 underline hover:text-sky2-800">
+                  {tr(uiLang, 'translateCta')} <ExternalLink className="h-3 w-3" />
+                </a>
+                {/* 창구 도움 카드 — 말이 안 통해도 주민센터에서 '보여주기'로 신청을 시작하게(신규, 환각 0 설계) */}
+                <button onClick={() => setClerkCard(true)}
+                  className="inline-flex items-center gap-1 font-bold text-sky2-700 underline hover:text-sky2-800">
+                  🪪 {tr(uiLang, 'clerkCard')}
+                </button>
+              </div>
             </div>
           )
         })()}
@@ -573,6 +582,7 @@ function DrawerBody({
       </div>
 
       {visitKit && <VisitKit policy={policy} profile={profile} onClose={() => setVisitKit(false)} />}
+      {clerkCard && <ClerkCard policy={policy} lang={uiLang} onClose={() => setClerkCard(false)} />}
     </div>
   )
 }

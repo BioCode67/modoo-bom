@@ -7,6 +7,7 @@ const KEYS = [
   'save', 'saved', 'goApply', 'issue',
   'flowTitle', 'stepRecommend', 'stepInfo', 'stepDocs', 'stepAuth', 'stepSubmit',
   'byAuto', 'byGuide', 'byYou', 'banner',
+  'clerkCard', 'clerkHint', // 창구 도움 카드(신규)
 ] as const
 
 describe('i18nLite — UI 다국어 사전 완전성', () => {
