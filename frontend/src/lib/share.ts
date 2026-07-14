@@ -1,5 +1,26 @@
 const APP_URL = 'https://biocode67.github.io/modoo-bom/'
 
+/**
+ * 결과를 '카톡으로 보낼 글'로 — 어르신이 자녀에게, 이웃이 이웃에게 붙여넣어 보내는 요약 텍스트.
+ * 정직성: 화면 헤드라인과 동일 기준(핵심 POL- 중 강력추천 high의 현금성만 합산·isCashBenefit 게이트),
+ * 개별 금액도 현금성일 때만 표기. 이름은 넣지 않는다(대화방에 남는 개인정보 최소화).
+ */
+export function buildResultText(policies: { name: string; benefit: string; category: string; priority?: string }[], monthlyText: string): string {
+  const top = policies.slice(0, 5)
+  const lines = top.map((p) => `· ${p.name}`)
+  const more = policies.length > top.length ? `\n…외 ${policies.length - top.length}개` : ''
+  return [
+    `[모두봄] 내가 받을 수 있는 복지 ${policies.length}개를 찾았어요 🌱`,
+    '',
+    ...lines,
+    more.trim(),
+    monthlyText ? `\n핵심 현금지원 월 최대 ${monthlyText} (중복수급 미반영)` : '',
+    '',
+    `자세히 보기·바로 신청: ${APP_URL}`,
+    '(회원가입 없이 1분, 개인정보는 기기에만)',
+  ].filter((s) => s !== '').join('\n')
+}
+
 /** 텍스트/URL 공유 — Web Share 우선, 미지원 시 클립보드 복사. (개인정보 미포함) */
 export async function shareApp(count?: number): Promise<'shared' | 'copied' | 'failed'> {
   const text = count && count > 0
