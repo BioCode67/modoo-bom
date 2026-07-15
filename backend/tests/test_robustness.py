@@ -279,3 +279,50 @@ def test_gov24_form_options_helper_exists():
     # #1 회귀: 폼 옵션 선택 헬퍼가 존재(가족관계 유형·발급목적/연도 미선택 보완). 실동작은 Playwright 필요.
     from rpa import gov24_rpa
     assert callable(getattr(gov24_rpa, "_select_doc_form_options", None))
+
+
+# ── ETL save_catalog: 원자적 저장(임시파일+os.replace) — 실패해도 기존 파일 보존 ──
+class TestEtlAtomicSave:
+    def _seed(self, tmp_path):
+        out = tmp_path / "policies.json"
+        out.write_text(json.dumps([{"id": "OLD-1", "name": "기존"}], ensure_ascii=False),
+                       encoding="utf-8")
+        return out
+
+    def test_success_replaces_and_cleans_tmp(self, tmp_path):
+        from etl.ingest_welfare import save_catalog
+        out = self._seed(tmp_path)
+        assert save_catalog(out, [{"id": "NEW-1", "name": "새정책"}]) is True
+        data = json.loads(out.read_text(encoding="utf-8"))
+        assert data[0]["id"] == "NEW-1"
+        assert not (tmp_path / "policies.json.tmp").exists()
+
+    def test_creates_parent_dirs(self, tmp_path):
+        from etl.ingest_welfare import save_catalog
+        out = tmp_path / "a" / "b" / "policies.json"
+        assert save_catalog(out, [{"id": "X"}]) is True
+        assert json.loads(out.read_text(encoding="utf-8")) == [{"id": "X"}]
+
+    def test_serialization_failure_keeps_original(self, tmp_path):
+        # json.dumps 불가 값(set) → False 반환, 원본 무손상, 임시파일 정리
+        from etl.ingest_welfare import save_catalog
+        out = self._seed(tmp_path)
+        assert save_catalog(out, [{"id": "BAD", "tags": {"집합"}}]) is False
+        assert json.loads(out.read_text(encoding="utf-8"))[0]["id"] == "OLD-1"
+        assert not (tmp_path / "policies.json.tmp").exists()
+
+    def test_oserror_on_replace_keeps_original(self, tmp_path, monkeypatch):
+        # 디스크 부족(ENOSPC) 등 os.replace 실패 → False 반환, 원본 무손상, 임시파일 정리
+        import errno
+        import os as _os
+        from etl import ingest_welfare
+
+        out = self._seed(tmp_path)
+
+        def boom(src, dst):
+            raise OSError(errno.ENOSPC, "No space left on device")
+
+        monkeypatch.setattr(ingest_welfare.os, "replace", boom)
+        assert ingest_welfare.save_catalog(out, [{"id": "NEW-1"}]) is False
+        assert json.loads(out.read_text(encoding="utf-8"))[0]["id"] == "OLD-1"
+        assert not (tmp_path / "policies.json.tmp").exists()
