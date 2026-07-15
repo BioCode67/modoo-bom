@@ -1,5 +1,6 @@
 import { buildPrefill, type RpaInfo } from '@/lib/prefill'
 import { applyLink } from '@/lib/officialLinks'
+import { getCatalog } from '@/data/catalog'
 import type { UserProfile } from '@/lib/welfare-engine'
 
 /**
@@ -23,6 +24,77 @@ export const KNOWN_APPLY_URLS: Record<string, string> = {
   첫만남이용권: `${BOKJIRO}WLF00004656`,
   '국민기초생활보장 생계급여': `${BOKJIRO}WLF00001132`,
   '기초생활 생계급여': `${BOKJIRO}WLF00001132`,
+  // ── 2026-07 확장: 공공데이터(B554287) 검증 복지로 딥링크 — seed 정책도 신청 상세로 직행 ──
+  //    (seed는 application이 자유텍스트라 딥링크가 없어 gov.kr 검색으로 빠지던 것 정정. 실데이터 wlfareInfoId 대조)
+  장애인연금: `${BOKJIRO}WLF00003249`,
+  '국민취업지원제도 I 유형': `${BOKJIRO}WLF00003245`,
+  청년월세지원: `${BOKJIRO}WLF00004661`,
+  '노인 일자리 및 사회활동 지원': `${BOKJIRO}WLF00001155`,
+  '장애인 활동지원서비스': `${BOKJIRO}WLF00003260`,
+  '장애인 활동지원 서비스': `${BOKJIRO}WLF00003260`,
+  '한부모가족 아동양육비': `${BOKJIRO}WLF00001068`,
+  '노인 맞춤돌봄서비스': `${BOKJIRO}WLF00003191`,
+  '청소년 산모 임신·출산 의료비 지원': `${BOKJIRO}WLF00003246`,
+  에너지바우처: `${BOKJIRO}WLF00000072`,
+  '청소년 특별지원': `${BOKJIRO}WLF00000078`,
+  '희귀질환자 의료비 지원': `${BOKJIRO}WLF00000864`,
+  청년미래적금: `${BOKJIRO}WLF00006266`,
+  '통합문화이용권 (장애인)': `${BOKJIRO}WLF00000055`,
+  '저소득층 기저귀·조제분유 지원': `${BOKJIRO}WLF00000092`,
+  '다문화가족 방문교육 서비스': `${BOKJIRO}WLF00003192`,
+  '농업인 건강보험료 지원': `${BOKJIRO}WLF00001099`,
+  '장애인 의료비 지원': `${BOKJIRO}WLF00003181`,
+  '아이돌봄 서비스': `${BOKJIRO}WLF00000024`,
+  '청년 내일채움공제': `${BOKJIRO}WLF00006215`,
+  '저소득층 에너지효율 개선 (단열·창호)': `${BOKJIRO}WLF00001128`,
+  '학교 밖 청소년 지원 (꿈드림)': `${BOKJIRO}WLF00000948`,
+}
+
+const normApplyName = (s: string): string => (s || '').replace(/[\s()（）·,]/g, '')
+
+/** 실제 '신청 딥링크'(복지로 상세·고용24 개인·정부24 민원)인지 — generic 홈/검색은 제외. */
+function isRealApplyUrl(url: string): boolean {
+  if (isGenericHome(url)) return false
+  return /wlfareInfoId=WLF|work24\.go\.kr\/.+[?&=]|gov\.kr\/mw\//.test(url)
+}
+
+// 카탈로그(공공데이터 포함) 중 '실딥링크 보유' 정책의 정규화이름→URL 인덱스.
+// 캐시 키는 카탈로그 '배열 참조' — getCatalog()는 병합 전까지 동일 참조를 반환하고 병합 시에만 교체되므로
+// 참조가 바뀔 때(=데이터 변경)만 재구축한다(매 호출 재구축·length 충돌 방지).
+let _applyIdx: Map<string, string> | null = null
+let _applyIdxRef: ReturnType<typeof getCatalog> | null = null
+function applyUrlIndex(): Map<string, string> {
+  const cat = getCatalog()
+  if (_applyIdx && _applyIdxRef === cat) return _applyIdx
+  const m = new Map<string, string>()
+  for (const p of cat) {
+    const link = applyLink(p.application)
+    if (!isRealApplyUrl(link.url)) continue
+    const n = normApplyName(p.name)
+    if (n && !m.has(n)) m.set(n, link.url) // 먼저 등록된 이름 우선(시드/대표 우선)
+  }
+  _applyIdx = m
+  _applyIdxRef = cat
+  return m
+}
+
+/**
+ * 카탈로그 교차참조 — 딥링크 없는 정책명을 '같은 이름의 실딥링크 보유 정책'과 안전하게 매칭해
+ * 공공데이터(B554287)의 검증된 신청 URL을 빌려온다. 정부24 키워드 검색으로 빠지던 것을 실제 신청처로.
+ * ⚠️ '아동수당'이 '장애아동수당'을 가로채지 않도록 **정확 일치 또는 접두 일치(70%+)**만 허용(오매칭 방지).
+ */
+export function borrowApplyUrl(policyName: string): string {
+  const t = normApplyName(policyName)
+  if (t.length < 3) return ''
+  const idx = applyUrlIndex()
+  const exact = idx.get(t)
+  if (exact) return exact
+  for (const [n, url] of idx) {
+    if ((t.startsWith(n) || n.startsWith(t)) && Math.min(t.length, n.length) >= 0.7 * Math.max(t.length, n.length)) {
+      return url
+    }
+  }
+  return ''
 }
 
 /**
@@ -44,13 +116,21 @@ export function isGenericHome(url: string): boolean {
  * 신청 시 열 최적 URL 우선순위:
  *  ① 정책 데이터의 자체 딥링크(applyLink가 추출 — 실데이터가 항상 우선)
  *  ② 일반 홈 착지라면: 실측 검증된 복지로 신청 딥링크(KNOWN_APPLY_URLS, 정책명 정확 일치)
- *  ③ 그래도 일반 홈이면 정책명으로 정부24 통합검색 결과로(사용자가 홈에서 헤매는 것 방지)
+ *  ③ 그래도 없으면 카탈로그 교차참조 — 같은 이름의 공공데이터 정책(검증된 복지로 딥링크)을 재사용
+ *     (시드 정책이 '복지로 온라인 신청' 자유텍스트만 가져 gov.kr 검색으로 빠지던 것을 실제 신청 상세로)
+ *  ④ 그래도 못 찾으면 정책명으로 정부24 통합검색(사용자가 홈에서 헤매는 것 방지)
  *  단, '주민센터 방문' 채널은 온라인 신청처럼 오도하지 않도록 검색 폴백을 걸지 않는다.
  */
 export function bestApplyUrl(application: string, policyName?: string): string {
   const link = applyLink(application)
-  if (policyName && KNOWN_APPLY_URLS[policyName] && isGenericHome(link.url)) return KNOWN_APPLY_URLS[policyName]
-  if (policyName && isGenericHome(link.url) && !link.label.includes('주민센터')) {
+  if (!isGenericHome(link.url)) return link.url // ① 정책 자체 딥링크 최우선(실데이터 존중)
+  if (policyName && KNOWN_APPLY_URLS[policyName]) return KNOWN_APPLY_URLS[policyName] // ② 실측 검증 딥링크(정확 일치)
+  if (policyName) {
+    const borrowed = borrowApplyUrl(policyName) // ③ 공공데이터 교차참조로 검증된 신청 URL 확보
+    if (borrowed) return borrowed
+  }
+  // ④ 최후 폴백: 온라인 신청형만 정부24 통합검색(주민센터 방문형은 온라인처럼 오도하지 않게 제외)
+  if (policyName && !link.label.includes('주민센터')) {
     return `https://www.gov.kr/search?srhQuery=${encodeURIComponent(policyName)}`
   }
   return link.url

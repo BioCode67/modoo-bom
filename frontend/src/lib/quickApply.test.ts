@@ -1,5 +1,13 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { bestApplyUrl, isGenericHome, oneTapApply, KNOWN_APPLY_URLS } from './quickApply'
+import { bestApplyUrl, isGenericHome, oneTapApply, borrowApplyUrl, KNOWN_APPLY_URLS } from './quickApply'
+import { getCatalog } from '@/data/catalog'
+
+// 카탈로그 교차참조 테스트를 위해 getCatalog를 목킹(기본 빈 배열 → 기존 폴백 동작 유지).
+// 인덱스 캐시는 '배열 참조'로 무효화되므로 mockReturnValue로 새 배열을 주면 자동 재구축된다.
+vi.mock('@/data/catalog', () => ({ getCatalog: vi.fn(() => []) }))
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const setCatalog = (arr: any[]) => (getCatalog as any).mockReturnValue(arr)
+const deep = (wlf: string) => `https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=${wlf}`
 
 describe('isGenericHome — 일반 홈 착지 패턴 판정', () => {
   it('홈(트레일링 슬래시·portal/main 변형 포함)은 generic', () => {
@@ -37,6 +45,49 @@ describe('bestApplyUrl — 착지 우선순위', () => {
   })
   it("'주민센터 방문' 채널은 검색 폴백 금지(오프라인 전용을 온라인처럼 오도하지 않음)", () => {
     expect(bestApplyUrl('주민센터 방문 신청', '어떤 방문형 복지')).toBe('https://www.bokjiro.go.kr')
+  })
+})
+
+describe('bestApplyUrl — 확장(2026-07): seed 정책도 실제 신청 상세로 직행', () => {
+  it('청년월세지원(seed) → 복지로 신청 상세(WLF00004661), gov.kr 검색 아님', () => {
+    // 사용자 신고: 자유텍스트 application이라 gov.kr 키워드 검색으로 빠지던 것 → 실제 신청처로
+    const u = bestApplyUrl('복지로 온라인 신청', '청년월세지원')
+    expect(u).toContain('WLF00004661')
+    expect(u).not.toContain('gov.kr/search')
+  })
+  it('장애인연금·노인일자리 등 확장 정책도 복지로 직행', () => {
+    expect(bestApplyUrl('복지로 신청', '장애인연금')).toContain('WLF00003249')
+    expect(bestApplyUrl('주민센터 또는 복지로', '노인 일자리 및 사회활동 지원')).toContain('WLF00001155')
+  })
+})
+
+describe('borrowApplyUrl — 카탈로그 교차참조(공공데이터 검증 딥링크 재사용)', () => {
+  afterEach(() => setCatalog([]))
+
+  it('정확 일치 정책의 검증된 신청 URL을 빌려온다', () => {
+    setCatalog([{ id: 'GOV-1', name: '희귀한지원사업', application: `신청: ${deep('WLF00009001')}` }])
+    expect(borrowApplyUrl('희귀한지원사업')).toContain('WLF00009001')
+  })
+  it('접두 일치(70%+)는 허용 — "청년월세지원" ↔ "청년월세 지원사업"', () => {
+    setCatalog([
+      { id: 'GOV-1', name: '청년월세 지원사업', application: deep('WLF00004661') },
+      { id: 'GOV-2', name: '전혀다른정책', application: deep('WLF00009999') },
+    ])
+    expect(borrowApplyUrl('청년월세지원')).toContain('WLF00004661')
+  })
+  it('오매칭 방지: "아동수당"이 "장애아동수당"을 가로채지 않음(접두 불일치)', () => {
+    setCatalog([{ id: 'GOV-1', name: '장애아동수당', application: deep('WLF00003198') }])
+    expect(borrowApplyUrl('아동수당')).toBe('') // 접두 일치가 아니므로 빌리지 않음(정직성)
+  })
+  it('딥링크 없는 정책(주민센터 방문 등)은 인덱스에서 제외 → 못 빌림', () => {
+    setCatalog([{ id: 'LOC-1', name: '어떤동네지원', application: '주민센터 방문' }])
+    expect(borrowApplyUrl('어떤동네지원')).toBe('')
+  })
+  it('bestApplyUrl이 교차참조로 gov.kr 검색 대신 실딥링크를 쓴다', () => {
+    setCatalog([{ id: 'GOV-9', name: '무슨무슨바우처', application: deep('WLF00008888') }])
+    const u = bestApplyUrl('복지로 온라인 신청', '무슨무슨바우처')
+    expect(u).toContain('WLF00008888')
+    expect(u).not.toContain('gov.kr/search')
   })
 })
 
