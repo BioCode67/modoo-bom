@@ -102,15 +102,17 @@ export function MascotCanvas() {
   const ready = useDeferredMount(ref)
   // 데이터 절약·저사양 기기는 3D 청크 자체를 받지 않음(최초 1회 측정)
   const [skipHeavy] = useState(shouldSkipHeavy3D)
+  // GPU 컨텍스트 상실 시 2D로 강등(마운트 후 빈 캔버스로 남는 것 방지)
+  const [contextLost, setContextLost] = useState(false)
 
   return (
     <div ref={ref} className="h-full w-full">
-      {reduce || skipHeavy || !ready ? (
+      {reduce || skipHeavy || !ready || contextLost ? (
         <StaticMascot animate={!reduce} />
       ) : (
         <Canvas3DBoundary>
           <Suspense fallback={<StaticMascot />}>
-            <HeroScene animate />
+            <HeroScene animate onContextLost={() => setContextLost(true)} />
           </Suspense>
         </Canvas3DBoundary>
       )}

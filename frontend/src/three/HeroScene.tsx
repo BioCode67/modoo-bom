@@ -61,9 +61,10 @@ function ParallaxGroup({ children, enabled }: { children: React.ReactNode; enabl
 
 export interface HeroSceneProps {
   animate?: boolean
+  onContextLost?: () => void
 }
 
-export default function HeroScene({ animate = true }: HeroSceneProps) {
+export default function HeroScene({ animate = true, onContextLost }: HeroSceneProps) {
   return (
     <Canvas
       shadows
@@ -71,6 +72,10 @@ export default function HeroScene({ animate = true }: HeroSceneProps) {
       gl={{ antialias: true, alpha: true }}
       camera={{ position: [0, 0.5, 6], fov: 42 }}
       style={{ width: '100%', height: '100%' }}
+      onCreated={({ gl }) => {
+        // GPU 컨텍스트 상실(저사양 안드로이드 백그라운드 복귀·GPU 리셋) 시 빈 캔버스로 남지 않게 2D로 폴백(감사)
+        gl.domElement.addEventListener('webglcontextlost', (e) => { e.preventDefault(); onContextLost?.() }, { once: true })
+      }}
     >
       {/* 부드러운 하늘/지면 환경광 — 카툰풍을 유지하며 음영을 자연스럽게 */}
       <hemisphereLight args={['#ffffff', '#d7f5e3', 0.9]} />
