@@ -11,7 +11,7 @@ import { useAppStore } from '@/store/useAppStore'
 import { IncomeCalculator } from '@/components/IncomeCalculator'
 import { parseMonthly, isCashBenefit } from '@/lib/format'
 import { buildAiAnswer } from '@/lib/aiAnswer'
-import { supportsOnDeviceTranslation, getTranslator } from '@/lib/onDeviceTranslate'
+import { supportsOnDeviceTranslation, getTranslator, zhTarget } from '@/lib/onDeviceTranslate'
 import { queryConcepts, relevance } from '@/lib/search'
 import { cn } from '@/lib/utils'
 import type { Policy } from '@/data/policies'
@@ -173,11 +173,21 @@ export function Explore() {
 
   // 다국어 AI 검색 — 질의가 외국어면 결과 카드(정책명·대상·혜택)를 그 언어로 '온디바이스' 번역해 표시.
   // 미지원 브라우저는 undefined → 카드가 한국어 원문 그대로(폴백). 금액·자격 등 로직은 항상 한국어 원문 기준.
-  const translateTo = aiMode && answerLang !== 'ko' ? answerLang : undefined
+  // 중국어는 질의의 자형으로 간체/번체를 판정(대만·홍콩 사용자에게 간체를 내밀지 않게 — 감사 확정).
+  const translateTo = useMemo(() => {
+    if (!aiMode || answerLang === 'ko' || !q.trim()) return undefined
+    return answerLang === 'zh' ? zhTarget(q) : answerLang
+  }, [aiMode, answerLang, q])
   const canTranslate = supportsOnDeviceTranslation()
-  // 번역기 워밍업 — 결과가 뜨기 전에 모델을 미리 준비(첫 카드 번역 지연 최소화). 실패는 무해(원문 폴백).
+  // 번역기 '실제 준비' 상태(null=확인 중) — 상태문구를 실측으로만 표시(언어팩 미지원·다운로드 실패인데
+  // '번역했어요'라고 단정하던 허위 안내 수정, 감사 확정). 워밍업을 겸한다(첫 카드 번역 지연 최소화).
+  const [trReady, setTrReady] = useState<boolean | null>(null)
   useEffect(() => {
-    if (translateTo && canTranslate) getTranslator(translateTo)
+    setTrReady(null)
+    if (!translateTo || !canTranslate) return
+    let alive = true
+    getTranslator(translateTo).then((t) => { if (alive) setTrReady(!!t) })
+    return () => { alive = false }
   }, [translateTo, canTranslate])
 
   // 음성으로 물었으면 AI가 음성으로 답한다(대화형) — 마이크 클릭이 사용자 제스처라 TTS 허용됨
@@ -486,25 +496,26 @@ export function Explore() {
         </div>
       )}
 
-      {/* 다국어 결과 번역 상태 — 온디바이스 번역이 켜졌는지/미지원 폴백인지 정직하게 안내(정책명 원문은 한국어). */}
-      {translateTo && aiHits && aiHits.length > 0 && (
-        canTranslate ? (
+      {/* 다국어 결과 번역 상태 — '실제로 번역기가 준비됐을 때만' 성공 문구(허위 안내 금지, 감사 확정).
+          미지원 브라우저/언어팩 불가는 정직한 폴백 안내, 확인 중(null)엔 아무 문구도 단정하지 않는다. */}
+      {translateTo && filtered.length > 0 && (
+        canTranslate && trReady === true ? (
           <p className="mt-2 flex items-center gap-1.5 text-xs text-violet-700" role="status">
             <Languages className="h-3.5 w-3.5 shrink-0" />
-            결과를 <b>이 기기 안에서</b> {detected?.flag} <b>{detected?.label || '입력 언어'}</b>로 자동 번역했어요 · 원문(신청·자격 기준)은 한국어예요.
+            결과를 <b>이 기기 안에서</b> {detected?.flag} <b>{detected?.label || '입력 언어'}</b>로 자동 번역해 보여드려요 · 원문(신청·자격 기준)은 한국어예요.
           </p>
-        ) : (
-          <p className="mt-2 text-xs text-muted-foreground">
-            이 브라우저는 온디바이스 번역을 지원하지 않아 정책은 <b>한국어</b>로 표시돼요(최신 Chrome·Edge에서 자동 번역). ·{' '}
+        ) : !canTranslate || trReady === false ? (
+          <p className="mt-2 text-xs text-muted-foreground" role="status">
+            이 브라우저에선 이 언어로 자동 번역을 켤 수 없어 정책이 <b>한국어</b>로 표시돼요(최신 Chrome·Edge에서 지원). ·{' '}
             <a
-              href={`https://translate.google.com/?sl=ko&tl=${translateTo === 'zh' ? 'zh-CN' : translateTo}&op=translate`}
+              href={`https://translate.google.com/?sl=ko&tl=${translateTo === 'zh' ? 'zh-CN' : translateTo === 'zh-Hant' ? 'zh-TW' : translateTo}&op=translate`}
               target="_blank" rel="noopener noreferrer"
               className="underline font-semibold text-sky2-700"
             >
               Google 번역 열기
             </a>
           </p>
-        )
+        ) : null
       )}
 
       {filtered.length === 0 ? (

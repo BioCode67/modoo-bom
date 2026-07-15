@@ -82,4 +82,34 @@ describe('onDeviceTranslate — 온디바이스 번역', () => {
     await m.translateText('기초연금', 'zh')
     expect(mk.availability).toHaveBeenCalledWith({ sourceLanguage: 'ko', targetLanguage: 'zh-Hans' })
   })
+
+  it('인플라이트 dedup — 동시 호출 2건이 translate 1회만 발생(60카드 동시 마운트)', async () => {
+    const mk = makeMock()
+    vi.stubGlobal('Translator', mk.Translator)
+    const m = await load()
+    const [a, b] = await Promise.all([m.translateText('노인', 'vi'), m.translateText('노인', 'vi')])
+    expect(a).toBe('VI:노인')
+    expect(b).toBe('VI:노인')
+    expect(mk.translate).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('zhTarget — 간체/번체 판정(대만·홍콩 사용자 보호)', () => {
+  it('번체 고유자(醫療/臺灣 등)가 있으면 zh-Hant', async () => {
+    const m = await load()
+    expect(m.zhTarget('我需要醫療補助')).toBe('zh-Hant')
+    expect(m.zhTarget('臺灣人在韓國')).toBe('zh-Hant')
+  })
+  it('간체 문장은 zh(간체) 유지', async () => {
+    const m = await load()
+    expect(m.zhTarget('我是残疾人，需要医疗费用支持')).toBe('zh')
+    expect(m.zhTarget('老年人没有收入')).toBe('zh')
+  })
+  it("zh-Hant는 BCP-47 매핑에서 그대로 통과", async () => {
+    const mk = makeMock()
+    vi.stubGlobal('Translator', mk.Translator)
+    const m = await load()
+    await m.translateText('기초연금', 'zh-Hant')
+    expect(mk.availability).toHaveBeenCalledWith({ sourceLanguage: 'ko', targetLanguage: 'zh-Hant' })
+  })
 })

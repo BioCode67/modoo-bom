@@ -50,6 +50,9 @@ export function PolicyCard({
   const dCategory = tr?.category ?? policy.category
   const dTarget = tr?.target ?? targetText
   const dBenefit = tr?.benefit ?? benefitPreview
+  // 번역 텍스트의 언어·방향 명시 — 스크린리더 오발음·아랍어(RTL) 어순 깨짐 방지(감사 확정)
+  const trLang = tr ? (translateTo === 'zh' ? 'zh-Hans' : translateTo) : undefined
+  const trDir = tr && translateTo === 'ar' ? ('rtl' as const) : undefined
 
   return (
     <motion.div
@@ -67,7 +70,7 @@ export function PolicyCard({
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-[11px] font-semibold text-muted-foreground">{dCategory}</span>
+            <span lang={trLang} className="text-[11px] font-semibold text-muted-foreground">{dCategory}</span>
             {tr && (
               <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-violet-700 bg-violet-50 rounded-full px-1.5 py-0.5"
                 title="브라우저 안에서 자동 번역됨 · 원문(신청 기준)은 한국어예요">
@@ -89,7 +92,7 @@ export function PolicyCard({
           </div>
           {/* 카드 제목은 heading이 아닌 일반 텍스트 — 5천여 카드 그리드에서 heading 남발/레벨 스킵 방지.
               스크린리더는 카드의 '자세히' 버튼(aria-label=정책명 상세 보기)으로 정책명을 안내받는다. */}
-          <p className="font-bold text-[15px] leading-snug mt-0.5 truncate">{dName}</p>
+          <p lang={trLang} dir={trDir} className="font-bold text-[15px] leading-snug mt-0.5 truncate">{dName}</p>
         </div>
         <button
           onClick={(e) => {
@@ -106,7 +109,7 @@ export function PolicyCard({
         </button>
       </div>
 
-      <p className="mt-3 text-xs text-muted-foreground line-clamp-2 leading-relaxed">{dTarget}</p>
+      <p lang={trLang} dir={trDir} className="mt-3 text-xs text-muted-foreground line-clamp-2 leading-relaxed">{dTarget}</p>
 
       {eligible && (policy as EligiblePolicy).reason && (
         <div className="mt-2 rounded-xl bg-sprout-50 px-3 py-2 text-xs text-sprout-800 line-clamp-2">
@@ -120,7 +123,7 @@ export function PolicyCard({
             월 {formatWon(monthly)}<span className="text-[11px] font-medium text-muted-foreground"> 까지</span>
           </span>
         ) : (
-          <span className="text-xs font-semibold text-muted-foreground line-clamp-1">{tr ? dBenefit : `${policy.benefit.slice(0, 18)}…`}</span>
+          <span lang={trLang} dir={trDir} className="text-xs font-semibold text-muted-foreground line-clamp-1">{tr ? dBenefit : `${policy.benefit.slice(0, 18)}…`}</span>
         )}
         {/* 키보드·스크린리더용 상세 열기 버튼(카드 role=button 대신). 대비 통과 위해 sprout-700 */}
         <button

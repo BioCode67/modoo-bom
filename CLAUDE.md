@@ -69,15 +69,14 @@ src/
 - **서류 발급/신청 RPA**(`backend/rpa/*.py`, Playwright): 정부24·복지로·건보·고용24 **실제 페이지 자동화**. chromium 설치됨, 스택 구동 확인. 단 **headed 모드 + 카카오 본인인증은 사용자가 직접**, **최종 제출도 사용자 확인**(비가역·법적 행위라 의도된 안전장치). `apply_rpa`는 로그인→서비스 딥링크 이동→'신청하기' 클릭→양식에 이름·생년월일·연락처 자동 입력까지 진행 후 **제출 직전 정지**. **정적 배포 사이트에선 백엔드가 없어 미동작** → 공식 링크 안내로 폴백.
 - **완전 무인 자동 제출은 설계상 불가**(정부 본인인증 필수 + 비가역). human-in-the-loop가 정답.
 - **사후관리/모니터링**: 과거 `result_tracker`는 `random.choice`로 가짜 상태를 날조 → **제거함**. 이제 정직한 안내만. 실제 추적은 **프론트 `나의 복지`의 모니터링 엔진**(`src/lib/monitoring.ts`)이 사용자 기록(신청일/점검일)+정책 갱신주기로 서류미비·신청권유·진행점검·갱신임박을 산출(배포에서도 동작). 정부 서버 실시간 상태조회는 사용자 세션 없이는 불가 → 공식 조회 링크로 안내.
-- **무설치(확장 없이) 1급 경로 — 2026-07 강화**: ① 서류·신청 딥링크 정밀화 — 등·초본(CappBizCD 13100000015)·가족관계(97400000004) 등 정부24 민원 직행 + 복지로 신청 딥링크 6종(`quickApply.KNOWN_APPLY_URLS`, wlfareInfoNm 라이브 대조) — 전부 실측 검증, `npm run check:links`로 상시 재검증(19종). ② **이어서 발급**: 서류 도우미 배너 CTA가 남은 전자증명서 서류를 순서대로 안내(정부24 로그인 유지 — 확장의 연쇄발급을 무설치 재현), 발급완료는 `docDone`(persist)으로 기억. ③ **복귀 확인 반자동 기록**(`ReturnConfirm`+`returnPrompt`): 정부 탭에서 돌아오면 '완료하셨나요?' 1탭 확인 — 사용자가 '네'를 눌러야만 applied/발급완료 기록(클릭=완료 날조 금지). ④ 팝업 차단 감지(oneTapApply `opened`), 프리필은 '이름 값만' 복사+신청 키트 순차 복사(정부 폼은 필드별 input). `isCertIssuable`은 URL 정규식 → `docLink().issue`('wallet'|'online') 명시 필드로 승격(가족사진·이직확인서 거짓양성 제거).
+- **무설치(확장 없이) 1급 경로 — 2026-07 강화**: ① 서류·신청 딥링크 정밀화 — 등·초본(CappBizCD 13100000015)·가족관계(97400000004) 등 정부24 민원 직행 + 복지로 신청 딥링크 27종(별칭 포함 29키, `quickApply.KNOWN_APPLY_URLS`, wlfareInfoNm 라이브 대조) — 전부 실측 검증, `npm run check:links`로 상시 재검증(정부24 13 + 복지로 27 = 40건). ② **이어서 발급**: 서류 도우미 배너 CTA가 남은 전자증명서 서류를 순서대로 안내(정부24 로그인 유지 — 확장의 연쇄발급을 무설치 재현), 발급완료는 `docDone`(persist)으로 기억. ③ **복귀 확인 반자동 기록**(`ReturnConfirm`+`returnPrompt`): 정부 탭에서 돌아오면 '완료하셨나요?' 1탭 확인 — 사용자가 '네'를 눌러야만 applied/발급완료 기록(클릭=완료 날조 금지). ④ 팝업 차단 감지(oneTapApply `opened`), 프리필은 '이름 값만' 복사+신청 키트 순차 복사(정부 폼은 필드별 input). `isCertIssuable`은 URL 정규식 → `docLink().issue`('wallet'|'online') 명시 필드로 승격(가족사진·이직확인서 거짓양성 제거).
 - 프론트 자동화 게이팅: `src/lib/useBackend.ts`(백엔드 감지) → 있으면 RPA(`AgentSubmitButton`/`DocumentCenter`), 없으면 가이드.
 
 ### 배포 — GitHub Pages (정적)
-- **라이브: https://biocode67.github.io/modoo-bom/** · `gh-pages` 브랜치 서빙(legacy build)
-- 재배포: `cd frontend && npm run deploy` (build → gh-pages 푸시)
+- **라이브: https://biocode67.github.io/modoo-bom/** · `gh-pages` 브랜치 서빙
+- **자동 배포(2026-07-15 도입)**: main 푸시 시 GitHub Actions(`.github/workflows/deploy.yml`)가 빌드 후
+  `gh-pages`로 배포(peaceiris/actions-gh-pages) — 실행 이력 전부 성공. 수동 배포도 가능: `cd frontend && npm run deploy`
 - Vite `base`는 빌드 시 `/modoo-bom/`, 개발 시 `/` (vite.config.ts)
-- ⚠️ 푸시 토큰에 `workflow` 스코프가 없어 `.github/workflows`는 푸시 불가 → Actions 대신
-  `gh-pages` 브랜치 + Pages REST API 방식으로 배포함.
 
 ### 기능·품질 현황 (전문화 완료)
 - **데이터**: 시드 190건(정밀 규칙·검증 금액; 정부 124 + 지원사업 SUP 33 + 주택공고 HOU 7 + 서민금융 FIN 5) + **민간재단 큐레이션 21건**(`src/data/privatePolicies.ts`, PRV-###:
@@ -98,7 +97,8 @@ src/
   사전계산(`npm run embed`→`public/policy-embeddings.json`), 런타임은 질의만 임베딩. 탐색의 'AI 의미 검색'
   토글(옵트인 지연로드)+입력 언어 자동감지(`detectLang.ts`)+홈 카드 CTA. **서버 전송 없음**(프라이버시).
   **AI 답변 카드**(`aiAnswer.ts`: 검색결과 기반 요약, 환각 없음)+**음성 대화**(자국어로 말하면 음성으로 답)+
-  **다국어 음성 입력**+정책 상세 **"AI로 비슷한 복지"**(`relatedPolicies`: 임베딩만, 모델 불필요)+모델 로딩 중 키워드 폴백.
+  **다국어 음성 입력**+정책 상세 **"AI로 비슷한 복지"**(`relatedPolicies`: 임베딩만, 모델 불필요)+모델 로딩 중 키워드 폴백+
+  **결과 온디바이스 번역**(`onDeviceTranslate.ts`: 브라우저 내장 Translator API(Chrome/Edge 138+)로 AI 검색 결과 카드를 질의 언어로 기기 내 번역 — '자동 번역' 배지 명시, 미지원·실패 시 한국어 원문 폴백, 신청·자격 기준은 한국어 원문).
   운영: 첫 로드 ~128MB(CDN), 이후 캐시로 즉시 → 데모 전 프리워밍 권장. 미사용 WASM은 배포 시 제거(`scripts/clean-wasm.mjs`).
 - **분석 엔진**: 시드는 키워드/규칙 기반 정밀 자격판정, 공공데이터(요약형)는 자연어 신호 추론으로
   '관련 복지'를 낮은 신뢰도로 제시(`inferFromText`). 결과는 핵심(POL-)·관련(GOV/LOC-)으로 분리 표시.
@@ -113,7 +113,7 @@ src/
   긴급복지 진단, 복지 점수·TOP3, **대표문의 전화 tel: 연결**, **포트폴리오 차트**(SVG), 온보딩,
   **로그인·동기화**(카카오·구글, Supabase 무료 티어, 선택 — 미설정 시 인증 UI 숨김 + supabase-js 트리셰이킹 제외, 설정은 `supabase/SETUP.md`),
   **PWA**(설치형·오프라인·autoUpdate·beforeinstallprompt), 큰글씨·고대비·ESC·ARIA·focus-visible 접근성, ErrorBoundary.
-- **품질 게이트(모두 통과)**: `npm run lint`(eslint9 flat, react-hooks, 0건) · `npm test`(vitest **621**) ·
+- **품질 게이트(모두 통과)**: `npm run lint`(eslint9 flat, react-hooks, 0건) · `npm test`(vitest **652**) ·
   `tsc --noEmit` · `npm run build` · E2E 스모크(`frontend/e2e/smoke.py`, 실브라우저 10여정 + e2e:chat/save/fin/ext) / 백엔드 `pytest`(**130**). 변경마다 브라우저 회귀 검증.
 - **견고성 감사(2026-07)**: 다중에이전트 감사로 백엔드 확정결함 8건(extract_json dict 보장·RPA 태스크
   강한참조·chat 세션유지·카탈로그 파싱·검색캐시 사본·ETL _pick 섀도잉) + 프론트 5건(sidoOf 도우선·

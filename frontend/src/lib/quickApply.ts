@@ -48,6 +48,30 @@ export const KNOWN_APPLY_URLS: Record<string, string> = {
   '청년 내일채움공제': `${BOKJIRO}WLF00006215`,
   '저소득층 에너지효율 개선 (단열·창호)': `${BOKJIRO}WLF00001128`,
   '학교 밖 청소년 지원 (꿈드림)': `${BOKJIRO}WLF00000948`,
+  // ── 2026-07-15 2차 확장: 감사 워크플로가 발굴·검증(policies.json 실재 + 동일 제도 대조) ──
+  //    규칙 매칭(정확/접두70%)이 표기차로 못 잡던 대표 국가제도 — gov.kr 검색으로 빠지던 것을 복지로 상세 직행.
+  '교육급여 (기초생활보장)': `${BOKJIRO}WLF00001089`,
+  '교육급여 (초중고 학생)': `${BOKJIRO}WLF00001089`,
+  '주거급여 (기초생활보장)': `${BOKJIRO}WLF00003201`,
+  '주거급여 (임차급여·수선유지급여)': `${BOKJIRO}WLF00003201`,
+  '보육료 지원 (어린이집)': `${BOKJIRO}WLF00003250`,
+  '유아학비 지원 (유치원)': `${BOKJIRO}WLF00000969`,
+  '임신·출산 진료비 지원 (국민행복카드)': `${BOKJIRO}WLF00006313`,
+  '임신·출산 진료비 지원 국민행복카드': `${BOKJIRO}WLF00006313`,
+  '출산 전후 휴가급여': `${BOKJIRO}WLF00003226`,
+  육아휴직급여: `${BOKJIRO}WLF00003226`,
+  '한국장학재단 국가장학금 I 유형': `${BOKJIRO}WLF00003197`,
+  국민내일배움카드: `${BOKJIRO}WLF00006229`,
+  '장애아동 발달재활서비스': `${BOKJIRO}WLF00003195`,
+  '노인 장기요양보험 (재가급여)': `${BOKJIRO}WLF00003248`,
+  '노인 무릎 인공관절 수술비 지원': `${BOKJIRO}WLF00001179`,
+  '국가예방접종 지원': `${BOKJIRO}WLF00003242`,
+  '산모·신생아 건강관리 서비스': `${BOKJIRO}WLF00001188`,
+  '여성 청소년 생리용품 바우처': `${BOKJIRO}WLF00000781`,
+  '사회적 기업 일자리창출사업': `${BOKJIRO}WLF00003234`,
+  '중소기업 직장어린이집 설치 지원': `${BOKJIRO}WLF00001163`,
+  '청년 월세 한시 특별지원': `${BOKJIRO}WLF00004661`,
+  '청소년 산모 의료비 지원': `${BOKJIRO}WLF00003246`,
 }
 
 const normApplyName = (s: string): string => (s || '').replace(/[\s()（）·,]/g, '')
@@ -68,6 +92,9 @@ function applyUrlIndex(): Map<string, string> {
   if (_applyIdx && _applyIdxRef === cat) return _applyIdx
   const m = new Map<string, string>()
   for (const p of cat) {
+    // ⚠️ 지자체(LOC-)는 대여자에서 제외 — '같은 이름이라도 지역이 다르면 별개 사업'(감사 확정 HIGH:
+    //    서산시 장수수당이 창원시 장수수당 URL을 빌리는 실측 오연결 168개 이름군). 국가/중앙 사업만 빌려준다.
+    if (p.id.startsWith('LOC-')) continue
     const link = applyLink(p.application)
     if (!isRealApplyUrl(link.url)) continue
     const n = normApplyName(p.name)
@@ -78,10 +105,15 @@ function applyUrlIndex(): Map<string, string> {
   return m
 }
 
+// 접두 일치 시 허용되는 '무의미 접미어'만 — 나머지(추가지원·추가형·감면·특별 등)는 다른 사업 한정어라 거부.
+//   감사 확정: '발달장애인 주간활동서비스 추가지원'(지자체 추가사업)이 국가 본사업 URL을 빌리던 것 차단.
+const GENERIC_SUFFIX_RE = /^(지원|사업|지급|서비스|제도)*$/
+
 /**
  * 카탈로그 교차참조 — 딥링크 없는 정책명을 '같은 이름의 실딥링크 보유 정책'과 안전하게 매칭해
  * 공공데이터(B554287)의 검증된 신청 URL을 빌려온다. 정부24 키워드 검색으로 빠지던 것을 실제 신청처로.
- * ⚠️ '아동수당'이 '장애아동수당'을 가로채지 않도록 **정확 일치 또는 접두 일치(70%+)**만 허용(오매칭 방지).
+ * ⚠️ '아동수당'이 '장애아동수당'을 가로채지 않도록 **정확 일치 또는 접두 일치(70%+)**만 허용하고,
+ *    접두 일치의 잔여 문자열은 무의미 접미어(지원·사업류)일 때만 인정(한정어 소실 방지). 대여자는 비지자체만.
  */
 export function borrowApplyUrl(policyName: string): string {
   const t = normApplyName(policyName)
@@ -91,6 +123,8 @@ export function borrowApplyUrl(policyName: string): string {
   if (exact) return exact
   for (const [n, url] of idx) {
     if ((t.startsWith(n) || n.startsWith(t)) && Math.min(t.length, n.length) >= 0.7 * Math.max(t.length, n.length)) {
+      const rest = t.length > n.length ? t.slice(n.length) : n.slice(t.length)
+      if (!GENERIC_SUFFIX_RE.test(rest)) continue // '추가지원'·'(추가형)'·'감면' 등 의미 있는 한정어 → 다른 사업
       return url
     }
   }
@@ -120,12 +154,14 @@ export function isGenericHome(url: string): boolean {
  *     (시드 정책이 '복지로 온라인 신청' 자유텍스트만 가져 gov.kr 검색으로 빠지던 것을 실제 신청 상세로)
  *  ④ 그래도 못 찾으면 정책명으로 정부24 통합검색(사용자가 홈에서 헤매는 것 방지)
  *  단, '주민센터 방문' 채널은 온라인 신청처럼 오도하지 않도록 검색 폴백을 걸지 않는다.
+ *  ⚠️ 지자체(LOC-) 정책은 ②③을 건너뛴다 — 동명 국가/타지역 사업으로 오연결 금지(자체 URL 또는 검색만).
  */
-export function bestApplyUrl(application: string, policyName?: string): string {
+export function bestApplyUrl(application: string, policyName?: string, policyId?: string): string {
   const link = applyLink(application)
   if (!isGenericHome(link.url)) return link.url // ① 정책 자체 딥링크 최우선(실데이터 존중)
-  if (policyName && KNOWN_APPLY_URLS[policyName]) return KNOWN_APPLY_URLS[policyName] // ② 실측 검증 딥링크(정확 일치)
-  if (policyName) {
+  const isLoc = !!policyId && policyId.startsWith('LOC-')
+  if (!isLoc && policyName && KNOWN_APPLY_URLS[policyName]) return KNOWN_APPLY_URLS[policyName] // ② 실측 검증 딥링크(정확 일치)
+  if (!isLoc && policyName) {
     const borrowed = borrowApplyUrl(policyName) // ③ 공공데이터 교차참조로 검증된 신청 URL 확보
     if (borrowed) return borrowed
   }
@@ -134,6 +170,21 @@ export function bestApplyUrl(application: string, policyName?: string): string {
     return `https://www.gov.kr/search?srhQuery=${encodeURIComponent(policyName)}`
   }
   return link.url
+}
+
+/**
+ * 신청 CTA용 URL+라벨 세트 — 라벨은 '최종 목적지' 기준으로 산출해 라벨-착지 불일치를 없앤다
+ * (감사 확정: raw applyLink 라벨('복지로에서 신청')을 단 버튼이 실제론 정부24 검색으로 가던 것).
+ */
+export function bestApplyInfo(application: string, policyName?: string, policyId?: string): { url: string; label: string } {
+  const url = bestApplyUrl(application, policyName, policyId)
+  const raw = applyLink(application)
+  if (url === raw.url) return { url, label: raw.label }
+  if (url.includes('bokjiro.go.kr')) return { url, label: '복지로에서 신청' }
+  if (url.includes('gov.kr/search')) return { url, label: '정부24에서 검색' }
+  if (url.includes('gov.kr')) return { url, label: '정부24에서 신청' }
+  if (url.includes('work24')) return { url, label: '고용24에서 신청' }
+  return { url, label: raw.label }
 }
 
 export interface OneTapResult {
@@ -145,8 +196,8 @@ export interface OneTapResult {
   url: string
 }
 
-export async function oneTapApply(application: string, policyName: string | undefined, profile: UserProfile | null, rpaInfo?: RpaInfo): Promise<OneTapResult> {
-  const url = bestApplyUrl(application, policyName)
+export async function oneTapApply(application: string, policyName: string | undefined, profile: UserProfile | null, rpaInfo?: RpaInfo, policyId?: string): Promise<OneTapResult> {
+  const url = bestApplyUrl(application, policyName, policyId)
   // ⚠️ 새 탭은 사용자 제스처 안에서 '먼저' 열어야 한다. clipboard await 뒤에 open하면 제스처 체인이
   //    끊겨 모바일 Safari 등에서 팝업이 차단된다 → 반드시 window.open을 동기적으로 먼저 호출.
   // ⚠️ features에 'noopener'를 넣으면 스펙상 성공해도 null을 반환해 팝업 차단을 감지할 수 없다 —

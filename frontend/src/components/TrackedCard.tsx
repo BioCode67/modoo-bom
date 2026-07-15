@@ -5,6 +5,7 @@ import { ExternalLink as ExtLink, RefreshCw } from 'lucide-react'
 import type { Policy } from '@/data/policies'
 import { useAppStore, type AppStatus, type TrackedItem } from '@/store/useAppStore'
 import { categoryMeta, parseMonthly, formatWon, isCashBenefit } from '@/lib/format'
+import { docLink } from '@/lib/officialLinks'
 import { monitorItem } from '@/lib/monitoring'
 import { cn } from '@/lib/utils'
 
@@ -99,8 +100,19 @@ export function TrackedCard({ item, policy, onOpen }: { item: TrackedItem; polic
               <label key={d} className="flex items-center gap-2.5 text-sm cursor-pointer select-none">
                 <input type="checkbox" checked={checked} onChange={() => toggleDoc(item.policyId, d)} className="h-4 w-4 accent-sprout-500 rounded" />
                 <FileText className="h-3.5 w-3.5 text-sky2-500 shrink-0" />
-                <span className={cn(checked && 'line-through text-muted-foreground')}>{d}</span>
+                <span className={cn('min-w-0 truncate', checked && 'line-through text-muted-foreground')}>{d}</span>
                 {viaIssue && <span className="chip-sprout !py-0 !px-1.5 text-[9px] shrink-0">발급됨</span>}
+                {/* 서류별 정밀 발급 딥링크 — generic 정부24 홈이 아니라 그 서류의 민원 화면으로(감사 지적).
+                    label 내부의 인터랙티브 요소 클릭은 체크박스 토글로 전달되지 않는다(HTML 스펙). */}
+                {!checked && (
+                  <a
+                    href={docLink(d).url} target="_blank" rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="ml-auto shrink-0 inline-flex items-center gap-0.5 text-[11px] font-semibold text-sky2-700 hover:underline"
+                  >
+                    발급 <ExternalLink className="h-3 w-3" />
+                  </a>
+                )}
               </label>
             )
           })}

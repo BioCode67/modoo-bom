@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { bestApplyUrl, isGenericHome, oneTapApply, borrowApplyUrl, KNOWN_APPLY_URLS } from './quickApply'
+import { bestApplyUrl, bestApplyInfo, isGenericHome, oneTapApply, borrowApplyUrl, KNOWN_APPLY_URLS } from './quickApply'
 import { getCatalog } from '@/data/catalog'
 
 // 카탈로그 교차참조 테스트를 위해 getCatalog를 목킹(기본 빈 배열 → 기존 폴백 동작 유지).
@@ -88,6 +88,58 @@ describe('borrowApplyUrl — 카탈로그 교차참조(공공데이터 검증 �
     const u = bestApplyUrl('복지로 온라인 신청', '무슨무슨바우처')
     expect(u).toContain('WLF00008888')
     expect(u).not.toContain('gov.kr/search')
+  })
+
+  // ── 감사 확정(HIGH): 동명 타 지자체 사업 오연결 차단 ──
+  it('지자체(LOC-)는 대여자에서 제외 — 서산시 장수수당이 창원시 장수수당 URL을 빌리지 않음', () => {
+    setCatalog([{ id: 'LOC-WLF00000109', name: '장수수당', application: deep('WLF00000109') }])
+    expect(borrowApplyUrl('장수수당')).toBe('') // LOC 대여자 제외 → 못 빌림(오연결 방지)
+  })
+  it('지자체(LOC-) 정책 자신도 KNOWN·차용을 건너뜀 — 동명 국가사업 딥링크로 새지 않음', () => {
+    setCatalog([{ id: 'GOV-1', name: '기초연금', application: deep('WLF00001164') }])
+    const u = bestApplyUrl('복지로 신청', '기초연금', 'LOC-9999') // 어느 지자체의 동명 자체사업이라 가정
+    expect(u).not.toContain('WLF00001164') // KNOWN 정확일치도 LOC엔 미적용
+    expect(u).toContain('gov.kr/search') // 정직한 검색 폴백
+  })
+  it("접미어 화이트리스트 — '…추가지원'(다른 사업 한정어)은 본사업 URL을 빌리지 않음", () => {
+    setCatalog([{ id: 'GOV-1', name: '발달장애인 주간활동서비스', application: deep('WLF00001165') }])
+    expect(borrowApplyUrl('발달장애인 주간활동서비스 추가지원')).toBe('')
+    // 반면 무의미 접미어('지원사업')는 계속 허용
+    setCatalog([{ id: 'GOV-2', name: '청년월세 지원사업', application: deep('WLF00004661') }])
+    expect(borrowApplyUrl('청년월세지원')).toContain('WLF00004661')
+  })
+})
+
+describe('bestApplyInfo — 라벨은 최종 착지 기준(라벨-목적지 불일치 수정)', () => {
+  it('KNOWN 딥링크로 가면 라벨도 복지로', () => {
+    const r = bestApplyInfo('주민센터 방문 또는 복지로(www.bokjiro.go.kr) 온라인 신청', '기초연금')
+    expect(r.url).toContain('WLF00001164')
+    expect(r.label).toBe('복지로에서 신청')
+  })
+  it('검색 폴백이면 라벨도 정직하게 검색', () => {
+    const r = bestApplyInfo('복지로 온라인 신청', '아주희귀한정책명')
+    expect(r.url).toContain('gov.kr/search')
+    expect(r.label).toBe('정부24에서 검색')
+  })
+  it('자체 딥링크(변경 없음)면 원래 라벨 유지', () => {
+    const durl = deep('WLF00009999')
+    const r = bestApplyInfo(durl, '아무거나')
+    expect(r.url).toBe(durl)
+    expect(r.label).toBe('복지로 상세페이지에서 신청')
+  })
+})
+
+describe('KNOWN 2차 확장(2026-07-15) — 대표 국가제도 복지로 직행', () => {
+  it.each([
+    ['교육급여 (기초생활보장)', 'WLF00001089'],
+    ['주거급여 (임차급여·수선유지급여)', 'WLF00003201'],
+    ['보육료 지원 (어린이집)', 'WLF00003250'],
+    ['육아휴직급여', 'WLF00003226'],
+    ['한국장학재단 국가장학금 I 유형', 'WLF00003197'],
+    ['국민내일배움카드', 'WLF00006229'],
+    ['청년 월세 한시 특별지원', 'WLF00004661'],
+  ])('%s → %s', (name, wlf) => {
+    expect(bestApplyUrl('복지로 온라인 신청', name)).toContain(wlf)
   })
 })
 

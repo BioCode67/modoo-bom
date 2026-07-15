@@ -394,7 +394,12 @@ export function DocumentCenter() {
                 )}
                 {/* 전자증명서 발급 가능한 서류는 '전자발급'으로 강조(무설치 기본 경로) —
                     클릭 시 이름 클립보드 준비 + 복귀 확인 대기(발급 완료를 앱이 기억하게) */}
-                {!done && (
+                {/* '본인 준비/지참' 서류는 발급처가 없다 — 포털 홈으로 보내는 가짜 '발급' 버튼 대신 정직한 칩(감사 확정) */}
+                {!done && /본인 (준비|지참)/.test(link.label) ? (
+                  <span className="rounded-xl border-2 border-sprout-100 bg-sprout-50/60 px-3 py-2 text-xs font-semibold text-muted-foreground">
+                    본인 준비물
+                  </span>
+                ) : !done && (
                   <a
                     href={link.url} target="_blank" rel="noopener noreferrer"
                     onClick={kind ? () => openIssue(doc) : undefined}

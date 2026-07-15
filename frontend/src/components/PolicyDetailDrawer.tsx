@@ -9,7 +9,7 @@ import type { EligiblePolicy } from '@/lib/welfare-engine'
 import { generateGuides, matchFacts } from '@/lib/welfare-engine'
 import { categoryMeta, parseMonthly, formatWon, isCashBenefit, PRIORITY_META } from '@/lib/format'
 import { deadlineHint } from '@/lib/deadline'
-import { docLink, applyLink, isApplyAutomatable } from '@/lib/officialLinks'
+import { docLink, isApplyAutomatable } from '@/lib/officialLinks'
 import { trustInfo } from '@/lib/trust'
 import { useBackend } from '@/lib/useBackend'
 import { AgentSubmitButton } from '@/components/AgentSubmitButton'
@@ -18,7 +18,7 @@ import { TermText } from '@/components/TermText'
 import { VisitKit } from '@/components/VisitKit'
 import { t as tr, RTL } from '@/lib/i18nLite'
 import { ApplyKit } from '@/components/ApplyKit'
-import { oneTapApply, bestApplyUrl } from '@/lib/quickApply'
+import { oneTapApply, bestApplyInfo } from '@/lib/quickApply'
 import { setPendingReturn } from '@/lib/returnPrompt'
 import { useAppStore } from '@/store/useAppStore'
 import { buildPrefill } from '@/lib/prefill'
@@ -145,6 +145,9 @@ function DrawerBody({
   const toggleDocDone = useAppStore((s) => s.toggleDocDone)
   // 이 정책이 실제 '내 분석 결과'에서 나온 것인지 — 신청 흐름 1단계의 '자동 선별 완료' 표기 정직성 근거.
   const matched = !!analysisResult?.eligible_policies.some((e) => e.id === policy.id)
+  // 신청 CTA의 URL+라벨을 '최종 목적지' 기준으로 한 번에 — 라벨('복지로에서 신청')과 실제 착지(검색 등)가
+  // 어긋나던 것 수정(감사 확정). LOC- 정책은 id 게이트로 동명 타 사업 딥링크 오연결 차단.
+  const apply = bestApplyInfo(policy.application, policy.name, policy.id)
   const [visitKit, setVisitKit] = useState(false)
   const [applied, setApplied] = useState<false | 'copied' | 'opened' | 'blocked'>(false)
   const [blockedUrl, setBlockedUrl] = useState('')
@@ -181,7 +184,7 @@ function DrawerBody({
     // 이미 '신청 완료/수급 중'인 정책을 다시 열람(갱신 여정)해도 상태를 'tracking'으로 강등하지 않는다
     const cur = trackedList.find((t) => t.policyId === policy.id)?.status
     if (!cur || cur === 'idle') ctx.setStatus(policy.id, 'tracking')
-    const r = await oneTapApply(policy.application, policy.name, profile, rpaInfo) // 정보 복사 + 공식 신청 페이지 열기
+    const r = await oneTapApply(policy.application, policy.name, profile, rpaInfo, policy.id) // 정보 복사 + 공식 신청 페이지 열기
     if (r.opened) setPendingReturn({ kind: 'apply', policyId: policy.id, name: policy.name }) // 복귀 시 '신청하셨나요?' 확인
     // 팝업 차단이면 '이동했어요'라고 거짓 안내하지 않는다 — 직접 이동 링크를 배너로 제공
     setBlockedUrl(r.url)
@@ -274,7 +277,7 @@ function DrawerBody({
             return (
               <Section title={`📋 ${tr(uiLang,'serviceInfo')}`}>
                 <TermText text={policy.benefit} className="text-sm text-foreground/80 leading-relaxed block" />
-                <a href={bestApplyUrl(policy.application, policy.name)} target="_blank" rel="noopener noreferrer"
+                <a href={apply.url} target="_blank" rel="noopener noreferrer"
                   className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-sprout-700 hover:underline">
                   복지로에서 자세한 자격·금액 확인 <ExternalLink className="h-3.5 w-3.5" />
                 </a>
@@ -318,12 +321,12 @@ function DrawerBody({
             <ApplyFlow automatable={isApplyAutomatable(policy.name)} hasBackend={hasBackend} hasPrefill={buildPrefill(profile, rpaInfo).length > 0} matched={matched} />
           </div>
           <a
-            href={bestApplyUrl(policy.application, policy.name)}
+            href={apply.url}
             target="_blank"
             rel="noopener noreferrer"
             className="btn-primary w-full justify-center"
           >
-            <ExternalLink className="h-4 w-4" /> {applyLink(policy.application).label}
+            <ExternalLink className="h-4 w-4" /> {apply.label}
           </a>
           <div className="mt-2.5">
             <ApplyKit />
@@ -373,7 +376,7 @@ function DrawerBody({
                 // 준비 완료 → 곧바로 신청으로 연결(루프 완성). bestApplyUrl로 주요 복지는 정확한 복지로 딥링크.
                 <div className="mt-2 flex flex-wrap items-center gap-2 rounded-xl bg-sprout-50 px-3 py-2.5">
                   <p className="flex-1 text-xs font-semibold text-sprout-700">✅ 필요 서류를 모두 준비했어요. 이제 신청하면 돼요!</p>
-                  <a href={bestApplyUrl(policy.application, policy.name)} target="_blank" rel="noopener noreferrer"
+                  <a href={apply.url} target="_blank" rel="noopener noreferrer"
                     className="inline-flex items-center gap-1 rounded-full bg-sprout-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-sprout-700 transition-colors shrink-0">
                     신청하러 가기 <ExternalLink className="h-3 w-3" />
                   </a>
@@ -522,11 +525,11 @@ function DrawerBody({
           <Rocket className="h-4 w-4" /> {uiLang === 'ko' ? '내 정보 복사 + 공식 신청 이동' : tr(uiLang, 'goApply')}
         </button>
         <a
-          href={bestApplyUrl(policy.application, policy.name)}
+          href={apply.url}
           target="_blank"
           rel="noopener noreferrer"
           className="btn-warm !px-4"
-          title={applyLink(policy.application).label}
+          title={apply.label}
         >
           <ExternalLink className="h-4 w-4" />
         </a>
