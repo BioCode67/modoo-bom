@@ -27,13 +27,14 @@ const TEASER_PERSONAS = [
   { label: '일자리 찾는 청년', text: '퇴사하고 일자리 찾는 청년이에요' },
 ]
 
-interface Teaser { label: string; count: number; monthly: number }
+interface Teaser { label: string; count: number; monthly: number; text: string }
 
 export function HeroAgentBubble({ onFocusInput }: { onFocusInput?: () => void }) {
   const profile = useAppStore((s) => s.profile)
   const result = useAppStore((s) => s.result)
   const tracked = useAppStore((s) => s.tracked)
   const setView = useAppStore((s) => s.setView)
+  const setPendingProfile = useAppStore((s) => s.setPendingProfile)
   const [gi, setGi] = useState(0)
 
   // 지금 챙길 일(마감 임박·서류 미비·신청 권유 등)이 있는 저장 항목 수 — 실측
@@ -70,7 +71,7 @@ export function HeroAgentBubble({ onFocusInput }: { onFocusInput?: () => void })
           const primary = r.eligible_policies.filter((p) => /^POL-/.test(p.id))
           // 결과 화면 헤드라인과 '동일 공식'(강력추천 중 현금성만 보수 합산) — 첫 화면이 결과보다 부풀지 않게
           const monthly = sumCashMonthly(primary.filter((p) => p.priority === 'high'))
-          out.push({ label: t.label, count: primary.length, monthly })
+          out.push({ label: t.label, count: primary.length, monthly, text: t.text })
         }
         if (alive) setTeasers(out)
       } catch { /* 엔진 오류 시 인사말만 순환(무해) */ }
@@ -83,16 +84,21 @@ export function HeroAgentBubble({ onFocusInput }: { onFocusInput?: () => void })
     }
   }, [returning, catalogCount])
 
-  // 인사 ↔ 실계산 티저 인터리브 순환(에이전트가 지금 일하고 있는 느낌)
-  const rotation: React.ReactNode[] = useMemo(() => {
-    const nodes: React.ReactNode[] = [...GREETINGS]
+  // 인사 ↔ 실계산 티저 인터리브 순환(에이전트가 지금 일하고 있는 느낌).
+  // 티저가 표시 중일 땐 CTA가 '이 결과 바로 보기'로 바뀌어 한 번에 그 페르소나 분석을 실행 —
+  // 첫 화면 숫자가 결과 화면으로 그대로 이어짐(원클릭 라이브 데모 = 정직성 증명).
+  const rotation: { node: React.ReactNode; teaser?: Teaser }[] = useMemo(() => {
+    const nodes: { node: React.ReactNode; teaser?: Teaser }[] = GREETINGS.map((g) => ({ node: g }))
     teasers.forEach((t, i) => {
-      nodes.splice(1 + i * 2, 0, (
-        <>
-          방금 계산해 봤어요 — <b>{t.label}</b>이면 지금 <b>{t.count}개</b>
-          {t.monthly > 0 && <>, 현금 지원 <b className="text-sprout-700">월 {formatWon(t.monthly)}</b>까지</>} 나와요.
-        </>
-      ))
+      nodes.splice(1 + i * 2, 0, {
+        teaser: t,
+        node: (
+          <>
+            방금 계산해 봤어요 — <b>{t.label}</b>이면 지금 <b>{t.count}개</b>
+            {t.monthly > 0 && <>, 현금 지원 <b className="text-sprout-700">월 {formatWon(t.monthly)}</b>까지</>} 나와요.
+          </>
+        ),
+      })
     })
     return nodes
   }, [teasers])
@@ -120,8 +126,23 @@ export function HeroAgentBubble({ onFocusInput }: { onFocusInput?: () => void })
       cta = { label: '지난 결과 보기', onClick: () => setView('analyze') }
     }
   } else {
-    body = rotation[gi % Math.max(1, rotation.length)]
-    cta = onFocusInput ? { label: '한마디로 시작하기', onClick: onFocusInput } : null
+    const cur = rotation[gi % Math.max(1, rotation.length)]
+    body = cur?.node
+    const t = cur?.teaser
+    if (t) {
+      cta = {
+        label: '이 결과 바로 보기',
+        onClick: () => {
+          // 티저와 동일 문장으로 즉시 분석 — 첫 화면 숫자가 결과 화면과 1:1로 이어진다
+          import('@/lib/parseQuery').then(({ parseProfileFromText }) => {
+            setPendingProfile(parseProfileFromText(t.text))
+            setView('analyze')
+          }).catch(() => setView('analyze'))
+        },
+      }
+    } else {
+      cta = onFocusInput ? { label: '한마디로 시작하기', onClick: onFocusInput } : null
+    }
   }
 
   return (
