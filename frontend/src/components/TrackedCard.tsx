@@ -21,8 +21,10 @@ export function TrackedCard({ item, policy, onOpen }: { item: TrackedItem; polic
   const { setStatus, toggleDoc, removeTracked, markChecked, docDone: globalDocDone } = useAppStore()
   const [open, setOpen] = useState(false)
   const meta = categoryMeta(item.category)
-  // 현금성 혜택만 '월 N원'으로 표시(PolicyCard와 동일 게이트) — 바우처·감면·서비스한도를 현금처럼 과장 금지
-  const monthly = policy && isCashBenefit(policy.benefit) ? parseMonthly(policy.benefit) : 0
+  // 현금성 혜택만 '월 N원'으로 표시(PolicyCard와 동일 게이트) — 바우처·감면·서비스한도를 현금처럼 과장 금지.
+  // ⚠️ 이름·분류를 context로 넘겨야(감사 HIGH) 비현금 종류가 이름/분류에만 있는 '재가급여' 등을 잡아낸다 —
+  //   없으면 '월 251만원 한도'(장기요양 서비스)를 현금 배지로 과장(나의 복지 합계와도 모순).
+  const monthly = policy && isCashBenefit(policy.benefit, `${policy.name} ${policy.category}`) ? parseMonthly(policy.benefit) : 0
   const docs = policy?.required_docs ?? []
   // 서류 도우미의 '발급 완료' 기억(docDone)도 준비된 것으로 집계 — monitoring 산출(mon.nextAction)과 배지가 어긋나지 않게
   const isPrepared = (d: string) => item.checkedDocs.includes(d) || !!globalDocDone[d.replace(/\s/g, '')]

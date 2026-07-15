@@ -86,6 +86,11 @@ describe('matchSaveIntent — 대화 맥락 기억(직전 복지를 가리켜 �
     expect(matchSaveIntent('첫번째 담아줘', ctx)?.[0].id).toBe('A')
     expect(matchSaveIntent('두번째 저장', ctx)?.[0].id).toBe('B')
   })
+  it('개수("N개/N가지") → 앞에서 N건(서수와 구분, 감사)', () => {
+    expect(matchSaveIntent('3개 담아줘', ctx)).toHaveLength(3)   // 3번째 하나가 아니라 3건
+    expect(matchSaveIntent('2개 저장해줘', ctx)?.map((p) => p.id)).toEqual(['A', 'B'])
+    expect(matchSaveIntent('2가지 담아줘', ctx)).toHaveLength(2)
+  })
   it('이름 직접 언급 → 해당 정책', () => {
     expect(matchSaveIntent('아동수당 담아줘', ctx)?.[0].id).toBe('B')
   })

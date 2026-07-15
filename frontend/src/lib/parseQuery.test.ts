@@ -308,4 +308,21 @@ describe('부정문 오탐 방지 회귀(감사 2026-07)', () => {
     // 진짜 자녀 있음은 그대로
     expect(parseProfileFromText('5살 아이 키워요').has_children).toBe(true)
   })
+  it("임신 중 '첫 아이'는 태어난 자녀로 날조하지 않음(예제칩 회귀)", () => {
+    const p = parseProfileFromText('임신 중이고 첫 아이예요')
+    expect(p.is_pregnant).toBe(true)
+    expect(p.has_children).toBe(false)       // 태어날 아이 → 자녀 있음 아님
+    expect(p.children_ages).toEqual([])
+    // 임신 중이라도 '양육 신호'가 있으면 기존 자녀로 인정
+    expect(parseProfileFromText('임신 중이고 5살 아이 키워요').has_children).toBe(true)
+    expect(parseProfileFromText('임신했고 애 키우고 있어요').has_children).toBe(true)
+  })
+  it('성별은 명시적 자기지칭에서만 — 관계명사(남편/아내)로 오태깅 안 함(DV 오배제 방지)', () => {
+    expect(parseProfileFromText('남편이 때려요').gender).not.toBe('male') // 아내 신고 → 남성 오태깅 금지
+    expect(parseProfileFromText('아내가 아파요').gender).not.toBe('female')
+    // 명시적 자기지칭은 그대로
+    expect(parseProfileFromText('저는 여성이에요').gender).toBe('female')
+    expect(parseProfileFromText('30대 남자입니다').gender).toBe('male')
+    expect(parseProfileFromText('임신했어요').gender).toBe('female')
+  })
 })

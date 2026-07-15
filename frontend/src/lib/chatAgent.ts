@@ -180,6 +180,9 @@ export function matchSaveIntent(raw: string, context: Policy[], explicitOnly = f
   if (VIEW_RE.test(raw)) return null // 조회("보여줘·알려줘·뭐야")는 저장 아님
   const t = raw.replace(/\s/g, '')
   if (/(다|전부|모두|전체|모든|다들)담|담.*(다|전부|모두)|이것들|그것들|다넣/.test(t)) return context
+  // 'N개/N가지/N건'은 '개수'(앞에서 N건) — 서수(N번째)보다 먼저 판정해 "3개 담아줘"가 '3번째 하나'로 오해되지 않게(감사)
+  const cnt = t.match(/([1-9])(개|가지|건)/)
+  if (cnt) return context.slice(0, parseInt(cnt[1], 10))
   const ord = t.match(/(첫|두|세|네|하나|둘|셋|넷|[1-4])(번째|째|번)?/)
   if (ord && ORD[ord[1]] !== undefined && context[ORD[ord[1]]]) return [context[ORD[ord[1]]]]
   const byName = context.filter((p) => t.includes(p.name.replace(/\s/g, '')))

@@ -111,10 +111,15 @@ export function parseProfileFromText(text: string): UserProfile {
   if (multiKidAges) { p.has_children = true; p.children_ages = multiKidAges }
   else if (kids.length) { p.has_children = true; p.children_ages = kids.map((m) => parseInt(m[1], 10)) }
   else if (!childNegated && /아이|자녀|아들|딸|육아|아기|영유아|어린이집|유치원|키[우워]|쌍둥이|신생아|갓\s*태어|손주|손자|손녀/.test(t)) {
-    p.has_children = true
-    if (/신생아|갓난|갓\s*태어|쌍둥이|0\s*살|돌\s*전|아기|영아|백일|젖먹이|막\s*낳/.test(t)) p.children_ages = /쌍둥이/.test(t) ? [0, 0] : [0]
-    else if (kidCount) p.children_ages = Array(COUNT[kidCount[1]] ?? parseInt(kidCount[1], 10)).fill(5)
-    else if (!p.children_ages.length) p.children_ages = [3]
+    const bornSignal = /신생아|갓난|갓\s*태어|쌍둥이|0\s*살|돌\s*전|아기|영아|백일|젖먹이|막\s*낳/.test(t)
+    const caregiving = /육아|키[우워]|어린이집|유치원|등원|먹이|돌보|재우/.test(t)
+    if (bornSignal) { p.has_children = true; p.children_ages = /쌍둥이/.test(t) ? [0, 0] : [0] }
+    else if (kidCount) { p.has_children = true; p.children_ages = Array(COUNT[kidCount[1]] ?? parseInt(kidCount[1], 10)).fill(5) }
+    else if (p.is_pregnant && !caregiving) {
+      // 임신 중 + 출생신호·나이·양육신호 없는 바 '아이/첫 아이' = 태어날 아이를 뜻함 → 태어난 자녀로 날조하지 않는다
+      //   (예제칩 "임신 중이고 첫 아이예요"). 출산 관련 복지는 is_pregnant(출산 이벤트)로 이미 매칭됨(감사).
+    }
+    else { p.has_children = true; if (!p.children_ages.length) p.children_ages = [3] }
   }
   if (p.children_ages.length >= 3) p.household_type = p.household_type || '다자녀가구'
   if (/출산|아기.*낳|애.*낳/.test(t) && !p.life_events.includes('출산')) p.life_events.push('출산')
@@ -187,9 +192,11 @@ export function parseProfileFromText(text: string): UserProfile {
   const sido = sidoOf(t)
   if (sido) p.region = sido
 
-  // ── 성별 ──
-  if (/임신|임산부|산모|미혼모|할머니|어머니|엄마|아내|여성|여자|딸/.test(t)) p.gender = 'female'
-  else if (/할아버지|아버지|아빠|남편|남성|남자|아들/.test(t)) p.gender = 'male'
+  // ── 성별 ── '명시적 자기 지칭'에서만 추정. 관계 명사(남편/아내/어머니/아들/딸 …)는 '다른 사람'을 가리켜
+  //   화자 성별을 오추정한다 — 특히 "남편이 때려요"(아내 신고)를 남성으로 오태깅하면 여성 전용 지원에서
+  //   부당 배제된다(감사). 성별은 여성 전용 '배제' 게이트에만 쓰이므로 미설정('other')이 안전·포용적.
+  if (/임신|임산부|산모|미혼모|여성|여자/.test(t)) p.gender = 'female'
+  else if (/남성|남자/.test(t)) p.gender = 'male'
 
   return p
 }
