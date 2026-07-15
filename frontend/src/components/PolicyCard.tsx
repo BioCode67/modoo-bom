@@ -30,7 +30,10 @@ export function PolicyCard({
   const saved = isSaved(policy.id)
   const meta = categoryMeta(policy.category)
   // 현금성 혜택일 때만 '월 N까지' 배지 — 감면·할인·바우처(예: 다자녀 전기요금 감면)를 현금처럼 오표기하지 않게.
-  const monthly = isCashBenefit(policy.benefit) ? parseMonthly(policy.benefit) : 0
+  // ⚠️ 이름·분류를 context로 넘겨야(감사 HIGH) 비현금 종류가 '이름/분류'에만 있는 경우(예: '노인 장기요양보험(재가급여)'
+  //   benefit "월 251만원 한도")를 잡아낸다 — 없으면 서비스 한도액을 현금처럼 '월 251만원' 배지로 과장(상세 드로어와도 모순).
+  const cashCtx = `${policy.name} ${policy.category}`
+  const monthly = isCashBenefit(policy.benefit, cashCtx) ? parseMonthly(policy.benefit) : 0
   const eligible = isEligible(policy)
   // 지자체(LOC) 정책은 target 앞 "[시도 시군구]"에서 지역 배지 추출(시군구 우선)
   const rm = policy.id.startsWith('LOC-') ? policy.target.match(/^\[([^\]]+)\]/) : null

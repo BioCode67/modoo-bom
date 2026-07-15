@@ -81,6 +81,20 @@ export function PolicyDetailDrawer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
+  // 드로어 안에서 '관련/비슷한 복지'로 이동하면 policy만 바뀌고 open은 그대로라 위 effect가 재실행되지 않는데,
+  //   본문(DrawerBody)은 policy.id로 keyed remount → 포커스가 body로 떨어져 스크린리더 읽기 위치가 초기화된다.
+  //   policy.id 변화마다 패널 첫 요소로 포커스를 다시 옮겨 접근성을 유지(감사 a11y). 셋업/복원은 위 effect 담당.
+  useEffect(() => {
+    if (!open) return
+    const t = setTimeout(() => {
+      const panel = panelRef.current
+      if (!panel) return
+      const f = panel.querySelector<HTMLElement>('button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])')
+      ;(f || panel).focus()
+    }, 50)
+    return () => clearTimeout(t)
+  }, [policy?.id, open])
+
   return (
     <AnimatePresence>
       {policy && (

@@ -10,8 +10,9 @@ export function CompareModal({ policies, onClose }: { policies: Policy[]; onClos
   useModalFocus(panelRef, true, onClose) // 포커스 이동·트랩·ESC·스크롤잠금·복원
   const rows: { label: string; get: (p: Policy) => string }[] = [
     { label: '카테고리', get: (p) => p.category },
-    // 현금성 혜택만 '월 N원'(바우처·감면·서비스한도는 현금 아님 → '상세 확인')
-    { label: '예상 월 혜택', get: (p) => { const m = isCashBenefit(p.benefit) ? parseMonthly(p.benefit) : 0; return m > 0 ? `월 ${formatWon(m)}` : '상세 확인' } },
+    // 현금성 혜택만 '월 N원'(바우처·감면·서비스한도는 현금 아님 → '상세 확인').
+    // 이름·분류를 context로 넘겨 '장기요양(재가급여)' 같은 서비스 한도액을 현금으로 과장하지 않게(감사 HIGH, PolicyCard와 동일).
+    { label: '예상 월 혜택', get: (p) => { const m = isCashBenefit(p.benefit, `${p.name} ${p.category}`) ? parseMonthly(p.benefit) : 0; return m > 0 ? `월 ${formatWon(m)}` : '상세 확인' } },
     { label: '지원 대상', get: (p) => p.target },
     { label: '필요 서류', get: (p) => p.required_docs.join(', ') },
     { label: '신청처', get: (p) => p.application },

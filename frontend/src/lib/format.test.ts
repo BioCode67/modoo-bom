@@ -141,6 +141,13 @@ describe('isCashBenefit 감사 수정 회귀 — 현물·자산형성 과장 방
   it('진짜 현금 지원은 그대로 현금성', () => {
     expect(isCashBenefit('월 30만원 현금 지급', '기초연금')).toBe(true)
   })
+  it('비현금 종류가 이름/분류에만 있으면 context로 잡아냄 — 재가급여 서비스한도 오표기 방지(감사 HIGH)', () => {
+    const benefit = '방문요양, 방문목욕, 주야간보호 등 (2026년 1등급 월 2,510,000원 한도)'
+    // context 없으면 benefit 문구만으론 비현금 키워드가 없어 현금으로 오판(버그 재현)
+    expect(isCashBenefit(benefit)).toBe(true)
+    // 이름·분류를 넘기면(PolicyCard/CompareModal 수정) 장기요양·재가급여·돌봄을 잡아 비현금 판정
+    expect(isCashBenefit(benefit, '노인 장기요양보험 (재가급여) 노인돌봄')).toBe(false)
+  })
 })
 
 describe('isNonCashKind / 상품권·융자 제외(2026-07) — 월반복·일시금 공통 현금 기준', () => {

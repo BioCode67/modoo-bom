@@ -64,7 +64,9 @@ export function ResultsView({ result, profile, onReset, helperMode = false }: { 
   }, [primary.length, highCount, profile.name])
 
   const speakSummary = () => {
-    const names = eligible.slice(0, 5).map((p) => p.name).join(', ')
+    // 읽어주는 이름은 개수(primary.length)와 같은 집합(primary)에서 — eligible(관련·민간 포함)을 읽으면
+    //   "복지는 0개입니다" 뒤에 관련 복지 이름이 나열돼 자기모순이 되던 것 방지(감사).
+    const names = primary.slice(0, 5).map((p) => p.name).join(', ')
     tts.toggle(
       `${profile.name || '회원'}님이 받을 수 있는 복지는 ${primary.length}개입니다. ` +
       (monthly > 0 ? `핵심 현금지원은 최대 월 ${formatWon(monthly)} 정도입니다. ` : '') +

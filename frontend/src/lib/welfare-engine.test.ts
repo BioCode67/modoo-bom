@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   extractKeywords, getEligiblePolicies, searchPolicies,
-  estimateBenefits, runAnalysis, checkPolicy, incomeCeiling, situationRelevance, sidoOf, guOf, demographicMismatch, disabilityLabel, type UserProfile,
+  estimateBenefits, runAnalysis, checkPolicy, incomeCeiling, situationRelevance, sidoOf, guOf, demographicMismatch, disabilityLabel, collapseProgramDuplicates, type UserProfile,
 } from './welfare-engine'
 import type { Policy } from '@/data/policies'
 
@@ -453,9 +453,14 @@ describe('프로그램 중복 그룹 접기(2026 데이터검증)', () => {
     expect(count(lowIncome, /긴급복지지원/)).toBeLessThanOrEqual(1)
     expect(count(lowIncome, /장애인\s*활동지원/)).toBeLessThanOrEqual(1)
   })
-  it('노인 틀니·임플란트는 최대 1건(건보급여+지원 중복 접기)', () => {
+  it('노인 틀니: 같은 이름 건보급여 중복은 접되, 다른 제도인 무료지원은 별도 유지(감사)', () => {
     const senior: UserProfile = { ...base, age: 66, income_percentile: 30 }
-    expect(count(senior, /틀니|임플란트/)).toBeLessThanOrEqual(1)
+    const names = getEligiblePolicies(senior).filter((x) => x.id.startsWith('POL-') && /틀니|임플란트/.test(x.name)).map((x) => x.name)
+    // 같은 이름의 진짜 중복(건보급여 2건)은 이름 정확일치로 접혀 이름 중복이 없어야
+    expect(names.length).toBe(new Set(names).size)
+    // 저소득 어르신은 '무료 지원'(수급/차상위 무료)이 '건보급여(본인부담)'에 가려지지 않고 함께 노출돼야
+    expect(names.some((n) => /무료/.test(n))).toBe(true)
+    expect(names.some((n) => /건강보험/.test(n))).toBe(true)
   })
 })
 
@@ -489,5 +494,23 @@ describe('incomeCeiling — 부모/부양의무자 소득요건은 본인 상한
   })
   it('본인 단일 상한은 그대로', () => {
     expect(incomeCeiling('기준 중위소득 100% 이하')).toBe(100)
+  })
+})
+
+describe('collapseProgramDuplicates — 다른 제도를 키워드로 잘못 병합하지 않음(감사)', () => {
+  const mk = (id: string, name: string) => ({ id, name })
+  it("'무료 틀니'와 '틀니 건보급여(본인부담)'는 다른 제도라 둘 다 남김", () => {
+    const out = collapseProgramDuplicates([
+      mk('POL-a', '노인 틀니·임플란트 건강보험 급여'),
+      mk('POL-b', '저소득 어르신 틀니 무료 지원'),
+    ])
+    expect(out.length).toBe(2)
+  })
+  it('같은 이름의 진짜 중복은 여전히 접음(이름 정확일치)', () => {
+    const out = collapseProgramDuplicates([
+      mk('POL-a', '노인 틀니·임플란트 건강보험 급여'),
+      mk('POL-b', '노인 틀니·임플란트 건강보험 급여'),
+    ])
+    expect(out.length).toBe(1)
   })
 })

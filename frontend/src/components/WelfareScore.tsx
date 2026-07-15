@@ -21,7 +21,10 @@ export function WelfareScore({ eligible, onOpen }: { eligible: EligiblePolicy[];
     .sort((a, b) => {
       const rank = { high: 0, medium: 1, low: 2 }
       if (rank[a.priority] !== rank[b.priority]) return rank[a.priority] - rank[b.priority]
-      return parseMonthly(b.benefit) - parseMonthly(a.benefit)
+      // 동순위 정렬도 '현금성' 금액으로 — 전액지원 바우처(보육료 등)가 parseMonthly만으론 진짜 현금(아동수당)을
+      //   밀어내던 것 방지(감사, 화면 배지와 동일 기준).
+      const cash = (p: typeof a) => (isCashBenefit(p.benefit, `${p.name} ${p.category}`) ? parseMonthly(p.benefit) : 0)
+      return cash(b) - cash(a)
     })
   const top3 = unacted.slice(0, 3)
   // '놓치고 있는 잠재 혜택' 합계도 현금성만 — 서비스 한도·바우처를 현금처럼 더하지 않는다(정직성).

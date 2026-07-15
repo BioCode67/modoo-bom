@@ -986,7 +986,9 @@ const PROGRAM_DEDUP: { key: string; re: RegExp }[] = [
   { key: '긴급복지', re: /긴급복지지원/ },
   { key: '장애인활동지원', re: /장애인\s*활동지원/ },
   { key: '청년월세', re: /청년\s*월세/ },
-  { key: '틀니임플란트', re: /틀니|임플란트/ },
+  // ⚠️ '틀니|임플란트' 그룹 제거 — '저소득 어르신 틀니 무료 지원'(수급/차상위 무료)과 '노인 틀니·임플란트
+  //   건강보험 급여'(30% 본인부담)는 다른 제도인데 한 키워드로 묶여, 저소득 어르신에게 더 유리한 '무료' 제도가
+  //   가려지던 것 방지(감사). 같은 이름의 진짜 중복(건보급여 2건)은 아래 seenName(이름 정확일치)이 접는다.
   { key: '산재요양', re: /산재.*요양|산업재해.*요양/ },
 ]
 export function collapseProgramDuplicates<T extends { id: string; name: string }>(list: T[]): T[] {
@@ -1238,8 +1240,10 @@ function buildFinalResponse(
   const related = eligible.filter((p) => !/^(POL|PRV)-/.test(p.id))
   const base = primary.length ? primary : eligible
   const high = base.filter((p) => p.priority === 'high')
-  // 가장 먼저 권할 정책은 정밀 추천(primary)에서 신뢰도순으로 — 낮은 신뢰 '관련'이 앞서지 않게.
-  const top3 = [...base].sort((a, b) => b.confidence - a.confidence).slice(0, 3)
+  // '가장 먼저 권함'은 화면 목록과 '같은 순서'(우선순위→상황관련도→신뢰도)의 상위 3건이어야 한다.
+  //   과거엔 신뢰도만으로 재정렬해, 노인 일자리(신뢰 높음)가 top3에 끼고 생계급여(관련도 높음)가 빠져
+  //   말풍선·TTS가 화면 순위와 모순되던 것 수정(감사). base(primary)는 이미 목록 순서로 정렬돼 있음.
+  const top3 = base.slice(0, 3)
   const names = top3.map((p) => p.name).join(', ')
 
   const sentences: string[] = [
