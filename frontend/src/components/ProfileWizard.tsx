@@ -193,6 +193,13 @@ export function ProfileWizard({ onSubmit }: { onSubmit: (p: UserProfile) => void
                     className="input-cute"
                   />
                   <p className="mt-1 text-[11px] text-muted-foreground">만 나이로 적어주세요. 자녀 대상 복지는 보통 만 18세 이하 기준이라, 그보다 많은 나이는 자동 제외돼요.</p>
+                  {/* 나이를 안 넣으면 연령 게이트 복지(아동수당·부모급여·아이돌봄)가 전부 빠져 '자녀 있음'인데 아동복지 0건이 된다 —
+                      나이를 날조하지 않되(0세 자리표시 금지 원칙 유지) 입력을 정직하게 유도(감사 Finding E3) */}
+                  {p.children_ages.length === 0 && (
+                    <p className="mt-1.5 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
+                      💡 자녀 나이를 입력하면 <b>아동수당·부모급여·아이돌봄</b> 같은 연령별 복지를 정확히 찾아드려요.
+                    </p>
+                  )}
                 </Field>
               )}
               <Toggle label="♿ 등록 장애인" on={p.disability} onClick={() => set({ disability: !p.disability, disability_grade: !p.disability ? '1급' : '' })} />
