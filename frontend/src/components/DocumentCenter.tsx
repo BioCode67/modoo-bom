@@ -220,8 +220,10 @@ export function DocumentCenter() {
   // 🚀 연쇄 자동발급 — 지원 서류 전부를 한 흐름으로(정부24는 한 번 로그인으로 이어짐)
   // 이미 '발급 완료'로 표시한 서류는 재발급 대상에서 제외.
   const rpaDocs = docs.filter((d) => isRpaSupported(d) && !isDocDone(d))
-  // 로컬 백엔드(데스크탑앱)가 실제로 발급 가능한 서류만 — 로컬 여정에 넣을 대상(확장은 rpaDocs 전체)
-  const rpaDocsLocal = rpaDocs.filter((d) => isRpaSupported(d, 'local'))
+  // 로컬 백엔드(데스크탑앱)가 실제로 발급 가능한 서류 — 확장 지원목록(13종)과 로컬 지원목록(15종)은 서로
+  //   포함관계가 아니라, rpaDocs(확장 기준)를 다시 거르면 로컬 전용 서류(건보료 납부확인서 등)가 '전부 자동발급'에서
+  //   누락된다(감사). 전체 docs에 'local' 채널을 직접 적용해야 15종을 온전히 포함한다.
+  const rpaDocsLocal = docs.filter((d) => isRpaSupported(d, 'local') && !isDocDone(d))
   // 연쇄 발급 대상: 확장 있으면 전체(13종), 없고 로컬 에이전트면 로컬 지원분(15종)
   const chainDocs = ext ? rpaDocs : rpaDocsLocal
   const certAll = docs.filter((d) => isCertIssuable(d)) // 무설치 전자발급(전자증명서) 가능 서류
