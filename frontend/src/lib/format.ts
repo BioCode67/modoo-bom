@@ -3,7 +3,13 @@
 export function formatWon(n: number): string {
   if (!n || n <= 0) return '-'
   if (n >= 100000000) return `${(n / 100000000).toFixed(n % 100000000 === 0 ? 0 : 1)}억원`
-  if (n >= 10000) return `${Math.round(n / 10000).toLocaleString()}만원`
+  // 10만원+ 은 만원 반올림(비율오차 미미). 1~9만원대는 반올림 시 오차가 커 과장/과소됨
+  //   (15,000→'2만원' 33%과장, 33,000→'3만원' 과소) → 클린 배수는 정수, 아니면 1자리 소수로 정직하게(감사).
+  if (n >= 100000) return `${Math.round(n / 10000).toLocaleString()}만원`
+  if (n >= 10000) {
+    const man = n / 10000
+    return Number.isInteger(man) ? `${man}만원` : `${man.toFixed(1)}만원`
+  }
   return `${n.toLocaleString()}원`
 }
 

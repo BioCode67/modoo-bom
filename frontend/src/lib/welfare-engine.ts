@@ -612,18 +612,24 @@ export function demographicMismatch(name: string, doc: string, p: UserProfile): 
  *   '저소득'만으로는 게이트하지 않는다(명시 %/차상위/기초생활만).
  */
 export function incomeCeiling(doc: string): number | null {
+  // '부모 소득 중위 100%'·'부양의무자 … N%'는 신청자 본인(income_percentile)이 아니라 '다른 사람'의 소득요건 →
+  //   MAX 상한 계산에 넣으면 본인 상한(예 청년월세 60%)을 부모 상한(100%)이 덮어 고소득자가 통과된다(감사 HIGH).
+  //   ('가구 중위소득'은 본인 가구라 유지. 부모·부양의무자 절만 제거.)
+  const applicantDoc = doc
+    .replace(/부모[^,，、;.]*?[0-9]{2,3}\s*%\s*(?:이하|미만)?/g, ' ')
+    .replace(/부양의무자[^,，、;.]*?[0-9]{2,3}\s*%\s*(?:이하|미만)?/g, ' ')
   let ceil: number | null = null
   // '기준 중위소득 N%'는 프로필의 income_percentile과 같은 단위 → 그대로 상한
   const mid = /중위(?:소득)?\s*([0-9]{2,3})\s*%/g
   let m: RegExpExecArray | null
-  while ((m = mid.exec(doc)) !== null) {
+  while ((m = mid.exec(applicantDoc)) !== null) {
     const v = parseInt(m[1], 10)
     if (!Number.isNaN(v) && (ceil === null || v > ceil)) ceil = v
   }
   // '소득 하위 N%'는 분포 백분위라 중위% 단위가 아님 — 그대로 상한 삼으면 과배제된다.
   // 실측 앵커: 기초연금 '하위 70%' 선정기준액(2026 1인 247.0만) ≈ 기준 중위소득 96% → ×1.4 근사 환산.
   const low = /하위\s*([0-9]{2,3})\s*%/g
-  while ((m = low.exec(doc)) !== null) {
+  while ((m = low.exec(applicantDoc)) !== null) {
     const v = Math.round((parseInt(m[1], 10) * 1.4) / 5) * 5
     if (!Number.isNaN(v) && (ceil === null || v > ceil)) ceil = v
   }

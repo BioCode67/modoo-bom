@@ -85,6 +85,13 @@ describe('formatWon', () => {
     expect(formatWon(100000000)).toBe('1억원')
     expect(formatWon(150000000)).toBe('1.5억원')
   })
+  it('1~9만원대는 반올림 과장/과소 없이 1자리 소수(감사)', () => {
+    expect(formatWon(15000)).toBe('1.5만원')   // 과거 '2만원'(33% 과장)
+    expect(formatWon(33000)).toBe('3.3만원')   // 과거 '3만원'(과소)
+    expect(formatWon(30000)).toBe('3만원')     // 클린 배수는 정수 유지
+    expect(formatWon(90000)).toBe('9만원')
+    expect(formatWon(120000)).toBe('12만원')   // 10만원+ 은 만원 반올림 유지
+  })
 })
 
 describe('categoryMeta', () => {

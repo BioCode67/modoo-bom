@@ -476,3 +476,18 @@ describe('연령 게이트 회귀 — 만 66세는 60~65세를 포함하지 않�
     expect(checkPolicy(p, atAge(59)).eligible).toBe(false)
   })
 })
+
+describe('incomeCeiling — 부모/부양의무자 소득요건은 본인 상한을 덮지 않음(감사 HIGH)', () => {
+  it('청년월세(본인 중위60·부모 중위100) 상한은 60', () => {
+    expect(incomeCeiling('만 19~34세, 독립 거주, 기준 중위소득 60% 이하, 부모 소득 중위 100% 이하')).toBe(60)
+  })
+  it('부양의무자 절도 제외', () => {
+    expect(incomeCeiling('기준 중위소득 50% 이하, 부양의무자 소득 중위 120% 이하')).toBe(50)
+  })
+  it("'가구 중위소득'은 본인 가구라 유지", () => {
+    expect(incomeCeiling('가구 중위소득 80% 이하')).toBe(80)
+  })
+  it('본인 단일 상한은 그대로', () => {
+    expect(incomeCeiling('기준 중위소득 100% 이하')).toBe(100)
+  })
+})
