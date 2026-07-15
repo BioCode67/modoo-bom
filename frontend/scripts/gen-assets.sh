@@ -19,6 +19,10 @@ echo "▸ OG 이미지 생성 (scripts/og.svg → public/og.png, 1200x1200)"
 rm -f public/og.png public/og.svg.png
 qlmanage -t -s 1200 -o public scripts/og.svg >/dev/null 2>&1
 mv public/og.svg.png public/og.png
+echo "▸ OG 와이드(트위터/디스코드 2:1) 생성 (scripts/og-wide.svg → public/og-wide.png, 1200x630)"
+rm -f public/og-wide.png public/og-wide.svg.png
+qlmanage -t -s 1200 -o public scripts/og-wide.svg >/dev/null 2>&1
+mv public/og-wide.svg.png public/og-wide.png
 
 echo "▸ PWA 아이콘 생성 (public/favicon.svg → 512/192/180)"
 rm -f public/pwa-512x512.png public/pwa-192x192.png public/apple-touch-icon.png public/favicon.svg.png

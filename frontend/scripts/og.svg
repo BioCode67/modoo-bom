@@ -36,8 +36,8 @@
   <text x="600" y="895" text-anchor="middle" font-family="Apple SD Gothic Neo, Malgun Gothic, AppleGothic, NanumGothic, sans-serif" font-size="40" font-weight="500" fill="#4b5563">AI 맞춤 복지 · 확인부터 신청·관리까지</text>
 
   <!-- 배지 pill -->
-  <rect x="315" y="975" width="290" height="74" rx="37" fill="#22c55e"/>
-  <text x="460" y="1023" text-anchor="middle" font-family="Apple SD Gothic Neo, Malgun Gothic, AppleGothic, sans-serif" font-size="34" font-weight="700" fill="#ffffff">회원가입 없이 무료</text>
-  <rect x="625" y="975" width="300" height="74" rx="37" fill="#ffffff" stroke="#fdba74" stroke-width="3"/>
-  <text x="775" y="1023" text-anchor="middle" font-family="Apple SD Gothic Neo, Malgun Gothic, AppleGothic, sans-serif" font-size="34" font-weight="700" fill="#ea580c">복지 5,000여 건</text>
+  <rect x="270" y="975" width="330" height="74" rx="37" fill="#22c55e"/>
+  <text x="435" y="1023" text-anchor="middle" font-family="Apple SD Gothic Neo, Malgun Gothic, AppleGothic, sans-serif" font-size="34" font-weight="700" fill="#ffffff">회원가입 없이 무료</text>
+  <rect x="620" y="975" width="310" height="74" rx="37" fill="#ffffff" stroke="#fdba74" stroke-width="3"/>
+  <text x="775" y="1023" text-anchor="middle" font-family="Apple SD Gothic Neo, Malgun Gothic, AppleGothic, sans-serif" font-size="34" font-weight="700" fill="#ea580c">복지 5,300여 건</text>
 </svg>
