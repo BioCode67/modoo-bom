@@ -72,7 +72,7 @@ export function HeroAgentBubble({ onFocusInput }: { onFocusInput?: () => void })
       initial={{ opacity: 0, y: -10, scale: 0.96 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: 0.5, delay: 0.35 }}
-      className="relative z-10 max-w-sm mx-auto lg:mx-0"
+      className="relative z-10 max-w-sm mx-auto"
       role="status"
       aria-live="polite"
     >
@@ -108,7 +108,7 @@ export function HeroAgentBubble({ onFocusInput }: { onFocusInput?: () => void })
         </div>
       </div>
       {/* 말풍선 꼬리 — 마스코트 쪽을 향함 */}
-      <div className="ml-6 h-3 w-3 -mt-1.5 rotate-45 border-b-2 border-r-2 border-sprout-200 bg-white/95" />
+      <div className="mx-auto h-3 w-3 -mt-1.5 rotate-45 border-b-2 border-r-2 border-sprout-200 bg-white/95" />
     </motion.div>
   )
 }
