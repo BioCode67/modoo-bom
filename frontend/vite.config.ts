@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
@@ -9,9 +9,20 @@ import path from 'path'
 //   동일 출처라 base='/', API는 동일출처('') 사용. PWA(SW)는 로컬 API 가로채기 방지 위해 제외.
 export default defineConfig(({ command, mode }) => {
   const isApp = mode === 'app'
+  // RPA 데모 서버 base — 미설정 시 index.html CSP의 %VITE_RPA_BASE% 리터럴이 무효 소스로 남아
+  //   매 로드 콘솔 에러(gh-pages엔 항상 미설정). 설정 시 값으로 치환, 미설정 시 통째로 제거한다.
+  //   (*.trycloudflare.com 와일드카드가 이미 터널을 커버하므로 미설정 제거가 안전)
+  const rpaBase = (loadEnv(mode, process.cwd(), '').VITE_RPA_BASE || '').trim()
   return {
   base: isApp ? '/' : command === 'build' ? '/modoo-bom/' : '/',
   plugins: [
+    {
+      name: 'csp-rpa-base',
+      transformIndexHtml: {
+        order: 'post' as const,
+        handler: (html: string) => html.replace(/\s*%VITE_RPA_BASE%/g, rpaBase ? ` ${rpaBase}` : ''),
+      },
+    },
     react(),
     ...(isApp ? [] : [
     VitePWA({
