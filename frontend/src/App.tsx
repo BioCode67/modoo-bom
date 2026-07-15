@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef } from 'react'
+import { Component, lazy, Suspense, useEffect, useRef, type ReactNode } from 'react'
 import { motion, MotionConfig } from 'framer-motion'
 import { Loader2 } from 'lucide-react'
 import { Navbar } from '@/components/Navbar'
@@ -26,6 +26,25 @@ function PageLoading() {
       <Loader2 className="h-8 w-8 animate-spin text-sprout-400" />
     </div>
   )
+}
+
+/** 화면(lazy) 로드 실패 시 앱 전체를 죽이지 않고 '다시 불러오기'만 제안 — 재배포로 옛 청크가 사라진
+ *  탭에서 화면 전환 시 청크 404가 나도 최상위 오류화면 대신 이 섹션만 폴백(감사). */
+class RouteBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+  state = { failed: false }
+  static getDerivedStateFromError() { return { failed: true } }
+  componentDidCatch() { /* 섹션만 강등 — 앱은 살린다 */ }
+  render() {
+    if (this.state.failed) {
+      return (
+        <div className="page-container py-24 text-center">
+          <p className="text-sm text-muted-foreground">이 화면을 불러오지 못했어요. 새로고침하면 최신 버전으로 다시 열려요.</p>
+          <button onClick={() => window.location.reload()} className="btn-primary mt-4">다시 불러오기</button>
+        </div>
+      )
+    }
+    return this.props.children
+  }
 }
 
 export default function App() {
@@ -95,12 +114,16 @@ export default function App() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
         >
-          <Suspense fallback={<PageLoading />}>
-            {view === 'home' && <Home />}
-            {view === 'analyze' && <Analyze />}
-            {view === 'explore' && <Explore />}
-            {view === 'my' && <My />}
-          </Suspense>
+          {/* RouteBoundary: 재배포 후 옛 청크가 사라져 lazy import가 404로 실패해도 앱 전체가 오류화면으로
+              죽지 않고 '다시 불러오기'로 강등(감사). motion.div가 view로 keyed라 화면 전환 시 자동 리셋. */}
+          <RouteBoundary>
+            <Suspense fallback={<PageLoading />}>
+              {view === 'home' && <Home />}
+              {view === 'analyze' && <Analyze />}
+              {view === 'explore' && <Explore />}
+              {view === 'my' && <My />}
+            </Suspense>
+          </RouteBoundary>
         </motion.div>
       </main>
 
