@@ -84,12 +84,17 @@ def _income_ceiling(doc: str):
     """소득 상한(기준중위소득 %) 추출 — 프론트 welfare-engine.ts incomeCeiling과 동일 로직(패리티).
     '중위소득 N%'는 그대로, '하위 N%'(백분위)는 ×1.4 근사 환산(기초연금 하위70%≈중위96%, 2026 실측 앵커).
     여러 값이면 가장 관대한(높은) 상한. 숫자 없는 '저소득'만으로는 게이트하지 않음."""
+    # '부모 소득 중위 100%'·'부양의무자 … N%'는 신청자 본인(income_percentile)이 아니라 다른 사람의 소득요건 →
+    #   MAX 상한 계산에 넣으면 본인 상한(청년월세 60%)을 부모 상한(100%)이 덮어 고소득자가 통과된다(감사 HIGH,
+    #   프론트 incomeCeiling과 동일 패리티 수정). '가구 중위소득'=본인가구는 유지, 부모·부양의무자 절만 제거.
+    applicant_doc = re.sub(r"부모[^,，、;.]*?[0-9]{2,3}\s*%\s*(?:이하|미만)?", " ", doc)
+    applicant_doc = re.sub(r"부양의무자[^,，、;.]*?[0-9]{2,3}\s*%\s*(?:이하|미만)?", " ", applicant_doc)
     ceil = None
-    for m in re.finditer(r"중위(?:소득)?\s*([0-9]{2,3})\s*%", doc):
+    for m in re.finditer(r"중위(?:소득)?\s*([0-9]{2,3})\s*%", applicant_doc):
         v = int(m.group(1))
         if ceil is None or v > ceil:
             ceil = v
-    for m in re.finditer(r"하위\s*([0-9]{2,3})\s*%", doc):
+    for m in re.finditer(r"하위\s*([0-9]{2,3})\s*%", applicant_doc):
         v = round(int(m.group(1)) * 1.4 / 5) * 5
         if ceil is None or v > ceil:
             ceil = v
@@ -144,7 +149,13 @@ def _check_policy(doc: str, name: str, pid: str, profile) -> tuple[bool, str, st
             return True, f"만 {profile.age}세로 연령 기준 충족", "high", 0.95
         return False, "", "low", 0.0
 
-    if any(k in doc for k in ["만 60세", "60세 이상", "만60세", "만 66세"]):
+    # '만 66세 이상'(생애전환기 건강검진 등)은 60+에 묶으면 60~65세가 잘못 대상이 된다(감사, 프론트와 패리티) → 66세 별도 게이트.
+    if any(k in doc for k in ["만 66세", "66세 이상", "만66세"]):
+        if profile.age >= 66:
+            return True, f"만 {profile.age}세로 연령 기준 충족", "medium", 0.90
+        return False, "", "low", 0.0
+
+    if any(k in doc for k in ["만 60세", "60세 이상", "만60세"]):
         if profile.age >= 60:
             return True, f"만 {profile.age}세로 연령 기준 충족", "medium", 0.90
         return False, "", "low", 0.0
