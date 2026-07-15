@@ -87,8 +87,9 @@ def _income_ceiling(doc: str):
     # '부모 소득 중위 100%'·'부양의무자 … N%'는 신청자 본인(income_percentile)이 아니라 다른 사람의 소득요건 →
     #   MAX 상한 계산에 넣으면 본인 상한(청년월세 60%)을 부모 상한(100%)이 덮어 고소득자가 통과된다(감사 HIGH,
     #   프론트 incomeCeiling과 동일 패리티 수정). '가구 중위소득'=본인가구는 유지, 부모·부양의무자 절만 제거.
-    applicant_doc = re.sub(r"부모[^,，、;.]*?[0-9]{2,3}\s*%\s*(?:이하|미만)?", " ", doc)
-    applicant_doc = re.sub(r"부양의무자[^,，、;.]*?[0-9]{2,3}\s*%\s*(?:이하|미만)?", " ", applicant_doc)
+    # '부모' 뒤 소득/재산/중위가 와야만 부모 소득요건으로 — '한부모'(신청자 본인) 오매칭··() 넘는 과삭제 방어(프론트 패리티)
+    applicant_doc = re.sub(r"부모\s*(?:의\s*)?(?:소득|재산|중위)[^,，、;.·()（）]*?[0-9]{2,3}\s*%\s*(?:이하|미만)?", " ", doc)
+    applicant_doc = re.sub(r"부양의무자[^,，、;.·()（）]*?[0-9]{2,3}\s*%\s*(?:이하|미만)?", " ", applicant_doc)
     ceil = None
     for m in re.finditer(r"중위(?:소득)?\s*([0-9]{2,3})\s*%", applicant_doc):
         v = int(m.group(1))
