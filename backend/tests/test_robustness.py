@@ -232,9 +232,9 @@ def test_chat_dedup_by_name():
 def test_gov24_doc_coverage_expanded():
     from rpa.gov24_rpa import DOC_CAPP, DOC_URLS, ISSUE_URLS, APPLY_FORM_URLS
     from rpa.manager import SUPPORTED_DOC_NAMES, _SUPPORTED_DOCS
-    # gov24 9종 + nhis + work24 = 11
-    assert len(DOC_CAPP) == 9
-    assert len(SUPPORTED_DOC_NAMES) == 11
+    # gov24 13종 + nhis + work24 = 15 (2026-07 AA020 실측 확장 반영)
+    assert len(DOC_CAPP) == 13
+    assert len(SUPPORTED_DOC_NAMES) == 15
     # CDP 검증 5종이 실제로 추가됐고 CappBizCD가 URL에 반영
     for d, capp in {
         "소득금액증명": "12100000021",
