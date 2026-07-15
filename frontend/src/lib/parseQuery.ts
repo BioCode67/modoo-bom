@@ -105,9 +105,9 @@ export function parseProfileFromText(text: string): UserProfile {
   const COUNT: Record<string, number> = { 둘: 2, 두: 2, 셋: 3, 세: 3, 넷: 4 }
   // 부정문 오탐 방지: '자녀 없이·아이 없어요·무자녀·딩크'는 자녀 있음이 아니다(소득 incomeNegated와 동일 취지).
   //   → 이 가드가 없으면 childless 사용자에게 아동수당·부모급여가 잘못 추천된다.
-  //   창을 .{0,3}→.{0,6}으로 — "아이는 아직 없어요"처럼 '아직/도' 필러가 끼면 없이 창 밖으로 밀려 자녀 있음으로
-  //   오판(무자녀에게 아동수당 추천)되던 것 방지(감사). 6자면 '는 아직은 '까지 포괄, 흔한 다자녀 문장은 여전히 밖.
-  const childNegated = /(아이|자녀|자식|애|아들|딸|손주|손자|손녀).{0,6}(없|안\s*낳|안\s*키)/.test(t) || /무자녀|딩크|자녀\s*계획\s*없/.test(t)
+  //   '아이는 아직 없어요'처럼 조사(는/가/도)+필러(아직/여태)가 끼는 무자녀만 잡되, '아이 셋 돈이 없어요'처럼
+  //   '없'이 '돈'을 부정하는 다자녀 문장을 무자녀로 오판하지 않게 — 임의 6자 창(.{0,6}) 대신 조사·필러만 허용(감사 회귀수정).
+  const childNegated = /(아이|자녀|자식|애|아들|딸|손주|손자|손녀)(는|은|가|도|를)?\s*(아직은?|여태|현재|당장|지금은?)?\s*(없|안\s*낳|안\s*키)/.test(t) || /무자녀|딩크|자녀\s*계획\s*없/.test(t)
   if (multiKidAges) { p.has_children = true; p.children_ages = multiKidAges }
   else if (kids.length) { p.has_children = true; p.children_ages = kids.map((m) => parseInt(m[1], 10)) }
   else if (!childNegated && /아이|자녀|아들|딸|육아|아기|영유아|어린이집|유치원|키[우워]|쌍둥이|신생아|갓\s*태어|손주|손자|손녀/.test(t)) {
@@ -115,9 +115,9 @@ export function parseProfileFromText(text: string): UserProfile {
     const caregiving = /육아|키[우워]|어린이집|유치원|등원|먹이|돌보|재우/.test(t)
     if (bornSignal) { p.has_children = true; p.children_ages = /쌍둥이/.test(t) ? [0, 0] : [0] }
     else if (kidCount) { p.has_children = true; p.children_ages = Array(COUNT[kidCount[1]] ?? parseInt(kidCount[1], 10)).fill(5) }
-    else if (p.is_pregnant && !caregiving) {
-      // 임신 중 + 출생신호·나이·양육신호 없는 바 '아이/첫 아이' = 태어날 아이를 뜻함 → 태어난 자녀로 날조하지 않는다
-      //   (예제칩 "임신 중이고 첫 아이예요"). 출산 관련 복지는 is_pregnant(출산 이벤트)로 이미 매칭됨(감사).
+    else if (p.is_pregnant && /첫\s*(아이|애|아기)|첫아이|처음.*아이/.test(t) && !caregiving && !/있|아프|아파|둘째|셋째|첫째/.test(t)) {
+      // 임신 중 + '첫 아이'(태어날 첫 아이) 명시 + 기존 자녀 신호(있/키우/둘째…) 없음 = 아직 자녀 없음 → 날조 안 함
+      //   (예제칩 "임신 중이고 첫 아이예요"). ⚠️ "임신했고 딸이 있어요"(둘째 임신)엔 안 걸리게 좁힘(감사 회귀수정).
     }
     else { p.has_children = true; if (!p.children_ages.length) p.children_ages = [3] }
   }

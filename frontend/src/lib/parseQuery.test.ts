@@ -302,20 +302,26 @@ describe('부정문 오탐 방지 회귀(감사 2026-07)', () => {
     expect(parseProfileFromText('형편이 어려워요').income_percentile).toBe(40)
     expect(parseProfileFromText('생활이 힘들어요').income_percentile).toBe(40)
   })
-  it("'아이는 아직 없어요'(무자녀)에 필러가 껴도 자녀 없음으로 — 창 확대", () => {
+  it("'아이는 아직 없어요'(무자녀)에 필러가 껴도 자녀 없음으로 — 조사/필러만 허용", () => {
     expect(parseProfileFromText('아이는 아직 없어요').has_children).toBe(false)
     expect(parseProfileFromText('자녀는 아직은 없어요').has_children).toBe(false)
     // 진짜 자녀 있음은 그대로
     expect(parseProfileFromText('5살 아이 키워요').has_children).toBe(true)
   })
-  it("임신 중 '첫 아이'는 태어난 자녀로 날조하지 않음(예제칩 회귀)", () => {
+  it("다자녀+무돈 문장을 무자녀로 오판하지 않음(자기감사 회귀수정)", () => {
+    // '없'이 '돈'을 부정 — 자녀는 있음. 임의창(.{0,6})이 과탐지하던 것 조사/필러만 허용으로 좁혀 수정.
+    expect(parseProfileFromText('아이 셋 돈이 없어요').has_children).toBe(true)
+    expect(parseProfileFromText('자녀 둘 있는데 돈이 없어요').has_children).toBe(true)
+  })
+  it("임신 중 '첫 아이'는 태어난 자녀로 날조하지 않되, 기존 자녀 문장은 인정(예제칩 + 회귀수정)", () => {
     const p = parseProfileFromText('임신 중이고 첫 아이예요')
     expect(p.is_pregnant).toBe(true)
     expect(p.has_children).toBe(false)       // 태어날 아이 → 자녀 있음 아님
     expect(p.children_ages).toEqual([])
-    // 임신 중이라도 '양육 신호'가 있으면 기존 자녀로 인정
+    // 임신 중이라도 '기존 자녀' 신호가 있으면 인정(둘째 임신 등) — 좁힌 스킵이 실자녀를 떨구지 않게
+    expect(parseProfileFromText('임신했고 딸이 있어요').has_children).toBe(true)
+    expect(parseProfileFromText('임신 중이고 아들 있어요').has_children).toBe(true)
     expect(parseProfileFromText('임신 중이고 5살 아이 키워요').has_children).toBe(true)
-    expect(parseProfileFromText('임신했고 애 키우고 있어요').has_children).toBe(true)
   })
   it('성별은 명시적 자기지칭에서만 — 관계명사(남편/아내)로 오태깅 안 함(DV 오배제 방지)', () => {
     expect(parseProfileFromText('남편이 때려요').gender).not.toBe('male') // 아내 신고 → 남성 오태깅 금지
