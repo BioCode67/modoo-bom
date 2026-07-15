@@ -1,10 +1,11 @@
 import { motion } from 'framer-motion'
-import { Heart, ChevronRight } from 'lucide-react'
+import { Heart, ChevronRight, Languages } from 'lucide-react'
 import type { Policy } from '@/data/policies'
 import type { EligiblePolicy } from '@/lib/welfare-engine'
 import { categoryMeta, parseMonthly, formatWon, isCashBenefit, PRIORITY_META } from '@/lib/format'
 import { deadlineHint } from '@/lib/deadline'
 import { benefitTypeOf, BENEFIT_TYPE_META } from '@/lib/benefitType'
+import { useAutoTranslate } from '@/lib/onDeviceTranslate'
 import { useAppStore } from '@/store/useAppStore'
 import { cn } from '@/lib/utils'
 
@@ -16,10 +17,14 @@ export function PolicyCard({
   policy,
   onOpen,
   index = 0,
+  translateTo,
 }: {
   policy: Policy | EligiblePolicy
   onOpen: (p: Policy | EligiblePolicy) => void
   index?: number
+  /** 다국어 AI 검색: 지정 시 표시 텍스트(이름·대상·혜택·분류)를 온디바이스로 그 언어로 번역.
+   *  미지정/'ko'/미지원 브라우저면 한국어 원문 그대로. 금액·자격 등 로직은 항상 한국어 원문 기준. */
+  translateTo?: string
 }) {
   const { isSaved, toggleSaved } = useAppStore()
   const saved = isSaved(policy.id)
@@ -33,6 +38,18 @@ export function PolicyCard({
   const targetText = rm ? policy.target.replace(/^\[[^\]]+\]\s*/, '') : policy.target
   const deadline = deadlineHint(policy) // 신청 기한 힌트(있으면 ⏰ 배지)
   const btype = benefitTypeOf(policy) // 지원형태(현금·바우처·감면·서비스·대출)
+
+  // 다국어 AI 검색 — 표시 텍스트만 질의 언어로 온디바이스 번역(원문 한국어는 상세·저장·금액계산에 그대로 유지).
+  // 혜택 미리보기는 '월 N까지' 금액 배지가 없을 때(monthly===0)만 노출되므로 그때만 번역한다.
+  const benefitPreview = policy.benefit.slice(0, 60)
+  const tr = useAutoTranslate(
+    { name: policy.name, target: targetText, category: policy.category, benefit: monthly > 0 ? undefined : benefitPreview },
+    translateTo,
+  )
+  const dName = tr?.name ?? policy.name
+  const dCategory = tr?.category ?? policy.category
+  const dTarget = tr?.target ?? targetText
+  const dBenefit = tr?.benefit ?? benefitPreview
 
   return (
     <motion.div
@@ -50,7 +67,13 @@ export function PolicyCard({
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-[11px] font-semibold text-muted-foreground">{policy.category}</span>
+            <span className="text-[11px] font-semibold text-muted-foreground">{dCategory}</span>
+            {tr && (
+              <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-violet-700 bg-violet-50 rounded-full px-1.5 py-0.5"
+                title="브라우저 안에서 자동 번역됨 · 원문(신청 기준)은 한국어예요">
+                <Languages className="h-2.5 w-2.5" /> 자동 번역
+              </span>
+            )}
             {region && <span className="text-[10px] font-semibold text-sky2-700 bg-sky2-50 rounded-full px-1.5 py-0.5">📍 {region}</span>}
             {btype && <span className="text-[10px] font-semibold text-violet-700 bg-violet-50 rounded-full px-1.5 py-0.5">{BENEFIT_TYPE_META[btype].emoji} {BENEFIT_TYPE_META[btype].label}</span>}
             {deadline && (
@@ -66,7 +89,7 @@ export function PolicyCard({
           </div>
           {/* 카드 제목은 heading이 아닌 일반 텍스트 — 5천여 카드 그리드에서 heading 남발/레벨 스킵 방지.
               스크린리더는 카드의 '자세히' 버튼(aria-label=정책명 상세 보기)으로 정책명을 안내받는다. */}
-          <p className="font-bold text-[15px] leading-snug mt-0.5 truncate">{policy.name}</p>
+          <p className="font-bold text-[15px] leading-snug mt-0.5 truncate">{dName}</p>
         </div>
         <button
           onClick={(e) => {
@@ -83,7 +106,7 @@ export function PolicyCard({
         </button>
       </div>
 
-      <p className="mt-3 text-xs text-muted-foreground line-clamp-2 leading-relaxed">{targetText}</p>
+      <p className="mt-3 text-xs text-muted-foreground line-clamp-2 leading-relaxed">{dTarget}</p>
 
       {eligible && (policy as EligiblePolicy).reason && (
         <div className="mt-2 rounded-xl bg-sprout-50 px-3 py-2 text-xs text-sprout-800 line-clamp-2">
@@ -97,13 +120,13 @@ export function PolicyCard({
             월 {formatWon(monthly)}<span className="text-[11px] font-medium text-muted-foreground"> 까지</span>
           </span>
         ) : (
-          <span className="text-xs font-semibold text-muted-foreground line-clamp-1">{policy.benefit.slice(0, 18)}…</span>
+          <span className="text-xs font-semibold text-muted-foreground line-clamp-1">{tr ? dBenefit : `${policy.benefit.slice(0, 18)}…`}</span>
         )}
         {/* 키보드·스크린리더용 상세 열기 버튼(카드 role=button 대신). 대비 통과 위해 sprout-700 */}
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); onOpen(policy) }}
-          aria-label={`${policy.name} 상세 보기`}
+          aria-label={`${dName} 상세 보기`}
           className="inline-flex items-center gap-0.5 rounded text-xs font-semibold text-sprout-700 transition-all group-hover:gap-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-sprout-500"
         >
           자세히 <ChevronRight className="h-3.5 w-3.5" />

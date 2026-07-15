@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Search, X, Mic, ArrowDownWideNarrow, Calculator, ChevronDown, Globe, Sparkles, Volume2, Square } from 'lucide-react'
+import { Search, X, Mic, ArrowDownWideNarrow, Calculator, ChevronDown, Globe, Sparkles, Volume2, Square, Languages } from 'lucide-react'
 import { useSpeech } from '@/lib/useSpeech'
 import { useTTS } from '@/lib/useTTS'
 import { hybridSearch, warmupSemantic, type SemanticHit } from '@/lib/semanticSearch'
@@ -11,6 +11,7 @@ import { useAppStore } from '@/store/useAppStore'
 import { IncomeCalculator } from '@/components/IncomeCalculator'
 import { parseMonthly, isCashBenefit } from '@/lib/format'
 import { buildAiAnswer } from '@/lib/aiAnswer'
+import { supportsOnDeviceTranslation, getTranslator } from '@/lib/onDeviceTranslate'
 import { queryConcepts, relevance } from '@/lib/search'
 import { cn } from '@/lib/utils'
 import type { Policy } from '@/data/policies'
@@ -169,6 +170,15 @@ export function Explore() {
   // 해당 언어 보이스가 이 기기에 없으면(한국어 Windows/Android에서 베트남어·태국어 흔함) 한국어 보이스로
   // 외국어를 읽어 발음이 깨지거나 무음이 된다 → 재생 대신 텍스트로 안내(voiceschanged 후 재판단).
   const noVoice = answerLang !== 'ko' && !tts.hasVoice(answerLang)
+
+  // 다국어 AI 검색 — 질의가 외국어면 결과 카드(정책명·대상·혜택)를 그 언어로 '온디바이스' 번역해 표시.
+  // 미지원 브라우저는 undefined → 카드가 한국어 원문 그대로(폴백). 금액·자격 등 로직은 항상 한국어 원문 기준.
+  const translateTo = aiMode && answerLang !== 'ko' ? answerLang : undefined
+  const canTranslate = supportsOnDeviceTranslation()
+  // 번역기 워밍업 — 결과가 뜨기 전에 모델을 미리 준비(첫 카드 번역 지연 최소화). 실패는 무해(원문 폴백).
+  useEffect(() => {
+    if (translateTo && canTranslate) getTranslator(translateTo)
+  }, [translateTo, canTranslate])
 
   // 음성으로 물었으면 AI가 음성으로 답한다(대화형) — 마이크 클릭이 사용자 제스처라 TTS 허용됨
   useEffect(() => {
@@ -476,6 +486,27 @@ export function Explore() {
         </div>
       )}
 
+      {/* 다국어 결과 번역 상태 — 온디바이스 번역이 켜졌는지/미지원 폴백인지 정직하게 안내(정책명 원문은 한국어). */}
+      {translateTo && aiHits && aiHits.length > 0 && (
+        canTranslate ? (
+          <p className="mt-2 flex items-center gap-1.5 text-xs text-violet-700" role="status">
+            <Languages className="h-3.5 w-3.5 shrink-0" />
+            결과를 <b>이 기기 안에서</b> {detected?.flag} <b>{detected?.label || '입력 언어'}</b>로 자동 번역했어요 · 원문(신청·자격 기준)은 한국어예요.
+          </p>
+        ) : (
+          <p className="mt-2 text-xs text-muted-foreground">
+            이 브라우저는 온디바이스 번역을 지원하지 않아 정책은 <b>한국어</b>로 표시돼요(최신 Chrome·Edge에서 자동 번역). ·{' '}
+            <a
+              href={`https://translate.google.com/?sl=ko&tl=${translateTo === 'zh' ? 'zh-CN' : translateTo}&op=translate`}
+              target="_blank" rel="noopener noreferrer"
+              className="underline font-semibold text-sky2-700"
+            >
+              Google 번역 열기
+            </a>
+          </p>
+        )
+      )}
+
       {filtered.length === 0 ? (
         <div className="py-20 text-center text-muted-foreground">
           {aiMode && q.trim() && aiProgress ? (
@@ -519,7 +550,7 @@ export function Explore() {
                     🤖 AI 매칭
                   </span>
                 )}
-                <PolicyCard policy={p} index={Math.min(i, 12)} onOpen={setSelected} />
+                <PolicyCard policy={p} index={Math.min(i, 12)} onOpen={setSelected} translateTo={translateTo} />
               </div>
             ))}
           </div>

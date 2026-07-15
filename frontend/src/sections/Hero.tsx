@@ -34,7 +34,15 @@ export function Hero() {
     { flag: '🇬🇧', q: 'I am a single mother raising a child alone' },
     { flag: '🇨🇳', q: '我是残疾人，需要医疗费用支持' },
   ]
-  const askAI = (q: string) => { setAiQuery(q); setAiIntent(true); setView('explore') }
+  const askAI = (q: string) => {
+    setAiQuery(q); setAiIntent(true); setView('explore')
+    // 결과를 그 언어로 보여주려면 번역기도 미리 준비 — 이 클릭이 '사용자 제스처'라
+    // downloadable 모델도 여기서 받을 수 있다(결과 진입 시 첫 카드부터 번역돼 뜨게).
+    import('@/lib/detectLang').then(({ detectLang }) => {
+      const code = detectLang(q)?.code
+      if (code && code !== 'ko') import('@/lib/onDeviceTranslate').then((m) => m.getTranslator(code)).catch(() => {})
+    }).catch(() => {})
+  }
   const warm = () => { import('@/lib/semanticSearch').then((m) => m.warmupSemantic()).catch(() => {}) }
 
   // 자연어 한 문장 → 분석 대기 프로필만 넘기고 이동 → 분석 화면에서 실제 AI 오버레이를 태운다
@@ -66,7 +74,7 @@ export function Hero() {
           <span className="chip-sprout inline-flex mb-5">
             <Sparkles className="h-3.5 w-3.5" /> AI가 찾아주는 내 복지 혜택
           </span>
-          <h1 className="text-4xl sm:text-5xl lg:text-[3.4rem] font-extrabold tracking-tight leading-[1.24] text-balance">
+          <h1 className="text-4xl sm:text-5xl lg:text-[3.4rem] font-extrabold tracking-tight !leading-[1.35] text-balance">
             받을 수 있는 <span className="gradient-text">복지 혜택</span>,<br />
             <span className="gradient-text-warm">모두</span> 찾아드릴게요 🌱
           </h1>
