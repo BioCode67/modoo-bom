@@ -28,6 +28,15 @@ describe('parseMonthly', () => {
     // 범위가 아닌 단일 표기는 그대로
     expect(parseMonthly('월 30만원 (2024년 기준)')).toBe(300000)
   })
+  it("'약'(대략) 수식어 허용 — 생계급여 등 공식 표기가 0으로 누락되지 않게(회귀)", () => {
+    expect(parseMonthly('1인 가구 월 최대 약 82만원')).toBe(820000) // 생계급여 POL-002
+    expect(parseMonthly('월 약 161만원')).toBe(1610000)              // 자활근로
+    expect(parseMonthly('월 약 140만원')).toBe(1400000)              // 청년 인턴
+    expect(parseMonthly('월 약 349,700원')).toBe(349700)            // 약 + 원 단위
+    // '약'이 없어도 기존 동작 유지 + 원-우선 유지
+    expect(parseMonthly('월 최대 250만원')).toBe(2500000)
+    expect(parseMonthly('월 최대 약 70만원 납입, 정부기여금 월 최대 33,000원')).toBe(33000)
+  })
 })
 
 describe('isCashBenefit / sumCashMonthly', () => {

@@ -292,3 +292,20 @@ describe('parseProfileFromText — 2차 감사 회귀(2026-07)', () => {
     expect(parseProfileFromText('자영업 합니다').employment_status).toBe('self')
   })
 })
+
+describe('부정문 오탐 방지 회귀(감사 2026-07)', () => {
+  it("'형편이 어렵지 않아요'(여유)는 저소득 아님 — 어려움 어간 부정 가드", () => {
+    expect(parseProfileFromText('형편이 어렵지 않아요').income_percentile).toBe(80)
+    expect(parseProfileFromText('생활이 힘들지 않아요').income_percentile).toBe(80)
+    expect(parseProfileFromText('살기 어렵지 않습니다').income_percentile).toBe(80)
+    // 긍정형(진짜 어려움)은 여전히 저소득으로 흡수
+    expect(parseProfileFromText('형편이 어려워요').income_percentile).toBe(40)
+    expect(parseProfileFromText('생활이 힘들어요').income_percentile).toBe(40)
+  })
+  it("'아이는 아직 없어요'(무자녀)에 필러가 껴도 자녀 없음으로 — 창 확대", () => {
+    expect(parseProfileFromText('아이는 아직 없어요').has_children).toBe(false)
+    expect(parseProfileFromText('자녀는 아직은 없어요').has_children).toBe(false)
+    // 진짜 자녀 있음은 그대로
+    expect(parseProfileFromText('5살 아이 키워요').has_children).toBe(true)
+  })
+})

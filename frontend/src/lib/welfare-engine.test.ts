@@ -458,3 +458,21 @@ describe('프로그램 중복 그룹 접기(2026 데이터검증)', () => {
     expect(count(senior, /틀니|임플란트/)).toBeLessThanOrEqual(1)
   })
 })
+
+describe('연령 게이트 회귀 — 만 66세는 60~65세를 포함하지 않음(감사)', () => {
+  const mk = (eligibility: string): Policy => ({
+    id: 'T66', name: '노인 건강검진', category: '노인', target: eligibility, benefit: '무료 검진',
+    eligibility, required_docs: [], application: '', department: '', renewal: '',
+  })
+  const atAge = (age: number): UserProfile => ({ ...base, age })
+  it('만 66세 이상 정책: 62세 부적격, 66세 적격', () => {
+    const p = mk('만 66세 이상 생애전환기 건강검진')
+    expect(checkPolicy(p, atAge(62)).eligible).toBe(false)
+    expect(checkPolicy(p, atAge(66)).eligible).toBe(true)
+  })
+  it('만 60세 이상 정책은 60세부터 적격(66 분리 후에도 유지)', () => {
+    const p = mk('만 60세 이상 대상')
+    expect(checkPolicy(p, atAge(60)).eligible).toBe(true)
+    expect(checkPolicy(p, atAge(59)).eligible).toBe(false)
+  })
+})

@@ -165,8 +165,10 @@ export function Explore() {
     return buildAiAnswer(aiHits.map((h) => h.policy), q)
   }, [aiMode, aiHits, q])
 
-  // AI 답변의 언어 = 질의 언어(aiAnswer가 질의 언어로 생성) → TTS도 그 언어 보이스로 읽어야 발음이 안 깨진다
-  const answerLang = useMemo(() => (aiMode && q.trim() ? (detectLang(q)?.code || 'ko') : 'ko'), [aiMode, q])
+  // AI 답변의 언어 = 질의 언어(aiAnswer가 질의 언어로 생성) → TTS도 그 언어 보이스로 읽어야 발음이 안 깨진다.
+  // ⚠️ 보수적 detectUiLang 사용 — 한국어 사용자의 짧은 영문 약어('EITC','LH')에 카드가 통째로 외국어로
+  //   번역되지 않게(aiAnswer의 답변 언어 판정과 동일 기준으로 일관성 확보, 감사).
+  const answerLang = useMemo(() => (aiMode && q.trim() ? detectUiLang(q) : 'ko'), [aiMode, q])
   // 해당 언어 보이스가 이 기기에 없으면(한국어 Windows/Android에서 베트남어·태국어 흔함) 한국어 보이스로
   // 외국어를 읽어 발음이 깨지거나 무음이 된다 → 재생 대신 텍스트로 안내(voiceschanged 후 재판단).
   const noVoice = answerLang !== 'ko' && !tts.hasVoice(answerLang)

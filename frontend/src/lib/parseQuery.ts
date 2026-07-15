@@ -65,7 +65,9 @@ export function parseProfileFromText(text: string): UserProfile {
   // ── 소득 ──
   // 부정문 오탐 방지: '소득이 적지 않다/부족하지 않다/낮지 않다'는 저소득이 아님(오히려 여유).
   //   단 '넉넉하지 않다'는 저소득이 맞으므로 이 가드에서 제외(적/낮/부족/없이 '~지 않'으로 부정될 때만).
-  const incomeNegated = /(적|낮|부족|없)\S{0,2}(지\s*(않|는\s*않)|하지\s*않|치\s*않)/.test(t)
+  //   ⚠️ 저소득 트리거(아래)가 '형편/생활/살기 + 어렵·힘들·막막·곤란·빠듯·쪼들'에도 걸리므로, 이 부정 가드도
+  //   같은 어려움 어간을 포함해야 "형편이 어렵지 않아요"(오히려 여유)를 저소득으로 오판하지 않는다(감사).
+  const incomeNegated = /(적|낮|부족|없|어렵|어려|힘[들드]|막막|곤란|빠듯|쪼들)\S{0,2}(지\s*(않|는\s*않)|하지\s*않|치\s*않)/.test(t)
   if (/기초생활|기초수급|수급자|생계급여|기초\s*수급/.test(t)) p.income_percentile = 28
   else if (/차상위/.test(t)) p.income_percentile = 45
   // 저소득: '소득이 많지 않다·많이 부족하다·넉넉지 않다' 같은 부정형도 저소득으로 흡수(고소득 오분류 방지).
@@ -103,7 +105,9 @@ export function parseProfileFromText(text: string): UserProfile {
   const COUNT: Record<string, number> = { 둘: 2, 두: 2, 셋: 3, 세: 3, 넷: 4 }
   // 부정문 오탐 방지: '자녀 없이·아이 없어요·무자녀·딩크'는 자녀 있음이 아니다(소득 incomeNegated와 동일 취지).
   //   → 이 가드가 없으면 childless 사용자에게 아동수당·부모급여가 잘못 추천된다.
-  const childNegated = /(아이|자녀|자식|애|아들|딸|손주|손자|손녀).{0,3}(없|안\s*낳|안\s*키)/.test(t) || /무자녀|딩크|자녀\s*계획\s*없/.test(t)
+  //   창을 .{0,3}→.{0,6}으로 — "아이는 아직 없어요"처럼 '아직/도' 필러가 끼면 없이 창 밖으로 밀려 자녀 있음으로
+  //   오판(무자녀에게 아동수당 추천)되던 것 방지(감사). 6자면 '는 아직은 '까지 포괄, 흔한 다자녀 문장은 여전히 밖.
+  const childNegated = /(아이|자녀|자식|애|아들|딸|손주|손자|손녀).{0,6}(없|안\s*낳|안\s*키)/.test(t) || /무자녀|딩크|자녀\s*계획\s*없/.test(t)
   if (multiKidAges) { p.has_children = true; p.children_ages = multiKidAges }
   else if (kids.length) { p.has_children = true; p.children_ages = kids.map((m) => parseInt(m[1], 10)) }
   else if (!childNegated && /아이|자녀|아들|딸|육아|아기|영유아|어린이집|유치원|키[우워]|쌍둥이|신생아|갓\s*태어|손주|손자|손녀/.test(t)) {

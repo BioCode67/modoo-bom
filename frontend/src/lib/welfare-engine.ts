@@ -221,7 +221,12 @@ function checkPolicyDoc(doc: string, name: string, p: UserProfile): CheckResult 
     }
     return NO
   }
-  if (anyIn(doc, ['만 60세', '60세 이상', '만60세', '만 66세'])) {
+  // '만 66세 이상'(생애전환기 건강검진 등)은 60+에 묶으면 60~65세가 잘못 대상이 된다(감사) → 66세로 별도 게이트.
+  if (anyIn(doc, ['만 66세', '66세 이상', '만66세'])) {
+    if (p.age >= 66) return { eligible: true, reason: `만 ${p.age}세로 연령 기준 충족`, priority: 'medium', confidence: 0.9 }
+    return NO
+  }
+  if (anyIn(doc, ['만 60세', '60세 이상', '만60세'])) {
     if (p.age >= 60) return { eligible: true, reason: `만 ${p.age}세로 연령 기준 충족`, priority: 'medium', confidence: 0.9 }
     return NO
   }

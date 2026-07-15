@@ -42,6 +42,13 @@ describe('monitorItem', () => {
     const m = monitorItem(mk({ status: 'done', appliedAt: Date.now() - 340 * DAY }), onceVoucher)
     expect(m.alerts.some((a) => a.kind === 'renew')).toBe(false)
   })
+  it("'연간 재선정/재신청'형 매년 갱신도 알림 — 감사(연간·재선정 누락 보강)", () => {
+    for (const renewal of ['연간 재선정', '연간 재신청', '연간 이용 신청']) {
+      const p: Policy = { ...policy, renewal }
+      const m = monitorItem(mk({ status: 'done', appliedAt: Date.now() - 340 * DAY }), p)
+      expect(m.alerts.some((a) => a.kind === 'renew')).toBe(true)
+    }
+  })
   it('appliedAt 없는 레거시 applied 항목 → savedAt 폴백으로 일수 계산·재점검 동작', () => {
     // 2026-06 이전 신청분·클라우드 병합으로 appliedAt이 없어도 '신청 0일째' 고정되지 않아야 한다
     const m = monitorItem(mk({ status: 'applied', savedAt: Date.now() - 12 * DAY, lastChecked: Date.now() - 8 * DAY }), policy)

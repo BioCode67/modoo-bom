@@ -42,7 +42,9 @@ function isAnnualRenewal(renewal: string): boolean {
   const r = renewal || ''
   // '1회·사용·유효기한·이내' 등 기간/1회성 표현은 매년 갱신이 아님 — '1회 (출생 후 1년 이내 사용)'을 '1년' 부분매칭으로 오판하던 문제 방지
   if (/1회|사용|유효|만기|소진|이내|일시/.test(r)) return false
-  return /매년|연\s*1회|1년\s*(?:마다|단위|주기)|재확인|재산정|재판정/.test(r)
+  // '연간 재선정/재신청/운영' 등 실제 매년 재신청형이 누락되던 것 보강 — '연간'·'재선정' 추가(감사).
+  //   위 1회성 가드를 이미 통과한 문구만 이르므로 1회성 오판은 없음.
+  return /매년|연간|연\s*1회|1년\s*(?:마다|단위|주기)|재확인|재산정|재판정|재선정/.test(r)
 }
 
 export function monitorItem(item: TrackedItem, policy: Policy | undefined, globalDocDone: Record<string, number> = {}): ItemMonitor {

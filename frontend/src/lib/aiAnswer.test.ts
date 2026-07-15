@@ -80,3 +80,34 @@ describe('buildAiAnswer — 외국어 금액은 ₩ 표기(만원 배제)', () =
     expect(s).not.toContain('만원')
   })
 })
+
+describe('buildAiAnswer — 현금 오귀속·언어판정 회귀(감사 2026-07)', () => {
+  it('현금성이 대표 3건 밖(하위)이면 현금 금액을 붙이지 않음 — 비현금 서비스에 오귀속 방지', () => {
+    const s = buildAiAnswer([
+      { name: '노인맞춤돌봄서비스', benefit: '주 3회 방문 돌봄' }, // 비현금
+      { name: '아이돌봄서비스', benefit: '시간제 아이돌봄' },        // 비현금
+      { name: '장애인활동지원', benefit: '활동보조 서비스' },        // 비현금
+      { name: '긴급복지 생계지원', benefit: '월 최대 162만원' },     // 현금(하위 4위)
+    ], '돌봄')
+    expect(s).toContain('노인맞춤돌봄서비스')
+    expect(s).not.toContain('162')          // 하위 현금액을 대표 3건 옆에 안 붙임
+    expect(s).not.toContain('현금성 지원')
+  })
+  it('대표 3건에 현금이 있으면 그 금액만 사용', () => {
+    const s = buildAiAnswer([
+      { name: '기초연금', benefit: '월 최대 34만원' },
+      { name: '노인맞춤돌봄서비스', benefit: '주 3회 방문' },
+      { name: '장애인활동지원', benefit: '활동보조' },
+    ], '노인')
+    expect(s).toContain('현금성 지원은 월 최대 34만원')
+  })
+  it('한국어 사용자의 짧은 영문 약어(EITC/LH)는 영어로 뒤집지 않음(detectUiLang)', () => {
+    const s = buildAiAnswer([{ name: '근로장려금', benefit: '연 최대 330만원' }], 'EITC')
+    expect(s).toContain('이런 복지가 가장 잘 맞아요')
+    expect(s).not.toContain('welfare programs')
+  })
+  it('진짜 외국어 문장은 그 언어로 답(다국어 유지)', () => {
+    const s = buildAiAnswer([{ name: '실업급여', benefit: '월 최대 198만원' }], 'I lost my job and need help')
+    expect(s).toContain('welfare programs match you best')
+  })
+})
