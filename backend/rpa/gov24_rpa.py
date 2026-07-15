@@ -490,9 +490,19 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None) -> None:
             addr_warned = False
             task.update("running", "신청 버튼을 눌러 발급을 진행하고 있어요…", await take_screenshot(page))
             for _hb in range(24):  # 최대 ~4분(주소 정정 대기 포함)
-                # 하트비트: 침묵 구간(과거 최대 4분 무갱신 → '멈췄다' 오인, 실사용 피드백)마다 진행 화면 공유
+                # 하트비트: 침묵 구간(과거 최대 4분 무갱신 → '멈췄다' 오인, 실사용 피드백)마다 진행 화면 공유.
+                # ⚠️ 주소 정정 대기 중엔 generic 문구로 '해야 할 일 안내'를 덮어쓰지 않는다(자가 검토에서 잡은 회귀)
+                #    — 대신 같은 안내를 새 스크린샷과 함께 반복해 살아있음을 보여준다.
                 if _hb and _hb % 4 == 0:
-                    task.update("running", f"발급 처리 진행 중… ({_hb * 5}초 경과) — 브라우저 창을 닫지 마세요.", await take_screenshot(page))
+                    if addr_warned:
+                        task.update(
+                            "waiting_login",
+                            "⚠️ 화면의 '주민등록상 주소'를 본인 주소(시도·시군구)로 바꿔 주세요.\n"
+                            "바꾸면 자동으로 다시 신청합니다. (계속 기다리는 중…)",
+                            await take_screenshot(page),
+                        )
+                    else:
+                        task.update("running", f"발급 처리 진행 중… ({_hb * 5}초 경과) — 브라우저 창을 닫지 마세요.", await take_screenshot(page))
                 # 발급 진행 버튼 — plus.gov.kr 발급폼은 '신청하기', 안내페이지(AA020) 폴백은 '발급하기'.
                 if not await click_by_text(page, ["신청하기", "민원신청하기", "발급하기"]):
                     await click_first_matching(page, ["button:has-text('신청하기')", "a:has-text('발급하기')", "button:has-text('발급하기')", "#btnMinwonApply", "#btnApply", "input[value*='신청']"])
