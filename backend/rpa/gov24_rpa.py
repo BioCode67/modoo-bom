@@ -20,6 +20,7 @@ from rpa.base import (
     click_first_matching, click_by_text, make_browser_context_args,
     click_provider_in_anyid, provider_display, detect_auth_form, AUTH_FORM_USER_GUIDE,
     LOGIN_PAGE_URL_KEYWORDS, get_launch_options, launch_browser, save_document,
+    check_cancel, cancellable_sleep, CancelledByUser, NO_PRINT_SCRIPT,
 )
 
 # 정부24 로그인 페이지 — 2026년 plus.gov.kr로 이전(옛 www.gov.kr/portal/login/memberLogin 은 soft-404).
@@ -384,6 +385,25 @@ async def _select_doc_form_options(page, doc_name: str) -> None:
         pass
 
 
+def _pick_result_page(context, fallback):
+    """발급 결과 페이지를 고른다 — 무관한 팝업/탭이 최신(pages[-1])이면 엉뚱한 화면을 저장하던 것 방지(감사 :555).
+    URL 만 검사(evaluate 없음 → 렌더러 블록 위험 없음): 발급 결과 경로를 담은 살아있는 페이지 우선, 없으면 최신."""
+    try:
+        alive = [p for p in context.pages if not p.is_closed()]
+        if not alive:
+            return fallback
+        for p in reversed(alive):  # 최신부터
+            try:
+                u = p.url or ""
+            except Exception:
+                continue
+            if any(k in u for k in ("mbrAplySrvcList", "AplyView", "issue", "gov.kr")):
+                return p
+        return alive[-1]
+    except Exception:
+        return fallback
+
+
 async def run_gov24_rpa(task, doc_name: str, user_info: dict = None) -> None:
     """정부24에서 주민등록등본 또는 초본 발급. user_info(이름·생년월일·휴대폰) 있으면 본인인증 폼 자동입력."""
     try:
@@ -404,6 +424,8 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None) -> None:
             await context.add_init_script(
                 "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
             )
+            # 네이티브 인쇄 다이얼로그가 렌더러를 블록해 이후 evaluate/count 가 무한 동결되던 것 차단(감사 CRITICAL)
+            await context.add_init_script(NO_PRINT_SCRIPT)
             page = await context.new_page()
 
             # ① www.gov.kr 로그인 페이지 직접 접속 (세션 수립용)
@@ -490,6 +512,7 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None) -> None:
             addr_warned = False
             task.update("running", "신청 버튼을 눌러 발급을 진행하고 있어요…", await take_screenshot(page))
             for _hb in range(24):  # 최대 ~4분(주소 정정 대기 포함)
+                check_cancel(task, context)  # 취소·창닫힘 즉시 탈출
                 # 하트비트: 침묵 구간(과거 최대 4분 무갱신 → '멈췄다' 오인, 실사용 피드백)마다 진행 화면 공유.
                 # ⚠️ 주소 정정 대기 중엔 generic 문구로 '해야 할 일 안내'를 덮어쓰지 않는다(자가 검토에서 잡은 회귀)
                 #    — 대신 같은 안내를 새 스크린샷과 함께 반복해 살아있음을 보여준다.
@@ -540,7 +563,8 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None) -> None:
                 if await _autofill_auth_form(sign_frame, user_info) and re.sub(r"[^0-9]", "", str((user_info or {}).get("birth_date", ""))):
                     await _request_auth(sign_frame)
                 task.update("waiting_login", f"📱 전자서명 인증이에요 — {provider_display(_prov)} [인증 허용]을 눌러주세요.", await take_screenshot(page))
-                for _sg in range(120):
+                for _sg in range(180):  # ~6분 — 폰 인증은 넉넉히(과거 240초는 촉박, 감사 :543)
+                    check_cancel(task, context)  # 취소·창닫힘 즉시 탈출
                     await asyncio.sleep(2)
                     t = await _txt()
                     if any(k in t for k in ["문서출력", "처리완료", "발급완료"]) or "mbrAplySrvcList" in page.url:
@@ -552,7 +576,7 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None) -> None:
             await asyncio.sleep(2)
             await click_by_text(page, ["문서출력", "출력하기"])
             await asyncio.sleep(3)
-            final_page = context.pages[-1] if len(context.pages) > 1 else page
+            final_page = _pick_result_page(context, page)
             try:
                 await final_page.bring_to_front()
             except Exception:
@@ -564,13 +588,19 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None) -> None:
             really_issued = ("처리완료" in body_now) or ("발급완료" in body_now) or ("발급 완료" in body_now) or ("mbrAplySrvcList" in final_url)
             saved = await save_document(final_page, doc_name, getattr(task, 'user_name', ''))
 
-            if really_issued and saved:
+            # 성공 판정은 really_issued(권위 신호) 단독으로 — headed 저장이 구조적으로 실패해도
+            #   실제 발급 성공을 '미완료'로 뒤집지 않는다(감사 HIGH :567). saved 는 자동/수동 저장 안내에만 영향.
+            if really_issued:
                 task.update(
                     "done",
-                    f"✅ {doc_name} 발급 완료!\n📄 자동 저장됨: {saved}\n브라우저는 60초 후 자동 종료됩니다.",
+                    f"✅ {doc_name} 발급 완료!\n"
+                    + (f"📄 자동 저장됨: {saved}\n" if saved else "브라우저 화면에서 '문서출력'으로 저장(PDF)해 주세요.\n")
+                    + "브라우저는 60초 후 자동 종료됩니다.",
                     await take_screenshot(final_page),
                 )
-                task.result = {"success": True, "doc_name": doc_name, "saved_path": saved}
+                task.result = {"success": True, "doc_name": doc_name, "saved_path": saved or None}
+                if not saved:
+                    task.result["manual_save"] = True
             else:
                 # 발급이 확인되지 않음 — 저장된 파일은 '진행 화면 캡처'일 수 있어 saved_path 로 넘기지 않는다
                 #   (신청 자동첨부·여정 saved_docs 에 미발급 화면이 섞이는 것을 원천 차단).
@@ -583,9 +613,12 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None) -> None:
                 )
                 task.result = {"success": False, "doc_name": doc_name, "final_url": final_url, "progress_capture": saved}
 
-            await asyncio.sleep(60)
+            await cancellable_sleep(60, task, context)  # 중단 가능한 유예(창 닫으면 즉시 반납, 감사 :586)
             await browser.close()
 
+    except CancelledByUser:
+        # 사용자 중단/창닫힘 — manager 가 'cancelled'로 정직히 종결하도록 재전파
+        raise
     except Exception as e:
         import traceback
         traceback.print_exc()

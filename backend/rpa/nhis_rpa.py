@@ -12,7 +12,10 @@
 """
 import asyncio
 import re
-from rpa.base import take_screenshot, make_browser_context_args, get_launch_options, launch_browser, save_document
+from rpa.base import (
+    take_screenshot, make_browser_context_args, get_launch_options, launch_browser, save_document,
+    check_cancel, cancellable_sleep, CancelledByUser, NO_PRINT_SCRIPT,
+)
 
 NHIS_CERT_URL  = "https://www.nhis.or.kr/nhis/minwon/jpAea00401.do"
 LOGIN_URL      = "https://www.nhis.or.kr/nhis/etc/personalLoginPage.do"
@@ -307,6 +310,14 @@ async def _click_auth_btn(page, task) -> bool:
 async def _wait_login(page, task, timeout: int = 300) -> bool:
     last_report = 0
     for elapsed in range(timeout):
+        check_cancel(task, getattr(page, "context", None))  # 취소·창닫힘 즉시 탈출
+        try:
+            if page.is_closed():
+                raise CancelledByUser("로그인 창이 닫혀 자동화를 중단했어요.")
+        except CancelledByUser:
+            raise
+        except Exception:
+            pass
         try:
             url = page.url
             if CERT_KEYWORD in url and LOGIN_KEYWORD not in url:
@@ -382,11 +393,13 @@ async def _click_issue(page, context, task) -> bool:
 
 
 async def _auto_confirm_print(context) -> bool:
-    """프린트/출력 확인 다이얼로그 자동 클릭"""
+    """프린트/출력 확인 다이얼로그 자동 클릭.
+    evaluate 는 만일의 렌더러 블록(감사 CRITICAL)에 대비해 5초 타임아웃으로 감싼다 —
+    NO_PRINT_SCRIPT 로 네이티브 인쇄창은 이미 막았지만 방어적으로 무한 동결을 원천 차단."""
     for p in context.pages:
         for f in p.frames:
             try:
-                r = await f.evaluate("""
+                r = await asyncio.wait_for(f.evaluate("""
                     () => {
                         const kws = ['프린트','출력','발급','인쇄'];
                         const dlgs = document.querySelectorAll(
@@ -408,7 +421,7 @@ async def _auto_confirm_print(context) -> bool:
                         }
                         return null;
                     }
-                """)
+                """), timeout=5)
                 if r:
                     return True
             except Exception:
@@ -419,6 +432,7 @@ async def _auto_confirm_print(context) -> bool:
 async def _wait_print(context, task, timeout: int = 90) -> bool:
     print_sels = ["button:has-text('출력')", "button:has-text('인쇄')", "#btnPrint", ".btn-print"]
     for _ in range(timeout):
+        check_cancel(task, context)  # 취소·창닫힘 즉시 탈출(멈춤 유령 점유 차단)
         if await _auto_confirm_print(context):
             ss = await take_screenshot(context.pages[-1])
             task.update("running", "✅ 출력 확인 다이얼로그 자동 클릭!", ss)
@@ -427,7 +441,8 @@ async def _wait_print(context, task, timeout: int = 90) -> bool:
             for sel in print_sels:
                 try:
                     el = p.locator(sel).first
-                    if await el.count() > 0:
+                    # count() 도 만일의 렌더러 블록 대비 타임아웃(감사 CRITICAL 방어)
+                    if await asyncio.wait_for(el.count(), timeout=5) > 0:
                         ss = await take_screenshot(p)
                         task.update("running", "출력 버튼 감지!", ss)
                         await el.click()
@@ -464,6 +479,8 @@ async def run_nhis_rpa(task, user_info: dict = None) -> None:
             await context.add_init_script(
                 "Object.defineProperty(navigator,'webdriver',{get:()=>undefined})"
             )
+            # 네이티브 인쇄 다이얼로그가 렌더러를 블록해 이후 evaluate/count 가 무한 동결되던 것 차단(감사 CRITICAL)
+            await context.add_init_script(NO_PRINT_SCRIPT)
             page = await context.new_page()
 
             # ① 접속
@@ -564,13 +581,14 @@ async def run_nhis_rpa(task, user_info: dict = None) -> None:
                     except Exception:
                         pass
 
-            # ⑧ 발급 버튼
+            # ⑧ 발급 버튼 — 실제로 눌렀는지 반환값을 붙잡는다(무조건 '완료' 오보 방지)
             ss = await take_screenshot(page)
             task.update("running", "발급 버튼 탐색 중...", ss)
-            await _click_issue(page, context, task)
+            issued = await _click_issue(page, context, task)
 
-            # ⑨ 출력 팝업 대기
-            await _wait_print(context, task, timeout=90)
+            # ⑨ 출력 팝업/완료 화면 대기 — 완료 화면 도달 여부를 성공 판정에 사용
+            printed = await _wait_print(context, task, timeout=90)
+            completed = printed or len(context.pages) > 1
 
             try:
                 final = context.pages[-1] if len(context.pages) > 1 else page
@@ -579,16 +597,43 @@ async def run_nhis_rpa(task, user_info: dict = None) -> None:
                 ss = await take_screenshot(page)
 
             _dlpage = context.pages[-1] if len(context.pages) > 1 else page
-            saved = await save_document(_dlpage, "건강보험 자격득실확인서", getattr(task, "user_name", ""))
-            task.update("done",
-                "✅ 건강보험 자격득실확인서 발급 완료!\n\n"
-                + (f"📄 자동 저장됨: {saved}\n" if saved else "브라우저에서 Ctrl+P 로 저장하세요.\n")
-                + "브라우저는 2분 후 자동 종료됩니다.", ss)
-            task.result = {"success": True, "doc_name": "건강보험 자격득실확인서", "saved_path": saved}
+            # 발급 화면에 도달(또는 버튼 클릭)했을 때만 저장 시도 — 엉뚱한 화면 저장 방지
+            saved = ""
+            if completed or issued:
+                saved = await save_document(_dlpage, "건강보험 자격득실확인서", getattr(task, "user_name", ""))
 
-            await asyncio.sleep(120)
+            doc = "건강보험 자격득실확인서"
+            if saved:
+                # 파일이 실제로 저장됨 — 명백한 성공
+                task.update("done",
+                    f"✅ {doc} 발급 완료!\n\n"
+                    f"📄 자동 저장됨: {saved}\n"
+                    "브라우저는 2분 후 자동 종료됩니다.", ss)
+                task.result = {"success": True, "doc_name": doc, "saved_path": saved}
+                await cancellable_sleep(120, task, context)
+            elif completed:
+                # 발급 완료 화면엔 도달했지만 headed 저장이 안 됨(구조적 quirk) — 진짜 발급은 됐으니
+                # 성공으로 두되(감사: 저장 실패로 실제 성공을 뒤집지 않음) 수동 저장을 정직히 안내.
+                task.update("done",
+                    f"✅ {doc} 발급 화면까지 진행했어요.\n\n"
+                    "브라우저 화면에서 [출력]/저장(Ctrl+P → PDF)으로 저장해 주세요.\n"
+                    "브라우저는 2분 후 자동 종료됩니다.", ss)
+                task.result = {"success": True, "doc_name": doc, "saved_path": None, "manual_save": True}
+                await cancellable_sleep(120, task, context)
+            else:
+                # 발급 버튼/완료 화면을 확인하지 못함 — 가짜 '발급 완료!' 대신 정직하게 안내(감사 HIGH :583 해소)
+                task.update("error",
+                    "발급 화면을 자동으로 확인하지 못했어요.\n\n"
+                    "로그인이 끝났는지 확인하고, 브라우저 화면에서 [발급] 버튼을 직접 눌러 저장해 주세요.\n"
+                    "필요하면 [다시 시작]을 눌러 주세요.", ss)
+                task.result = {"success": False, "doc_name": doc, "saved_path": None}
+                await cancellable_sleep(60, task, context)  # headed 창을 잠시 열어둬 수동 완료 가능
+
             await browser.close()
 
+    except CancelledByUser:
+        # 사용자 중단/창닫힘 — manager 가 'cancelled'로 정직히 종결하도록 재전파(error 로 오분류 금지)
+        raise
     except Exception as e:
         import traceback
         traceback.print_exc()

@@ -22,6 +22,7 @@ from rpa.base import (
     click_provider_in_anyid, provider_display, detect_auth_form, AUTH_FORM_USER_GUIDE,
     LOGIN_PAGE_URL_KEYWORDS, get_launch_options, launch_browser,
     click_eform_button, get_frame_by_url,
+    check_cancel, CancelledByUser, NO_PRINT_SCRIPT,
 )
 
 # 복지로 로그인 — 2026 개편으로 옛 moveTWAT52012M.do 는 빈 셸(깨짐).
@@ -50,6 +51,12 @@ APPLY_BUTTON_SELECTORS = [
     "a:has-text('모바일신청')",
     ".btn-apply", "#btnApply",
     "input[value='신청하기']",
+    # 복지로 신청 화면은 eForm(clipsoft) 위젯 — 표준 a/button 이 아니라 .cl-button/.cl-text 라
+    #   위 셀렉터로는 안 잡혀 '클릭 실패'인데도 양식 열림으로 오보되던 결함(감사 :251) 보강.
+    ".cl-button:has-text('신청')",
+    "[class*='cl-button']:has-text('신청')",
+    "span.cl-text:has-text('신청하기')",
+    "div[role='button']:has-text('신청하기')",
 ]
 
 # ⚠️ 의도적 미사용 — 최종 제출은 비가역·법적 행위라 에이전트가 누르지 않는다(본인 몫, human-in-the-loop).
@@ -209,6 +216,7 @@ async def run_apply_rpa(task, service_name: str, profile: dict) -> None:
             await context.add_init_script(
                 "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
             )
+            await context.add_init_script(NO_PRINT_SCRIPT)  # 네이티브 인쇄창 렌더러 블록 방지(감사 CRITICAL)
             page = await context.new_page()
 
             # ① 복지로 로그인 페이지
@@ -249,6 +257,10 @@ async def run_apply_rpa(task, service_name: str, profile: dict) -> None:
             task.update("running", "신청하기 버튼 탐색 중...", ss)
 
             apply_clicked = await click_first_matching(page, APPLY_BUTTON_SELECTORS)
+            if not apply_clicked:
+                # 복지로 '신청하기'는 eForm(clipsoft) 위젯 — 합성 클릭에 무반응이라 좌표 기반 신뢰 클릭으로 폴백
+                #   (감사 :251 — 표준 셀렉터만으로 '클릭 실패'인데 양식 열림 오보되던 것 실제 클릭으로 해소)
+                apply_clicked = await click_eform_button(page, "신청하기") or await click_eform_button(page, "신청")
             await asyncio.sleep(2)
 
             if not apply_clicked:
@@ -280,19 +292,21 @@ async def run_apply_rpa(task, service_name: str, profile: dict) -> None:
 
             async def _fill(selectors, value):
                 if not value:
-                    return
+                    return False
                 for sel in selectors:
                     try:
                         el = target_page.locator(sel).first
                         if await el.count() > 0:
                             await el.fill(value)
-                            return
+                            return True
                     except Exception:
                         pass
+                return False
 
-            await _fill(["input[name='aplcntNm']", "input[placeholder*='이름']", "#aplcntNm"], name)
-            await _fill(["input[placeholder*='생년월일']", "input[name*='brthdy']", "input[name*='birth']"], birth)
-            await _fill(["input[placeholder*='휴대폰']", "input[placeholder*='연락처']", "input[name*='telno']", "input[name*='phone']"], phone)
+            any_filled = False
+            any_filled |= await _fill(["input[name='aplcntNm']", "input[placeholder*='이름']", "#aplcntNm"], name)
+            any_filled |= await _fill(["input[placeholder*='생년월일']", "input[name*='brthdy']", "input[name*='birth']"], birth)
+            any_filled |= await _fill(["input[placeholder*='휴대폰']", "input[placeholder*='연락처']", "input[name*='telno']", "input[name*='phone']"], phone)
 
             # ⑦ 발급 서류 '자동 첨부' — 첨부칸 주변 문맥(라벨·행 텍스트)과 발급 서류명이 일치하는
             #    '확신 매칭'만 자동으로 붙인다(오첨부 방지). 단일 첨부칸+단일 발급서류처럼 모호성이
@@ -333,22 +347,37 @@ async def run_apply_rpa(task, service_name: str, profile: dict) -> None:
 
             await asyncio.sleep(1)
             ss = await take_screenshot(target_page)
-            task.update("running",
-                f"✅ '{service_name}' 신청 양식이 열렸습니다!\n\n"
-                f"📋 남은 작업:\n"
-                f"1. 신청 양식의 내용을 확인해주세요\n"
-                f"2. 추가 정보가 필요하면 직접 입력해주세요"
-                + attach_guide +
-                f"\n3. 모든 내용 확인 후 '신청' 버튼을 클릭해주세요\n\n"
-                f"⚠️ 제출은 반드시 직접 확인 후 진행해주세요.", ss)
+            # 신청 양식이 '실제로' 열렸는지 구체 신호로 판정 — 클릭 실패·미개폐인데도 '양식 열림!'으로
+            #   오보하던 결함(감사 :251) 해소. 어느 하나라도 참이면 양식 도달로 본다.
+            form_detected = bool(apply_clicked) or (len(context.pages) > 1) or has_file_input or any_filled
+            import os as _os
+            if form_detected:
+                task.update("running",
+                    f"✅ '{service_name}' 신청 양식이 열렸어요!\n\n"
+                    f"📋 남은 작업:\n"
+                    f"1. 신청 양식의 내용을 확인해주세요\n"
+                    f"2. 추가 정보가 필요하면 직접 입력해주세요"
+                    + attach_guide +
+                    f"\n3. 모든 내용 확인 후 '신청' 버튼을 클릭해주세요\n\n"
+                    f"⚠️ 제출은 반드시 직접 확인 후 진행해주세요.", ss)
+                task.result = {"success": True, "service_name": service_name, "status": "form_ready"}
+            else:
+                # 서비스 페이지까진 왔지만 '신청하기'를 자동으로 열지 못함 — 가짜 '양식 열림' 대신 정직 안내.
+                #   (요구사항 최소선 '신청 사이트 자동이동'은 충족 → success=True, 다만 양식 개폐는 수동)
+                task.update("running",
+                    f"📄 '{service_name}' 신청 페이지까지 왔어요.\n\n"
+                    "화면에서 '신청하기' 버튼을 눌러 양식을 열어주세요.\n"
+                    "(신청 화면이 eForm이라 버튼을 자동으로 못 여는 경우가 있어요.)"
+                    + attach_guide +
+                    "\n\n⚠️ 제출은 반드시 직접 확인 후 진행해주세요.", ss)
+                task.result = {"success": True, "service_name": service_name, "status": "page_ready", "manual_apply": True}
 
             # 사용자 검토·제출 동안 브라우저 유지 — 기본 10분(RPA_REVIEW_WINDOW 초).
             # ⚠️ 과거 60초는 어르신·현장에서 검토 중에 창이 사라지는 문제 → 대폭 확장.
             #    사용자가 창을 직접 닫으면 조기 종료(불필요한 대기 없음).
-            import os as _os
-            task.result = {"success": True, "service_name": service_name, "status": "form_ready"}
             review_sec = max(60, int(_os.getenv("RPA_REVIEW_WINDOW", "600")))
             for _rw in range(review_sec // 5):
+                check_cancel(task, context)  # [중단] 요청·창닫힘 즉시 탈출
                 await asyncio.sleep(5)
                 try:
                     if not context.pages or all(p.is_closed() for p in context.pages):
@@ -386,6 +415,9 @@ async def run_apply_rpa(task, service_name: str, profile: dict) -> None:
 
             await browser.close()
 
+    except CancelledByUser:
+        # 사용자 중단/창닫힘 — manager 가 'cancelled'로 정직히 종결하도록 재전파
+        raise
     except Exception as e:
         import traceback
         traceback.print_exc()

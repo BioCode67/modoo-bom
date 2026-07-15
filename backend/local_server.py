@@ -194,6 +194,9 @@ async def _selftest_browser():
     강제 headless(창 안 뜸). 실패 시 500 + 원인(브라우저/드라이버 없음 등)."""
     from rpa.base import launch_browser
     from playwright.async_api import async_playwright
+    # ⚠️ 셀프테스트 동안만 headless — 전역 os.environ 을 영구히 바꾸면 이후 '모든' 발급이 보이지 않는 창에서
+    #   돌아 카카오 인증 불가·연쇄 타임아웃이 된다(감사 :197). 반드시 원래 값으로 원복한다.
+    _prev_headless = os.environ.get("RPA_HEADLESS")
     os.environ["RPA_HEADLESS"] = "1"  # 스모크는 창 없이
     try:
         async with async_playwright() as pw:
@@ -204,6 +207,11 @@ async def _selftest_browser():
         return {"ok": True, "browser": os.environ.get("RPA_ACTIVE_BROWSER", "chromium")}
     except Exception as e:  # noqa: BLE001 — 원인을 그대로 반환(드라이버/브라우저 진단용)
         return JSONResponse(status_code=500, content={"ok": False, "error": str(e)[:300]})
+    finally:
+        if _prev_headless is None:
+            os.environ.pop("RPA_HEADLESS", None)
+        else:
+            os.environ["RPA_HEADLESS"] = _prev_headless
 
 
 # ── RPA 서류 발급 ──
@@ -269,6 +277,14 @@ async def rpa_status(task_id: str, t: str = ""):
     d = task.to_dict() if hasattr(task, "to_dict") else dict(task)
     # 스크린샷·실명·서류종은 시작자 토큰(?t=) 일치 시에만 — routes.py 와 패리티
     return redact_status(d, token_ok(t, d.get("download_token")))
+
+
+@app.post("/api/documents/rpa-cancel/{task_id}")
+async def rpa_cancel(task_id: str):
+    """진행 중 발급/신청 자동화를 사용자가 중단 — 멈춘 태스크의 유일한 복구 수단(감사 확정 결함 해소).
+    슬롯을 반납해 대기 중인 다음 작업이 곧바로 시작되게 한다."""
+    from rpa.manager import request_cancel
+    return {"cancelled": request_cancel(task_id)}
 
 
 @app.get("/api/documents/rpa-file/{task_id}")
@@ -373,19 +389,34 @@ async def apply_status(task_id: str, t: str = ""):
 @app.post("/api/journey/run")
 async def journey_run(req: JourneyRunRequest):
     """지정한 서류들을 순차 발급(자동 저장)하고 신청까지 오케스트레이션. 사이트별 카카오 본인인증만 본인."""
-    from rpa.orchestrator import start_journey
+    from rpa.orchestrator import start_journey, active_journey_id, get_journey, journey_token
     from rpa.manager import can_accept
     from rpa.config import rpa_enabled, rpa_disabled_reason
     if not rpa_enabled():
         raise HTTPException(status_code=503, detail=rpa_disabled_reason())
+    # 재클릭 중복시작 가드 — 이미 진행 중인 여정이 있으면 새로 겹쳐 시작하지 않고 그것을 반환(감사 :374).
+    #   (겹쳐 시작하면 브라우저·슬롯 경합으로 연쇄 정체가 난다.)
+    existing = active_journey_id()
+    if existing:
+        j = get_journey(existing) or {}
+        steps = j.get("steps", [])
+        return {"journey_id": existing, "status": "already_running", "download_token": journey_token(existing),
+                "docs": [s["name"] for s in steps if s.get("kind") == "doc"],
+                "services": [s["name"] for s in steps if s.get("kind") == "apply"]}
     if not can_accept():
         raise HTTPException(status_code=503, detail="지금 자동화 이용자가 많아요. 잠시 후 다시 시도하거나 공식 사이트에서 바로 진행하실 수 있어요.")
     user_info = {"user_name": req.user_name, "birth_date": req.birth_date, "phone": req.phone, "carrier": req.carrier, "auth_provider": req.auth_provider,
                  "sido": req.sido, "sigungu": req.sigungu}
     jid, accepted_docs, accepted_svcs = start_journey(req.doc_names, req.service_names, req.user_name, user_info, req.profile)
-    from rpa.orchestrator import journey_token
     return {"journey_id": jid, "status": "started", "download_token": journey_token(jid),
             "docs": accepted_docs, "services": accepted_svcs}
+
+
+@app.post("/api/journey/cancel/{journey_id}")
+async def journey_cancel(journey_id: str):
+    """진행 중 여정을 중단 — 현재 단계 RPA를 취소하고 다음 단계 브라우저가 뜨지 않게 한다(멈춤 복구)."""
+    from rpa.orchestrator import request_journey_cancel
+    return {"cancelled": request_journey_cancel(journey_id)}
 
 
 @app.get("/api/journey/status/{journey_id}")

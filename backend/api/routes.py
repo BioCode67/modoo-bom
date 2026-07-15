@@ -267,6 +267,13 @@ async def rpa_status(task_id: str, t: str = ""):
     return redact_status(d, token_ok(t, d.get("download_token")))
 
 
+@router.post("/documents/rpa-cancel/{task_id}")
+async def rpa_cancel(task_id: str):
+    """진행 중 RPA 자동화를 중단(취소) — 멈춘 태스크의 복구 수단. 슬롯을 반납해 대기 작업이 곧 시작되게 함."""
+    from rpa.manager import request_cancel
+    return {"cancelled": request_cancel(task_id)}
+
+
 @router.get("/documents/rpa-file/{task_id}")
 async def rpa_file(task_id: str, t: str = ""):
     """RPA로 발급 완료된 문서(PDF/이미지)를 사용자 브라우저로 반환(다운로드).
@@ -492,21 +499,35 @@ class JourneyRunRequest(BaseModel):
 async def journey_run(req: JourneyRunRequest):
     """복지 여정 실행 — 지정된 서류들을 순차 발급(자동 저장)하고 신청까지 오케스트레이션.
     각 사이트에서 카카오 본인인증만 사용자가 하면 로그인·양식·발급·저장·신청은 자동."""
-    from rpa.orchestrator import start_journey
+    from rpa.orchestrator import start_journey, active_journey_id, get_journey, journey_token
     from rpa.manager import can_accept
     from rpa.config import rpa_enabled, rpa_disabled_reason
     if not rpa_enabled():
         raise HTTPException(status_code=503, detail=rpa_disabled_reason())
+    # 재클릭 중복시작 가드 — 진행 중 여정이 있으면 겹쳐 시작하지 않고 그것을 반환(감사 :374, local_server 와 파리티)
+    existing = active_journey_id()
+    if existing:
+        j = get_journey(existing) or {}
+        steps = j.get("steps", [])
+        return {"journey_id": existing, "status": "already_running", "download_token": journey_token(existing),
+                "docs": [s["name"] for s in steps if s.get("kind") == "doc"],
+                "services": [s["name"] for s in steps if s.get("kind") == "apply"]}
     if not can_accept():
         raise HTTPException(status_code=503, detail="지금 자동화 이용자가 많아요. 잠시 후 다시 시도하거나 공식 사이트에서 바로 진행하실 수 있어요.")
     user_info = {"user_name": req.user_name, "birth_date": req.birth_date,
                  "phone": req.phone, "carrier": req.carrier, "auth_provider": req.auth_provider,
                  "sido": req.sido, "sigungu": req.sigungu}
     jid, accepted_docs, accepted_svcs = start_journey(req.doc_names, req.service_names, req.user_name, user_info, req.profile)
-    from rpa.orchestrator import journey_token
     # accepted_*: 실제 여정에 들어간 항목(지원목록 밖은 제외) → 프론트가 이것만 추적(스피너 영구고정 방지)
     return {"journey_id": jid, "status": "started", "download_token": journey_token(jid),
             "docs": accepted_docs, "services": accepted_svcs}
+
+
+@router.post("/journey/cancel/{journey_id}")
+async def journey_cancel(journey_id: str):
+    """진행 중 여정을 중단 — 현재 단계 RPA를 취소하고 다음 단계 브라우저가 뜨지 않게 한다(멈춤 복구)."""
+    from rpa.orchestrator import request_journey_cancel
+    return {"cancelled": request_journey_cancel(journey_id)}
 
 
 @router.get("/journey/status/{journey_id}")

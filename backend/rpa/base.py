@@ -184,6 +184,61 @@ def clear_docs_dir() -> int:
     return n
 
 
+# 네이티브 프린트 다이얼로그 무력화 스크립트 — 정부/건보 발급 페이지가 window.print() 를 호출하면
+# 크로미움이 렌더러를 블록하는 네이티브 인쇄창을 띄워 이후 evaluate/count 가 무한 동결됐다(감사 CRITICAL).
+# 컨텍스트 생성 직후 add_init_script 로 주입해 렌더러가 절대 멈추지 않게 한다(문서 저장은 save_document 의 PDF 경로 사용).
+NO_PRINT_SCRIPT = "try{window.print=function(){};}catch(e){}"
+
+
+class CancelledByUser(Exception):
+    """사용자가 자동화를 중단(취소)했거나 브라우저 창을 닫았을 때 던진다 —
+    상위 러너의 finally 에서 브라우저를 닫고 태스크를 'cancelled'로 종결시킨다(멈춤 탈출구의 근간)."""
+
+
+def is_cancelled(task) -> bool:
+    """태스크에 취소 요청이 걸렸는지 — 러너의 대기 루프가 매 틱 확인해 즉시 빠져나오게."""
+    return bool(getattr(task, "cancel_requested", False))
+
+
+async def cancellable_sleep(total_sec: float, task=None, context=None) -> None:
+    """중단 가능한 대기 — done 후 브라우저 유예(60~120초) 동안 사용자가 [중단]하거나 창을 닫으면
+    즉시 CancelledByUser 로 빠져나온다(과거 고정 sleep 이 중단 불가라 창 닫아도 슬롯을 계속 점유했음)."""
+    slept = 0.0
+    while slept < total_sec:
+        if task is not None:
+            check_cancel(task, context)
+        await asyncio.sleep(min(1.0, total_sec - slept))
+        slept += 1.0
+
+
+async def context_alive(context) -> bool:
+    """브라우저 컨텍스트에 '살아있는' 페이지가 하나라도 있는지 — 사용자가 창을 다 닫으면 False.
+    닫힌 창을 상대로 최대 8분씩 대기하던 유령 점유(감사 확정)를 끊는다."""
+    try:
+        pages = getattr(context, "pages", None)
+        if pages is None:
+            return True  # 컨텍스트 없는 호출부는 판정 불가 → 살아있다고 간주(무해)
+        return any(not p.is_closed() for p in pages)
+    except Exception:
+        return True
+
+
+def check_cancel(task, context=None) -> None:
+    """대기 루프에서 매 틱 호출 — 취소 요청 또는 모든 창 닫힘이면 CancelledByUser 를 던진다.
+    context 를 넘기면 창 닫힘도 함께 감지(넘기지 않으면 취소 플래그만)."""
+    if is_cancelled(task):
+        raise CancelledByUser("사용자가 자동화를 중단했어요.")
+    if context is not None:
+        try:
+            pages = getattr(context, "pages", None)
+            if pages is not None and len(pages) > 0 and all(p.is_closed() for p in pages):
+                raise CancelledByUser("브라우저 창이 닫혀 자동화를 중단했어요.")
+        except CancelledByUser:
+            raise
+        except Exception:
+            pass
+
+
 def _safe_filename(name: str) -> str:
     cleaned = "".join(c for c in name if c not in '<>:"/\\|?*\n\r\t').strip()
     return cleaned or "document"
@@ -480,6 +535,15 @@ async def wait_for_login(
     last_report = 0
 
     for elapsed in range(timeout_sec):
+        # 취소·창닫힘 즉시 탈출(닫힌 창 상대로 최대 timeout_sec 유령 대기하던 것 차단, 감사 확정)
+        check_cancel(task, getattr(page, "context", None))
+        try:
+            if page.is_closed():
+                raise CancelledByUser("로그인 창이 닫혀 자동화를 중단했어요.")
+        except CancelledByUser:
+            raise
+        except Exception:
+            pass
         # 최소 대기 구간: 성급한 성공 판정 금지(안티봇/위젯 리다이렉트 오탐 방지)
         if elapsed < min_wait_sec:
             await asyncio.sleep(1)

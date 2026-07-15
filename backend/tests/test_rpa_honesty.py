@@ -69,12 +69,19 @@ def test_timeout_marks_error_when_not_done(monkeypatch):
 
 
 def test_gov24_success_branch_requires_real_signal():
-    """gov24 성공 판정이 'really_issued and saved'로 이뤄지는지 소스 계약 고정
-    (파일 저장만으로 done+success=True 되던 결함 방지 — 리터럴 grep)."""
+    """gov24 성공 판정이 '실제 발급 신호(really_issued)'로만 이뤄지는지 소스 계약 고정.
+    - 파일 저장(saved)만으로 done+success=True 되면 안 된다(원래 방지 의도 유지).
+    - 반대로, headed 저장이 구조적으로 실패해도 really_issued 면 성공은 유지돼야 한다(감사 :567) →
+      성공 게이트는 'really_issued 단독'. (과거 'really_issued and saved' 는 저장실패가 실제 성공을 뒤집던 결함.)"""
     src = open("rpa/gov24_rpa.py", encoding="utf-8").read()
-    assert "really_issued and saved" in src
-    # bool(saved) 를 발급신호에 OR 로 섞던 옛 코드가 없어야 함
+    # really_issued 는 실제 페이지 신호(처리완료/발급완료/mbrAplySrvcList)로 계산돼야 한다
+    assert "really_issued = " in src
+    assert "처리완료" in src and "mbrAplySrvcList" in src
+    # 성공 분기는 really_issued 단독 게이트 — 저장 실패가 발급 성공을 뒤집지 않게
+    assert "if really_issued:" in src
+    # saved 를 발급신호에 OR 로 섞어 '저장만으로 성공' 되던 옛 코드가 없어야 함
     assert 'or bool(saved)' not in src
+    assert "really_issued and saved" not in src
 
 
 def test_work24_reports_incomplete_when_button_not_reached():

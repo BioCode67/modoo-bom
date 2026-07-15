@@ -5,12 +5,51 @@
 - 신청(apply): 복지로 RPA 로 양식 자동작성 (최종 제출은 사용자 승인)
 """
 import asyncio
+import os
 import secrets
 import uuid
 from datetime import datetime
 
 # journey_id -> journey dict
 _journeys: dict = {}
+_MAX_JOURNEYS = max(20, int(os.getenv("RPA_MAX_JOURNEYS", "50")))  # 저장소 상한(좀비 누적 방지)
+_JOURNEY_TERMINAL = ("completed", "error", "cancelled")
+
+
+def _evict_journeys() -> None:
+    """상한 초과 시 '끝난' 여정 중 가장 오래된 것부터 제거 — 장기 구동 데스크탑 에이전트의
+    좀비 여정 무한 누적(감사 :13) 방지. 진행 중 여정은 절대 지우지 않는다(폴링 404 방지)."""
+    if len(_journeys) <= _MAX_JOURNEYS:
+        return
+    removable = [(k, v) for k, v in _journeys.items() if v.get("status") in _JOURNEY_TERMINAL]
+    excess = len(_journeys) - _MAX_JOURNEYS
+    for k, _ in sorted(removable, key=lambda kv: kv[1].get("created_at", ""))[:excess]:
+        _journeys.pop(k, None)
+
+
+def request_journey_cancel(journey_id: str) -> bool:
+    """진행 중 여정을 중단 요청 — 현재 단계 RPA에 취소를 전파(다음 단계 브라우저가 안 뜨게)하고,
+    여정 루프가 다음 단계로 넘어가지 않게 플래그를 세운다(감사 :123). 반환: 요청 수락 여부."""
+    from rpa.manager import get_task, request_cancel
+    j = _journeys.get(journey_id)
+    if j is None or j.get("status") in _JOURNEY_TERMINAL:
+        return False
+    j["cancel_requested"] = True
+    # 현재 실행 중인 단계의 RPA 태스크에도 취소 전파(대기 루프가 CancelledByUser 로 빠져나옴)
+    cur = j.get("current")
+    for step in j.get("steps", []):
+        if step.get("name") == cur and step.get("task_id"):
+            request_cancel(step["task_id"])
+            break
+    return True
+
+
+def active_journey_id():
+    """진행 중(pending/running)인 여정 id 하나 반환(없으면 None) — 재클릭 중복시작 가드용(감사 :374)."""
+    for jid, j in _journeys.items():
+        if j.get("status") in ("pending", "running"):
+            return jid
+    return None
 
 
 def get_journey(journey_id: str):
@@ -67,6 +106,7 @@ def _new_journey(doc_names, service_names, user_name) -> str:
         "user_name": user_name,
         "status": "pending",
         "current": None,
+        "cancel_requested": False,
         "steps": steps,
         "total": len(steps),
         "done_count": 0,
@@ -74,6 +114,7 @@ def _new_journey(doc_names, service_names, user_name) -> str:
         "created_at": datetime.now().isoformat(),
         "download_token": secrets.token_urlsafe(18),  # 스크린샷·실명·경로 열람 인가(시작자에게만 반환)
     }
+    _evict_journeys()  # 상한 초과 시 끝난 여정 퇴거(좀비 누적 방지)
     return jid
 
 
@@ -113,43 +154,77 @@ async def _run_step_doc(task, doc_name, user_info):
 
 
 async def _run_journey(jid, user_info, profile):
-    from rpa.manager import RPATask, _rpa_tasks
+    from rpa.manager import RPATask, _rpa_tasks, register_live, unregister_live
     from rpa.apply_rpa import run_apply_rpa
+    from rpa.base import CancelledByUser
     j = _journeys[jid]
     j["status"] = "running"
     user_name = j["user_name"]
+    cancelled = False
 
     from rpa.manager import queued_slot, _TASK_TIMEOUT
-    for step in j["steps"]:
-        j["current"] = step["name"]
-        step["status"] = "running"
-        task = RPATask(uuid.uuid4().hex, step["name"], user_name)
-        step["task_id"] = task.task_id
-        _rpa_tasks[task.task_id] = task
-        try:
-            # 전체 동시성(_MAX_CONCURRENT)을 넘지 않도록 슬롯을 거치고, 멈춘 단계는 타임아웃으로 종료.
-            # queued_slot: 슬롯 대기 중에도 _waiting 에 잡혀 can_accept() 백프레셔가 여정을 인지한다.
-            async with queued_slot():
-                if step["kind"] == "doc":
-                    await asyncio.wait_for(_run_step_doc(task, step["name"], user_info), timeout=_TASK_TIMEOUT)
-                    saved = (task.result or {}).get("saved_path")
-                    step["saved_path"] = saved
-                    if saved:
-                        j["saved_docs"].append(saved)
-                else:  # apply
-                    await asyncio.wait_for(run_apply_rpa(task, step["name"], {**profile, **user_info}), timeout=_TASK_TIMEOUT)
-            step["status"] = task.status if task.status in ("done", "error", "completed") else "done"
-        except asyncio.TimeoutError:
-            step["status"] = "error"
-            step["error"] = "시간 초과로 이 단계를 종료했어요."
-        except Exception as e:
-            step["status"] = "error"
-            step["error"] = str(e)[:200]
-        finally:
-            _rpa_tasks[task.task_id] = task.to_dict()
-            j["done_count"] += 1
+    try:
+        for step in j["steps"]:
+            # 여정 중단 요청 시 남은 단계는 시작하지 않는다(다음 단계 브라우저가 안 뜨게 — 감사 :123)
+            if j.get("cancel_requested"):
+                cancelled = True
+                step["status"] = "cancelled"
+                j["done_count"] += 1
+                continue
 
-    j["current"] = None
-    # 하나라도 성공(done/completed)이면 완료, 전부 실패면 error
-    ok = any(s["status"] in ("done", "completed") for s in j["steps"])
-    j["status"] = "completed" if (ok or not j["steps"]) else "error"
+            j["current"] = step["name"]
+            step["status"] = "running"
+            task = RPATask(uuid.uuid4().hex, step["name"], user_name)
+            step["task_id"] = task.task_id
+            _rpa_tasks[task.task_id] = task
+            register_live(task)  # 여정 단계도 [중단] 대상으로 등록(_guarded_run 밖 실행이라 수동 등록)
+            # 여정이 이미 취소 요청됐다면 방금 만든 task 에도 즉시 전파
+            if j.get("cancel_requested"):
+                task.cancel_requested = True
+            try:
+                # 슬롯 대기를 '관측 가능'하게 — 무기한 침묵 대기(감사 :132) 대신 대기 중임을 표시.
+                #   queued_slot: 슬롯 대기 동안 _waiting 을 올려 can_accept() 백프레셔가 여정을 인지.
+                task.update("queued", "대기열에서 차례를 기다리는 중… (다른 작업이 끝나면 시작해요)")
+                async with queued_slot():
+                    if step["kind"] == "doc":
+                        await asyncio.wait_for(_run_step_doc(task, step["name"], user_info), timeout=_TASK_TIMEOUT)
+                    else:  # apply
+                        await asyncio.wait_for(run_apply_rpa(task, step["name"], {**profile, **user_info}), timeout=_TASK_TIMEOUT)
+            except asyncio.TimeoutError:
+                # 이미 발급 완료(done)를 타임아웃이 error 로 덮지 않도록 finally 에서 실제 결과로 재조정(감사 :142)
+                if task.status not in ("done", "completed") and not (task.result or {}).get("saved_path"):
+                    task.update("error", "시간 초과로 이 단계를 종료했어요.")
+            except CancelledByUser:
+                # 사용자가 여정/창을 닫음 — 이 단계와 여정을 중단으로 종결(감사 :123)
+                cancelled = True
+                j["cancel_requested"] = True
+                if task.status not in ("done", "completed"):
+                    task.update("cancelled", "여정을 중단했어요.")
+            except Exception as e:
+                if task.status not in ("done", "completed"):
+                    task.update("error", str(e)[:200])
+            finally:
+                # 실제 task 결과로 단계를 확정 — 타임아웃/예외가 done+saved_path 를 유실시키지 않게(감사 :142)
+                r = task.result or {}
+                saved = r.get("saved_path")
+                if step["kind"] == "doc" and saved and saved not in j["saved_docs"]:
+                    step["saved_path"] = saved
+                    j["saved_docs"].append(saved)
+                st = task.status
+                if st in ("done", "completed", "error", "cancelled"):
+                    step["status"] = st
+                else:
+                    step["status"] = "done" if saved else "error"
+                if step["status"] == "error" and not step.get("error"):
+                    step["error"] = (task.current_step or "이 단계를 완료하지 못했어요.")[:200]
+                unregister_live(task.task_id)  # 취소 레지스트리 정리
+                _rpa_tasks[task.task_id] = task.to_dict()  # 항상 종결 스냅샷(비종결 좀비 레코드 방지)
+                j["done_count"] += 1
+    finally:
+        # 코루틴이 어떻게 끝나든(정상·취소·예외) 여정은 반드시 종결 상태로 — 영구 'running' 좀비 방지(감사 :119)
+        j["current"] = None
+        ok = any(s["status"] in ("done", "completed") for s in j["steps"])
+        if cancelled or j.get("cancel_requested"):
+            j["status"] = "cancelled" if not ok else "completed"
+        else:
+            j["status"] = "completed" if (ok or not j["steps"]) else "error"

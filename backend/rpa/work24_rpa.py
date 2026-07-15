@@ -9,6 +9,7 @@ from rpa.base import (
     click_first_matching, make_browser_context_args,
     click_provider_in_anyid, provider_display, detect_auth_form, AUTH_FORM_USER_GUIDE,
     get_launch_options, launch_browser,
+    check_cancel, cancellable_sleep, CancelledByUser, NO_PRINT_SCRIPT,
 )
 
 WORK24_MAIN = "https://www.work24.go.kr/cm/main.do"
@@ -125,6 +126,7 @@ async def run_work24_rpa(task, user_info: dict = None) -> None:
             await context.add_init_script(
                 "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
             )
+            await context.add_init_script(NO_PRINT_SCRIPT)  # 네이티브 인쇄창 렌더러 블록 방지(감사 CRITICAL)
             page = await context.new_page()
 
             # ① 고용24 메인 접속
@@ -239,9 +241,14 @@ async def run_work24_rpa(task, user_info: dict = None) -> None:
             else:
                 task.update("running", "화면을 확인하는 중...", ss)
 
-            # ⑦ 발급/출력 버튼 대기 (최대 90초) — 실제 발급 버튼을 눌렀거나 결과 팝업이 떴을 때만 성공
+            # ⑦ 발급/출력 버튼 대기 (최대 90초) — '발급 버튼 클릭이 실제 발급 결과로 이어졌을 때만' 성공.
+            #   ⚠️ a:has-text('발급') 같은 넓은 셀렉터가 메뉴/네비 링크를 눌러 success 로 오보되던 결함(감사 :252):
+            #      클릭 후 팝업/완료 신호를 확인하기 전에는 issue_reached 를 잠그지 않고, 결과 없던 셀렉터는 재클릭 회피.
             issue_reached = False
+            clicked_any = False
+            spent_sels: set = set()
             for _w24 in range(90):
+                check_cancel(task, context)  # [중단]·창닫힘 즉시 탈출
                 # 침묵 90초 방지 — 30초마다 진행 화면과 함께 살아있음 갱신(멈춤 오인 방지)
                 if _w24 and _w24 % 30 == 0:
                     try:
@@ -249,17 +256,7 @@ async def run_work24_rpa(task, user_info: dict = None) -> None:
                     except Exception:
                         pass
                 try:
-                    for sel in ISSUE_SELECTORS:
-                        el = page.locator(sel).first
-                        if await el.count() > 0:
-                            ss = await take_screenshot(page)
-                            task.update("running", "발급/출력 버튼 감지! 클릭합니다.", ss)
-                            await el.click()
-                            await asyncio.sleep(2)
-                            issue_reached = True
-                            break
-                    if issue_reached:
-                        break
+                    # 결과 팝업이 이미 떠 있으면 그것이 가장 확실한 발급 신호
                     if len(context.pages) > 1:
                         popup = context.pages[-1]
                         await popup.bring_to_front()
@@ -267,13 +264,39 @@ async def run_work24_rpa(task, user_info: dict = None) -> None:
                         task.update("running", "발급 완료 팝업 감지!", ss)
                         issue_reached = True
                         break
+                    for sel in ISSUE_SELECTORS:
+                        if sel in spent_sels:
+                            continue  # 눌렀는데 결과가 없던 셀렉터(=메뉴 링크 추정)는 다시 누르지 않는다
+                        el = page.locator(sel).first
+                        # count() 도 만일의 렌더러 블록 대비 타임아웃(감사 CRITICAL 방어)
+                        if await asyncio.wait_for(el.count(), timeout=5) > 0:
+                            ss = await take_screenshot(page)
+                            task.update("running", "발급/출력 버튼 후보 클릭 — 결과 확인 중…", ss)
+                            await el.click()
+                            clicked_any = True
+                            spent_sels.add(sel)
+                            await asyncio.sleep(2)
+                            # 클릭이 실제 발급 결과로 이어졌는지 검증 — 팝업 개창 또는 완료 텍스트가 있어야 성공 확정
+                            if len(context.pages) > 1:
+                                issue_reached = True
+                                break
+                            try:
+                                body = await asyncio.wait_for(page.inner_text("body"), timeout=5)
+                            except Exception:
+                                body = ""
+                            if any(k in body for k in ("발급완료", "발급 완료", "처리완료", "정상적으로 발급")):
+                                issue_reached = True
+                                break
+                            # 결과 신호 없음 → 이 셀렉터는 발급 버튼이 아니었을 가능성 → 계속 탐색
+                    if issue_reached:
+                        break
                 except Exception:
                     pass
                 await asyncio.sleep(1)
 
             ss = await take_screenshot(page)
             if issue_reached:
-                # ⚠️ 정직성(감사 확정): 발급 버튼 도달/클릭을 못 했으면 '완료'로 오보하지 않는다.
+                # ⚠️ 정직성(감사 확정): 실제 발급 결과(팝업/완료 텍스트)를 확인했을 때만 '완료'로 보고.
                 task.update(
                     "done",
                     "✅ 고용보험 피보험자격 이력내역서 발급 절차 완료!\n"
@@ -282,6 +305,16 @@ async def run_work24_rpa(task, user_info: dict = None) -> None:
                     ss,
                 )
                 task.result = {"success": True, "doc_name": "고용보험 피보험자격 이력내역서"}
+            elif clicked_any:
+                # 발급 후보를 눌렀지만 발급 결과(팝업/완료)를 확인하지 못함 — 가짜 '완료' 대신 정직하게 안내(감사 :252)
+                task.update(
+                    "done",
+                    "📄 고용보험 이력내역서 발급 화면까지 진행했어요.\n"
+                    "화면에서 [발급]/[출력] 버튼을 눌러 조회 결과를 확인하고 Ctrl+P(⌘+P)로 저장해 주세요.\n"
+                    "브라우저는 60초 후 자동 종료됩니다.",
+                    ss,
+                )
+                task.result = {"success": False, "doc_name": "고용보험 피보험자격 이력내역서", "manual_save": True}
             else:
                 task.update(
                     "done",
@@ -292,9 +325,12 @@ async def run_work24_rpa(task, user_info: dict = None) -> None:
                 )
                 task.result = {"success": False, "doc_name": "고용보험 피보험자격 이력내역서"}
 
-            await asyncio.sleep(60)
+            await cancellable_sleep(60, task, context)  # 중단 가능한 유예(창 닫으면 즉시 반납)
             await browser.close()
 
+    except CancelledByUser:
+        # 사용자 중단/창닫힘 — manager 가 'cancelled'로 정직히 종결하도록 재전파
+        raise
     except Exception as e:
         import traceback
         traceback.print_exc()
