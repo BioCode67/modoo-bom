@@ -66,7 +66,7 @@ export function Hero() {
           <span className="chip-sprout inline-flex mb-5">
             <Sparkles className="h-3.5 w-3.5" /> AI가 찾아주는 내 복지 혜택
           </span>
-          <h1 className="text-4xl sm:text-5xl lg:text-[3.4rem] font-extrabold tracking-tight leading-[1.12] text-balance">
+          <h1 className="text-4xl sm:text-5xl lg:text-[3.4rem] font-extrabold tracking-tight leading-[1.24] text-balance">
             받을 수 있는 <span className="gradient-text">복지 혜택</span>,<br />
             <span className="gradient-text-warm">모두</span> 찾아드릴게요 🌱
           </h1>

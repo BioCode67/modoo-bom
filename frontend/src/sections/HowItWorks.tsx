@@ -1,11 +1,13 @@
 import { motion } from 'framer-motion'
+import { PenLine, ScanSearch, Gift, Send } from 'lucide-react'
 import { SectionHeading } from '@/ui/SectionHeading'
 
+// 아이콘은 사이트 전반과 동일한 lucide 라인 아이콘으로 통일(이모지는 톤이 튀어 제거)
 const STEPS = [
-  { emoji: '📝', title: '간단 입력', desc: '나이·소득·가족 상황을 1분이면 입력 끝. 어려우면 데모 프로필로 바로 체험!', color: 'bg-sprout-100' },
-  { emoji: '🤖', title: 'AI 자동 분석', desc: '정부·지자체·민간 5,000여 건의 복지 중 내가 받을 수 있는 혜택만 똑똑하게 골라드려요.', color: 'bg-sky2-100' },
-  { emoji: '🎁', title: '맞춤 결과', desc: '예상 금액·우선순위·필요 서류까지 한눈에. 마음에 들면 관심목록에 저장!', color: 'bg-peach-100' },
-  { emoji: '🚀', title: '신청까지', desc: '단계별 신청 가이드와 정부24·복지로 바로가기로 신청을 끝까지 도와드려요.', color: 'bg-sun-100' },
+  { Icon: PenLine, title: '간단 입력', desc: '나이·소득·가족 상황을 1분이면 입력 끝. 어려우면 데모 프로필로 바로 체험!', color: 'bg-sprout-100', iconColor: 'text-sprout-700' },
+  { Icon: ScanSearch, title: 'AI 자동 분석', desc: '정부·지자체·민간 5,000여 건의 복지 중 내가 받을 수 있는 혜택만 똑똑하게 골라드려요.', color: 'bg-sky2-100', iconColor: 'text-sky2-700' },
+  { Icon: Gift, title: '맞춤 결과', desc: '예상 금액·우선순위·필요 서류까지 한눈에. 마음에 들면 관심목록에 저장!', color: 'bg-peach-100', iconColor: 'text-peach-700' },
+  { Icon: Send, title: '신청까지', desc: '단계별 신청 가이드와 정부24·복지로 바로가기로 신청을 끝까지 도와드려요.', color: 'bg-sun-100', iconColor: 'text-[#a16207]' },
 ]
 
 export function HowItWorks() {
@@ -30,8 +32,8 @@ export function HowItWorks() {
               <span className="absolute -top-3 -left-2 flex h-8 w-8 items-center justify-center rounded-full bg-sprout-700 text-white text-sm font-extrabold shadow-soft">
                 {i + 1}
               </span>
-              <div className={`mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl ${s.color} text-3xl`}>
-                {s.emoji}
+              <div className={`mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl ${s.color}`}>
+                <s.Icon className={`h-8 w-8 ${s.iconColor}`} strokeWidth={2.2} aria-hidden />
               </div>
               <h3 className="font-bold text-lg mb-1.5">{s.title}</h3>
               <p className="text-sm text-muted-foreground leading-relaxed">{s.desc}</p>
