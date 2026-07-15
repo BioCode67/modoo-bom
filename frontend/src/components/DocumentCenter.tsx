@@ -17,6 +17,19 @@ const shortPath = (p: string) => { const seg = p.split(/[\\/]/).filter(Boolean);
 
 type RpaState = { status: string; step: string; at?: number; taskId?: string; saved?: boolean; downloadToken?: string; shot?: string; stepsTail?: string[]; savedPath?: string } | null
 
+// 폴링이 끝났는데(상한 도달·404·연속실패) 아직 running/대기인 카드를 정직한 안내로 확정 —
+// '침묵 스피너 영구고정'(감사 :208/:247)을 막는다. 이미 완료/오류/취소된 카드는 그대로 둔다.
+function markRemainingStuck(prev: Record<string, RpaState>, docs: string[], msg: string): Record<string, RpaState> {
+  const next = { ...prev }
+  for (const d of docs) {
+    const st = next[d]
+    if (st && !['done', 'completed', 'error', 'cancelled'].includes(st.status)) {
+      next[d] = { ...st, status: 'error', step: msg }
+    }
+  }
+  return next
+}
+
 export function DocumentCenter() {
   const { tracked, profile, rpaInfo, toggleDocDone, isDocDone } = useAppStore()
   const { ready, caps } = useBackend()
@@ -41,6 +54,26 @@ export function DocumentCenter() {
   // 언마운트 후 폴링이 계속 setState/fetch 하지 않도록 하는 가드('나의 복지'를 떠나면 중단)
   const mountedRef = useRef(true)
   useEffect(() => () => { mountedRef.current = false }, [])
+  // 진행 중 여정 id/토큰 — [중단] 버튼이 여정 전체를 취소할 수 있게 보관(단건은 taskId로 취소)
+  const journeyRef = useRef<{ id: string; running: boolean } | null>(null)
+
+  // ⏹ 진행 중 자동발급 중단 — 멈춘 카드의 복구 수단(백엔드 취소 API 호출). 로컬 에이전트에서만.
+  const cancel = async (doc: string) => {
+    const st = rpa[doc]
+    setRpa((s) => (s[doc] ? { ...s, [doc]: { ...s[doc]!, step: '중단하는 중…' } } : s))
+    try {
+      if (journeyRef.current?.running) {
+        await fetch(`${getRpaBase()}/api/journey/cancel/${journeyRef.current.id}`, { method: 'POST' })
+      } else if (st?.taskId) {
+        await fetch(`${getRpaBase()}/api/documents/rpa-cancel/${st.taskId}`, { method: 'POST' })
+      } else {
+        // taskId가 아직 없으면(시작 직후) 로컬 상태만 취소로 정리 — 백엔드는 시작 전이라 곧 반영
+        setRpa((s) => (s[doc] ? { ...s, [doc]: { ...s[doc]!, status: 'error', step: '중단했어요. 필요하면 다시 시작하세요.' } } : s))
+      }
+    } catch {
+      setRpa((s) => (s[doc] ? { ...s, [doc]: { ...s[doc]!, status: 'error', step: '중단 요청을 보내지 못했어요 — 브라우저 창을 닫으면 자동으로 정리돼요.' } } : s))
+    }
+  }
   // 인증정보 폼(이 컴포넌트 소유)으로 스크롤/포커스할 때 전역 id 대신 ref로 스코프 —
   // 정책 상세 드로어의 RpaInfoForm과 id가 겹쳐 '엉뚱한 폼'으로 점프하던 것 방지.
   const rpaFormRef = useRef<HTMLDivElement>(null)
@@ -140,22 +173,44 @@ export function DocumentCenter() {
       const downloadToken = issued.download_token || ''  // 시작자에게만 반환되는 다운로드 인가 토큰
       // ⚠️ 폴링 상한을 백엔드 대기창(로그인 8분·전자서명 대기 등) 이상으로 — 어르신 본인인증이 90초를
       //    넘겨도 UI가 완료 전에 멈추지 않게(과거 60회=90초라 인증이 느리면 발급돼도 '진행 중'에 영구 정지, 감사 확정).
+      let failStreak = 0
       for (let i = 0; i < 1200; i++) { // 최대 ~30분
         await new Promise((r) => setTimeout(r, 1500))
         if (!mountedRef.current) return // 뷰를 떠나면 폴링 중단(언마운트 후 setState/fetch 방지)
         // ?t= 토큰: 스크린샷 포함 응답 인가(백엔드 게이트) — 시작자만 진행 화면을 볼 수 있게
-        const st = await fetch(`${getRpaBase()}/api/documents/rpa-status/${task_id}${downloadToken ? `?t=${encodeURIComponent(downloadToken)}` : ''}`).then((r) => r.json())
+        let st: { status?: string; current_step?: string; result?: { saved_path?: string }; screenshot_b64?: string; steps?: { time?: string; msg?: string }[] }
+        try {
+          const resp = await fetch(`${getRpaBase()}/api/documents/rpa-status/${task_id}${downloadToken ? `?t=${encodeURIComponent(downloadToken)}` : ''}`)
+          if (resp.status === 404) {
+            // 태스크가 사라짐(데스크탑앱 재시작 등) — 좀비 폴링 대신 정직하게 종료(감사 :147)
+            if (!mountedRef.current) return
+            setRpa((s) => ({ ...s, [doc]: { status: 'error', step: '자동발급 세션이 끊겼어요(앱 재시작 등) — 다시 시도해 주세요.', at: s[doc]?.at, taskId: task_id } }))
+            return
+          }
+          if (!resp.ok) throw new Error(`status ${resp.status}`)
+          st = await resp.json()
+          failStreak = 0
+        } catch {
+          // 일시적 네트워크 실패 1회로 폴링을 끝내지 않는다(감사 :160) — 연속 5회(≈7.5초) 실패만 종료
+          failStreak++
+          if (failStreak >= 5) {
+            if (!mountedRef.current) return
+            setRpa((s) => ({ ...s, [doc]: { status: 'error', step: '상태 확인이 계속 실패해요 — 네트워크를 확인하고 다시 시도해 주세요.', at: s[doc]?.at, taskId: task_id } }))
+            return
+          }
+          continue
+        }
         if (!mountedRef.current) return
         // 발급 완료 시 result.saved_path가 있으면 문서를 사용자에게 돌려줄 수 있음(다운로드 버튼 노출)
         setRpa((s) => ({ ...s, [doc]: {
-          status: st.status, step: st.current_step || '', at: s[doc]?.at, taskId: task_id, downloadToken,
+          status: st.status || 'running', step: st.current_step || '', at: s[doc]?.at, taskId: task_id, downloadToken,
           saved: !!(st.result && st.result.saved_path),
           savedPath: (st.result && st.result.saved_path) || undefined,
           // 진행 실화면(토큰 인가 시 응답에 포함) + 최근 단계 로그 — '멈춘 것처럼 보임' 해소(실사용 피드백)
           shot: st.screenshot_b64 || undefined,
           stepsTail: Array.isArray(st.steps) ? st.steps.slice(-3).map((x: { time?: string; msg?: string }) => `${x.time || ''} ${String(x.msg || '').split('\n')[0]}`.trim()) : undefined,
         } }))
-        if (st.status === 'done' || st.status === 'error' || st.status === 'completed') break
+        if (st.status === 'done' || st.status === 'error' || st.status === 'completed' || st.status === 'cancelled') break
       }
     } catch (e) {
       setRpa((s) => ({ ...s, [doc]: { status: 'error', step: e instanceof Error ? e.message : '실패' } }))
@@ -197,6 +252,7 @@ export function DocumentCenter() {
     const started = await res.json()
     const journey_id = started.journey_id
     const jtok = started.download_token || ''  // 스크린샷/경로 열람 인가 토큰(시작자에게만)
+    journeyRef.current = { id: journey_id, running: true }  // [중단]이 여정 전체를 취소할 수 있게
     // 지원목록 밖 서류는 여정에서 제외되므로, 서버가 실제로 받은 서류만 추적한다(나머지 카드가 스피너로 영구고정되지 않게).
     const accepted: string[] = Array.isArray(started.docs) ? started.docs : docList
     const dropped = docList.filter((d) => !accepted.includes(d))
@@ -205,26 +261,61 @@ export function DocumentCenter() {
     }
     const tq = jtok ? `?t=${encodeURIComponent(jtok)}` : ''
     // 폴링 상한을 백엔드 대기창 이상으로 — 각 서류 인증이 느려도 UI가 완료 전에 멈추지 않게(스텝당 최대 30분/여정)
-    for (let i = 0; i < 1400; i++) { // 최대 ~35분(다서류 순차 발급 + 각 인증 대기)
-      await new Promise((r) => setTimeout(r, 1500))
-      if (!mountedRef.current) return
-      const j = await fetch(`${getRpaBase()}/api/journey/status/${journey_id}${tq}`).then((r) => r.json())
-      setRpa((s) => {
-        const next = { ...s }
-        for (const step of (j.steps || [])) {
-          const isCur = j.current === step.name
-          const msg = isCur && j.current_message ? j.current_message
-            : step.status === 'running' ? '진행 중…'
-            // 실발급 신호(saved_path)가 있어야 '발급 완료' — 없으면 완료로 오보하지 않음(감사 확정 정직성, 아이콘 amber와 동일 기준)
-            : (step.status === 'done' || step.status === 'completed')
-              ? (step.saved_path ? '발급 완료' : '발급 미완료 — 화면에서 확인해 주세요')
-            : step.status === 'error' ? (step.error || '실패') : '대기 중…'
-          // 발급 완료 단계는 taskId+토큰을 실어 '발급 문서 받기' 버튼이 뜨게(서버 RPA/원격에서 PDF 회수)
-          next[step.name] = { status: step.status, step: msg, at: s[step.name]?.at, saved: !!step.saved_path, savedPath: step.saved_path || undefined, taskId: step.task_id, downloadToken: step.download_token }
+    const MAX_POLL = 1400 // 최대 ~35분(다서류 순차 발급 + 각 인증 대기)
+    let failStreak = 0
+    let finished = false
+    try {
+      for (let i = 0; i < MAX_POLL; i++) {
+        await new Promise((r) => setTimeout(r, 1500))
+        if (!mountedRef.current) return
+        let j: { status?: string; current?: string; current_message?: string; steps?: { name: string; status: string; saved_path?: string; error?: string; task_id?: string; download_token?: string }[] }
+        try {
+          const resp = await fetch(`${getRpaBase()}/api/journey/status/${journey_id}${tq}`)
+          if (resp.status === 404) {
+            // 여정이 사라짐(앱 재시작 등) — 아직 running 인 카드를 좀비 스피너로 두지 않고 정직하게 종료(감사 :147/:208)
+            if (!mountedRef.current) return
+            setRpa((s) => markRemainingStuck(s, accepted, '자동발급 세션이 끊겼어요(앱 재시작 등) — 다시 시도해 주세요.'))
+            finished = true
+            return
+          }
+          if (!resp.ok) throw new Error(`status ${resp.status}`)
+          j = await resp.json()
+          failStreak = 0
+        } catch {
+          // 일시적 네트워크 실패는 몇 번 견딘다(감사 :160) — 연속 5회만 종료
+          failStreak++
+          if (failStreak >= 5) {
+            if (!mountedRef.current) return
+            setRpa((s) => markRemainingStuck(s, accepted, '상태 확인이 계속 실패해요 — 네트워크를 확인하고 다시 시도해 주세요.'))
+            finished = true
+            return
+          }
+          continue
         }
-        return next
-      })
-      if (j.status === 'completed' || j.status === 'error') break
+        setRpa((s) => {
+          const next = { ...s }
+          for (const step of (j.steps || [])) {
+            const isCur = j.current === step.name
+            const msg = isCur && j.current_message ? j.current_message
+              : step.status === 'running' ? '진행 중…'
+              // 실발급 신호(saved_path)가 있어야 '발급 완료' — 없으면 완료로 오보하지 않음(감사 확정 정직성, 아이콘 amber와 동일 기준)
+              : (step.status === 'done' || step.status === 'completed')
+                ? (step.saved_path ? '발급 완료' : '발급 미완료 — 화면에서 확인해 주세요')
+              : step.status === 'error' ? (step.error || '실패')
+              : step.status === 'cancelled' ? '중단했어요' : '대기 중…'
+            // 발급 완료 단계는 taskId+토큰을 실어 '발급 문서 받기' 버튼이 뜨게(서버 RPA/원격에서 PDF 회수)
+            next[step.name] = { status: step.status, step: msg, at: s[step.name]?.at, saved: !!step.saved_path, savedPath: step.saved_path || undefined, taskId: step.task_id, downloadToken: step.download_token }
+          }
+          return next
+        })
+        if (j.status === 'completed' || j.status === 'error' || j.status === 'cancelled') { finished = true; break }
+      }
+      // 폴링 상한에 도달했는데 여정이 끝나지 않았으면 — 남은 running 카드를 침묵 스피너로 두지 않는다(감사 :208)
+      if (!finished && mountedRef.current) {
+        setRpa((s) => markRemainingStuck(s, accepted, '자동발급이 예상보다 오래 걸려요 — 열린 브라우저 창을 확인하거나 다시 시도해 주세요.'))
+      }
+    } finally {
+      if (journeyRef.current?.id === journey_id) journeyRef.current = null
     }
   }
 
@@ -244,7 +335,9 @@ export function DocumentCenter() {
       try {
         await runJourneyViaBackend(chainDocs)
       } catch (e) {
-        setRpa((s) => ({ ...s, [chainDocs[0]]: { status: 'error', step: e instanceof Error ? e.message : '연쇄 발급 실패', at: Date.now() } }))
+        // 시작 실패(503 등)면 첫 카드뿐 아니라 '대기열에 추가됨…'으로 켜둔 모든 카드를 정직히 종료(감사 :247)
+        const msg = e instanceof Error ? e.message : '연쇄 발급 실패'
+        setRpa((s) => markRemainingStuck(s, chainDocs, msg))
       }
       return
     }
@@ -359,8 +452,10 @@ export function DocumentCenter() {
           const kind = certKind(doc) // 'wallet'=전자증명서(지갑 유통) · 'online'=온라인 발급 · undefined=오프라인/본인준비
           const done = isDocDone(doc)
           const st = rpa[doc]
+          // 진행 중(비종결) 여부 — 버튼 중복기동 방지 + [중단] 노출 판단(감사 :438)
+          const active = !!(st && !['done', 'completed', 'error', 'cancelled'].includes(st.status))
           // 30초 넘게 진행상태가 안 오면(새 탭에서 사용자 조작 대기 등) 웹에서도 정직하게 안내
-          const stale = !!(st && !['done', 'completed', 'error'].includes(st.status) && st.at && Date.now() - st.at > 30000 && tick >= 0)
+          const stale = !!(st && !['done', 'completed', 'error', 'cancelled'].includes(st.status) && st.at && Date.now() - st.at > 30000 && tick >= 0)
           return (
             <div key={doc} className={cn('card-cute p-4 flex items-center gap-3', done && 'opacity-75')}>
               <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl', done ? 'bg-success-50 text-success-500' : 'bg-sky2-100 text-sky2-700')}>
@@ -434,8 +529,15 @@ export function DocumentCenter() {
                 )}
               </div>
               <div className="flex shrink-0 gap-1.5 items-center">
-                {!done && backend && supported && (
-                  <button onClick={() => startRpa(doc)} disabled={st?.status === 'running'} className="btn-primary !px-3 !py-2 text-xs">
+                {/* 진행 중이면 [중단] 노출(로컬 에이전트 취소 API) — 멈춘 카드의 복구 수단(감사) */}
+                {!done && active && localAgent ? (
+                  <button onClick={() => cancel(doc)} className="rounded-xl border-2 border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-100 transition-colors">
+                    ⏹ 중단
+                  </button>
+                ) : !done && backend && supported && (
+                  // 진행 중(비종결)이면 중복 기동 금지 — 과거 'running' 한정이라 queued/waiting_login 중 재클릭으로
+                  //   같은 서류가 슬롯 2개를 소진하던 결함(감사 :438) 차단.
+                  <button onClick={() => startRpa(doc)} disabled={active} className="btn-primary !px-3 !py-2 text-xs disabled:opacity-50">
                     <Bot className="h-4 w-4" /> 자동
                   </button>
                 )}

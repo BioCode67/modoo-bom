@@ -10,7 +10,7 @@ import { detectExtension, applyViaExtension, onExtensionStatus, sameDocName } fr
 import { RpaInfoForm } from '@/components/RpaInfoForm'
 import { useAppStore } from '@/store/useAppStore'
 
-type RunState = { status: string; step: string; shot?: string; at?: number } | null
+type RunState = { status: string; step: string; shot?: string; at?: number; taskId?: string } | null
 
 /**
  * 에이전트 신청 자동화 — 정직한 human-in-the-loop.
@@ -26,6 +26,9 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
   // 폴링 중단 가드(언마운트 후 setState 방지) + 중복 기동 방지(신청이 진행 중이면 재클릭 무시)
   const mountedRef = useRef(true)
   const runningRef = useRef(false)
+  // 폴링 세대 카운터 — '처음부터 다시'가 진행 중 폴링 루프를 실제로 끊게 한다(감사 :145).
+  //   과거엔 setRun(null)만 해서 1.5초 뒤 이전 상태가 부활하고 runningRef가 잠겨 재시작이 무시됐다.
+  const genRef = useRef(0)
   useEffect(() => () => { mountedRef.current = false }, [])
 
   // 확장 감지 + 진행상태 구독(해당 서비스만 — 표기 차이는 퍼지매칭) + 무응답 감지용 틱
@@ -72,7 +75,9 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
   const start = async () => {
     if (runningRef.current) return  // 진행 중 재클릭 무시 — 동일 신청 태스크 중복 기동 방지(감사 확정)
     runningRef.current = true
-    setRun({ status: 'running', step: '에이전트 시작 — 새 탭에서 복지로에 접속해요…', at: Date.now() })
+    const gen = ++genRef.current    // 이 실행의 세대 — reset()이 세대를 올리면 이 루프는 스스로 종료
+    const startedAt = Date.now()
+    setRun({ status: 'running', step: '에이전트 시작 — 새 탭에서 복지로에 접속해요…', at: startedAt })
     // 로컬 에이전트(내장 6종)가 되면 백엔드 우선, 아니면 확장으로 신청(복지로 딥링크 전달)
     if (!canLocal && canExt) {
       const r = await applyViaExtension(policy.name, {
@@ -95,25 +100,58 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
         throw new Error(detail || (res.status === 503 ? '지금은 자동 신청이 어려워요 — 공식 신청 페이지로 진행해 주세요.' : '이 서비스는 자동 신청을 지원하지 않아요'))
       }
       const { task_id, download_token } = await res.json()
+      setRun((prev) => ({ status: prev?.status || 'running', step: prev?.step || '', shot: prev?.shot, at: startedAt, taskId: task_id }))
       // 스크린샷(정부 페이지 — PII 가능)은 시작자 토큰(?t=)이 있어야 응답에 포함된다(백엔드 게이트)
       const tq = download_token ? `?t=${encodeURIComponent(download_token)}` : ''
+      let failStreak = 0
       // 폴링 상한을 백엔드 대기창(로그인 5분 + 검토 10분) 이상으로 — 인증이 느려도 UI가 완료 전에 멈추지 않게
       for (let i = 0; i < 800; i++) { // 최대 ~20분
         await new Promise((r) => setTimeout(r, 1500))
-        if (!mountedRef.current) return  // 언마운트 후 setState/fetch 중단
-        const st = await fetch(`${getRpaBase()}/api/apply/status/${task_id}${tq}`).then((r) => r.json())
-        if (!mountedRef.current) return
-        setRun({ status: st.status, step: st.current_step || st.status, shot: st.screenshot_b64 || undefined })
-        if (['done', 'error', 'completed'].includes(st.status)) break
+        if (!mountedRef.current || genRef.current !== gen) return  // 언마운트/재시작 시 폴링 종료(감사 :145)
+        let st: { status?: string; current_step?: string; screenshot_b64?: string }
+        try {
+          const resp = await fetch(`${getRpaBase()}/api/apply/status/${task_id}${tq}`)
+          if (resp.status === 404) {  // 태스크 소멸(앱 재시작 등) — 좀비 폴링 대신 정직 종료(감사 :147)
+            if (!mountedRef.current || genRef.current !== gen) return
+            setRun({ status: 'error', step: '자동신청 세션이 끊겼어요 — 다시 시도해 주세요.', at: startedAt, taskId: task_id })
+            return
+          }
+          if (!resp.ok) throw new Error(`status ${resp.status}`)
+          st = await resp.json()
+          failStreak = 0
+        } catch {
+          failStreak++  // 일시적 실패는 견디고(감사 :160), 연속 5회만 종료
+          if (failStreak >= 5) {
+            if (!mountedRef.current || genRef.current !== gen) return
+            setRun({ status: 'error', step: '상태 확인이 계속 실패해요 — 네트워크를 확인하고 다시 시도해 주세요.', at: startedAt, taskId: task_id })
+            return
+          }
+          continue
+        }
+        if (!mountedRef.current || genRef.current !== gen) return
+        // ⚠️ at을 유지해야(감사 :106) 30초 후 '멈춘 듯' 탈출구(공식 신청/처음부터 다시)가 뜬다 — 과거엔 at 누락으로 영영 안 떴다.
+        setRun({ status: st.status || 'running', step: st.current_step || st.status || '', shot: st.screenshot_b64 || undefined, at: startedAt, taskId: task_id })
+        if (['done', 'error', 'completed', 'cancelled'].includes(st.status || '')) break
       }
     } catch (e) {
-      setRun({ status: 'error', step: e instanceof Error ? e.message : '실패' })
+      if (genRef.current === gen) setRun({ status: 'error', step: e instanceof Error ? e.message : '실패', at: startedAt })
     } finally {
-      runningRef.current = false
+      if (genRef.current === gen) runningRef.current = false
     }
   }
 
-  const done = run && ['done', 'error', 'completed'].includes(run.status)
+  // 진행 중 신청 자동화를 처음 상태로 — 폴링 루프를 끊고(세대 증가), 백엔드 태스크도 취소(로컬 에이전트).
+  const reset = () => {
+    genRef.current++            // 현재 폴링 루프 무효화(다음 틱에 스스로 빠져나감)
+    runningRef.current = false  // 재시작 허용
+    const tid = run?.taskId
+    if (tid && canLocal) {
+      fetch(`${getRpaBase()}/api/documents/rpa-cancel/${tid}`, { method: 'POST' }).catch(() => { /* 창 닫으면 자동 정리 */ })
+    }
+    setRun(null)
+  }
+
+  const done = run && ['done', 'error', 'completed', 'cancelled'].includes(run.status)
   // 30초 넘게 진행상태가 안 오면(새 탭에서 본인인증 대기 등) 멈춘 게 아니라는 걸 정직하게 안내
   const stale = !!(run && !done && run.at && Date.now() - run.at > 30000 && tick >= 0)
 
@@ -134,7 +172,9 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
         <div className="mt-3">
           <p className="text-xs flex items-center gap-1.5">
             {run.status === 'error' ? <AlertCircle className="h-4 w-4 text-rose-500" /> : done ? <ShieldCheck className="h-4 w-4 text-success-500" /> : <Loader2 className="h-4 w-4 animate-spin text-sprout-500" />}
-            <span className="font-medium">{run.step}</span>
+            <span className="font-medium flex-1">{run.step}</span>
+            {/* 진행 중 [중단] — 멈춘 신청의 복구 수단(로컬 에이전트 취소). 30초 스테일 배너보다 먼저 쓸 수 있게. */}
+            {!done && canLocal && <button onClick={reset} className="shrink-0 rounded-lg border border-rose-200 bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-600 hover:bg-rose-100">⏹ 중단</button>}
           </p>
           {stale && (
             <div className="mt-2 rounded-xl bg-amber-50 border border-amber-200 px-3 py-2 text-[11px] text-amber-800">
@@ -142,7 +182,7 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
               <b> 직접 눌러야 하는 단계</b>일 수 있어요(그 탭 화면의 안내를 따라주세요).
               <span className="block mt-1">
                 <a href={bestApplyUrl(policy.application, policy.name, policy.id)} target="_blank" rel="noopener noreferrer" className="underline font-semibold">공식 페이지에서 직접 신청</a>
-                {' · '}<button onClick={() => setRun(null)} className="underline font-semibold">처음부터 다시</button>
+                {' · '}<button onClick={reset} className="underline font-semibold">처음부터 다시</button>
               </span>
             </div>
           )}
