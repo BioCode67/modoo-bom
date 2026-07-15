@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Sparkles, ArrowRight, ShieldCheck, Compass, Search } from 'lucide-react'
 import { MascotCanvas } from '@/three/MascotCanvas'
@@ -15,6 +15,76 @@ const STATS = [
 
 const HERO_EXAMPLES = ['72세 혼자 사는데 소득이 적어요', '서울 사는 한부모, 5살 아이 키워요', '퇴사하고 일자리 찾는 청년이에요']
 
+// 입력창 타이프라이터 — '한 문장이면 된다 + 외국어도 된다'를 첫 화면에서 스스로 시연.
+// 사용자가 입력을 시작하면 즉시 정적 문구로 전환, 접근성(reduced motion)도 존중.
+const TYPE_EXAMPLES = [
+  '72세 혼자 사는데 소득이 적어요',
+  'I lost my job and need help',
+  '아이 셋 키우는데 생활이 빠듯해요',
+  'Tôi cần hỗ trợ tiền thuê nhà',
+]
+
+const prefersReducedMotion = () =>
+  typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+
+/** 플레이스홀더 타이프라이터(타이핑→홀드→지움→다음). reduced-motion이면 첫 예시 고정. */
+function useTypewriterPlaceholder(enabled: boolean): string {
+  const [text, setText] = useState(TYPE_EXAMPLES[0])
+  useEffect(() => {
+    if (!enabled) return
+    if (prefersReducedMotion()) { setText(TYPE_EXAMPLES[0]); return }
+    let alive = true
+    let ex = 0, pos = 0, phase: 'type' | 'hold' | 'del' = 'type'
+    let timer: number
+    const tick = () => {
+      if (!alive) return
+      const full = TYPE_EXAMPLES[ex]
+      let delay = 62
+      if (phase === 'type') {
+        pos++
+        setText(full.slice(0, pos) + '▏')
+        if (pos >= full.length) { phase = 'hold'; delay = 1700 }
+      } else if (phase === 'hold') {
+        setText(full)
+        phase = 'del'; delay = 500
+      } else {
+        pos -= 2
+        if (pos <= 0) { pos = 0; ex = (ex + 1) % TYPE_EXAMPLES.length; phase = 'type'; delay = 350; setText('') }
+        else { setText(full.slice(0, pos) + '▏'); delay = 22 }
+      }
+      timer = window.setTimeout(tick, delay)
+    }
+    timer = window.setTimeout(tick, 900)
+    return () => { alive = false; window.clearTimeout(timer) }
+  }, [enabled])
+  return text
+}
+
+/** 숫자 카운트업 — '5,300+' 같은 값을 0부터 차오르게(신뢰 스탯에 생동감). reduced-motion이면 즉시 표기. */
+function CountUpValue({ value }: { value: string }) {
+  const m = value.match(/^([\d,]+)(\+?)$/)
+  const target = m ? parseInt(m[1].replace(/,/g, ''), 10) : NaN
+  const suffix = m?.[2] ?? ''
+  const [n, setN] = useState(0)
+  useEffect(() => {
+    if (!m || Number.isNaN(target)) return
+    if (prefersReducedMotion()) { setN(target); return }
+    let raf = 0
+    const t0 = performance.now()
+    const dur = 1200
+    const step = (t: number) => {
+      const k = Math.min(1, (t - t0) / dur)
+      setN(Math.round(target * (1 - Math.pow(1 - k, 3)))) // ease-out cubic
+      if (k < 1) raf = requestAnimationFrame(step)
+    }
+    raf = requestAnimationFrame(step)
+    return () => cancelAnimationFrame(raf)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [target])
+  if (!m || Number.isNaN(target)) return <>{value}</>
+  return <>{n.toLocaleString('en-US')}{suffix}</>
+}
+
 export function Hero() {
   const { setView, setPendingProfile, setAiIntent, setAiQuery } = useAppStore()
   // 실제 카탈로그 수를 신뢰 스탯으로 — 공공데이터(policies.json) 병합 후엔 정확한 수, 병합 전(시드 190)엔
@@ -24,6 +94,7 @@ export function Hero() {
     i === 0 && catalogCount > 1000 ? { ...s, value: `${(Math.floor(catalogCount / 100) * 100).toLocaleString('en-US')}+` } : s,
   )
   const [text, setText] = useState('')
+  const typed = useTypewriterPlaceholder(!text) // 입력 시작하면 즉시 정지(정적 안내로)
   const inputRef = useRef<HTMLInputElement>(null)
   const focusInput = () => { inputRef.current?.focus(); inputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }) }
 
@@ -94,7 +165,7 @@ export function Hero() {
                 ref={inputRef}
                 value={text}
                 onChange={(e) => setText(e.target.value)}
-                placeholder="예: 72세 혼자 사는데 소득이 적어요"
+                placeholder={text ? '상황을 한 문장으로 적어주세요' : `예: ${typed}`}
                 aria-label="상황을 한 문장으로 입력하면 바로 복지를 찾아드려요"
                 className="w-full rounded-2xl border-2 border-sprout-200 bg-white pl-12 pr-4 py-3.5 text-sm font-medium focus-ring shadow-soft"
               />
@@ -146,7 +217,7 @@ export function Hero() {
                 transition={{ delay: 0.3 + i * 0.1 }}
                 className="card-cute px-3 py-3 text-center"
               >
-                <p className="text-2xl font-extrabold gradient-text">{s.value}</p>
+                <p className="text-2xl font-extrabold gradient-text"><CountUpValue value={s.value} /></p>
                 <p className="text-xs font-semibold text-muted-foreground mt-0.5">{s.label}</p>
               </motion.div>
             ))}

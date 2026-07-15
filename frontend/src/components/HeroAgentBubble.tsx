@@ -4,19 +4,30 @@ import { ArrowRight, Heart } from 'lucide-react'
 import { SproutLogo } from '@/ui/SproutLogo'
 import { useAppStore } from '@/store/useAppStore'
 import { getPolicyMap } from '@/data/catalog'
+import { useCatalog } from '@/data/useCatalog'
 import { buildActionFeed } from '@/lib/monitoring'
+import { formatWon, sumCashMonthly } from '@/lib/format'
 
 /**
  * 새싹이(에이전트)가 먼저 말을 거는 말풍선 — 마스코트를 '살아있는 에이전트'로 만든다.
- * - 처음 온 사용자: 편하게 한마디를 권하는 인사(몇 줄을 부드럽게 순환)
+ * - 처음 온 사용자: 인사 + **실제 엔진이 방금 계산한 페르소나 결과 티저**를 순환
+ *   (클라이언트 복지엔진 실계산 — 하드코딩 숫자 아님. 결과 화면의 '핵심 현금지원'과 동일 공식이라 어긋나지 않는다)
  * - 다시 온 사용자: **실제 저장 데이터**로 브리핑(담아둔 복지·지금 챙길 일 개수 — 날조 없음)
  * 재방문 브리핑은 '에이전트가 나를 기억하고 먼저 챙긴다'는 느낌의 핵심 장치.
  */
 const GREETINGS = [
   '안녕하세요! 저 새싹이예요 🌱 어떤 상황이신지 편하게 한마디만 들려주세요.',
   '복잡한 서류 채우기는 없어요. 말하듯 알려주시면 딱 맞는 복지를 제가 찾아드릴게요.',
-  '“72세인데 소득이 적어요”처럼요. 나머지는 제가 알아서 챙길게요!',
 ]
+
+// 첫 화면 티저용 페르소나 — 히어로 예시 칩과 같은 문장(누르면 그대로 재현 가능해 정직)
+const TEASER_PERSONAS = [
+  { label: '72세 혼자, 소득 적음', text: '72세 혼자 사는데 소득이 적어요' },
+  { label: '서울 한부모, 5살 아이', text: '서울 사는 한부모, 5살 아이 키워요' },
+  { label: '일자리 찾는 청년', text: '퇴사하고 일자리 찾는 청년이에요' },
+]
+
+interface Teaser { label: string; count: number; monthly: number }
 
 export function HeroAgentBubble({ onFocusInput }: { onFocusInput?: () => void }) {
   const profile = useAppStore((s) => s.profile)
@@ -40,12 +51,58 @@ export function HeroAgentBubble({ onFocusInput }: { onFocusInput?: () => void })
   const returning = tracked.length > 0 || !!result
   const name = profile?.name?.trim()
 
+  // ⭐ 첫 화면 임팩트 — 실제 엔진으로 페르소나 3종을 '방금' 계산해 티저로 순환.
+  //   첫 페인트를 막지 않도록 idle에 계산하고, 카탈로그(공공데이터) 병합 시 재계산해 숫자가 실데이터를 따라간다.
+  const catalogCount = useCatalog().length
+  const [teasers, setTeasers] = useState<Teaser[]>([])
+  useEffect(() => {
+    if (returning) return
+    let alive = true
+    const compute = async () => {
+      try {
+        const [{ runAnalysis }, { parseProfileFromText }] = await Promise.all([
+          import('@/lib/welfare-engine'),
+          import('@/lib/parseQuery'),
+        ])
+        const out: Teaser[] = []
+        for (const t of TEASER_PERSONAS) {
+          const r = runAnalysis(parseProfileFromText(t.text))
+          const primary = r.eligible_policies.filter((p) => /^POL-/.test(p.id))
+          // 결과 화면 헤드라인과 '동일 공식'(강력추천 중 현금성만 보수 합산) — 첫 화면이 결과보다 부풀지 않게
+          const monthly = sumCashMonthly(primary.filter((p) => p.priority === 'high'))
+          out.push({ label: t.label, count: primary.length, monthly })
+        }
+        if (alive) setTeasers(out)
+      } catch { /* 엔진 오류 시 인사말만 순환(무해) */ }
+    }
+    const idle = (window as unknown as { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback
+    const id = idle ? idle(compute) : window.setTimeout(compute, 250)
+    return () => {
+      alive = false
+      if (!idle) window.clearTimeout(id as number)
+    }
+  }, [returning, catalogCount])
+
+  // 인사 ↔ 실계산 티저 인터리브 순환(에이전트가 지금 일하고 있는 느낌)
+  const rotation: React.ReactNode[] = useMemo(() => {
+    const nodes: React.ReactNode[] = [...GREETINGS]
+    teasers.forEach((t, i) => {
+      nodes.splice(1 + i * 2, 0, (
+        <>
+          방금 계산해 봤어요 — <b>{t.label}</b>이면 지금 <b>{t.count}개</b>
+          {t.monthly > 0 && <>, 현금 지원 <b className="text-sprout-700">월 {formatWon(t.monthly)}</b>까지</>} 나와요.
+        </>
+      ))
+    })
+    return nodes
+  }, [teasers])
+
   // 신규 사용자 인사는 부드럽게 순환(에이전트가 살아있는 느낌)
   useEffect(() => {
     if (returning) return
-    const t = setInterval(() => setGi((v) => (v + 1) % GREETINGS.length), 4200)
+    const t = setInterval(() => setGi((v) => (v + 1) % Math.max(1, rotation.length)), 4200)
     return () => clearInterval(t)
-  }, [returning])
+  }, [returning, rotation.length])
 
   let body: React.ReactNode
   let cta: { label: string; onClick: () => void } | null = null
@@ -63,7 +120,7 @@ export function HeroAgentBubble({ onFocusInput }: { onFocusInput?: () => void })
       cta = { label: '지난 결과 보기', onClick: () => setView('analyze') }
     }
   } else {
-    body = GREETINGS[gi]
+    body = rotation[gi % Math.max(1, rotation.length)]
     cta = onFocusInput ? { label: '한마디로 시작하기', onClick: onFocusInput } : null
   }
 
