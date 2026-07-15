@@ -30,6 +30,12 @@ function toEligible(p: Policy | EligiblePolicy): EligiblePolicy {
   return { ...p, reason: '', priority: 'medium', confidence: 0.8 }
 }
 
+/** 현금성일 때만 월 금액, 아니면 0 — 서비스 한도(재가급여)·바우처를 '월 N' 현금처럼 표기/정렬하지 않게
+ *  전 컴포넌트 공통 게이트(isCashBenefit)를 관련목록에도 적용(감사 F2: 비현금을 현금으로 과장하던 결함) */
+function cashMonthly(p: Policy): number {
+  return isCashBenefit(p.benefit, `${p.name} ${p.category}`) ? parseMonthly(p.benefit) : 0
+}
+
 export function PolicyDetailDrawer({
   policy,
   onClose,
@@ -167,7 +173,7 @@ function DrawerBody({
   const [blockedUrl, setBlockedUrl] = useState('')
   const related = onOpen
     ? getCatalog().filter((p) => p.category === policy.category && p.id !== policy.id)
-        .sort((a, b) => parseMonthly(b.benefit) - parseMonthly(a.benefit)).slice(0, 3)
+        .sort((a, b) => cashMonthly(b) - cashMonthly(a)).slice(0, 3)
     : []
 
   // AI 의미기반 비슷한 복지(옵트인) — 사전계산 임베딩만 사용(모델 다운로드 불필요)
@@ -352,7 +358,10 @@ function DrawerBody({
 
         {/* 필요 서류 — 체크 가능한 준비 체크리스트(전역 기억: 등본 등 공통 서류는 여러 복지에서 준비완료 공유) */}
         {policy.required_docs?.length > 0 && (() => {
-          const done = (d: string) => !!docDoneMap[d.replace(/\s/g, '')]
+          // 전역 docDone(공통 서류) + 이 정책의 개별 체크(checkedDocs)를 모두 반영 — 나의 복지 카드에서
+          //   체크한 서류가 상세에선 미체크로 보이던 불일치(과소표시) 해소(TrackedCard·monitoring과 동일 기준, 감사 F3)
+          const trackedItem = trackedList.find((t) => t.policyId === policy.id)
+          const done = (d: string) => (trackedItem?.checkedDocs.includes(d) ?? false) || !!docDoneMap[d.replace(/\s/g, '')]
           const doneCount = policy.required_docs.filter(done).length
           const total = policy.required_docs.length
           return (
@@ -461,7 +470,7 @@ function DrawerBody({
           <Section title="🔗 함께 보면 좋은 복지">
             <ul className="space-y-1.5">
               {related.map((r) => {
-                const rm = parseMonthly(r.benefit)
+                const rm = cashMonthly(r)
                 return (
                   <li key={r.id}>
                     <button onClick={() => onOpen(r)} className="w-full flex items-center gap-2 rounded-xl border border-sprout-100 px-3 py-2 text-left hover:bg-sprout-50 transition-colors">
@@ -492,7 +501,7 @@ function DrawerBody({
             {aiRelated && aiRelated.length > 0 && (
               <ul className="space-y-1.5">
                 {aiRelated.map(({ policy: r }) => {
-                  const rm = parseMonthly(r.benefit)
+                  const rm = cashMonthly(r)
                   return (
                     <li key={r.id}>
                       <button onClick={() => onOpen(r)} className="flex w-full items-center gap-2 rounded-xl border border-sprout-100 px-3 py-2 text-left transition-colors hover:bg-sprout-50">

@@ -163,3 +163,13 @@ describe('isLocalIntent — 하이브리드 라우팅(행동=로컬, 지식=LLM)
     expect(isLocalIntent('부모급여랑 아동수당 차이가 궁금해요')).toBe(false)
   })
 })
+
+describe('searchReply 정직성 — 비현금(재가급여 한도)을 월 현금으로 표기하지 않음(감사 F1)', () => {
+  it('"재가급여" 검색 줄에 서비스 한도(월 251만원)를 "(월 …까지)" 현금처럼 적지 않는다', () => {
+    const r = agentReply('재가급여', { profile: null, result: null })
+    const line = (r.text.split('\n').find((l) => l.includes('재가급여')) || '')
+    expect(line).toContain('재가급여')                 // POL-057이 결과에 노출됨
+    expect(/\(월 .*까지\)/.test(line)).toBe(false)     // 한도액을 월 현금처럼 표기 금지
+    expect(r.text).not.toMatch(/251만원까지|2,510,000/) // 서비스 한도 금액을 현금으로 오표기 금지
+  })
+})

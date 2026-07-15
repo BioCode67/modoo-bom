@@ -5,7 +5,7 @@ import { checkPolicy, getEligiblePolicies } from '@/lib/welfare-engine'
 import { getCatalog, getPolicyMap } from '@/data/catalog'
 import { searchPolicies } from '@/lib/search'
 import { buildActionFeed } from '@/lib/monitoring'
-import { parseMonthly, formatWon } from '@/lib/format'
+import { parseMonthly, formatWon, isCashBenefit } from '@/lib/format'
 import { applyLink } from '@/lib/officialLinks'
 
 /**
@@ -24,7 +24,9 @@ export interface AgentReply {
 const HH = (p: UserProfile) => [p.age > 0 ? `${p.age}세` : '', p.household_type].filter(Boolean).join('·')
 
 function line(p: Policy, note?: string): string {
-  const m = parseMonthly(p.benefit)
+  // ⚠️ 현금성만 금액 표기 — 서비스 한도(재가급여 '월 251만원 한도')·바우처를 "월 N까지" 현금처럼 적으면
+  //   같은 정책의 카드·상세·비교와 모순되고 비현금을 현금으로 과장한다(다른 모든 표시부와 동일 게이트, 감사 F1)
+  const m = isCashBenefit(p.benefit, `${p.name} ${p.category}`) ? parseMonthly(p.benefit) : 0
   const amt = m > 0 ? ` (월 ${formatWon(m)}까지)` : ''
   return `• ${p.name}${amt}${note ? ` — ${note}` : ` — ${applyLink(p.application).label}`}`
 }
