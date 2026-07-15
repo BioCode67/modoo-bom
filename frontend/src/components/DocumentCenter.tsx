@@ -12,7 +12,10 @@ import { RpaInfoForm } from '@/components/RpaInfoForm'
 import { RemoteRpaSetup } from '@/components/RemoteRpaSetup'
 import { cn } from '@/lib/utils'
 
-type RpaState = { status: string; step: string; at?: number; taskId?: string; saved?: boolean; downloadToken?: string } | null
+// 저장 경로를 사람이 읽게 축약 — '…/모두봄서류/주민등록등본_홍길동_2026-07-15_1430.pdf'
+const shortPath = (p: string) => { const seg = p.split(/[\\/]/).filter(Boolean); return seg.length > 2 ? `…/${seg.slice(-2).join('/')}` : p }
+
+type RpaState = { status: string; step: string; at?: number; taskId?: string; saved?: boolean; downloadToken?: string; shot?: string; stepsTail?: string[]; savedPath?: string } | null
 
 export function DocumentCenter() {
   const { tracked, profile, rpaInfo, toggleDocDone, isDocDone } = useAppStore()
@@ -22,6 +25,19 @@ export function DocumentCenter() {
   const backend = localAgent || ext                  // 둘 중 하나면 자동발급 노출
   const [rpa, setRpa] = useState<Record<string, RpaState>>({})
   const [diagCopied, setDiagCopied] = useState(false)
+  // '서류가 어디 저장되는지 모르겠다'(실사용 피드백) — 로컬 에이전트(내 PC)일 때만 탐색기 열기 제공
+  const rpaBase = getRpaBase()
+  const isLocalAgentBase = /^https?:\/\/(localhost|127\.0\.0\.1)/.test(rpaBase)
+    || (rpaBase === '' && typeof window !== 'undefined' && /^(localhost|127\.0\.0\.1)$/.test(window.location.hostname))
+  const [folderMsg, setFolderMsg] = useState('')
+  const openFolder = async () => {
+    try {
+      const r = await fetch(`${getRpaBase()}/api/documents/open-folder`, { method: 'POST' }).then((x) => x.json())
+      setFolderMsg(r.opened ? '' : `저장 위치: ${r.path || ''}`)
+    } catch {
+      setFolderMsg('폴더 열기는 데스크탑 앱에서만 돼요 — 카드에 적힌 경로에서 파일을 찾아주세요.')
+    }
+  }
   // 언마운트 후 폴링이 계속 setState/fetch 하지 않도록 하는 가드('나의 복지'를 떠나면 중단)
   const mountedRef = useRef(true)
   useEffect(() => () => { mountedRef.current = false }, [])
@@ -131,7 +147,14 @@ export function DocumentCenter() {
         const st = await fetch(`${getRpaBase()}/api/documents/rpa-status/${task_id}${downloadToken ? `?t=${encodeURIComponent(downloadToken)}` : ''}`).then((r) => r.json())
         if (!mountedRef.current) return
         // 발급 완료 시 result.saved_path가 있으면 문서를 사용자에게 돌려줄 수 있음(다운로드 버튼 노출)
-        setRpa((s) => ({ ...s, [doc]: { status: st.status, step: st.current_step || '', at: s[doc]?.at, taskId: task_id, downloadToken, saved: !!(st.result && st.result.saved_path) } }))
+        setRpa((s) => ({ ...s, [doc]: {
+          status: st.status, step: st.current_step || '', at: s[doc]?.at, taskId: task_id, downloadToken,
+          saved: !!(st.result && st.result.saved_path),
+          savedPath: (st.result && st.result.saved_path) || undefined,
+          // 진행 실화면(토큰 인가 시 응답에 포함) + 최근 단계 로그 — '멈춘 것처럼 보임' 해소(실사용 피드백)
+          shot: st.screenshot_b64 || undefined,
+          stepsTail: Array.isArray(st.steps) ? st.steps.slice(-3).map((x: { time?: string; msg?: string }) => `${x.time || ''} ${String(x.msg || '').split('\n')[0]}`.trim()) : undefined,
+        } }))
         if (st.status === 'done' || st.status === 'error' || st.status === 'completed') break
       }
     } catch (e) {
@@ -197,7 +220,7 @@ export function DocumentCenter() {
               ? (step.saved_path ? '발급 완료' : '발급 미완료 — 화면에서 확인해 주세요')
             : step.status === 'error' ? (step.error || '실패') : '대기 중…'
           // 발급 완료 단계는 taskId+토큰을 실어 '발급 문서 받기' 버튼이 뜨게(서버 RPA/원격에서 PDF 회수)
-          next[step.name] = { status: step.status, step: msg, at: s[step.name]?.at, saved: !!step.saved_path, taskId: step.task_id, downloadToken: step.download_token }
+          next[step.name] = { status: step.status, step: msg, at: s[step.name]?.at, saved: !!step.saved_path, savedPath: step.saved_path || undefined, taskId: step.task_id, downloadToken: step.download_token }
         }
         return next
       })
@@ -326,6 +349,8 @@ export function DocumentCenter() {
         </button>
       )}
 
+      {folderMsg && <p className="mt-2 text-xs text-amber-700">{folderMsg}</p>}
+
       <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
         {docs.map((doc) => {
           const link = docLink(doc)
@@ -356,6 +381,19 @@ export function DocumentCenter() {
                       : <Loader2 className="h-3.5 w-3.5 animate-spin text-sky2-500" />}
                     <span className="text-muted-foreground truncate">{st.step || st.status}</span>
                   </p>
+                  {/* 최근 단계 로그 — 지금까지 무엇을 했는지 한눈에(진행상황 불투명 피드백) */}
+                  {st.stepsTail && st.stepsTail.length > 1 && !['done', 'completed'].includes(st.status) && (
+                    <ul className="mt-1 space-y-0.5">
+                      {st.stepsTail.slice(0, -1).map((line, li) => (
+                        <li key={li} className="text-[10px] text-muted-foreground/70 truncate">· {line}</li>
+                      ))}
+                    </ul>
+                  )}
+                  {/* 진행 실화면(토큰 인가) — 에이전트가 지금 보고 있는 정부 페이지를 그대로(멈춤 오인 해소) */}
+                  {st.shot && !['done', 'completed', 'error'].includes(st.status) && (
+                    <img src={`data:image/jpeg;base64,${st.shot}`} alt="발급 진행 화면"
+                      className="mt-1.5 w-full max-h-44 object-cover object-top rounded-lg border border-sprout-100" />
+                  )}
                   {/* 발급 완료 + 서버에 문서 저장됨 → 내 브라우저로 바로 받기(확장 없이 인증만 하면 내 손에). 토큰(?t=)으로 인가 */}
                   {(st.status === 'done' || st.status === 'completed') && st.saved && st.taskId && st.downloadToken && (
                     <a
@@ -365,6 +403,15 @@ export function DocumentCenter() {
                     >
                       <FileText className="h-3.5 w-3.5" /> 발급 문서 받기 (PDF)
                     </a>
+                  )}
+                  {/* 어디 저장됐는지 명시 — 파일명까지(알기 쉬운 이름: 서류명_이름_날짜) */}
+                  {(st.status === 'done' || st.status === 'completed') && st.savedPath && (
+                    <p className="mt-1.5 rounded-lg bg-sprout-50 px-2 py-1.5 text-[11px] leading-relaxed text-sprout-800 break-all">
+                      🗂 <b>{shortPath(st.savedPath)}</b>
+                      {isLocalAgentBase && (
+                        <button onClick={openFolder} className="ml-1.5 underline font-semibold shrink-0">저장 폴더 열기</button>
+                      )}
+                    </p>
                   )}
                   {stale && (
                     <p className="text-[11px] text-amber-700 mt-0.5">

@@ -140,7 +140,7 @@ def recent_issued_docs(limit: int = 10, within_seconds: Optional[int] = None):
     """모두봄이 발급해 저장한 서류(PDF/PNG)를 최신순으로 반환 — [(표시이름, 절대경로), ...].
 
     신청 양식의 '서류 첨부'를 사용자가 정확히 하도록 안내하는 데 쓴다(어떤 서류가 어디에 있는지).
-    파일명은 '{서류명}_{타임스탬프}.pdf' 형식 → 타임스탬프를 떼어 사람이 읽는 이름으로.
+    파일명은 '{서류명}_{이름}_{YYYY-MM-DD_HHMM}.pdf'(신형)/'{서류명}_{타임스탬프}'(구형) → 접미를 떼어 표시명으로.
 
     within_seconds: 지정 시 '최근 N초 내 발급'만 반환 — 공용 PC에서 '직전 사용자'의 오래된 서류를
     다음 사용자의 신청서에 자동 첨부하는 것을 막는 방어선(자동첨부 경로에서 사용)."""
@@ -158,7 +158,8 @@ def recent_issued_docs(limit: int = 10, within_seconds: Optional[int] = None):
             if cutoff is not None and os.path.getmtime(f) < cutoff:
                 continue
             stem = os.path.splitext(os.path.basename(f))[0]
-            name = _re.sub(r"_\d{8}_\d{6}$", "", stem)  # _YYYYMMDD_HHMMSS 제거
+            # 타임스탬프 접미 제거 — 신형 '_YYYY-MM-DD_HHMM(_SS)' + 구형 '_YYYYMMDD_HHMMSS' 모두
+            name = _re.sub(r"(_\d{4}-\d{2}-\d{2}_\d{4}(_\d{2})?|_\d{8}_\d{6})$", "", stem)
             out.append((name or stem, os.path.abspath(f)))
     except Exception:
         pass
@@ -188,7 +189,19 @@ def _safe_filename(name: str) -> str:
     return cleaned or "document"
 
 
-async def save_document(page, name: str) -> Optional[str]:
+def doc_basename(name: str, user_name: str = "") -> str:
+    """사람이 읽는 저장 파일명(확장자 제외) — '주민등록등본_홍길동_2026-07-15_1430'.
+
+    과거 '{서류명}_20260715_143022'는 어떤 파일인지 한눈에 안 읽힌다는 실사용 피드백 →
+    누구의 어떤 서류를 언제 발급했는지 파일명만으로 보이게. 이름이 없으면 서류명+날짜만.
+    """
+    stamp = datetime.now().strftime("%Y-%m-%d_%H%M")
+    who = _safe_filename(user_name or "").strip()
+    mid = f"_{who}" if who and who != "사용자" else ""
+    return f"{_safe_filename(name)}{mid}_{stamp}"
+
+
+async def save_document(page, name: str, user_name: str = "") -> Optional[str]:
     """발급된 서류 페이지를 파일로 '반드시' 저장한다.
     1순위 PDF(CDP Page.printToPDF — headed에서도 시도), 실패 시 전체 스크린샷(PNG) 폴백.
     저장 경로를 반환하고, 완전 실패 시 None.
@@ -197,8 +210,10 @@ async def save_document(page, name: str) -> Optional[str]:
         DOCS_DIR.mkdir(parents=True, exist_ok=True)
     except Exception:
         return None
-    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    base = DOCS_DIR / f"{_safe_filename(name)}_{stamp}"
+    base = DOCS_DIR / doc_basename(name, user_name)
+    if base.with_suffix(".pdf").exists() or base.with_suffix(".png").exists():
+        # 같은 분(分)에 재발급 — 초를 붙여 덮어쓰기 방지
+        base = DOCS_DIR / f"{base.name}_{datetime.now().strftime('%S')}"
     # 1) PDF (Chrome DevTools Protocol)
     try:
         client = await page.context.new_cdp_session(page)

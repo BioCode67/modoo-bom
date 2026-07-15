@@ -488,7 +488,11 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None) -> None:
             # ④ 신청하기 — 자동입력 주소가 실제 주민등록 주소와 다르면(정보 없음 안내) 사용자가 고칠 때까지 기다렸다 자동 재시도
             submitted = False
             addr_warned = False
-            for _ in range(24):  # 최대 ~4분(주소 정정 대기 포함)
+            task.update("running", "신청 버튼을 눌러 발급을 진행하고 있어요…", await take_screenshot(page))
+            for _hb in range(24):  # 최대 ~4분(주소 정정 대기 포함)
+                # 하트비트: 침묵 구간(과거 최대 4분 무갱신 → '멈췄다' 오인, 실사용 피드백)마다 진행 화면 공유
+                if _hb and _hb % 4 == 0:
+                    task.update("running", f"발급 처리 진행 중… ({_hb * 5}초 경과) — 브라우저 창을 닫지 마세요.", await take_screenshot(page))
                 # 발급 진행 버튼 — plus.gov.kr 발급폼은 '신청하기', 안내페이지(AA020) 폴백은 '발급하기'.
                 if not await click_by_text(page, ["신청하기", "민원신청하기", "발급하기"]):
                     await click_first_matching(page, ["button:has-text('신청하기')", "a:has-text('발급하기')", "button:has-text('발급하기')", "#btnMinwonApply", "#btnApply", "input[value*='신청']"])
@@ -526,11 +530,13 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None) -> None:
                 if await _autofill_auth_form(sign_frame, user_info) and re.sub(r"[^0-9]", "", str((user_info or {}).get("birth_date", ""))):
                     await _request_auth(sign_frame)
                 task.update("waiting_login", f"📱 전자서명 인증이에요 — {provider_display(_prov)} [인증 허용]을 눌러주세요.", await take_screenshot(page))
-                for _ in range(120):
+                for _sg in range(120):
                     await asyncio.sleep(2)
                     t = await _txt()
                     if any(k in t for k in ["문서출력", "처리완료", "발급완료"]) or "mbrAplySrvcList" in page.url:
                         break
+                    if _sg and _sg % 10 == 0:  # 20초마다 — 폰 승인 대기 중에도 살아있음을 보여준다
+                        task.update("waiting_login", f"📱 전자서명 승인을 기다리는 중… ({_sg * 2}초) 폰에서 [인증 허용]을 눌러주세요.", await take_screenshot(page))
 
             # ⑥ 발급 결과에서 문서출력 → PDF 저장
             await asyncio.sleep(2)
@@ -546,7 +552,7 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None) -> None:
             # ⚠️ 실제 발급 신호로만 성공 판정 — save_document 는 어떤 화면이든 항상 저장(headed에선 스샷 폴백)
             #   하므로 saved 유무로 판정하면 '미발급 화면'도 발급완료로 오보된다(감사 확정 결함).
             really_issued = ("처리완료" in body_now) or ("발급완료" in body_now) or ("발급 완료" in body_now) or ("mbrAplySrvcList" in final_url)
-            saved = await save_document(final_page, doc_name)
+            saved = await save_document(final_page, doc_name, getattr(task, 'user_name', ''))
 
             if really_issued and saved:
                 task.update(

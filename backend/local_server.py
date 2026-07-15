@@ -312,6 +312,25 @@ async def rpa_file(task_id: str, t: str = ""):
     })
 
 
+@app.post("/api/documents/open-folder")
+async def open_docs_folder():
+    """발급 서류 저장 폴더를 파일 탐색기로 연다 — 데스크탑 앱 전용(이 서버는 사용자 본인 PC에서만 돈다).
+    '서류가 어디 저장되는지 모르겠다'는 실사용 피드백 대응: 완료 카드의 [저장 폴더 열기] 버튼이 호출.
+    열기 실패(원격 세션 등)여도 path 를 돌려줘 프론트가 경로를 안내할 수 있게 한다."""
+    from rpa.base import DOCS_DIR
+    path = str(DOCS_DIR)
+    try:
+        DOCS_DIR.mkdir(parents=True, exist_ok=True)
+        if sys.platform == "win32":
+            os.startfile(path)  # noqa: S606 — 로컬 데스크탑 앱의 의도된 폴더 열기
+        else:
+            import subprocess
+            subprocess.Popen(["open" if sys.platform == "darwin" else "xdg-open", path])
+        return {"opened": True, "path": path}
+    except Exception as e:
+        return {"opened": False, "path": path, "error": str(e)[:120]}
+
+
 # ── RPA 복지 신청 ──
 @app.get("/api/apply/supported")
 async def apply_supported():

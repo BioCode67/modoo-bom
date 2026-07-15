@@ -579,7 +579,7 @@ async def run_nhis_rpa(task, user_info: dict = None) -> None:
                 ss = await take_screenshot(page)
 
             _dlpage = context.pages[-1] if len(context.pages) > 1 else page
-            saved = await save_document(_dlpage, "건강보험 자격득실확인서")
+            saved = await save_document(_dlpage, "건강보험 자격득실확인서", getattr(task, "user_name", ""))
             task.update("done",
                 "✅ 건강보험 자격득실확인서 발급 완료!\n\n"
                 + (f"📄 자동 저장됨: {saved}\n" if saved else "브라우저에서 Ctrl+P 로 저장하세요.\n")
