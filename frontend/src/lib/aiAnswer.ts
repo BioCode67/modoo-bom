@@ -4,6 +4,7 @@ import { parseMonthly, formatWon, formatWonIntl, isCashBenefit } from './format'
 export interface AiAnswerItem {
   name: string
   benefit: string
+  category?: string
 }
 
 /**
@@ -26,7 +27,7 @@ export function buildAiAnswer(items: AiAnswerItem[], query: string): string {
   // '현금성 최대'는 (1) 현금성 항목만 — 재가급여(서비스 한도)·바우처·감면·고용주 지원을 parseMonthly만으로
   //  합치면 개인 현금소득처럼 과장됨(정직성 게이트 isCashBenefit) (2) '이름이 제시된 대표 3건'에서만 —
   //  목록에 없는 하위 정책(예: 검색 7위 긴급복지)의 금액을 대표 3건 옆에 붙여 오귀속하지 않게(감사).
-  const cashMax = Math.max(0, ...topItems.map((it) => (isCashBenefit(it.benefit, it.name) ? parseMonthly(it.benefit) : 0)))
+  const cashMax = Math.max(0, ...topItems.map((it) => (isCashBenefit(it.benefit, `${it.name} ${it.category || ''}`) ? parseMonthly(it.benefit) : 0)))
   // 답변 언어는 보수적 detectUiLang — 한국어 사용자의 짧은 영문 약어('EITC','LH')에 답변·카드가
   //  통째로 외국어로 뒤집히지 않게(Explore의 UI 언어 판정과 동일 기준으로 일관성 확보).
   const code = detectUiLang(query)
