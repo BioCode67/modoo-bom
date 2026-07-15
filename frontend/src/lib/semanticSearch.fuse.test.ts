@@ -73,9 +73,10 @@ describe('fieldScore department 스캔 — 기관명 검색(SH·LH 등)', () => 
   it('이름엔 없고 담당부처에만 있는 검색어도 결과가 나온다', async () => {
     const { relevance, queryConcepts } = await import('./search')
     // 가짜 정책: 이름·본문엔 SH 없음, department에만 SH공사
-    const p = { id: 'X-1', name: '전세임대주택 지원', category: '주거',
+    const p: Policy = { id: 'X-1', name: '전세임대주택 지원', category: '주거',
                 target: '무주택 저소득', benefit: '전세보증금 지원', eligibility: '무주택',
-                department: 'SH서울주택도시공사' } as any
+                required_docs: [], application: '', renewal: '',
+                department: 'SH서울주택도시공사' }
     const score = relevance(p, queryConcepts('SH'), 'SH')
     expect(score).toBeGreaterThan(0)
   })
