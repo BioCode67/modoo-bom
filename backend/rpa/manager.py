@@ -291,6 +291,10 @@ async def _guarded_run(task: "RPATask", run_coro) -> None:
                 exc = inner.exception()
                 if exc is not None:
                     raise exc
+                # 러너가 종결 상태(done/error/cancelled)를 보고하지 않고 끝났으면(이른 return 등)
+                #   비종결 좀비 레코드로 남아 퇴거 불가 + 프론트가 영구 폴링한다 → 정직하게 종결(가짜 '완료' 금지).
+                if getattr(task, "status", "") not in ("done", "completed", "cancelled", "error"):
+                    task.update("error", "자동화가 완료를 확인하지 못하고 끝났어요. 화면을 확인하고 필요하면 다시 시도해 주세요.")
             finally:
                 # 정리가 20초 안에 안 끝난 orphan inner 는 백그라운드로 흘려보내되(강한참조 유지) 슬롯은 반납
                 if inner is not None and not inner.done():
