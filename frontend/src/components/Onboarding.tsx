@@ -40,7 +40,8 @@ export function Onboarding() {
             </span>
             <div>
               <p className="text-[11px] font-extrabold text-sprout-700">새싹이 · 복지 에이전트</p>
-              <p className="font-extrabold text-lg leading-tight">안녕하세요, 저 새싹이예요 🌱</p>
+              {/* 모바일(좁은 폭)에선 text-base 로 — text-lg면 🌱까지 한 줄에 안 들어가 '요'가 어색하게 넘어갔다 */}
+              <p className="font-extrabold text-base sm:text-lg leading-tight">안녕하세요, 저 새싹이예요 🌱</p>
             </div>
           </div>
           <button onClick={setOnboarded} aria-label="닫기" className="rounded-full p-2 hover:bg-muted"><X className="h-5 w-5" /></button>
@@ -66,9 +67,11 @@ export function Onboarding() {
           🔒 알려주신 정보는 서버로 보내지 않고 <b>내 기기 안에서만</b> 처리해요. 회원가입도 필요 없어요.
         </div>
 
-        <div className="mt-4 flex gap-2">
-          <button onClick={setOnboarded} className="btn-secondary flex-1">둘러볼게요</button>
-          <button onClick={() => { setOnboarded(); setView('analyze') }} className="btn-primary flex-1"><Sparkles className="h-4 w-4" /> 새싹이랑 시작하기</button>
+        {/* 모바일(좁은 폭)에선 세로 스택 — 나란히 두면 '새싹이랑 시작하기'가 반폭에 안 맞아 '시 작하기'로 어색하게 줄바꿈됐다.
+            데스크탑(sm+)은 나란히. 라벨은 whitespace-nowrap 로 단어 중간 줄바꿈 방지. */}
+        <div className="mt-4 flex flex-col sm:flex-row gap-2">
+          <button onClick={() => { setOnboarded(); setView('analyze') }} className="btn-primary flex-1 justify-center whitespace-nowrap order-1 sm:order-2"><Sparkles className="h-4 w-4" /> 새싹이랑 시작하기</button>
+          <button onClick={setOnboarded} className="btn-secondary flex-1 justify-center whitespace-nowrap order-2 sm:order-1">둘러볼게요</button>
         </div>
       </motion.div>
     </div>
