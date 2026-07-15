@@ -341,7 +341,10 @@ function checkPolicyDoc(doc: string, name: string, p: UserProfile): CheckResult 
     return NO
   }
   // 영아 전용(만 0~1세, 24개월 미만) — 부모급여 등. '영아'를 만 2세까지 넓히면 오추천되므로 a<2로 좁게(만 0~5세 계열보다 먼저 판정).
-  if (anyIn(doc, ['만 0~1세', '만 0~23개월', '영아'])) {
+  // ⚠️ 단, 바 '영아' 키워드는 '만 12세 이하 아동(영아 종일제는 36개월…)'처럼 상위 연령 정책의 하위 절에도 박혀
+  //   있어, 더 넓은 연령 상한(만 12세/18세)이 함께 적힌 정책은 영아 게이트로 좁히지 않는다 — 아이돌봄(만 12세)이
+  //   자녀 2~12세에게 통째로 오배제되던 결함(데모 페르소나 흐엉·한결에서 노출, 감사 Finding 2 E2)
+  if (anyIn(doc, ['만 0~1세', '만 0~23개월', '영아']) && !doc.includes('만 12세') && !doc.includes('만 18세')) {
     if (p.has_children && (p.children_ages || []).some((a) => a < 2))
       return { eligible: true, reason: '영아(만 0~1세) 자녀 보유', priority: 'high', confidence: 0.96 }
     return NO

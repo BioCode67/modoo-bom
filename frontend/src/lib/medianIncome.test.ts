@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { medianIncome, incomePercentile, qualifyingBenefits, benefitCutoffs, livelihoodPayment } from './medianIncome'
+import { medianIncome, incomePercentile, qualifyingBenefits, benefitCutoffs, livelihoodPayment, isApprox } from './medianIncome'
 
 describe('medianIncome (2026 공식값)', () => {
   it('가구원수별 기준 중위소득 100%', () => {
@@ -69,5 +69,12 @@ describe('감사 수정 회귀 — 7인 공식값·8인 가산(2026)', () => {
   it('1~6인 공식값 유지', () => {
     expect(medianIncome(4)).toBe(6_494_738)
     expect(medianIncome(6)).toBe(8_555_952)
+  })
+  it('isApprox: 1~7인은 확정(추정 아님), 8인+만 추정 — 계산기 8인+ 스테퍼가 노출하는 계약', () => {
+    for (let n = 1; n <= 7; n++) expect(isApprox(n)).toBe(false)
+    expect(isApprox(8)).toBe(true)
+    expect(isApprox(9)).toBe(true)
+    // 9인 가구는 7인으로 고정하던 과거 UI보다 소득기준이 커야(과소산정 교정)
+    expect(medianIncome(9)).toBeGreaterThan(medianIncome(7))
   })
 })

@@ -332,3 +332,34 @@ describe('부정문 오탐 방지 회귀(감사 2026-07)', () => {
     expect(parseProfileFromText('임신했어요').gender).toBe('female')
   })
 })
+
+describe('감사 3라운드 회귀 — 자연어 오귀속 방지(2026-07)', () => {
+  it('P1: 자녀 명사가 앞서고 부모 나이가 뒤에 와도 부모 나이를 자녀 나이로 오인하지 않음', () => {
+    const p = parseProfileFromText('아이 7살이고 저는 38살이에요')
+    expect(p.age).toBe(38)                 // 부모 나이(과거: 7로 오인돼 화면에 "7세"로 표기됨)
+    expect(p.children_ages).toEqual([7])   // 자녀 나이
+    const q = parseProfileFromText('아들 10살인데 제가 40살이에요')
+    expect(q.age).toBe(40)
+    expect(q.children_ages).toEqual([10])
+    // 기존 케이스(부모 나이 먼저 / 자녀만)도 그대로 유지
+    expect(parseProfileFromText('35살인데 7살 아이').age).toBe(35)
+    expect(parseProfileFromText('아이가 10살').children_ages).toEqual([10])
+  })
+  it('P2: "저는 아이가 장애가 있어요"는 본인이 아니라 자녀 장애로 귀속', () => {
+    const p = parseProfileFromText('저는 아이가 장애가 있어요')
+    expect(p.disability).not.toBe(true)          // 부모를 장애인으로 오태깅 금지
+    expect(p.has_children).toBe(true)
+    expect(p.life_events).toContain('장애아동')
+    // 진짜 본인 장애는 그대로
+    expect(parseProfileFromText('저는 장애가 있어요').disability).toBe(true)
+    // 자녀 명사가 뒤에 오는 기존 예도 자녀 장애 유지
+    expect(parseProfileFromText('장애가 있는 아들이에요').disability).not.toBe(true)
+  })
+  it('P3: "남자친구/남자아이" 같은 제3자 합성어로 화자 성별을 오태깅하지 않음', () => {
+    expect(parseProfileFromText('남자친구한테 맞고 살아요').gender).not.toBe('male') // 여성 DV → 여성지원 배제 금지
+    expect(parseProfileFromText('남자아이 둘 키워요').gender).not.toBe('male')        // 아들 키우는 엄마
+    // 명시적 자기지칭은 그대로
+    expect(parseProfileFromText('저는 남자예요').gender).toBe('male')
+    expect(parseProfileFromText('저는 여자예요').gender).toBe('female')
+  })
+})

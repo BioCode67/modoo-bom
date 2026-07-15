@@ -47,12 +47,26 @@ export function IncomeCalculator({
         <div className="flex flex-wrap gap-1.5">
           {[1, 2, 3, 4, 5, 6, 7].map((n) => (
             <button key={n} onClick={() => setSize(n)}
-              className={cn('rounded-lg px-3 py-1.5 text-sm font-semibold border transition-colors', size === n ? 'bg-sky2-700 border-sky2-700 text-white' : 'bg-white border-sprout-100 text-muted-foreground hover:border-sky2-200')}>
+              className={cn('rounded-lg px-3 py-1.5 text-sm font-semibold border transition-colors', (n === 7 ? size >= 7 : size === n) ? 'bg-sky2-700 border-sky2-700 text-white' : 'bg-white border-sprout-100 text-muted-foreground hover:border-sky2-200')}>
               {n}{n === 7 ? '+' : ''}
             </button>
           ))}
         </div>
-        <p className="text-[11px] text-muted-foreground mt-1">{size}인 가구 기준 중위소득 100% = <b>{won(median)}</b>{isApprox(size) ? ' (추정)' : ''}</p>
+        {/* 8인 이상은 '7'로 고정돼 소득기준이 과소산정(실제보다 낮게)되던 문제 — 실제 가구원 수를 지정하게
+            스테퍼 제공. medianIncome이 1인당 공식 가산액으로 추정하고 아래 문구에 '(추정)'을 명시한다(감사 Finding P4). */}
+        {size >= 7 && (
+          <div className="mt-1.5 flex items-center gap-2">
+            <span className="text-[11px] text-muted-foreground">가구원이 더 많으면</span>
+            <div className="inline-flex items-center rounded-lg border border-sky2-200 bg-white">
+              <button type="button" onClick={() => setSize((s) => Math.max(7, s - 1))} disabled={size <= 7}
+                aria-label="가구원 수 줄이기" className="px-2.5 py-1 text-sky2-700 font-bold disabled:opacity-40">−</button>
+              <span className="px-2 text-sm font-bold tabular-nums" aria-live="polite">{size}인</span>
+              <button type="button" onClick={() => setSize((s) => Math.min(12, s + 1))} disabled={size >= 12}
+                aria-label="가구원 수 늘리기" className="px-2.5 py-1 text-sky2-700 font-bold disabled:opacity-40">+</button>
+            </div>
+          </div>
+        )}
+        <p className="text-[11px] text-muted-foreground mt-1">{size}인 가구 기준 중위소득 100% = <b>{won(median)}</b>{isApprox(size) ? ' (추정 · 8인 이상 1인당 95만원 가산)' : ''}</p>
       </div>
 
       {/* 월 소득 */}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Search, X, Mic, ArrowDownWideNarrow, Calculator, ChevronDown, Globe, Sparkles, Volume2, Square, Languages } from 'lucide-react'
 import { useSpeech } from '@/lib/useSpeech'
@@ -72,6 +72,9 @@ export function Explore() {
   // 온디바이스 AI 의미 검색(다국어)
   const [aiMode, setAiMode] = useState(false)
   const [aiHits, setAiHits] = useState<SemanticHit[] | null>(null)
+  // aiHits가 '어떤 질의'의 결과인지 — 새 질의 임베딩이 도는 동안 직전 질의의 결과로 답변/번역이 만들어지는
+  //   스테일 문제(감사)를 막기 위해, 답변은 aiHitsQuery === 현재 질의일 때만 생성한다.
+  const [aiHitsQuery, setAiHitsQuery] = useState('')
   const [aiProgress, setAiProgress] = useState<{ stage: string; pct?: number } | null>(null)
   const [aiError, setAiError] = useState<string | null>(null)
   const [voiceUsed, setVoiceUsed] = useState(false) // 음성으로 질의하면 AI가 음성으로 답
@@ -121,15 +124,16 @@ export function Explore() {
 
   // AI 의미 검색: 켜져 있고 질의가 있으면 온디바이스 임베딩으로 검색(디바운스+레이스가드)
   useEffect(() => {
-    if (!aiMode) { setAiHits(null); setAiProgress(null); setAiError(null); return }
+    if (!aiMode) { setAiHits(null); setAiHitsQuery(''); setAiProgress(null); setAiError(null); return }
     const query = q.trim()
     if (!query) {
       // 질의 전이라도 토글을 켜면 모델을 미리 내려받아 체감 지연을 줄인다.
-      setAiHits(null)
+      setAiHits(null); setAiHitsQuery('')
       const wid = ++aiRunId.current
       warmupSemantic((p) => { if (wid === aiRunId.current) setAiProgress(p) })
         .then(() => { if (wid === aiRunId.current) setAiProgress(null) })
-        .catch((e) => { console.error('[AI검색] 모델 워밍업 실패:', e); if (wid === aiRunId.current) setAiError('AI 모델을 불러오지 못했어요. 네트워크를 확인하거나 일반 검색을 이용해주세요.') })
+        // 실패 시 진행바를 반드시 내린다 — 안 내리면 오류문구 옆에 멈춘 진행바가 남는다(감사 Finding 5)
+        .catch((e) => { console.error('[AI검색] 모델 워밍업 실패:', e); if (wid === aiRunId.current) { setAiProgress(null); setAiError('AI 모델을 불러오지 못했어요. 네트워크를 확인하거나 일반 검색을 이용해주세요.') } })
       return
     }
     const runId = ++aiRunId.current
@@ -140,12 +144,12 @@ export function Explore() {
         const hits = await hybridSearch(query, 60, (p) => {
           if (runId === aiRunId.current) setAiProgress(p)
         })
-        if (runId === aiRunId.current) { setAiHits(hits); setAiProgress(null) }
+        if (runId === aiRunId.current) { setAiHits(hits); setAiHitsQuery(query); setAiProgress(null) }
       } catch (e) {
         console.error('[AI검색] semanticSearch 실패:', e) // silent swallow 제거 — 진단 가능하게
         if (runId === aiRunId.current) {
           setAiError('AI 모델을 불러오지 못했어요. 네트워크를 확인하거나 일반 검색을 이용해주세요.')
-          setAiHits(null); setAiProgress(null)
+          setAiHits(null); setAiHitsQuery(''); setAiProgress(null)
         }
       }
     }, 450)
@@ -159,11 +163,31 @@ export function Explore() {
     return m
   }, [aiHits])
 
-  // AI 답변 요약(환각 없이 검색결과 기반 템플릿) — 입력 언어를 이해했음을 알리고 대표 복지·금액을 한 줄로
+  // 비검색 필터(분류·지역·현금성·혜택유형) 공통 술어 — 목록과 AI 답변이 '같은 결과'를 보게 hoist(감사 Finding 1)
+  const passNonSearch = useCallback((p: Policy) => {
+    const b = BUCKETS.find((x) => x.key === bucket)
+    if (b?.test) { if (!b.test(p)) return false }
+    else if (b?.match && !b.match.some((m) => p.category.includes(m))) return false
+    if (region && p.id.startsWith('LOC-') && sidoOf(p.target) !== region) return false
+    if (gungu && p.id.startsWith('LOC-')) {
+      const g = guOf(p.target)
+      if (g && g !== gungu) return false
+    }
+    if (onlyCash && !isCashBenefit(p.benefit, `${p.name} ${p.category}`)) return false
+    if (benefitType && benefitTypeOf(p) !== benefitType) return false
+    return true
+  }, [bucket, region, gungu, onlyCash, benefitType])
+
+  // AI 답변 요약(환각 없이 검색결과 기반 템플릿) — 입력 언어를 이해했음을 알리고 대표 복지·금액을 한 줄로.
+  // ⚠️ 반드시 '화면에 실제로 남는' 결과(필터 적용)에서, 그리고 '현재 질의'의 결과일 때만 생성한다 —
+  //   ① 카테고리/지역/현금성 필터로 사라진 복지를 답변이 언급하거나 '결과 없음' 위에 답변이 뜨던 문제(Finding 1),
+  //   ② 새 질의 임베딩이 도는 동안 직전 질의 결과로 답변이 만들어지던 스테일 문제(Finding 4)를 함께 차단.
+  //   의미순(정렬/접기 전)을 유지해 '가장 잘 맞아요'의 의미를 지킨다.
   const aiAnswer = useMemo(() => {
-    if (!aiMode || !aiHits) return ''
-    return buildAiAnswer(aiHits.map((h) => h.policy), q)
-  }, [aiMode, aiHits, q])
+    if (!aiMode || !aiHits || aiHitsQuery !== q.trim()) return ''
+    const pol = aiHits.map((h) => h.policy).filter(passNonSearch)
+    return buildAiAnswer(pol, q)
+  }, [aiMode, aiHits, aiHitsQuery, q, passNonSearch])
 
   // AI 답변의 언어 = 질의 언어(aiAnswer가 질의 언어로 생성) → TTS도 그 언어 보이스로 읽어야 발음이 안 깨진다.
   // ⚠️ 보수적 detectUiLang 사용 — 한국어 사용자의 짧은 영문 약어('EITC','LH')에 카드가 통째로 외국어로
@@ -205,21 +229,6 @@ export function Explore() {
   }, [aiAnswer, voiceUsed, aiMode, noVoice])
 
   const filtered = useMemo(() => {
-    const b = BUCKETS.find((x) => x.key === bucket)
-    // 비검색 필터(분류·지역·현금성) 공통 술어
-    const passNonSearch = (p: Policy) => {
-      if (b?.test) { if (!b.test(p)) return false }
-      else if (b?.match && !b.match.some((m) => p.category.includes(m))) return false
-      if (region && p.id.startsWith('LOC-') && sidoOf(p.target) !== region) return false
-      if (gungu && p.id.startsWith('LOC-')) {
-        const g = guOf(p.target)
-        if (g && g !== gungu) return false
-      }
-      if (onlyCash && !isCashBenefit(p.benefit, `${p.name} ${p.category}`)) return false
-      if (benefitType && benefitTypeOf(p) !== benefitType) return false
-      return true
-    }
-
     let list: Policy[]
     if (aiMode && aiHits) {
       // AI 의미 검색: 임베딩 유사도 순서 유지 + 비검색 필터만 적용
@@ -243,13 +252,20 @@ export function Explore() {
       }
     }
     let out = list
-    if (sort === 'amount') out = [...list].sort((a, b2) => parseMonthly(b2.benefit) - parseMonthly(a.benefit))
-    else if (sort === 'name') out = [...list].sort((a, b2) => a.name.localeCompare(b2.name, 'ko'))
+    // '금액 높은순'은 현금성만 실제 금액으로 정렬 — 서비스 한도액(재가급여 '월 206만원 한도' 등)이
+    //   진짜 현금처럼 맨 위로 오던 문제 차단(isCashBenefit 정직성 게이트, 감사 Finding 7).
+    if (sort === 'amount') {
+      const cashAmt = (p: Policy) => (isCashBenefit(p.benefit, `${p.name} ${p.category}`) ? parseMonthly(p.benefit) : 0)
+      out = [...list].sort((a, b2) => cashAmt(b2) - cashAmt(a))
+    } else if (sort === 'name') out = [...list].sort((a, b2) => a.name.localeCompare(b2.name, 'ko'))
     // 같은 프로그램 중복(문화누리 3중복 등) 접기 — 결과 뷰와 동일 기준. POL- 시드에만 적용, 외부 데이터는 그대로.
     return collapseProgramDuplicates(out)
-  }, [q, bucket, catalog, sort, onlyCash, benefitType, region, gungu, aiMode, aiHits])
+  }, [q, catalog, sort, aiMode, aiHits, passNonSearch])
 
-  const detected = aiMode && q.trim() ? detectLang(q) : null
+  // 감지 언어 배지·다누리 안내·번역 배너는 '실제로 그 언어로 답/번역할 때만' 표시 —
+  //   답변/번역은 보수적 detectUiLang을 쓰는데 배지만 공격적 detectLang을 쓰면, 한 단어 영어('housing')에
+  //   "🇬🇧 English 감지 + 번역해드려요"라 해놓고 답변은 한국어·번역 미실행인 허위 안내가 났다(감사 Finding 3).
+  const detected = aiMode && q.trim() && detectUiLang(q) !== 'ko' ? detectLang(q) : null
   // 외국어 질의를 감지하면 UI 표시 언어를 그 언어로 — 상세·신청키트가 자국어로 뜬다(외국인 딥퍼널).
   // detectUiLang은 보수적(라틴 확신 게이트)이고 빈 질의·한국어면 'ko'로 복귀시켜, 오타 한 번에
   // 외국어 UI가 영구 고착되던 문제와 외국인이 일반검색만 써도 'ko'로 리셋되던 역방향 문제를 함께 해소.

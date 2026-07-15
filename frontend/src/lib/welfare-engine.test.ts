@@ -111,6 +111,32 @@ describe('demographicMismatch (인구통계 하드 게이트)', () => {
   })
 })
 
+describe('checkPolicy 아동 연령 게이트 — 영아 하위절이 상위연령 정책을 오배제하지 않음(감사 E2)', () => {
+  const kid = (ages: number[]): UserProfile => ({ ...base, has_children: true, children_ages: ages, income_percentile: 55 })
+  // POL-077 아이돌봄 서비스 실제 자격문구('영아 종일제…' 하위절 포함) — 과거 바 '영아' 매칭이 영아 게이트를
+  //   먼저 발화시켜 자녀 2~12세를 통째로 오배제(데모 페르소나 흐엉[5세]·한결[8세]에서 노출)했다.
+  const childcare: Policy = {
+    id: 'POL-077', name: '아이돌봄 서비스', category: '보육', target: '만 12세 이하 아동 양육 가정',
+    benefit: '시간제·종일제 돌봄 지원',
+    eligibility: '만 12세 이하 아동(영아 종일제는 36개월 이하), 부모 취업·질병·학업 등 양육공백, 기준 중위소득 250% 이하',
+    required_docs: [], application: '', department: '', renewal: '',
+  }
+  it('만 12세 이하 정책은 "영아" 하위절이 있어도 자녀 2~12세에 적격', () => {
+    expect(checkPolicy(childcare, kid([5])).eligible).toBe(true)   // 흐엉(자녀 5세)
+    expect(checkPolicy(childcare, kid([8])).eligible).toBe(true)   // 한결(자녀 8세)
+    expect(checkPolicy(childcare, kid([12])).eligible).toBe(true)  // 상한 경계
+    expect(checkPolicy(childcare, kid([1])).eligible).toBe(true)   // 영아도 물론 적격
+  })
+  it('만 13세 이상만 있으면 부적격(상한 초과)', () => {
+    expect(checkPolicy(childcare, kid([13])).eligible).toBe(false)
+  })
+  it('진짜 영아 전용(부모급여류)은 여전히 만 0~1세만 적격 — 회귀 방지', () => {
+    const infantOnly: Policy = { ...childcare, id: 'POL-005', name: '부모급여', target: '만 0~1세 영아', eligibility: '만 0~1세 영아 양육 가구' }
+    expect(checkPolicy(infantOnly, kid([1])).eligible).toBe(true)
+    expect(checkPolicy(infantOnly, kid([5])).eligible).toBe(false)  // 5세는 영아 아님
+  })
+})
+
 describe('checkPolicy 소득 정밀 선정기준 (2026: 생계32·의료40·주거48·교육/차상위50)', () => {
   const at = (pct: number): UserProfile => ({ ...base, income_percentile: pct })
   const mk = (eligibility: string): Policy => ({

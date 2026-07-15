@@ -27,13 +27,15 @@ export function parseProfileFromText(text: string): UserProfile {
   const ageMatchesAll = [...t.matchAll(/(\d{1,2})\s*(?:살|세)/g)]
   const kidAgeMatches = kidCtxIdx >= 0 ? ageMatchesAll.filter((m) => (m.index ?? 0) > kidCtxIdx) : []
   // 1개여도 인정 — "아이가 10살"처럼 자녀 한 명을 명사-먼저로 말하면 나이가 유실돼(→기본 3세)
-  //   10살 아이 부모에게 아동수당(만 9세 미만)을 과장 추천하던 결함 수정. 모두 18세 이하일 때만 자녀로.
-  const multiKidAges = kidAgeMatches.length >= 1 && kidAgeMatches.every((m) => parseInt(m[1], 10) <= 18)
-    ? kidAgeMatches.map((m) => parseInt(m[1], 10))
-    : null
-  // 부모 나이 추출용 문자열: 자녀 나이 토큰만 제거(그 앞 부모 나이는 보존)
+  //   10살 아이 부모에게 아동수당(만 9세 미만)을 과장 추천하던 결함 수정.
+  // ⚠️ 18세 이하만 '개별' 필터 — 자녀 맥락 뒤에 부모 나이가 섞여도("아이 7살이고 저는 38살") 그 성인 나이는
+  //   자녀로 흡수하지 않는다. (과거 .every(≤18): 뒤에 성인 나이 하나만 껴도 자녀 격리 전체가 꺼져
+  //   자녀 나이(7)가 부모 나이로 오인되던 결함 — 감사 Finding 1)
+  const kidAges18 = kidAgeMatches.filter((m) => parseInt(m[1], 10) <= 18)
+  const multiKidAges = kidAges18.length >= 1 ? kidAges18.map((m) => parseInt(m[1], 10)) : null
+  // 부모 나이 추출용 문자열: 자녀 나이 토큰만 제거(그 앞·뒤 부모 나이는 보존)
   let tForAge = t
-  if (multiKidAges) for (const m of kidAgeMatches) tForAge = tForAge.replace(m[0], ' ')
+  if (multiKidAges) for (const m of kidAges18) tForAge = tForAge.replace(m[0], ' ')
 
   // ── 나이 ── (단, "5살 아이"처럼 자녀를 가리키는 N살/세는 부모 나이로 잡지 않음)
   const exact = tForAge.match(/(\d{1,3})\s*(?:세|살)(?!\s*(?:아이|자녀|아들|딸|아기|아동|손주|손자|손녀))/)
@@ -86,8 +88,11 @@ export function parseProfileFromText(text: string): UserProfile {
   // ── 장애 ── 자녀가 장애인 경우(장애 아동 발달재활 등)와 본인 장애를 구분 — '장애가 있는 아들' 같은 자녀 맥락은 성인 장애로 오귀속하지 않음
   if (/장애/.test(t)) {
     const childDis = /(아들|딸|자녀|아이|애).{0,10}장애|장애.{0,10}(아들|딸|자녀|아이)/.test(t)
+    // 자녀 명사가 장애 '바로 앞'(조사+공백 정도)에 붙으면 자녀 장애로 확정한다 — 앞에 '저는' 같은 자기지칭이
+    //   자녀 명사를 건너뛰어(.{0,6}) 본인 장애로 오귀속하던 결함 차단(예 "저는 아이가 장애가 있어요", 감사 Finding 2)
+    const childDisTight = /(아들|딸|자녀|아이|애)(?:가|는|이|을|를|도|한테|에게)?\s*장애/.test(t)
     const selfDis = /(저|제가|내가|본인|나).{0,6}장애|장애인이(에요|다|라)|장애\s*(등록|판정)|중증\s*장애/.test(t)
-    if (childDis && !selfDis) {
+    if (childDisTight || (childDis && !selfDis)) {
       p.has_children = true
       if (!p.life_events.includes('장애아동')) p.life_events.push('장애아동')
     } else {
@@ -195,8 +200,11 @@ export function parseProfileFromText(text: string): UserProfile {
   // ── 성별 ── '명시적 자기 지칭'에서만 추정. 관계 명사(남편/아내/어머니/아들/딸 …)는 '다른 사람'을 가리켜
   //   화자 성별을 오추정한다 — 특히 "남편이 때려요"(아내 신고)를 남성으로 오태깅하면 여성 전용 지원에서
   //   부당 배제된다(감사). 성별은 여성 전용 '배제' 게이트에만 쓰이므로 미설정('other')이 안전·포용적.
-  if (/임신|임산부|산모|미혼모|여성|여자/.test(t)) p.gender = 'female'
-  else if (/남성|남자/.test(t)) p.gender = 'male'
+  // ⚠️ '남자/여자'가 제3자 합성어(남자친구·여자아이·남자애·여자형제…)에 박혀 화자 성별을 오추정하지 않게 한다 —
+  //   성별은 여성 전용 지원 '배제' 게이트에 쓰이므로, 오태깅은 부당 배제로 직결된다
+  //   (예 "남자친구한테 맞고 살아요"[여성 DV 신고]를 남성으로 오태깅 → 여성 지원 배제, 감사 Finding 3)
+  if (/임신|임산부|산모|미혼모|여성|여자(?!친구|아이|애|사람|형제|조카|짝)/.test(t)) p.gender = 'female'
+  else if (/남성|남자(?!친구|아이|애|사람|형제|조카|짝)/.test(t)) p.gender = 'male'
 
   return p
 }

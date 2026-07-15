@@ -246,7 +246,9 @@ export const useAppStore = create<AppState>()(
         tracked: s.tracked, docDone: s.docDone, elderly: s.elderly, highContrast: s.highContrast, onboarded: s.onboarded, uiLang: s.uiLang,
         langSuggested: s.langSuggested,
         subscribedCategories: s.subscribedCategories,
-        profile: s.profile ? { ...s.profile, name: '' } : null,
+        // name뿐 아니라 _query(자연어 QuickAsk 원문)도 비운다 — 사용자가 문장에 실명·연락처를 적었을 수 있어
+        //   디스크에 남으면 새로고침 후 '찾으시는 주제'로 재노출된다(name 최소저장 정책과 동일 취지, 감사 Finding P5)
+        profile: s.profile ? { ...s.profile, name: '', _query: '' } : null,
         result: s.result ? { ...s.result, profile_summary: stripNameFromSummary(s.result.profile_summary) } : null,
       }),
       merge: (persisted, current) => {
