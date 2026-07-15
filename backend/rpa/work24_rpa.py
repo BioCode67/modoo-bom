@@ -241,7 +241,13 @@ async def run_work24_rpa(task, user_info: dict = None) -> None:
 
             # ⑦ 발급/출력 버튼 대기 (최대 90초) — 실제 발급 버튼을 눌렀거나 결과 팝업이 떴을 때만 성공
             issue_reached = False
-            for _ in range(90):
+            for _w24 in range(90):
+                # 침묵 90초 방지 — 30초마다 진행 화면과 함께 살아있음 갱신(멈춤 오인 방지)
+                if _w24 and _w24 % 30 == 0:
+                    try:
+                        task.update("running", f"발급 화면을 기다리는 중… ({_w24}초) 화면의 안내(본인인증 등)를 확인해 주세요.", await take_screenshot(page))
+                    except Exception:
+                        pass
                 try:
                     for sel in ISSUE_SELECTORS:
                         el = page.locator(sel).first

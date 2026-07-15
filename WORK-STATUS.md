@@ -36,6 +36,11 @@
   육아휴직급여·국가장학금 등 — 전부 policies.json 대조 검증, check-links 43건 동기화).
   시드 신청 착지 분포: deep 6·known 50+·search ~45(복지로 항목 부재 — 정직 폴백)·visit 23.
   vitest 652 · 실브라우저 검증 · 라이브 번들 확인.
+- **데스크탑앱 실사용 피드백 4건(89f8ffd+)**: 서류발급 카드에 진행 실화면+단계로그, 완료 시 저장경로
+  표시+[저장 폴더 열기](local_server /api/documents/open-folder), 파일명 인간화
+  (`서류명_이름_YYYY-MM-DD_HHMM.pdf`, doc_basename — recent_issued_docs 신·구형 접미 파서),
+  침묵 구간 하트비트(gov24 ④신청루프·⑤전자서명 + apply 검토창 10분 + work24 발급대기 90초 — 각
+  20~30초마다 경과+실화면). ⚠️ 백엔드분은 데스크탑앱 재빌드(build-installer.bat) 후 반영.
 
 ---
 

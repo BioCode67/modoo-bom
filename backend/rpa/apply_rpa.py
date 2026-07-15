@@ -348,13 +348,27 @@ async def run_apply_rpa(task, service_name: str, profile: dict) -> None:
             import os as _os
             task.result = {"success": True, "service_name": service_name, "status": "form_ready"}
             review_sec = max(60, int(_os.getenv("RPA_REVIEW_WINDOW", "600")))
-            for _ in range(review_sec // 5):
+            for _rw in range(review_sec // 5):
                 await asyncio.sleep(5)
                 try:
                     if not context.pages or all(p.is_closed() for p in context.pages):
                         break
                 except Exception:
                     break
+                # 하트비트(30초마다) — 검토 창 최대 10분이 무갱신이라 '멈췄다'로 오인(실사용 피드백).
+                # 살아있음 + 지금 할 일 + 종료 방법을 계속 알려준다.
+                if _rw and _rw % 6 == 0:
+                    try:
+                        _open = [pg for pg in context.pages if not pg.is_closed()]
+                        _ss = await take_screenshot(_open[-1]) if _open else None
+                        _el = _rw * 5
+                        task.update("running",
+                            f"🕐 신청서 검토를 기다리는 중이에요 ({_el // 60}분 {_el % 60:02d}초 경과)\n"
+                            "열린 브라우저 창에서 내용을 확인하고 [신청] 버튼으로 제출해 주세요.\n"
+                            "제출을 마쳤거나 그만두려면 그 창을 닫으면 돼요(자동으로 정리됩니다).",
+                            _ss)
+                    except Exception:
+                        pass
 
             # 최종 스크린샷(창이 남아있을 때만)
             ss = None
