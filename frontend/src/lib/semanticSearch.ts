@@ -133,8 +133,11 @@ export async function semanticSearch(
   await ensureLoaded(onProgress)
   const qv = await embedQuery(q) // 직렬화+재시도(WASM 재진입 방지)
   const pmap = getPolicyMap()
-  // 대표(시드 POL-) 정책 소폭 가점 — 전국 5천건 중 지역 소규모 사업에 대표 국가제도가
-  // 묻히지 않게(기초연금·긴급복지 등이 상위에 오도록). 유사도 격차보다 작아 강제 override는 아님.
+  // 대표(시드 POL-) 정책 가점 — 전국 5천건(대부분 지역 소규모·요약형 공공데이터) 중 정밀 검증된 대표
+  //   국가제도(기초연금·긴급복지 등)가 묻히지 않게 하는 '큐레이션 품질 우대'.
+  //   ⚠️ 정직한 표기: 상위권을 벗어난 구간의 코사인 격차는 보통 0.001~0.006으로 촘촘해, 이 가점은 단순
+  //   동점 처리가 아니라 시드를 여러 순위 끌어올린다(의도된 품질 우선순위 — 요약형 공공데이터보다 시드를 위로).
+  //   순수 의미순만 원하면 낮춰야 하는 값. (모델이 온디바이스라 실측 튜닝은 브라우저 환경에서 수행)
   const SEED_BOOST = 0.04
   const scored: { id: string; score: number }[] = []
   for (let i = 0; i < _ids.length; i++) {
