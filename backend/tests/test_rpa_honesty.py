@@ -91,6 +91,52 @@ def test_work24_reports_incomplete_when_button_not_reached():
     assert '"success": False' in src
 
 
+def test_nhis_success_gates_on_completion_not_save():
+    """nhis 성공 판정이 '저장(saved)'이 아니라 '완료 신호(completed)'로만 이뤄지는지 계약 고정.
+    save_document 는 어떤 화면이든 저장(스샷 폴백)하므로, 저장 성공을 발급 성공으로 쓰면 미발급 화면도
+    '발급 완료!'로 오보된다(감사 HIGH). 성공 게이트는 completed(출력/완료화면) 단독이어야 한다."""
+    src = open("rpa/nhis_rpa.py", encoding="utf-8").read()
+    assert "completed = printed or len(context.pages) > 1" in src
+    assert "if completed:" in src
+    # 옛 'if saved:' 성공 분기(저장만으로 성공 오보)가 남아있으면 안 된다
+    assert "if saved:" not in src
+    # 저장 조건에서 옛 'completed or issued'(버튼 클릭만으로 저장) 제거 — completed 일 때만 저장
+    assert "completed or issued" not in src
+
+
+def test_gov24_and_nhis_do_not_save_when_unissued():
+    """미발급 화면은 저장하지 않는다 — recent_issued_docs 는 DOCS_DIR 를 '파일명 글롭'으로 스캔해
+    신청서 자동첨부 후보를 만들므로, 미발급 '진행 화면 캡처'를 저장하면 발급물처럼 신청서에 붙는다(감사 HIGH)."""
+    gov = open("rpa/gov24_rpa.py", encoding="utf-8").read()
+    # gov24: save_document 호출이 really_issued 조건부(미발급이면 저장 안 함)
+    assert "if really_issued else" in gov
+    # 미발급 분기에 옛 progress_capture(저장 파일 참조)가 없어야 한다
+    assert "progress_capture" not in gov
+    nhis = open("rpa/nhis_rpa.py", encoding="utf-8").read()
+    # nhis: 저장은 completed 블록 안에서만 수행돼야 한다(미발급 else 에서 저장 없음)
+    assert "if completed:\n                saved = await save_document" in nhis
+
+
+def test_journey_success_from_result_not_status():
+    """여정 성공 판정이 '단계 status=done' 이 아니라 '단계 result.success' 로 이뤄지는지 계약 고정 —
+    미발급인데 done(⚠️)으로 끝난 단계까지 '완료'로 세던 오보(감사) 방지."""
+    src = open("rpa/orchestrator.py", encoding="utf-8").read()
+    assert 'step["success"] = bool(r.get("success"))' in src
+    assert 'ok = any(s.get("success") for s in j["steps"])' in src
+    # 옛 status 기반 ok 계산이 남아있으면 안 된다
+    assert 'any(s["status"] in ("done", "completed") for s in j["steps"])' not in src
+
+
+def test_journey_uses_bounded_cleanup_not_wait_for():
+    """여정 단계 실행이 wait_for(무한 정리 슬롯누수) 대신 asyncio.wait+유계정리 패턴을 쓰는지 계약 고정(감사).
+    또 하드취소가 '지금 도는' 단계를 정확히 지목하도록 current_task_id 를 세팅한다."""
+    src = open("rpa/orchestrator.py", encoding="utf-8").read()
+    assert "asyncio.wait_for(_run_step_doc" not in src
+    assert "asyncio.wait_for(run_apply_rpa" not in src
+    assert "await asyncio.wait({inner}, timeout=_TASK_TIMEOUT)" in src
+    assert 'j["current_task_id"] = task.task_id' in src
+
+
 # ── PII 방어 회귀(감사 확정): 교차사용자 서류첨부·리셋·토큰 안전 ──
 
 def test_recent_issued_docs_recency_filter(monkeypatch, tmp_path):

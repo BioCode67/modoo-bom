@@ -586,7 +586,9 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None) -> None:
             # ⚠️ 실제 발급 신호로만 성공 판정 — save_document 는 어떤 화면이든 항상 저장(headed에선 스샷 폴백)
             #   하므로 saved 유무로 판정하면 '미발급 화면'도 발급완료로 오보된다(감사 확정 결함).
             really_issued = ("처리완료" in body_now) or ("발급완료" in body_now) or ("발급 완료" in body_now) or ("mbrAplySrvcList" in final_url)
-            saved = await save_document(final_page, doc_name, getattr(task, 'user_name', ''))
+            # ⚠️ 미발급 화면은 저장하지 않는다 — save_document 파일은 파일명 글롭으로 recent_issued_docs →
+            #   신청서 자동첨부에 잡히므로, 저장하면 '진행 화면 캡처'가 발급물처럼 신청서에 붙을 수 있다(감사 HIGH).
+            saved = await save_document(final_page, doc_name, getattr(task, 'user_name', '')) if really_issued else ""
 
             # 성공 판정은 really_issued(권위 신호) 단독으로 — headed 저장이 구조적으로 실패해도
             #   실제 발급 성공을 '미완료'로 뒤집지 않는다(감사 HIGH :567). saved 는 자동/수동 저장 안내에만 영향.
@@ -602,8 +604,8 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None) -> None:
                 if not saved:
                     task.result["manual_save"] = True
             else:
-                # 발급이 확인되지 않음 — 저장된 파일은 '진행 화면 캡처'일 수 있어 saved_path 로 넘기지 않는다
-                #   (신청 자동첨부·여정 saved_docs 에 미발급 화면이 섞이는 것을 원천 차단).
+                # 발급이 확인되지 않음 — 위에서 미발급 화면은 저장하지 않았다(saved=""). 신청 자동첨부·
+                #   여정 saved_docs 에 미발급 화면이 섞일 여지 자체를 없앤다.
                 task.update(
                     "done",
                     f"⚠️ {doc_name}은(는) 아직 발급이 '완료되지 않았어요'.\n"
@@ -611,7 +613,7 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None) -> None:
                     "브라우저는 60초 후 자동 종료됩니다.",
                     await take_screenshot(final_page),
                 )
-                task.result = {"success": False, "doc_name": doc_name, "final_url": final_url, "progress_capture": saved}
+                task.result = {"success": False, "doc_name": doc_name, "final_url": final_url}
 
             await cancellable_sleep(60, task, context)  # 중단 가능한 유예(창 닫으면 즉시 반납, 감사 :586)
             await browser.close()

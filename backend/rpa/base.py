@@ -231,7 +231,10 @@ def check_cancel(task, context=None) -> None:
     if context is not None:
         try:
             pages = getattr(context, "pages", None)
-            if pages is not None and len(pages) > 0 and all(p.is_closed() for p in pages):
+            # ⚠️ 마지막 창을 닫으면 Playwright가 pages에서 제거해 목록이 '빈 리스트'가 된다 — 과거 len>0 조건 때문에
+            #   '전부 닫힘'을 감지 못하고 유예를 끝까지 대기하던 결함(감사 자기검토). 빈 목록도 닫힘으로 본다.
+            #   (모든 호출부가 page 생성 이후라 '생성 전 빈 상태' 오탐 위험 없음 — apply 검토루프와 동일 패턴.)
+            if pages is not None and all(p.is_closed() for p in pages):
                 raise CancelledByUser("브라우저 창이 닫혀 자동화를 중단했어요.")
         except CancelledByUser:
             raise

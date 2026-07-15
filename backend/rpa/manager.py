@@ -312,8 +312,12 @@ async def _guarded_run(task: "RPATask", run_coro) -> None:
         if getattr(task, "status", "") not in ("done", "completed"):
             task.update("cancelled", "자동화를 중단했어요. 필요하면 다시 시작할 수 있어요.")
     except Exception as e:  # noqa: BLE001 — 어떤 실패도 슬롯을 정상 반납해야 함
+        # ⚠️ 이미 발급 완료(done/completed)면 덮어쓰지 않는다 — 성공 후 유예(cancellable_sleep) 중 [중단]·창닫힘으로
+        #   CancelledByUser 가 올라와도, 실제로 발급·저장된 성공을 'cancelled'로 뒤집으면 안 됨(감사 자기검토, 타 분기와 패리티).
+        if getattr(task, "status", "") in ("done", "completed"):
+            pass
         # 협조적 취소(CancelledByUser)는 사용자 중단이므로 error 가 아니라 cancelled 로 정직히 표기.
-        if type(e).__name__ == "CancelledByUser" or getattr(task, "cancel_requested", False):
+        elif type(e).__name__ == "CancelledByUser" or getattr(task, "cancel_requested", False):
             task.update("cancelled", "자동화를 중단했어요. 필요하면 다시 시작할 수 있어요.")
         else:
             task.update("error", f"자동화 오류: {str(e)[:200]}")

@@ -15,6 +15,10 @@ _journeys: dict = {}
 _MAX_JOURNEYS = max(20, int(os.getenv("RPA_MAX_JOURNEYS", "50")))  # 저장소 상한(좀비 누적 방지)
 _JOURNEY_TERMINAL = ("completed", "error", "cancelled")
 
+# 타임아웃 후 20초 안에 정리되지 않은 단계 코루틴(orphan)의 강한참조 — GC 로 사라져 경고나 미정리
+#   되지 않도록 붙잡아 두되, 슬롯은 이미 반납된 상태(감사 :190 슬롯 누수 방지 패턴, _guarded_run 과 동일).
+_orphans: set = set()
+
 
 def _evict_journeys() -> None:
     """상한 초과 시 '끝난' 여정 중 가장 오래된 것부터 제거 — 장기 구동 데스크탑 에이전트의
@@ -35,12 +39,11 @@ def request_journey_cancel(journey_id: str) -> bool:
     if j is None or j.get("status") in _JOURNEY_TERMINAL:
         return False
     j["cancel_requested"] = True
-    # 현재 실행 중인 단계의 RPA 태스크에도 취소 전파(대기 루프가 CancelledByUser 로 빠져나옴)
-    cur = j.get("current")
-    for step in j.get("steps", []):
-        if step.get("name") == cur and step.get("task_id"):
-            request_cancel(step["task_id"])
-            break
+    # 현재 실행 중인 단계의 RPA 태스크에 취소 전파 — 단계 이름은 중복될 수 있어(같은 서류 재시도 등)
+    #   task_id 로 '지금 도는' 단계를 정확히 지목한다(이름 매칭은 동명 단계 오취소 위험, 감사 LOW).
+    tid = j.get("current_task_id")
+    if tid:
+        request_cancel(tid)
     return True
 
 
@@ -176,24 +179,52 @@ async def _run_journey(jid, user_info, profile):
             step["status"] = "running"
             task = RPATask(uuid.uuid4().hex, step["name"], user_name)
             step["task_id"] = task.task_id
+            j["current_task_id"] = task.task_id  # 하드취소가 '지금 도는' 단계를 정확히 지목하도록(동명 단계 오취소 방지)
             _rpa_tasks[task.task_id] = task
             register_live(task)  # 여정 단계도 [중단] 대상으로 등록(_guarded_run 밖 실행이라 수동 등록)
             # 여정이 이미 취소 요청됐다면 방금 만든 task 에도 즉시 전파
             if j.get("cancel_requested"):
                 task.cancel_requested = True
+            inner = None
             try:
                 # 슬롯 대기를 '관측 가능'하게 — 무기한 침묵 대기(감사 :132) 대신 대기 중임을 표시.
                 #   queued_slot: 슬롯 대기 동안 _waiting 을 올려 can_accept() 백프레셔가 여정을 인지.
                 task.update("queued", "대기열에서 차례를 기다리는 중… (다른 작업이 끝나면 시작해요)")
+                task._guard_handle = asyncio.current_task()  # 큐 대기 중 하드취소 대상(슬롯 대기를 끊음)
                 async with queued_slot():
-                    if step["kind"] == "doc":
-                        await asyncio.wait_for(_run_step_doc(task, step["name"], user_info), timeout=_TASK_TIMEOUT)
-                    else:  # apply
-                        await asyncio.wait_for(run_apply_rpa(task, step["name"], {**profile, **user_info}), timeout=_TASK_TIMEOUT)
+                    if task.cancel_requested:
+                        # 슬롯 대기 중 [중단] — 브라우저를 띄우지 않고 즉시 중단(큐 취소 태스크의 뒤늦은 기동 방지)
+                        cancelled = True
+                        j["cancel_requested"] = True
+                        task.update("cancelled", "여정을 중단했어요.")
+                    else:
+                        coro = (_run_step_doc(task, step["name"], user_info) if step["kind"] == "doc"
+                                else run_apply_rpa(task, step["name"], {**profile, **user_info}))
+                        # ⚠️ wait_for 대신 asyncio.wait — 타임아웃 시 내부 취소 정리를 '무한' 기다리다 슬롯을
+                        #   영구 누수하던 결함(감사 :190, _guarded_run 과 동일 패턴) 회피. inner 를 _run_handle
+                        #   로 노출해 request_cancel 하드취소가 이 단계를 직접 취소할 수 있게 한다.
+                        inner = asyncio.ensure_future(coro)
+                        task._run_handle = inner
+                        done, pending = await asyncio.wait({inner}, timeout=_TASK_TIMEOUT)
+                        if pending:
+                            inner.cancel()
+                            await asyncio.wait({inner}, timeout=20)  # 정리는 최대 20초만 기다리고 슬롯 반납
+                            raise asyncio.TimeoutError
+                        if inner.cancelled():
+                            raise asyncio.CancelledError
+                        exc = inner.exception()
+                        if exc is not None:
+                            raise exc
             except asyncio.TimeoutError:
                 # 이미 발급 완료(done)를 타임아웃이 error 로 덮지 않도록 finally 에서 실제 결과로 재조정(감사 :142)
                 if task.status not in ("done", "completed") and not (task.result or {}).get("saved_path"):
                     task.update("error", "시간 초과로 이 단계를 종료했어요.")
+            except asyncio.CancelledError:
+                # 하드취소(request_cancel 유예 취소) — 이 단계·여정을 중단으로 종결
+                cancelled = True
+                j["cancel_requested"] = True
+                if task.status not in ("done", "completed"):
+                    task.update("cancelled", "자동화를 중단했어요.")
             except CancelledByUser:
                 # 사용자가 여정/창을 닫음 — 이 단계와 여정을 중단으로 종결(감사 :123)
                 cancelled = True
@@ -204,12 +235,20 @@ async def _run_journey(jid, user_info, profile):
                 if task.status not in ("done", "completed"):
                     task.update("error", str(e)[:200])
             finally:
+                # 정리가 20초 안에 안 끝난 orphan inner 는 백그라운드로 흘려보내되(강한참조 유지) 슬롯은 반납
+                if inner is not None and not inner.done():
+                    _orphans.add(inner)
+                    inner.add_done_callback(_orphans.discard)
+                task._run_handle = None
+                task._guard_handle = None
                 # 실제 task 결과로 단계를 확정 — 타임아웃/예외가 done+saved_path 를 유실시키지 않게(감사 :142)
                 r = task.result or {}
                 saved = r.get("saved_path")
                 if step["kind"] == "doc" and saved and saved not in j["saved_docs"]:
                     step["saved_path"] = saved
                     j["saved_docs"].append(saved)
+                # 단계의 '진짜 성공' 여부 — status 는 미발급도 done(⚠️)일 수 있어 result.success 로 판정(감사 :226)
+                step["success"] = bool(r.get("success"))
                 st = task.status
                 if st in ("done", "completed", "error", "cancelled"):
                     step["status"] = st
@@ -223,7 +262,10 @@ async def _run_journey(jid, user_info, profile):
     finally:
         # 코루틴이 어떻게 끝나든(정상·취소·예외) 여정은 반드시 종결 상태로 — 영구 'running' 좀비 방지(감사 :119)
         j["current"] = None
-        ok = any(s["status"] in ("done", "completed") for s in j["steps"])
+        j["current_task_id"] = None
+        # ⚠️ 여정 성공은 '단계 status=done' 이 아니라 '단계의 진짜 성공(result.success)' 으로 판정 —
+        #   미발급인데 done(⚠️)으로 끝난 단계까지 '완료'로 세던 오보(감사 :226) 방지.
+        ok = any(s.get("success") for s in j["steps"])
         if cancelled or j.get("cancel_requested"):
             j["status"] = "cancelled" if not ok else "completed"
         else:

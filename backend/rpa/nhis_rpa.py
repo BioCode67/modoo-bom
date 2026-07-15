@@ -584,7 +584,8 @@ async def run_nhis_rpa(task, user_info: dict = None) -> None:
             # ⑧ 발급 버튼 — 실제로 눌렀는지 반환값을 붙잡는다(무조건 '완료' 오보 방지)
             ss = await take_screenshot(page)
             task.update("running", "발급 버튼 탐색 중...", ss)
-            issued = await _click_issue(page, context, task)
+            # 발급 버튼 클릭(부수효과) — 성공 판정은 아래 completed(출력/완료화면)로만 하므로 반환값은 쓰지 않는다
+            await _click_issue(page, context, task)
 
             # ⑨ 출력 팝업/완료 화면 대기 — 완료 화면 도달 여부를 성공 판정에 사용
             printed = await _wait_print(context, task, timeout=90)
@@ -597,31 +598,28 @@ async def run_nhis_rpa(task, user_info: dict = None) -> None:
                 ss = await take_screenshot(page)
 
             _dlpage = context.pages[-1] if len(context.pages) > 1 else page
-            # 발급 화면에 도달(또는 버튼 클릭)했을 때만 저장 시도 — 엉뚱한 화면 저장 방지
-            saved = ""
-            if completed or issued:
-                saved = await save_document(_dlpage, "건강보험 자격득실확인서", getattr(task, "user_name", ""))
-
             doc = "건강보험 자격득실확인서"
-            if saved:
-                # 파일이 실제로 저장됨 — 명백한 성공
+            # ⚠️ 성공 판정은 completed(출력/완료화면 도달 = 권위 신호)로만 — save_document 는 어떤 화면이든
+            #   항상 저장(headed 스샷 폴백)하므로 저장 성공을 발급 성공으로 쓰면 '미발급 화면'도 완료로 오보된다
+            #   (gov24 really_issued 와 동일 원칙, 감사 HIGH). 게다가 저장 파일은 DOCS_DIR 파일명 글롭으로
+            #   recent_issued_docs → 신청서 자동첨부에 잡히므로, 미발급 화면은 아예 저장하지 않는다(오첨부 원천 차단).
+            saved = ""
+            if completed:
+                saved = await save_document(_dlpage, doc, getattr(task, "user_name", ""))
+
+            if completed:
+                # 출력/발급 완료 화면 도달 — 진짜 발급. headed 저장이 구조적으로 실패해도 성공을 뒤집지 않는다.
                 task.update("done",
-                    f"✅ {doc} 발급 완료!\n\n"
-                    f"📄 자동 저장됨: {saved}\n"
-                    "브라우저는 2분 후 자동 종료됩니다.", ss)
-                task.result = {"success": True, "doc_name": doc, "saved_path": saved}
-                await cancellable_sleep(120, task, context)
-            elif completed:
-                # 발급 완료 화면엔 도달했지만 headed 저장이 안 됨(구조적 quirk) — 진짜 발급은 됐으니
-                # 성공으로 두되(감사: 저장 실패로 실제 성공을 뒤집지 않음) 수동 저장을 정직히 안내.
-                task.update("done",
-                    f"✅ {doc} 발급 화면까지 진행했어요.\n\n"
-                    "브라우저 화면에서 [출력]/저장(Ctrl+P → PDF)으로 저장해 주세요.\n"
-                    "브라우저는 2분 후 자동 종료됩니다.", ss)
-                task.result = {"success": True, "doc_name": doc, "saved_path": None, "manual_save": True}
+                    f"✅ {doc} 발급 완료!\n"
+                    + (f"📄 자동 저장됨: {saved}\n" if saved else "브라우저 화면에서 [출력]/저장(Ctrl+P → PDF)으로 저장해 주세요.\n")
+                    + "브라우저는 2분 후 자동 종료됩니다.", ss)
+                task.result = {"success": True, "doc_name": doc, "saved_path": saved or None}
+                if not saved:
+                    task.result["manual_save"] = True
                 await cancellable_sleep(120, task, context)
             else:
-                # 발급 버튼/완료 화면을 확인하지 못함 — 가짜 '발급 완료!' 대신 정직하게 안내(감사 HIGH :583 해소)
+                # 발급 완료 화면을 확인하지 못함 — 가짜 '발급 완료!' 대신 정직하게 안내(감사 HIGH :583 해소).
+                #   저장하지 않았으므로 신청서 자동첨부에 미발급 캡처가 섞일 여지도 없다.
                 task.update("error",
                     "발급 화면을 자동으로 확인하지 못했어요.\n\n"
                     "로그인이 끝났는지 확인하고, 브라우저 화면에서 [발급] 버튼을 직접 눌러 저장해 주세요.\n"
