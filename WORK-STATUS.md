@@ -27,6 +27,15 @@
   업로드됨(다운로드 13회) — 과거 문서의 '미게시' 표기는 옛말. 홈 Windows CTA(latest/download) 정상.
 - E2E 스모크: 여정 1~4.8 전부 green. 'Windows 앱 받기' 스텝만 Linux 샌드박스에서 실패 — CTA가
   isWindows(UA) 게이트라 비Windows 브라우저에선 미렌더(회귀 아님, Windows 호스트에선 통과).
+- **멀티에이전트 감사 라운드(32에이전트, 적대 검증)** → 확정결함 일괄 수정(ee47c13): [HIGH] 교차참조가
+  동명 타 지자체 사업 URL 오연결(168 이름군) → LOC 대여·차용 차단(policyId 게이트, Drawer 외
+  AgentSubmitButton·EmergencyHelp·MonitorFeed까지 관통). [MED] 접두매칭 한정어('추가지원') 소실 →
+  접미어 화이트리스트. [MED] 번역 상태문구 허위 단정 → trReady 실측. [LOW] stale 번역·zh-Hant·RTL
+  lang/dir·인플라이트 dedup·CTA 라벨-착지 정합(bestApplyInfo)·'본인 준비' 가짜 발급버튼·나의복지
+  서류행별 딥링크. + **신청 딥링크 2차 확장 22키**(교육급여 WLF00001089·주거급여·보육료·유아학비·
+  육아휴직급여·국가장학금 등 — 전부 policies.json 대조 검증, check-links 43건 동기화).
+  시드 신청 착지 분포: deep 6·known 50+·search ~45(복지로 항목 부재 — 정직 폴백)·visit 23.
+  vitest 652 · 실브라우저 검증 · 라이브 번들 확인.
 
 ---
 

@@ -43,7 +43,7 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
   const app = policy.application || ''
   // ⚠️ 로컬 백엔드용 URL은 bestApplyUrl 결과 기준 — 복지로 '홈'(wlfareInfoId 없음, 미등록 서비스)은
   //   bestApplyUrl이 gov.kr 검색으로 폴백해 백엔드가 400을 낸다. 결과가 실제 복지로일 때만 로컬 자동신청.
-  const localApplyUrl = bestApplyUrl(policy.application, policy.name)
+  const localApplyUrl = bestApplyUrl(policy.application, policy.name, policy.id)
   const isBokjiroLocal = /bokjiro\.go\.kr/.test(localApplyUrl)
   const isExtApplyable = /bokjiro\.go\.kr/.test(app) || /kosaf\.go\.kr/.test(app)  // 확장은 원 URL 기준(복지로+장학재단)
   const showApply = automatable || isExtApplyable
@@ -62,7 +62,7 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
           설치 없이 아래 버튼으로 <b>공식 신청 페이지에 바로</b> 가세요 — 위 신청 키트의 내 정보 복사와 함께 쓰면 가장 빨라요.
           <b> 본인인증·최종 제출은 본인이 직접</b> 하셔야 해요. (파워유저·시연용: 크롬 확장을 설치하면 로그인·이동·양식 작성까지 에이전트가 대신해요)
         </p>
-        <a href={bestApplyUrl(policy.application, policy.name)} target="_blank" rel="noopener noreferrer" className="btn-secondary !py-2 mt-2 text-xs">
+        <a href={bestApplyUrl(policy.application, policy.name, policy.id)} target="_blank" rel="noopener noreferrer" className="btn-secondary !py-2 mt-2 text-xs">
           <ExternalLink className="h-3.5 w-3.5" /> {applyLink(policy.application).label}
         </a>
       </div>
@@ -141,7 +141,7 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
               진행이 잠시 멈춘 듯해요 — 확장이 연 <b>복지로 탭</b>을 확인해 주세요. 본인인증·'신청하기'처럼
               <b> 직접 눌러야 하는 단계</b>일 수 있어요(그 탭 화면의 안내를 따라주세요).
               <span className="block mt-1">
-                <a href={bestApplyUrl(policy.application, policy.name)} target="_blank" rel="noopener noreferrer" className="underline font-semibold">공식 페이지에서 직접 신청</a>
+                <a href={bestApplyUrl(policy.application, policy.name, policy.id)} target="_blank" rel="noopener noreferrer" className="underline font-semibold">공식 페이지에서 직접 신청</a>
                 {' · '}<button onClick={() => setRun(null)} className="underline font-semibold">처음부터 다시</button>
               </span>
             </div>
