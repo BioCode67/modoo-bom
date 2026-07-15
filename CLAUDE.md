@@ -303,7 +303,8 @@ modoo-bom/
 - **연쇄 발급('전부 자동발급')**: `orchestrator` journey 엔진 → `/api/journey/run`·`/status`(local_server+routes,
   `journey_view`가 현재단계 라이브 카카오 안내 병합). 데스크탑앱·확장 양쪽에서 한 번 인증에 순차 발급.
 - **데스크탑앱**: PyInstaller onedir(`agent_entry.py`→`local_server`, 시스템 크롬, dist-app 동일출처 서빙, chromium 미번들)
-  빌드·기동 검증됨(78MB ZIP). ⚠️ 아직 GitHub Releases 미게시(사용자 자격증명 필요) — 홈 RpaShowcase에 Windows CTA(릴리스 페이지).
+  빌드·기동 검증됨(78MB ZIP). **Releases app-v0.3.0 게시됨**(2026-07-11 자산 업로드: ModooBom-Setup.exe 45MB·
+  ModooBom-Agent.zip 60MB, API 실측) — 홈 RpaShowcase Windows CTA가 latest/download 직결(Windows UA에서만 노출).
 
 ---
 

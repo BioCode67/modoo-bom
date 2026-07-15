@@ -22,7 +22,11 @@
 - 확인 사항: 사용자가 본 '원형 지도·이모지 4단계'는 **캐시된 구버전** — 최신 배포엔 실제 시도 경계 지도
   (`koreaGeo.ts`)와 lucide 아이콘이 이미 반영돼 있음(배포본 직접 렌더로 확증).
 - 데스크탑앱 완전무인 여부(사용자 질문): 로그인 이동·신청클릭·양식입력·연쇄발급 자동, **본인인증·최종제출만
-  본인**(apply_rpa.py 제출 셀렉터 '의도적 미사용') — 설계상 안전장치. Releases 게시는 여전히 보류(자격증명 필요).
+  본인**(apply_rpa.py 제출 셀렉터 '의도적 미사용') — 설계상 안전장치.
+- **Releases 게시 확인(API 실측)**: app-v0.3.0 공개 릴리스에 ModooBom-Setup.exe(45MB)·ModooBom-Agent.zip(60MB)
+  업로드됨(다운로드 13회) — 과거 문서의 '미게시' 표기는 옛말. 홈 Windows CTA(latest/download) 정상.
+- E2E 스모크: 여정 1~4.8 전부 green. 'Windows 앱 받기' 스텝만 Linux 샌드박스에서 실패 — CTA가
+  isWindows(UA) 게이트라 비Windows 브라우저에선 미렌더(회귀 아님, Windows 호스트에선 통과).
 
 ---
 
