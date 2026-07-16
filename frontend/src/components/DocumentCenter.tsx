@@ -60,6 +60,8 @@ export function DocumentCenter() {
   useEffect(() => () => { mountedRef.current = false }, [])
   // 진행 중 여정 id/토큰 — [중단] 버튼이 여정 전체를 취소할 수 있게 보관(단건은 taskId로 취소)
   const journeyRef = useRef<{ id: string; running: boolean } | null>(null)
+  // 여정 수준 진행률(n/m·현재 단계) — 카드별 상태만으론 전체 흐름이 안 보이던 갭(감사). null=여정 없음.
+  const [journeyProg, setJourneyProg] = useState<{ total: number; done: number; current?: string } | null>(null)
 
   // 📎/📷 내 서류함 — 자동발급 불가 서류(임대차계약서·신분증 등)를 사용자가 직접 등록/촬영 → 데스크탑앱이면
   //   로컬 서버가 발급 폴더에 같은 이름 규칙으로 저장 → 복지 신청의 자동첨부(recent_issued_docs)가 이 파일도
@@ -107,6 +109,8 @@ export function DocumentCenter() {
   // ⏹ 진행 중 자동발급 중단 — 멈춘 카드의 복구 수단(백엔드 취소 API 호출). 로컬 에이전트에서만.
   const cancel = async (doc: string) => {
     const st = rpa[doc]
+    // 여정 중이면 카드 하나의 ⏹이 '여정 전체'를 취소한다 — 사용자가 모르고 전체를 끊지 않게 확인(감사 갭)
+    if (journeyRef.current?.running && !window.confirm('연쇄 자동발급 전체를 중단할까요?\n(개별 서류만 건너뛰는 기능은 아직 없어요 — 남은 서류는 나중에 다시 시작할 수 있어요)')) return
     setRpa((s) => (s[doc] ? { ...s, [doc]: { ...s[doc]!, step: '중단하는 중…' } } : s))
     try {
       if (journeyRef.current?.running) {
@@ -394,6 +398,12 @@ export function DocumentCenter() {
           }
           continue
         }
+        // 여정 수준 집계(진행률 바) — 종결 단계 수/전체 + 현재 단계명
+        {
+          const steps = j.steps || []
+          const doneN = steps.filter((sp) => ['done', 'completed', 'error', 'cancelled'].includes(sp.status)).length
+          setJourneyProg({ total: steps.length, done: doneN, current: j.current || undefined })
+        }
         setRpa((s) => {
           const next = { ...s }
           for (const step of (j.steps || [])) {
@@ -422,6 +432,7 @@ export function DocumentCenter() {
       }
     } finally {
       if (journeyRef.current?.id === journey_id) journeyRef.current = null
+      if (mountedRef.current) setJourneyProg(null) // 여정 종료 — 진행률 헤더 내리기(카드별 결과는 유지)
     }
   }
 
@@ -563,6 +574,24 @@ export function DocumentCenter() {
       )}
 
       {folderMsg && <p className="mt-2 text-xs text-amber-700">{folderMsg}</p>}
+
+      {/* 🚀 여정(연쇄발급) 진행률 헤더 — 전체 흐름 n/m + 현재 단계 + 전체 중단(확인 포함) */}
+      {journeyProg && (
+        <div className="mt-4 rounded-2xl border-2 border-sprout-200 bg-sprout-50/70 p-3.5" role="status" aria-live="polite">
+          <div className="flex items-center justify-between gap-2 flex-wrap text-xs font-bold">
+            <span>🚀 연쇄 자동발급 진행 중 — {journeyProg.done}/{journeyProg.total} 완료{journeyProg.current ? ` · 지금: ${journeyProg.current}` : ''}</span>
+            <button onClick={() => cancel(journeyProg.current || docs[0])}
+              className="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-[11px] font-semibold text-rose-600 hover:bg-rose-100">
+              ⏹ 전체 중단
+            </button>
+          </div>
+          <div className="mt-2 h-2 overflow-hidden rounded-full border border-sprout-100 bg-white">
+            <div className="h-full rounded-full bg-sprout-500 transition-all duration-500"
+              style={{ width: `${journeyProg.total ? Math.max(4, Math.round((journeyProg.done / journeyProg.total) * 100)) : 4}%` }} />
+          </div>
+          <p className="mt-1.5 text-[11px] text-muted-foreground">한 번 인증으로 순서대로 발급돼요 — 📱 인증 요청이 오면 승인만 해주세요.</p>
+        </div>
+      )}
 
       <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
         {docs.map((doc) => {
