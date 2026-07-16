@@ -41,7 +41,7 @@ export function Navbar() {
                 <Icon className="h-4 w-4" />
                 {label}
                 {v === 'my' && savedCount > 0 && (
-                  <span className="ml-0.5 rounded-full bg-peach-400 text-white text-[10px] font-bold px-1.5 py-0.5 leading-none">
+                  <span className="ml-0.5 rounded-full bg-peach-600 text-white text-[10px] font-bold px-1.5 py-0.5 leading-none">
                     {savedCount}
                   </span>
                 )}
@@ -111,7 +111,7 @@ export function Navbar() {
               <Icon className={cn('h-5 w-5 transition-transform', view === v && 'scale-110')} />
               {label}
               {v === 'my' && savedCount > 0 && (
-                <span className="absolute top-1.5 right-[22%] rounded-full bg-peach-400 text-white text-[9px] font-bold px-1 leading-tight">
+                <span className="absolute top-1.5 right-[22%] rounded-full bg-peach-600 text-white text-[9px] font-bold px-1 leading-tight">
                   {savedCount}
                 </span>
               )}

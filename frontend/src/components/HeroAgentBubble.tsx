@@ -103,9 +103,12 @@ export function HeroAgentBubble({ onFocusInput }: { onFocusInput?: () => void })
     return nodes
   }, [teasers])
 
-  // 신규 사용자 인사는 부드럽게 순환(에이전트가 살아있는 느낌)
+  // 신규 사용자 인사는 부드럽게 순환(에이전트가 살아있는 느낌).
+  // ⚠️ 화면낭독기·모션 최소화 사용자에겐 순환을 멈춘다 — 회전 때마다 aria-live가 재낭독돼 첫 화면에서
+  //   끝없이 방해하던 문제(WCAG 2.2.2)와 JS 모션이 prefers-reduced-motion을 무시하던 문제를 함께 차단(감사 A1)
   useEffect(() => {
     if (returning) return
+    if (typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
     const t = setInterval(() => setGi((v) => (v + 1) % Math.max(1, rotation.length)), 4200)
     return () => clearInterval(t)
   }, [returning, rotation.length])
@@ -151,8 +154,9 @@ export function HeroAgentBubble({ onFocusInput }: { onFocusInput?: () => void })
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: 0.5, delay: 0.35 }}
       className="relative z-10 max-w-sm mx-auto"
-      role="status"
-      aria-live="polite"
+      // 회전하는 신규 인사엔 live 영역을 두지 않는다(4.2초마다 재낭독 방지) — 한 번만 뜨는 복귀 브리핑만 안내(감사 A1)
+      role={returning ? 'status' : undefined}
+      aria-live={returning ? 'polite' : undefined}
     >
       <div className="flex items-start gap-2.5 rounded-3xl rounded-bl-md border-2 border-sprout-200 bg-white/95 backdrop-blur px-4 py-3 shadow-soft">
         <span className="shrink-0 mt-0.5 flex h-9 w-9 items-center justify-center rounded-full bg-sprout-100">

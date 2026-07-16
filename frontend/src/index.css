@@ -91,6 +91,11 @@
   .gradient-text-warm { @apply bg-gradient-to-r from-peach-400 via-peach-500 to-rose-400 bg-clip-text text-transparent; }
   .gradient-text-sky { @apply bg-gradient-to-r from-sky2-400 to-sprout-400 bg-clip-text text-transparent; }
 
+  /* 지역 타일맵 키보드 포커스 — SVG에서 outline은 브라우저별로 안 보이고, 기존 밝기 10% 변화만으론
+     어느 시·도에 포커스가 있는지 알 수 없었다(WCAG 2.4.7, 감사 A2). CSS stroke는 SVG에서 확실히 먹으므로
+     포커스 시 굵은 대비색(보라) 테두리로 명확히 표시(선택 초록·내지역 파랑과 구분). */
+  .region-tile:focus-visible { stroke: #6d28d9 !important; stroke-width: 3.5 !important; outline: none; }
+
   /* 친근한 버튼 */
   /* WCAG AA 대비: 흰 글씨는 sprout-700(#15803d ≈ 5:1)·peach-600 이상에서만 (기존 500은 2.3:1로 미달) */
   .btn-primary {
@@ -253,6 +258,18 @@
 .high-contrast .chip,
 .high-contrast .chip-sprout, .high-contrast .chip-peach, .high-contrast .chip-sky, .high-contrast .chip-sun {
   border: 1.5px solid currentColor;
+}
+/* 그라데이션 강조 텍스트(H1·히어로 통계·섹션 제목·'모두봄' 워드마크)는 bg-clip-text+text-transparent라
+   고대비 토글의 --foreground가 닿지 않아 2.2~3.2:1로 남았다(감사 A3). 고대비에선 단색 진초록으로 덮어
+   AA(≈8:1)를 확보 — 저시력 사용자가 첫 화면 헤드라인·숫자를 읽을 수 있게. (기본 모드 브랜드색은 유지) */
+.high-contrast .gradient-text,
+.high-contrast .gradient-text-warm,
+.high-contrast .gradient-text-sky {
+  background: none !important;
+  -webkit-background-clip: initial !important;
+  background-clip: initial !important;
+  -webkit-text-fill-color: #14532d !important;
+  color: #14532d !important;
 }
 
 /* 큰글씨(어르신) 모드 */

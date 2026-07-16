@@ -232,7 +232,7 @@ export function ChatWidget() {
             style={{ height: 'min(70vh, 520px)' }}
             role="dialog" aria-label="복지 도우미 챗봇"
           >
-            <div className="flex items-center gap-2.5 bg-gradient-to-r from-sprout-500 to-emerald-500 px-4 py-3 text-white">
+            <div className="flex items-center gap-2.5 bg-gradient-to-r from-sprout-700 to-emerald-700 px-4 py-3 text-white">
               <SproutLogo withFace className="h-8 w-8 bg-white/20 rounded-full p-0.5" />
               <div>
                 <p className="font-bold leading-tight">새싹이 · 복지 에이전트</p>

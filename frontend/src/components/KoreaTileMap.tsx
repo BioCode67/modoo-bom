@@ -51,7 +51,7 @@ export function KoreaTileMap({ counts, myS, sel, onHover, onPick }: Props) {
               role="button"
               tabIndex={0}
               aria-label={`${g.name} 복지 ${n}건`}
-              className="cursor-pointer transition-[filter] hover:brightness-95 focus:outline-none focus-visible:brightness-90"
+              className="region-tile cursor-pointer transition-[filter] hover:brightness-95 focus:outline-none focus-visible:brightness-90"
               onMouseEnter={() => onHover(g.name)}
               onFocus={() => onHover(g.name)}
               onClick={() => onPick(g.name)}

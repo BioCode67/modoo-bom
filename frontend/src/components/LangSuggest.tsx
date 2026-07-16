@@ -52,7 +52,7 @@ export function LangSuggest() {
       <span className="flex-1">{s.hint}</span>
       <button
         onClick={() => { setUiLang(target); dismiss() }}
-        className="shrink-0 rounded-full bg-sky2-600 px-3 py-1 text-xs font-bold text-white hover:bg-sky2-700 transition-colors"
+        className="shrink-0 rounded-full bg-sky2-700 px-3 py-1 text-xs font-bold text-white hover:bg-sky2-800 transition-colors"
       >
         {s.use}
       </button>
