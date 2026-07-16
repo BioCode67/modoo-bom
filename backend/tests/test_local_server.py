@@ -232,3 +232,52 @@ def test_status_redacts_pii_without_token():
         assert "download_token" not in d2  # 토큰 자체는 어떤 경우에도 미노출
     finally:
         manager._rpa_tasks.pop("pii1", None)
+
+
+# ── '내 서류함' 사용자 서류 등록(/api/documents/register) ──
+#   자동발급 불가 서류(임대차계약서·신분증 등)를 발급 폴더에 발급물과 같은 이름 규칙으로 저장 →
+#   복지 신청의 자동첨부가 함께 찾도록. multipart 파서 필요 → 미설치 환경은 스킵(실행환경엔 설치됨).
+
+def test_register_document_saves_with_issue_naming(monkeypatch, tmp_path):
+    """유효 업로드는 '서류명_이름_날짜' 규칙으로 저장되고 recent_issued_docs가 곧바로 찾는다(자동첨부 성립)."""
+    pytest.importorskip("multipart")
+    from rpa import base
+    d = tmp_path / "모두봄서류"
+    monkeypatch.setattr(base, "DOCS_DIR", d)
+    r = client.post(
+        "/api/documents/register",
+        data={"doc_name": "임대차계약서", "user_name": "홍길동"},
+        files={"file": ("lease.jpg", b"\xff\xd8\xff\xe0data", "image/jpeg")},
+    )
+    assert r.status_code == 200, r.text
+    j = r.json()
+    assert j["registered"] is True and j["filename"].startswith("임대차계약서_홍길동_")
+    saved = d / j["filename"]
+    assert saved.exists() and saved.suffix == ".jpg"
+    assert any(n == "임대차계약서_홍길동" for n, _ in base.recent_issued_docs())  # 자동첨부 후보로 잡힘
+
+
+def test_register_document_rejects_non_whitelisted_ext(monkeypatch, tmp_path):
+    """실행파일 등 화이트리스트 밖 확장자는 400(발급 폴더 오염·오첨부 차단)."""
+    pytest.importorskip("multipart")
+    from rpa import base
+    monkeypatch.setattr(base, "DOCS_DIR", tmp_path / "docs")
+    r = client.post(
+        "/api/documents/register",
+        data={"doc_name": "임대차계약서", "user_name": "홍길동"},
+        files={"file": ("evil.exe", b"MZ", "application/octet-stream")},
+    )
+    assert r.status_code == 400
+
+
+def test_register_document_requires_doc_name(monkeypatch, tmp_path):
+    """서류명이 비면 400 — 이름 없이 저장하면 자동첨부가 어떤 칸에 붙일지 모른다."""
+    pytest.importorskip("multipart")
+    from rpa import base
+    monkeypatch.setattr(base, "DOCS_DIR", tmp_path / "docs")
+    r = client.post(
+        "/api/documents/register",
+        data={"doc_name": ""},
+        files={"file": ("a.pdf", b"%PDF", "application/pdf")},
+    )
+    assert r.status_code == 400

@@ -77,3 +77,28 @@ def test_same_doc_not_attached_twice():
     issued = [("주민등록등본", "C:/d/등본.pdf")]
     _run(_auto_attach(_Page(els), issued))
     assert [e.files for e in els].count("C:/d/등본.pdf") == 1
+
+
+def test_applicant_name_suffix_stripped_for_match():
+    """저장 표시명이 '서류명_신청인이름'이어도 폼 라벨(이름 없음)에 매칭돼 다건 자동첨부가 성립한다.
+    (이름 접미를 안 떼면 '임대차계약서_홍길동' ∉ '임대차계약서'라 청년월세 4종 첨부가 전부 실패)."""
+    els = [_El("임대차계약서 첨부"), _El("주민등록등본 첨부"), _El("소득금액증명 첨부")]
+    issued = [
+        ("임대차계약서_홍길동", "C:/d/임대.jpg"),
+        ("주민등록등본_홍길동", "C:/d/등본.pdf"),
+        ("소득금액증명_홍길동", "C:/d/소득.pdf"),
+    ]
+    out = _run(_auto_attach(_Page(els), issued, "홍길동"))
+    assert els[0].files == "C:/d/임대.jpg"
+    assert els[1].files == "C:/d/등본.pdf"
+    assert els[2].files == "C:/d/소득.pdf"
+    assert len(out) == 3
+
+
+def test_name_strip_does_not_cause_wrong_slot_attach():
+    """이름 접미를 떼더라도 '서류명'이 일치하지 않으면 붙이지 않는다(오첨부 방지 유지).
+    단일칸+단일서류 폴백을 피하려 발급물 2종을 둔다(둘 다 이 칸과 무관)."""
+    els = [_El("가족관계증명서 첨부")]  # 발급물엔 가족관계증명서가 없음
+    issued = [("소득금액증명_홍길동", "C:/d/소득.pdf"), ("임대차계약서_홍길동", "C:/d/임대.jpg")]
+    out = _run(_auto_attach(_Page(els), issued, "홍길동"))
+    assert out == [] and els[0].files is None

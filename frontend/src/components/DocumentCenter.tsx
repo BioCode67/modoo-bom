@@ -57,6 +57,34 @@ export function DocumentCenter() {
   // 진행 중 여정 id/토큰 — [중단] 버튼이 여정 전체를 취소할 수 있게 보관(단건은 taskId로 취소)
   const journeyRef = useRef<{ id: string; running: boolean } | null>(null)
 
+  // 📎 내 서류함 — 자동발급 불가 서류(임대차계약서·신분증 등)를 사용자가 직접 등록 → 로컬 서버가 발급 폴더에
+  //   같은 이름 규칙으로 저장 → 복지 신청의 자동첨부(recent_issued_docs)가 이 파일도 찾아 붙인다.
+  //   데스크탑 앱 전용(파일은 서버로 안 나가고 내 PC 폴더에만 저장).
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const registerForRef = useRef<string | null>(null)
+  const [registered, setRegistered] = useState<Record<string, string>>({}) // 서류명 -> 상태 메시지
+  const pickFileFor = (doc: string) => { registerForRef.current = doc; fileInputRef.current?.click() }
+  const onFilePicked = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    const doc = registerForRef.current
+    e.target.value = '' // 같은 파일 다시 선택 가능하게 리셋
+    if (!file || !doc) return
+    setRegistered((s) => ({ ...s, [doc]: '등록 중…' }))
+    try {
+      const fd = new FormData()
+      fd.append('doc_name', doc)
+      fd.append('user_name', rpaInfo.name || profile?.name || '')
+      fd.append('file', file)
+      const res = await fetch(`${getRpaBase()}/api/documents/register`, { method: 'POST', body: fd })
+      if (!res.ok) { const d = await res.json().then((x) => x?.detail).catch(() => ''); throw new Error(d || '등록에 실패했어요.') }
+      const r = await res.json()
+      setRegistered((s) => ({ ...s, [doc]: `✅ 등록됨 — 신청할 때 자동으로 첨부돼요 (${r.filename || file.name})` }))
+      if (!isDocDone(doc)) toggleDocDone(doc) // 준비 완료로 표시(체크리스트·신청 준비에 반영)
+    } catch (err) {
+      setRegistered((s) => ({ ...s, [doc]: err instanceof Error ? err.message : '등록에 실패했어요.' }))
+    }
+  }
+
   // ⏹ 진행 중 자동발급 중단 — 멈춘 카드의 복구 수단(백엔드 취소 API 호출). 로컬 에이전트에서만.
   const cancel = async (doc: string) => {
     const st = rpa[doc]
@@ -360,6 +388,9 @@ export function DocumentCenter() {
 
   return (
     <motion.section initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="mt-8">
+      {/* 📎 내 서류함 파일 선택(숨김) — '등록' 클릭 시 열리고, 선택하면 로컬 서버 발급 폴더에 저장 */}
+      <input ref={fileInputRef} type="file" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg"
+        className="hidden" onChange={onFilePicked} aria-hidden="true" tabIndex={-1} />
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h2 className="text-lg font-extrabold flex items-center gap-2"><FileText className="h-5 w-5 text-sky2-500" /> 서류 준비 도우미</h2>
         {backend ? (
@@ -454,6 +485,9 @@ export function DocumentCenter() {
           const kind = certKind(doc) // 'wallet'=전자증명서(지갑 유통) · 'online'=온라인 발급 · undefined=오프라인/본인준비
           const done = isDocDone(doc)
           const st = rpa[doc]
+          // 자동발급도 전자발급도 안 되는 '본인 준비물'(임대차계약서·신분증 등) — '내 서류함'에 파일 등록 대상
+          const userProvided = !supported && !kind
+          const regMsg = registered[doc]
           // 진행 중(비종결) 여부 — 버튼 중복기동 방지 + [중단] 노출 판단(감사 :438)
           const active = !!(st && !['done', 'completed', 'error', 'cancelled'].includes(st.status))
           // 30초 넘게 진행상태가 안 오면(새 탭에서 사용자 조작 대기 등) 웹에서도 정직하게 안내
@@ -465,7 +499,9 @@ export function DocumentCenter() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className={cn('font-bold text-sm truncate', done && 'line-through decoration-success-500/60')}>{doc}</p>
-                {done ? (
+                {regMsg ? (
+                  <p className={cn('text-xs font-semibold mt-0.5', regMsg.startsWith('✅') ? 'text-success-600' : regMsg === '등록 중…' ? 'text-sky2-700' : 'text-rose-600')}>{regMsg}</p>
+                ) : done ? (
                   <p className="text-xs text-success-600 font-semibold">발급 완료로 표시했어요</p>
                 ) : st ? (
                   <>
@@ -545,8 +581,17 @@ export function DocumentCenter() {
                 )}
                 {/* 전자증명서 발급 가능한 서류는 '전자발급'으로 강조(무설치 기본 경로) —
                     클릭 시 이름 클립보드 준비 + 복귀 확인 대기(발급 완료를 앱이 기억하게) */}
-                {/* '본인 준비/지참' 서류는 발급처가 없다 — 포털 홈으로 보내는 가짜 '발급' 버튼 대신 정직한 칩(감사 확정) */}
-                {!done && /본인 (준비|지참)/.test(link.label) ? (
+                {/* 자동발급 불가 '본인 준비물'(임대차계약서·신분증 등): 데스크탑앱이면 '내 파일 등록'(→ 신청 자동첨부),
+                    웹이면 정직하게 '본인 준비물' 칩(포털 홈 가짜 '발급' 버튼 금지, 감사 확정). */}
+                {!done && userProvided && localAgent ? (
+                  <button
+                    onClick={() => pickFileFor(doc)}
+                    title="내가 가진 파일(PDF·사진)을 등록하면 신청할 때 자동으로 첨부돼요"
+                    className="btn-secondary !px-3 !py-2 text-xs whitespace-nowrap"
+                  >
+                    📎 {regMsg?.startsWith('✅') ? '다시 등록' : '내 파일 등록'}
+                  </button>
+                ) : !done && /본인 (준비|지참|보관)/.test(link.label) ? (
                   <span className="rounded-xl border-2 border-sprout-100 bg-sprout-50/60 px-3 py-2 text-xs font-semibold text-muted-foreground">
                     본인 준비물
                   </span>

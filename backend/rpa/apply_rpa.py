@@ -137,12 +137,16 @@ async def _login_bokjiro(page, task, provider: str = "kakao") -> bool:
     return True
 
 
-async def _auto_attach(target_page, issued) -> list:
+async def _auto_attach(target_page, issued, applicant_name: str = "") -> list:
     """파일 첨부칸의 주변 문맥(가장 가까운 행/라벨 텍스트)과 발급 서류명을 대조해 '확신 매칭'만 자동 첨부.
 
     - 첨부칸 문맥에 서류명이 그대로 등장할 때만 그 칸에 set_input_files (오첨부 방지)
     - 첨부칸 1개 + 발급 서류 1종이면 모호성이 없으므로 문맥 없이도 첨부
     - 실패는 조용히 건너뛰고(안내 폴백), 무엇을 어디에 붙였는지 목록으로 반환
+
+    저장 파일명이 '{서류명}_{신청인이름}_{날짜}'라 표시명에 이름이 붙는다 →
+    폼 라벨('임대차계약서')엔 이름이 없으므로, 신청인 이름 접미를 떼고 순수 서류명으로 대조한다
+    (안 떼면 '임대차계약서_홍길동' ∉ '임대차계약서'라 다건 자동첨부가 전부 실패).
     """
     attached: list = []
     try:
@@ -151,6 +155,7 @@ async def _auto_attach(target_page, issued) -> list:
     except Exception:
         return attached
     used_docs: set = set()
+    who = (applicant_name or "").replace(" ", "")
     for i in range(n):
         el = inputs.nth(i)
         try:
@@ -161,7 +166,9 @@ async def _auto_attach(target_page, issued) -> list:
             ctx_text = ""
         compact = (ctx_text or "").replace(" ", "")
         for doc_name, path in issued:
-            key = str(doc_name).replace(" ", "")
+            raw = str(doc_name).replace(" ", "")
+            # 표시명 끝의 '_신청인이름'을 떼어 순수 서류명으로 대조(폼 라벨엔 이름이 없음)
+            key = raw[: -(len(who) + 1)] if (who and raw.endswith("_" + who)) else raw
             if key and key in compact and doc_name not in used_docs:
                 try:
                     await el.set_input_files(path)
@@ -330,7 +337,7 @@ async def run_apply_rpa(task, service_name: str, profile: dict) -> None:
             _attach_age = int(os.getenv("RPA_ATTACH_MAX_AGE", "1200"))  # 기본 20분
             issued = recent_issued_docs()
             attach_candidates = recent_issued_docs(within_seconds=_attach_age)
-            attached = await _auto_attach(target_page, attach_candidates) if (has_file_input and attach_candidates) else []
+            attached = await _auto_attach(target_page, attach_candidates, name) if (has_file_input and attach_candidates) else []
             attach_guide = ""
             if attached:
                 lst = "\n".join(f"   ✓ {a}" for a in attached)

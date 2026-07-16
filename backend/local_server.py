@@ -35,7 +35,7 @@ _BASE = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
 if str(_BASE) not in sys.path:
     sys.path.insert(0, str(_BASE))
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import Response as _Response
@@ -345,6 +345,46 @@ async def open_docs_folder():
         return {"opened": True, "path": path}
     except Exception as e:
         return {"opened": False, "path": path, "error": str(e)[:120]}
+
+
+# 사용자가 직접 가진 서류(임대차계약서·신분증 등 자동발급 불가) 확장자·크기 화이트리스트
+_REGISTER_EXT = {".pdf", ".png", ".jpg", ".jpeg"}
+_REGISTER_MAX = 15 * 1024 * 1024  # 15MB
+
+
+@app.post("/api/documents/register")
+async def register_document(request: Request):
+    """'내 서류함' — 사용자가 이미 가진 서류(임대차계약서·신분증 등, 자동발급 불가)를 등록한다.
+    발급 서류 폴더(DOCS_DIR)에 발급물과 '같은 이름 규칙'으로 저장 → 복지 신청의 자동첨부
+    (recent_issued_docs)가 이 파일도 찾아 붙일 수 있게 한다. 데스크탑 앱 전용(사용자 본인 PC),
+    파일은 서버로 나가지 않고 로컬 폴더에만 저장된다."""
+    import pathlib
+    from rpa.base import DOCS_DIR, doc_basename
+    try:
+        form = await request.form()   # multipart — 실행환경엔 python-multipart 설치됨(requirements)
+    except Exception:
+        raise HTTPException(status_code=400, detail="파일 업로드 형식이 올바르지 않아요.")
+    doc_name = str(form.get("doc_name") or "").strip()
+    user_name = str(form.get("user_name") or "").strip()
+    upload = form.get("file")
+    if not doc_name or upload is None or not hasattr(upload, "read"):
+        raise HTTPException(status_code=400, detail="서류명과 파일이 필요해요.")
+    ext = pathlib.Path(getattr(upload, "filename", "") or "").suffix.lower()
+    if ext not in _REGISTER_EXT:
+        raise HTTPException(status_code=400, detail="PDF·PNG·JPG 파일만 등록할 수 있어요.")
+    data = await upload.read()
+    if not data:
+        raise HTTPException(status_code=400, detail="빈 파일이에요.")
+    if len(data) > _REGISTER_MAX:
+        raise HTTPException(status_code=413, detail="파일이 너무 커요(최대 15MB).")
+    try:
+        DOCS_DIR.mkdir(parents=True, exist_ok=True)
+        # 발급물과 동일한 이름 규칙({서류명}_{이름}_{날짜}.{확장자}) — 자동첨부·목록이 발급물과 똑같이 인식
+        out = DOCS_DIR / f"{doc_basename(doc_name, user_name)}{ext}"
+        out.write_bytes(data)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"저장 실패: {str(e)[:120]}")
+    return {"registered": True, "doc_name": doc_name, "saved_path": str(out), "filename": out.name}
 
 
 # ── RPA 복지 신청 ──

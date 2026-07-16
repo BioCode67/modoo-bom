@@ -103,17 +103,20 @@ def test_recent_issued_docs(monkeypatch, tmp_path):
     import time
     d = tmp_path / "모두봄서류"
     d.mkdir()
+    (d / "신분증_홍길동_2026-07-08_1010.jpg").write_bytes(b"\xff\xd8\xff")  # '내 서류함' 등록 사진(JPG)
+    time.sleep(0.02)
     (d / "주민등록등본_20260708_101500.pdf").write_bytes(b"%PDF old")
     time.sleep(0.02)
     (d / "가족관계증명서_20260708_101600.pdf").write_bytes(b"%PDF new")
-    (d / "무관한파일.txt").write_text("x")  # PDF/PNG 아님 → 제외
+    (d / "무관한파일.txt").write_text("x")  # PDF/PNG/JPG 아님 → 제외
     monkeypatch.setattr(base, "DOCS_DIR", d)
     docs = base.recent_issued_docs()
     names = [n for n, _ in docs]
     assert names[0] == "가족관계증명서"  # 최신 먼저
     assert "주민등록등본" in names
+    assert "신분증_홍길동" in names  # 등록한 JPG도 글롭에 포함 → 신청 자동첨부 대상
     assert all(".txt" not in p for _, p in docs)  # txt 제외
-    assert len(docs) == 2
+    assert len(docs) == 3
 
 
 def test_safe_filename_strips_traversal():

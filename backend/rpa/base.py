@@ -137,7 +137,7 @@ DOCS_DIR = _default_docs_dir()
 
 
 def recent_issued_docs(limit: int = 10, within_seconds: Optional[int] = None):
-    """모두봄이 발급해 저장한 서류(PDF/PNG)를 최신순으로 반환 — [(표시이름, 절대경로), ...].
+    """모두봄이 발급(PDF/PNG)했거나 '내 서류함'에 등록(사진 JPG 포함)한 서류를 최신순 반환 — [(표시이름, 절대경로), ...].
 
     신청 양식의 '서류 첨부'를 사용자가 정확히 하도록 안내하는 데 쓴다(어떤 서류가 어디에 있는지).
     파일명은 '{서류명}_{이름}_{YYYY-MM-DD_HHMM}.pdf'(신형)/'{서류명}_{타임스탬프}'(구형) → 접미를 떼어 표시명으로.
@@ -150,7 +150,8 @@ def recent_issued_docs(limit: int = 10, within_seconds: Optional[int] = None):
     out = []
     try:
         files = []
-        for ext in ("*.pdf", "*.png"):
+        # PDF/PNG=발급물, JPG/JPEG='내 서류함'에 등록한 사진(신분증 등) — 자동첨부가 함께 찾도록 포함
+        for ext in ("*.pdf", "*.png", "*.jpg", "*.jpeg"):
             files.extend(glob.glob(os.path.join(str(DOCS_DIR), ext)))
         files.sort(key=os.path.getmtime, reverse=True)
         cutoff = (_time.time() - within_seconds) if within_seconds else None
