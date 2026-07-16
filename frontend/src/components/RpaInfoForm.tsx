@@ -3,6 +3,7 @@ import { useAppStore } from '@/store/useAppStore'
 import { getRpaBase } from '@/lib/backend'
 import { useBackend } from '@/lib/useBackend'
 import { clearLive } from '@/lib/liveTasks'
+import { notifyDocsChanged } from '@/components/DocVault'
 
 const CARRIERS = ['SKT', 'KT', 'LGU+', 'SKM', 'KTM', 'LGM']
 // 간편인증 수단 — 어르신 다수가 카카오 미사용(통신사 PASS 등)이라 선택 지원(복지관 현장 필수)
@@ -23,12 +24,26 @@ export function RpaInfoForm() {
   const { rpaInfo, setRpaInfo, resetForNextUser } = useAppStore()
   const { ready, caps } = useBackend()
   const localAgent = ready === true && !!caps?.rpa
-  const nextUser = () => {
+  // 검증형 리셋 — '지웠다'고 말만 하지 않고 무엇이 지워졌는지 결과로 보여준다(복지관 공용 PC 신뢰성).
+  //   ⚠️ 리셋이 tracked를 비우면 이 폼(DocumentCenter 안)이 통째로 언마운트되므로 인라인 메시지는
+  //   보일 곳이 없다 → 언마운트와 무관한 alert로 결과를 확정 표시(기존 confirm과 동일한 대화 방식).
+  const nextUser = async () => {
     if (!window.confirm('이전 상담자의 정보(이름·생년월일·연락처·담은 복지·발급 기록·대화 내용)를 모두 지우고 새 상담을 시작할까요?')) return
+    // 서버의 발급 서류(주민번호 포함 PDF)부터 삭제 — 결과 건수를 확보한 뒤 화면을 리셋한다.
+    let msg = '✅ 새 상담 준비 완료 — 이 기기의 기록을 지웠어요.'
+    if (localAgent) {
+      try {
+        const r = await fetch(`${getRpaBase()}/api/session/reset`, { method: 'POST' }).then((x) => x.json())
+        msg = `✅ 새 상담 준비 완료 — 화면 기록과 발급 서류 파일 ${Number(r?.cleared ?? 0)}건을 지웠어요.`
+      } catch {
+        // 서버 삭제 실패는 숨기지 않는다 — 발급 폴더에 이전 분 서류(주민번호 포함)가 남았을 수 있음
+        msg = '⚠️ 화면 기록은 지웠지만 발급 폴더 정리에 실패했어요 — 서류 폴더에서 이전 분 서류를 직접 확인해 주세요.'
+      }
+    }
     resetForNextUser() // 화면·localStorage·챗 대화 초기화
     clearLive() // 진행 중 태스크 복원 기록(taskId·토큰)도 제거 — 다음 상담자에게 직전 사용자의 진행이 복원되지 않게
-    // 로컬 에이전트면 서버에 저장된 발급 서류(주민번호 포함 PDF)도 삭제 — 다음 분에게 안 남게
-    if (localAgent) fetch(`${getRpaBase()}/api/session/reset`, { method: 'POST' }).catch(() => { /* 실패해도 화면은 초기화됨 */ })
+    notifyDocsChanged() // 🗂 내 서류함도 비워진 상태로 갱신
+    window.alert(msg)
   }
   return (
     <div className="mt-3 rounded-xl bg-white border border-sprout-100 p-3 space-y-2 scroll-mt-24">
