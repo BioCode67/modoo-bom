@@ -300,6 +300,35 @@ def execute(action: dict, page: Page, elements, prof: dict) -> str:
         return f"실패({str(e)[:30]})"
 
 
+# ── 실행 직전 안전 게이트 — 결정층(LLM/휴리스틱)이 무엇을 골랐든 '코드로' 강제한다 ──
+#    프롬프트만 믿으면(감사 S1) LLM 한 번의 판단이나 페이지 텍스트 주입으로 복지 신청 최종제출·
+#    파괴적 버튼(탈퇴·삭제)을 대신 눌러버릴 수 있다. 실행 전에 라벨을 코드로 재검증한다.
+def guard_action(action: dict, elements, url: str) -> dict:
+    """click/click_xy 를 실행하기 전 안전 규칙을 코드로 적용(LLM·휴리스틱 공통 방어).
+    - 파괴적 라벨(취소·탈퇴·삭제·철회·해지·로그아웃 …) → 클릭 거부(wait).
+    - 최종 제출/결제/납부류(_SUBMIT) → 무조건 human_submit(사람 확인).
+    - 복지 신청 사이트(복지로)의 '신청/제출' 라벨 → human_submit(문서발급 정부24의 '신청하기'는 예외로 허용).
+    - click_xy(좌표 클릭)는 라벨 검증이 불가 → 복지로에선 금지(오클릭이 곧 제출일 수 있음)."""
+    a = action.get("action")
+    if a not in ("click", "click_xy"):
+        return action
+    host = (url or "").lower()
+    is_welfare = ("bokjiro" in host) or ("복지로" in (url or ""))
+    if a == "click_xy":
+        if is_welfare:
+            return {"action": "human_submit", "reason": "복지로에서 좌표 클릭은 안전상 금지 — 사람이 확인 후 제출"}
+        return action
+    tgt = find_el(elements, action.get("idx")) if action.get("idx") is not None else None
+    lab = (tgt.get("label") if tgt else "") or ""
+    if any(b in lab for b in _BLOCK):
+        return {"action": "wait", "reason": f"안전: 파괴적 버튼('{lab[:12]}')은 클릭하지 않음"}
+    if any(s in lab for s in _SUBMIT):
+        return {"action": "human_submit", "reason": f"'{lab[:12]}'는 최종 제출/결제 — 사람이 직접"}
+    if is_welfare and ("신청" in lab or "제출" in lab):
+        return {"action": "human_submit", "reason": f"복지 신청의 '{lab[:12]}' — 사람이 내용 확인 후 제출"}
+    return action
+
+
 def run_smart(goal: str):
     # 하이브리드: '아는 서류'는 실측 검증된 결정적 경로(local_agent)로 확실하게,
     # '처음 보는 서류/사이트'는 아래 LLM 관찰-판단-실행 루프로 스스로 찾아간다.
@@ -343,6 +372,8 @@ def run_smart(goal: str):
                 action = decide(llm, goal, page.url[:80], elements, history, shot)
             else:
                 action = decide_heuristic(goal, page.url[:80], elements, history)
+            # ⚠️ 실행 직전 안전 게이트 — 결정층(특히 LLM)이 최종제출·파괴적 버튼을 골랐어도 코드가 막는다(감사 S1/S2)
+            action = guard_action(action, elements, page.url)
             a, reason = action.get("action"), action.get("reason", "")
             tgt = find_el(elements, action.get("idx"))
             # LLM 경로 안전망: 같은 버튼을 3번 이상 누르려 하면(집착·핑퐁) 멈춘다 — 휴리스틱엔 이미 가드 있음.

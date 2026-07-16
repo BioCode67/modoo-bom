@@ -23,6 +23,9 @@ from pathlib import Path
 from playwright.sync_api import sync_playwright, Frame, Page
 
 CDP_URL = os.environ.get("MODOO_CDP_URL", "http://127.0.0.1:9222")
+# 네이티브 인쇄창 무력화 — 정부/건보 발급페이지가 window.print()를 부르면 크로미움이 렌더러를 블록하는
+#   OS 인쇄창을 띄워 이후 inner_text/evaluate가 '무한 동결'된다(서버 RPA는 이미 방어, 감사 H1). CDP 경로도 동일 주입.
+NO_PRINT_SCRIPT = "try{window.print=function(){};}catch(e){}"
 HERE = Path(__file__).resolve().parent
 PROFILE_PATH = HERE / "agent_profile.json"   # {name, birth(YYYYMMDD), phone(01012345678)} — gitignored, 로컬 전용
 SAVE_DIR = Path(os.path.expanduser("~")) / "Desktop" / "모두봄서류"
@@ -51,14 +54,29 @@ DOCS = {
 }
 
 def resolve_doc(name: str):
-    """표기 변형 흡수(공백 무시 부분일치). 미지원이면 None."""
+    """표기 변형 흡수 — 정확 일치 우선, '모호하지 않을 때만' 부분일치 채택. 애매하면 None.
+    ⚠️ 과거 단순 양방향 부분일치는 '납세증명서'가 국세·지방세 양쪽에 걸려도 삽입순서상 먼저인 하나를
+       조용히 골라 '엉뚱한 서류'를 대리발급했다(감사 C1). 이제 모호하면 발급하지 않고 None →
+       지능형 탐색/사용자 확인으로 넘긴다(잘못된 인증·PII 서류 발급 방지)."""
     if name in DOCS:
         return name
-    n = (name or "").replace(" ", "")
-    for k in DOCS:
-        if n and (n in k.replace(" ", "") or k.replace(" ", "") in n):
+    n = (name or "").replace(" ", "").strip()
+    if not n:
+        return None
+    keys = {k: k.replace(" ", "") for k in DOCS}
+    # ① 공백 무시 정확 일치
+    for k, ks in keys.items():
+        if ks == n:
             return k
-    return None
+    # ② 질의가 키를 '완전히 포함'(예: '국세 납세증명서 발급') — 그런 키가 유일할 때만 채택
+    supersets = [k for k, ks in keys.items() if ks in n]
+    if len(supersets) == 1:
+        return supersets[0]
+    if supersets:
+        return None  # 질의가 여러 키를 포함 → 모호
+    # ③ 질의가 키의 '일부'(축약: '등본','국세') — 그런 키가 유일할 때만. 여러 개면('납세증명서','증명서') 모호 → None
+    subsets = [k for k, ks in keys.items() if n in ks]
+    return subsets[0] if len(subsets) == 1 else None
 
 def log(msg: str):
     print(f"[모두봄] {msg}", flush=True)
@@ -88,8 +106,19 @@ def load_profile() -> dict:
 
 def get_page(browser) -> Page:
     ctx = browser.contexts[0] if browser.contexts else browser.new_context()
+    # window.print 무력화를 컨텍스트에 주입 — 이후 이동/팝업에 모두 적용돼 발급페이지 인쇄창 동결을 막는다(감사 H1).
+    #   (local_agent·smart_agent 공통 경로라 두 스택 모두 방어된다. 저장은 CDP printToPDF를 쓰므로 무관.)
+    try:
+        ctx.add_init_script(NO_PRINT_SCRIPT)
+    except Exception:
+        pass
     for p in ctx.pages:
         if "newtab" not in p.url and "devtools" not in p.url:
+            # 이미 열린 탭에도 즉시 적용(add_init_script는 다음 이동부터라, 현재 문서엔 evaluate로 한 번 더)
+            try:
+                p.evaluate(NO_PRINT_SCRIPT)
+            except Exception:
+                pass
             return p
     return ctx.new_page()
 
@@ -253,9 +282,15 @@ def issue_one(page: Page, doc_name: str) -> bool:
     ymd = time.strftime("%Y%m%d")
     fname = f"모두봄_{doc_name}_{ymd}.pdf"
     saved = False
+    # 오류 화면 신호 — '문서출력' 텍스트가 있어도 이 문구가 보이면 성공으로 오인하지 않는다(감사 C2)
+    _ERR = ("오류가 발생", "일시적인 오류", "처리 중 오류", "처리할 수 없", "요청하신 페이지를 찾을 수 없")
     for _ in range(120):
         try:
-            if "문서출력" in (page.inner_text("body") or ""):
+            body = page.inner_text("body") or ""
+            if any(e in body for e in _ERR):   # 명백한 오류 화면 → 저장/완료 아님
+                page.wait_for_timeout(1000)
+                continue
+            if "문서출력" in body:
                 ctx = page.context
                 try:
                     with ctx.expect_page(timeout=6000) as pop:
@@ -273,7 +308,10 @@ def issue_one(page: Page, doc_name: str) -> bool:
             pass
         page.wait_for_timeout(1000)
     if saved:
-        log(f"🎉 '{doc_name}' 발급 완료! PDF: {SAVE_DIR / fname}")
+        # ⚠️ 정직: '문서출력' 화면을 PDF로 저장했다는 뜻 — 내용이 요청 서류와 맞는지 사용자가 확인하도록 안내
+        #   (권위 신호 없이 '발급 완료!'로 단정하던 것 완화, 감사 C2). 저장 자체는 성공.
+        log(f"🎉 '{doc_name}' 저장 완료! ({SAVE_DIR / fname})\n"
+            "   ↳ 저장된 PDF가 요청한 서류가 맞는지 한 번만 확인해 주세요.")
     else:
         log(f"'{doc_name}' 발급이 진행 중… 완료되면 화면의 [문서출력]으로 저장하세요.")
     return saved

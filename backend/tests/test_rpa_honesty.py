@@ -216,13 +216,16 @@ def test_journey_orders_docs_before_applications():
     _journeys.pop(jid, None)  # 테스트 정리
 
 
-def test_smart_agent_hands_final_submit_and_auth_to_human():
-    """지능형 에이전트(smart_agent) 계약: 본인인증·최종제출은 사람에게 넘긴다(human_auth/human_submit).
-    execute()가 인증정보를 대신 '제출'하거나 최종신청을 대리 클릭하지 않아야 한다(안전 계약 고정)."""
+def test_smart_agent_guard_is_wired_before_execute():
+    """지능형 에이전트(smart_agent) 안전 계약 — 프롬프트만 믿지 않고 '실행 직전 코드 게이트'로 강제한다(감사 S1).
+    guard_action 이 정의돼 있고, run_smart 루프가 execute 전에 반드시 호출해야 한다.
+    (동작 자체는 test_smart_agent.py 의 guard_action 행위 테스트가 검증 — 이 테스트는 '배선'을 고정)"""
     src = open("smart_agent.py", encoding="utf-8").read()
-    # 시스템 프롬프트/휴리스틱 양쪽에 human_auth·human_submit 경로가 존재
     assert "human_auth" in src and "human_submit" in src
-    # 파괴적/제출 라벨 차단 목록이 존재(취소·탈퇴·삭제 자동클릭 금지 / 제출은 사람)
     assert "_BLOCK" in src and "_SUBMIT" in src
-    # human_submit 분기는 대리 클릭이 아니라 사람에게 넘긴다는 로그/의도가 있어야
-    assert "대리" in src or "직접" in src or "사람" in src
+    # ⚠️ 문자열 grep만이던 약한 계약 보강 — 게이트가 '정의'되고 '실행 전 호출'되는지 확인
+    assert "def guard_action" in src, "실행 직전 안전 게이트가 정의돼야 함"
+    assert "guard_action(action, elements, page.url)" in src, "execute 전에 guard_action 호출돼야 함"
+    # 게이트 '호출'이 execute '호출'보다 소스상 먼저 나와야(방어 순서) — 정의가 아니라 호출부로 비교
+    assert src.index("guard_action(action, elements, page.url)") < src.index("result = execute(action"), \
+        "게이트 호출이 execute 호출 이전에 배선돼야"

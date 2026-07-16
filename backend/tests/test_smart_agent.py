@@ -4,11 +4,57 @@
 관찰-판단-실행 중 '판단(decide_heuristic)'과 하이브리드 라우팅(resolve_doc)이
 브라우저 없이도 올바른 다음 행동을 고르는지 확인한다(회귀 방지)."""
 import local_agent as la
-from smart_agent import decide_heuristic
+from smart_agent import decide_heuristic, guard_action
 
 
 def _el(idx, label, kind="click", value=""):
     return {"idx": idx, "kind": kind, "label": label, "value": value, "x": 0, "y": 0}
+
+
+# ── 실행 직전 안전 게이트(guard_action) — LLM/휴리스틱이 무엇을 골랐든 코드로 막는다(감사 S1/S2) ──
+
+def test_guard_blocks_destructive_click():
+    """파괴적 버튼(탈퇴·삭제·로그아웃·철회)은 LLM이 골라도 실행 전 클릭 거부(wait)."""
+    for label in ["회원탈퇴", "계정 삭제", "로그아웃", "신청 철회", "회원 해지"]:
+        out = guard_action({"action": "click", "idx": 1}, [_el(1, label)], "https://www.gov.kr/x")
+        assert out["action"] == "wait", f"{label} 은 클릭 거부돼야 함(실제:{out['action']})"
+
+
+def test_guard_forces_human_on_final_submit_anywhere():
+    """최종 제출/결제/납부류(_SUBMIT)는 어디서든 사람에게(human_submit) — LLM이 눌러도 코드가 막는다."""
+    for label in ["제출", "신청완료", "지급신청", "결제", "납부"]:
+        out = guard_action({"action": "click", "idx": 1}, [_el(1, label)], "https://www.gov.kr/x")
+        assert out["action"] == "human_submit", f"{label} → human_submit(실제:{out['action']})"
+
+
+def test_guard_welfare_apply_click_goes_to_human():
+    """복지로(신청 사이트)의 '신청/제출' 라벨은 사람에게 — '동의하고 신청하기' 합성 라벨(감사 S2)도 포함."""
+    for label in ["신청하기", "동의하고 신청하기", "신청", "제출하기", "동의 후 신청"]:
+        out = guard_action({"action": "click", "idx": 1}, [_el(1, label)], "https://www.bokjiro.go.kr/apply")
+        assert out["action"] == "human_submit", f"복지로 '{label}' → human_submit(실제:{out['action']})"
+
+
+def test_guard_allows_safe_doc_actions_on_gov24():
+    """정부24 문서발급의 안전 진행 버튼(발급하기·문서출력·등본 신청하기·다음)은 그대로 자동 클릭 허용
+    (문서 발급은 무료·가역이라 대리 진행 OK — 복지 신청과 구분)."""
+    for label in ["발급하기", "문서출력", "신청하기", "다음"]:
+        out = guard_action({"action": "click", "idx": 1}, [_el(1, label)], "https://www.gov.kr/AA040")
+        assert out["action"] == "click", f"정부24 '{label}' 는 자동 클릭 허용돼야(실제:{out['action']})"
+
+
+def test_guard_blocks_coordinate_click_on_welfare():
+    """좌표 클릭(click_xy)은 라벨 검증 불가 → 복지로에선 금지(오클릭=제출 방지). 정부24 문서발급에선 허용."""
+    out = guard_action({"action": "click_xy", "x": 100, "y": 200}, [], "https://www.bokjiro.go.kr/apply")
+    assert out["action"] == "human_submit"
+    out2 = guard_action({"action": "click_xy", "x": 100, "y": 200}, [], "https://www.gov.kr/AA040")
+    assert out2["action"] == "click_xy"
+
+
+def test_guard_passthrough_non_click_actions():
+    """human_auth·done·search·wait 등 클릭 외 액션은 그대로 통과(게이트가 방해하지 않음)."""
+    for act in ("human_auth", "done", "search", "wait", "goto"):
+        out = guard_action({"action": act}, [], "https://www.bokjiro.go.kr/apply")
+        assert out["action"] == act
 
 
 def test_hybrid_routing_known_doc():
@@ -22,6 +68,29 @@ def test_hybrid_routing_unknown_goes_to_llm():
     # (병역증명서 ≠ 병적증명서 — 다른 서류라 부분일치로 오라우팅되지 않아야 함)
     assert la.resolve_doc("병역증명서") is None
     assert la.resolve_doc("여권 재발급") is None
+
+
+def test_resolve_doc_ambiguous_returns_none_not_wrong_doc():
+    """모호한 축약 질의는 삽입순서상 먼저인 서류를 조용히 고르지 않고 None(감사 C1) — 엉뚱한 인증·PII 서류
+    대리발급 방지. 국세/지방세 '납세증명서'처럼 양쪽에 걸리는 질의가 대표 사례."""
+    assert la.resolve_doc("납세증명서") is None    # 국세·지방세 양쪽 → 모호
+    assert la.resolve_doc("지방세") is None         # 지방세 납세/세목별 → 모호
+    assert la.resolve_doc("증명서") is None         # 다수 → 모호
+    # 구체적이면 정확히 라우팅(모호 방지가 정상 라우팅을 막지 않음)
+    assert la.resolve_doc("국세 납세증명서") == "국세 납세증명서"
+    assert la.resolve_doc("지방세 납세증명서") == "지방세 납세증명서"
+    assert la.resolve_doc("국세") == "국세 납세증명서"      # '국세'는 국세 납세증명서에만 걸림(유일)
+    assert la.resolve_doc("등본") == "주민등록등본"         # 축약이라도 유일하면 채택
+    assert la.resolve_doc("출입국") == "출입국에 관한 사실증명"
+    assert la.resolve_doc("병적증명서") == "병적증명서"     # 신규 4종도 정확 라우팅
+
+
+def test_cdp_path_neutralizes_window_print():
+    """CDP 데스크탑 경로(local_agent/smart_agent 공용 get_page)도 window.print를 무력화해 발급페이지의
+    네이티브 인쇄창 렌더러 동결(서버 RPA가 이미 막는 감사 CRITICAL)을 방지해야 한다(감사 H1)."""
+    src = open("local_agent.py", encoding="utf-8").read()
+    assert "NO_PRINT_SCRIPT" in src and "window.print" in src
+    assert "add_init_script(NO_PRINT_SCRIPT)" in src   # 컨텍스트 주입(이후 이동·팝업 모두 적용)
 
 
 def test_desktop_docs_aligned_with_server_rpa():
