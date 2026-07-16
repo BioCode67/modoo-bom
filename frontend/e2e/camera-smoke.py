@@ -104,6 +104,26 @@ def main() -> int:
             print("[cam] ✅ 📷 촬영 버튼 클릭 → 모달")
 
             page.wait_for_selector("div[role='dialog'][aria-label*='촬영']", timeout=8000)
+
+            # 파일선택 경로 회귀검증 — CSP img-src에 blob:이 없어 createObjectURL 이미지가 조용히 차단되던 버그
+            #   (FileReader data:로 수정). 합성 이미지(PII 아님)를 hidden input에 주입해 썸네일이 뜨는지 확인.
+            import base64 as _b64
+            tiny = _b64.b64decode(
+                "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRof"
+                "Hh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAAB"
+                "AAAAAAAAAAAAAAAAAAAAAP/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AfwD/2Q=="
+            )
+            tinyp = FRONTEND / "e2e" / "_tiny.jpg"
+            tinyp.write_bytes(tiny)
+            page.locator("div[role='dialog'] input[type='file']").set_input_files(str(tinyp))
+            page.wait_for_selector("div[role='dialog'] img[alt='1쪽']", timeout=8000)
+            tinyp.unlink()
+            print("[cam] ✅ 사진 선택(FileReader data:) → 썸네일 (CSP blob: 차단 우회 확인)")
+
+            # 90° 회전 컨트롤 동작(가로로 찍힌 신분증 세우기)
+            page.locator("div[role='dialog'] button[aria-label*='회전']").first.click()
+            print("[cam] ✅ 90° 회전 컨트롤 동작")
+
             # 가짜 카메라 프레임이 실제로 흐르는지 — video.videoWidth>0 까지 대기
             page.wait_for_function(
                 "() => { const v=document.querySelector(\"div[role='dialog'] video\"); return v && v.videoWidth>0 && v.readyState>=2 }",
@@ -112,8 +132,8 @@ def main() -> int:
             print("[cam] ✅ 카메라 미리보기 재생(videoWidth>0)")
 
             page.locator("div[role='dialog'] button:has-text('촬영')").first.click()
-            page.wait_for_selector("div[role='dialog'] img[alt='1쪽']", timeout=8000)
-            print("[cam] ✅ 촬영 1장 → 썸네일 표시")
+            page.wait_for_selector("div[role='dialog'] img[alt='2쪽']", timeout=8000)
+            print("[cam] ✅ 촬영 1장 추가 → 2쪽(촬영+파일 혼합)")
 
             # 제출문서로 만들기 → 웹은 PDF 다운로드
             with page.expect_download(timeout=15000) as dl_info:

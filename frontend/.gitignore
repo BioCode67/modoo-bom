@@ -4,5 +4,6 @@ e2e-dist-cam
 e2e/preview.log
 e2e/fail-*.png
 e2e/cam-out.pdf
+e2e/_tiny.jpg
 e2e/lh-*.json
 e2e/psi.json

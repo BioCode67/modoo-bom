@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Camera, RotateCcw, Check, Loader2, ImagePlus, AlertCircle } from 'lucide-react'
+import { X, Camera, RotateCw, Trash2, Check, Loader2, ImagePlus, AlertCircle } from 'lucide-react'
 import { useModalFocus } from '@/hooks/useModalFocus'
 import { enhanceImageData, dataUrlToBytes, jpegPagesToPdf, type PdfPage } from '@/lib/docScan'
 
@@ -77,21 +77,35 @@ export function DocCameraModal({ docName, onClose, onComplete }: {
     addShot(drawScaled(v, v.videoWidth, v.videoHeight))
   }
 
-  // 파일선택 폴백(모바일은 카메라 촬영도 뜸) — 여러 장 지원
+  // 파일선택 폴백(모바일은 카메라 촬영도 뜸) — 여러 장 지원.
+  //   ⚠️ CSP img-src에 blob:이 없어(정책상 'data: https:'만) createObjectURL(blob:)은 이미지 로드가 차단된다 →
+  //   FileReader로 data: URL을 만들어 로드한다(허용 스킴). 실측: blob: 경로는 사진 선택이 조용히 실패했다.
   const onFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
     e.target.value = ''
     for (const f of files) {
       try {
-        const url = URL.createObjectURL(f)
+        const dataUrl = await new Promise<string>((res, rej) => {
+          const fr = new FileReader(); fr.onload = () => res(String(fr.result)); fr.onerror = () => rej(fr.error); fr.readAsDataURL(f)
+        })
         const img = await new Promise<HTMLImageElement>((res, rej) => {
-          const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = url
+          const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = dataUrl
         })
         addShot(drawScaled(img, img.naturalWidth, img.naturalHeight))
-        URL.revokeObjectURL(url)
       } catch { /* 개별 파일 실패는 건너뜀 */ }
     }
   }
+
+  // 촬영본 90° 회전(가로로 찍힌 신분증·계약서를 세워 제출) — 저장 캔버스를 회전본으로 교체.
+  const rotateShot = (i: number) => setShots((s) => s.map((shot, idx) => {
+    if (idx !== i) return shot
+    const src = shot.canvas
+    const c = document.createElement('canvas')
+    c.width = src.height; c.height = src.width // 90° 회전 → 가로·세로 교환
+    const ctx = c.getContext('2d')!
+    ctx.translate(c.width, 0); ctx.rotate(Math.PI / 2); ctx.drawImage(src, 0, 0)
+    return { canvas: c, thumb: c.toDataURL('image/jpeg', 0.6) }
+  }))
 
   const removeShot = (i: number) => setShots((s) => s.filter((_, idx) => idx !== i))
 
@@ -175,9 +189,14 @@ export function DocCameraModal({ docName, onClose, onComplete }: {
                     <div key={i} className="relative shrink-0">
                       <img src={s.thumb} alt={`${i + 1}쪽`} className={`h-24 w-auto rounded-lg border-2 border-sprout-100 ${grayscale ? 'grayscale contrast-125' : ''}`} />
                       <span className="absolute left-1 top-1 rounded bg-black/60 px-1.5 text-[10px] font-bold text-white">{i + 1}</span>
+                      {/* 90° 회전 — 가로로 찍힌 신분증·계약서 세우기 */}
+                      <button onClick={() => rotateShot(i)} aria-label={`${i + 1}쪽 90도 회전`} title="90° 회전"
+                        className="absolute -left-1.5 -top-1.5 rounded-full bg-sky2-500 p-1 text-white shadow hover:bg-sky2-600">
+                        <RotateCw className="h-3 w-3" />
+                      </button>
                       <button onClick={() => removeShot(i)} aria-label={`${i + 1}쪽 삭제`} title="이 장 삭제(다시 찍기)"
-                        className="absolute -right-1.5 -top-1.5 rounded-full bg-rose-500 p-0.5 text-white shadow hover:bg-rose-600">
-                        <RotateCcw className="h-3 w-3" />
+                        className="absolute -right-1.5 -top-1.5 rounded-full bg-rose-500 p-1 text-white shadow hover:bg-rose-600">
+                        <Trash2 className="h-3 w-3" />
                       </button>
                     </div>
                   ))}
@@ -187,7 +206,7 @@ export function DocCameraModal({ docName, onClose, onComplete }: {
 
             <p className="text-[11px] text-muted-foreground leading-relaxed">
               📸 촬영본은 자동 대비 보정 후 <b>제출용 PDF</b>로 만들어져요. 신분증은 <b>앞·뒤 2장</b>, 계약서는 페이지마다 한 장씩 찍으세요.
-              모든 처리는 <b>이 기기 안에서</b>만 이뤄져요(사진은 서버로 보내지 않아요).
+              가로로 찍혔으면 썸네일의 <b>↻</b>로 세우세요. 모든 처리는 <b>이 기기 안에서</b>만 이뤄져요(사진은 서버로 보내지 않아요).
             </p>
 
             <button onClick={build} disabled={!shots.length || busy} className="btn-primary w-full !py-2.5 text-sm justify-center disabled:opacity-50">
