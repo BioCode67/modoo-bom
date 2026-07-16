@@ -136,10 +136,14 @@ export function relevance(p: Policy | EligiblePolicy, concepts: string[][], rawQ
   const raw = rawQuery.trim().toLowerCase()
   if (raw && score > 0) {
     const name = p.name.toLowerCase()
-    if (name === raw) score += 100
+    // 한국어 복합어는 띄어쓰기가 들쭉날쭉('청년 월세 지원' ↔ '청년월세지원') → 공백 제거 후에도 비교해
+    //   '거의 이름 그대로'인 질의가 이름 가산을 놓치지 않게 한다(정확 이름 검색 우선).
+    const nameNS = name.replace(/\s+/g, '')
+    const rawNS = raw.replace(/\s+/g, '')
+    if (name === raw || nameNS === rawNS) score += 100
     // 2글자 이상 원문은 이름 어디든 포함되면 가산. 1글자 원문은 경계 오탐이 심해 '이름 시작'일 때만
     // 가산한다('암'→'암환자…' 가산 O / '집'→'어린이집' 가산 X, '영암군' 가산 X).
-    else if (raw.length >= 2 && name.includes(raw)) score += 30
+    else if (rawNS.length >= 2 && nameNS.includes(rawNS)) score += 30
     else if (raw.length === 1 && name.startsWith(raw)) score += 30
   }
   return score
