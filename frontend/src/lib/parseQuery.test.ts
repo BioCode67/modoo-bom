@@ -93,6 +93,17 @@ describe('parseProfileFromText', () => {
     expect(p.income_percentile).toBe(80)
     expect(p.life_events).toEqual([])
   })
+
+  it('주거지원 문의(소득 미언급) → 중위(50)로 낮춰 물어본 혜택이 숨지 않게', () => {
+    // 기본 80은 청년월세(중위 60% 이하)를 소득으로 숨기는 거짓음성 → 물어본 사람에겐 중립 프라이어(50).
+    expect(parseProfileFromText('27살 자취하는데 월세 지원 받을 수 있어?').income_percentile).toBe(50)
+    expect(parseProfileFromText('원룸 전세자금 지원 얼마나 받아?').income_percentile).toBe(50)
+    // 소득을 명시했으면 그 값이 우선(주거 문의라도 덮어쓰지 않음)
+    expect(parseProfileFromText('월세 지원 궁금한데 소득이 많아요').income_percentile).toBe(130)
+    expect(parseProfileFromText('기초수급자인데 월세 지원 되나요').income_percentile).toBe(28)
+    // 주거 키워드 없는 일반 문의는 여전히 기본값(과도 확산 방지)
+    expect(parseProfileFromText('무슨 복지 받을 수 있어?').income_percentile).toBe(80)
+  })
 })
 
 
