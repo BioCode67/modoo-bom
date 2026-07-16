@@ -81,6 +81,30 @@ def test_apply_start_unsupported_service(monkeypatch):
     assert r.status_code == 400  # 지원목록 밖 → 400 (503 허용은 게이팅 회귀를 가려서 제거)
 
 
+def test_apply_start_generalized_bokjiro_link_accepted(monkeypatch):
+    """지원 6종 밖이어도 profile.apply_url이 복지로 딥링크면 신청 수락 — 청년월세지원 데모 신청경로.
+    (브라우저는 안 띄우고 수락 게이팅만 검증 — start_apply_task 목킹)"""
+    monkeypatch.setenv("RPA_ENABLED", "1")
+    from rpa import manager
+    monkeypatch.setattr(manager, "start_apply_task", lambda *a, **k: "fake-task-id")
+    deep = "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00004661"
+    r = client.post("/api/apply/start", json={
+        "service_name": "청년월세지원", "user_name": "김청년", "profile": {"apply_url": deep},
+    })
+    assert r.status_code == 200, r.text
+    assert r.json().get("task_id") == "fake-task-id"
+
+
+def test_apply_start_generalized_rejects_non_bokjiro_link(monkeypatch):
+    """지원 밖 + 복지로 아닌 링크(gov.kr 검색 등)면 400 — 아무 URL로나 신청창을 열지 않는다(오연결 방지)."""
+    monkeypatch.setenv("RPA_ENABLED", "1")
+    r = client.post("/api/apply/start", json={
+        "service_name": "존재하지않는서비스", "user_name": "x",
+        "profile": {"apply_url": "https://www.gov.kr/search?srhQuery=x"},
+    })
+    assert r.status_code == 400
+
+
 def test_rpa_file_wrong_token_403():
     """완료된 태스크라도 잘못된/누락 토큰이면 문서 반환 거부(다운로드 인가)."""
     from rpa import manager
