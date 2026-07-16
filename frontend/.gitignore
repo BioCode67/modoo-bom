@@ -1,6 +1,7 @@
 e2e-dist
 e2e-demo-dist
 e2e-dist-cam
+e2e-dist-flows
 e2e/preview.log
 e2e/fail-*.png
 e2e/cam-out.pdf
