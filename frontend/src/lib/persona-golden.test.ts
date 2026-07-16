@@ -47,6 +47,17 @@ describe('페르소나 골든 — 결과 품질 고정', () => {
     expect(names(pol)).not.toMatch(/기초연금|노인일자리|틀니/)
   })
 
+  it('🏠 자취 청년(27세·1인가구·중위45%): 청년월세지원(POL-009) high 노출 — 데모 핵심 사이클 진입점', () => {
+    // 데모 대표 서비스. 추천→담기→서류발급→자동신청→사후관리 한 사이클의 '추천' 단계가
+    //   깨지면(엔진이 POL-009를 안 내면) 이후 전부 도달 불가 → 회귀로 고정한다.
+    const r = runAnalysis({ ...base, age: 27, household_type: '1인가구', income_percentile: 45, employment_status: 'employed', region: '서울' })
+    const pol = r.eligible_policies.filter((p) => p.id.startsWith('POL-'))
+    const p009 = pol.find((p) => p.id === 'POL-009')
+    expect(p009).toBeTruthy()             // 청년월세지원이 결과에 있어야 함
+    expect(p009?.priority).toBe('high')   // 상단에 노출(발견성)
+    expect(names(pol)).not.toMatch(/기초연금|노인일자리|영유아|보육료/) // 청년에게 노인·영유아 누수 0
+  })
+
   it('👶 출산 가정(0세 자녀): 아동수당+부모급여 high + 60일 소급 알림', () => {
     const r = runAnalysis({ ...base, age: 32, has_children: true, children_ages: [0], life_events: ['출산'] })
     const pol = r.eligible_policies.filter((p) => p.id.startsWith('POL-'))

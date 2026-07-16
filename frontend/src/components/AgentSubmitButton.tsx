@@ -7,6 +7,7 @@ import { isApplyAutomatable, applyLink } from '@/lib/officialLinks'
 import { bestApplyUrl, isBokjiroApplyable } from '@/lib/quickApply'
 import { getRpaBase } from '@/lib/backend'
 import { detectExtension, applyViaExtension, onExtensionStatus, sameDocName } from '@/lib/extension'
+import { setPendingReturn } from '@/lib/returnPrompt'
 import { RpaInfoForm } from '@/components/RpaInfoForm'
 import { useAppStore } from '@/store/useAppStore'
 
@@ -20,6 +21,8 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
   const { ready, caps } = useBackend()
   const profile = useAppStore((s) => s.profile)
   const rpaInfo = useAppStore((s) => s.rpaInfo)
+  const isSaved = useAppStore((s) => s.isSaved)
+  const toggleSaved = useAppStore((s) => s.toggleSaved)
   const [run, setRun] = useState<RunState>(null)
   const [ext, setExt] = useState(false)
   const automatable = isApplyAutomatable(policy.name)
@@ -75,6 +78,14 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
     )
   }
 
+  // 신청이 실제로 시작되면(백엔드 태스크 생성·확장 새 탭) 정부 탭에서 돌아온 순간 '신청하셨나요?' 1탭 확인을
+  //   띄우게 예약한다 → '네'를 눌러야만 applied 기록(자동 낙관처리 금지, 정직성). 미저장 정책이면 먼저 담아
+  //   확인 '네'가 실제로 상태에 남게 한다(setStatus는 tracked 항목만 갱신하므로).
+  const armReturnConfirm = () => {
+    if (!isSaved(policy.id)) toggleSaved({ id: policy.id, name: policy.name, category: policy.category })
+    setPendingReturn({ kind: 'apply', policyId: policy.id, name: policy.name })
+  }
+
   const start = async () => {
     if (runningRef.current) return  // 진행 중 재클릭 무시 — 동일 신청 태스크 중복 기동 방지(감사 확정)
     runningRef.current = true
@@ -88,6 +99,7 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
         auth_provider: rpaInfo.auth_provider || 'kakao', // 확장 자동신청에도 인증수단 전달
       }, localApplyUrl || policy.application) // 원 URL 대신 해석된 복지로 딥링크 전달(표시문자열이어도 이동 가능)
       if (!r.ok) setRun({ status: 'error', step: r.error || '이 서비스는 확장 자동신청을 아직 지원하지 않아요.', at: Date.now() })
+      else armReturnConfirm() // 확장이 복지로 탭을 열었으니 복귀 시 신청완료 확인
       runningRef.current = false
       return
     }
@@ -103,6 +115,7 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
         throw new Error(detail || (res.status === 503 ? '지금은 자동 신청이 어려워요 — 공식 신청 페이지로 진행해 주세요.' : '이 서비스는 자동 신청을 지원하지 않아요'))
       }
       const { task_id, download_token } = await res.json()
+      armReturnConfirm() // 로컬 에이전트가 복지로 창을 여는 중 — 복귀 시 '신청하셨나요?' 확인으로 사후관리 진입
       setRun((prev) => ({ status: prev?.status || 'running', step: prev?.step || '', shot: prev?.shot, at: startedAt, taskId: task_id }))
       // 스크린샷(정부 페이지 — PII 가능)은 시작자 토큰(?t=)이 있어야 응답에 포함된다(백엔드 게이트)
       const tq = download_token ? `?t=${encodeURIComponent(download_token)}` : ''
