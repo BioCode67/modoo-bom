@@ -305,3 +305,57 @@ def test_register_document_requires_doc_name(monkeypatch, tmp_path):
         files={"file": ("a.pdf", b"%PDF", "application/pdf")},
     )
     assert r.status_code == 400
+
+
+# ── 🗂 내 서류함(목록/삭제) — 발급·등록 서류의 가시화와 안전한 정리 ──
+
+def test_documents_list_shows_docs_with_attach_flag(monkeypatch, tmp_path):
+    """목록은 표시명(타임스탬프 제거)+자동첨부 후보 플래그를 준다 — 프론트/백엔드 판정 단일화."""
+    import os, time
+    from rpa import base
+    d = tmp_path / "docs"; d.mkdir()
+    (d / "주민등록등본_홍길동_2026-07-16_1010.pdf").write_bytes(b"%PDF new")
+    old = d / "임대차계약서_홍길동_2026-07-01_0900.jpg"; old.write_bytes(b"\xff\xd8\xff")
+    os.utime(old, (time.time() - 999999, time.time() - 999999))  # 오래됨 → 첨부창 밖
+    (d / "무관한파일.txt").write_text("x")  # 관리 대상 아님 → 제외
+    monkeypatch.setattr(base, "DOCS_DIR", d)
+    monkeypatch.setenv("RPA_ATTACH_MAX_AGE", "1200")
+    j = client.get("/api/documents/list").json()
+    names = {x["filename"]: x for x in j["documents"]}
+    assert "무관한파일.txt" not in names
+    fresh = names["주민등록등본_홍길동_2026-07-16_1010.pdf"]
+    assert fresh["display"] == "주민등록등본_홍길동" and fresh["attach_candidate"] is True
+    stale = names["임대차계약서_홍길동_2026-07-01_0900.jpg"]
+    assert stale["attach_candidate"] is False  # 오래된 파일은 자동첨부 후보 아님(교차사용자 방어와 일관)
+    assert j["attach_window_sec"] == 1200 and j["documents"][0]["filename"] == fresh["filename"]  # 최신순
+
+
+def test_documents_delete_removes_file(monkeypatch, tmp_path):
+    from rpa import base
+    d = tmp_path / "docs"; d.mkdir()
+    f = d / "신분증_홍길동_2026-07-16_1010.pdf"; f.write_bytes(b"%PDF")
+    monkeypatch.setattr(base, "DOCS_DIR", d)
+    r = client.post("/api/documents/delete", json={"filename": f.name})
+    assert r.status_code == 200 and r.json()["deleted"] is True
+    assert not f.exists()
+
+
+def test_documents_delete_rejects_traversal_and_foreign(monkeypatch, tmp_path):
+    """경로 이탈(../, 절대경로)·관리 밖 확장자·심볼릭 이탈은 전부 거절 — 서류함 밖 파일 삭제 불가."""
+    import os
+    from rpa import base
+    d = tmp_path / "docs"; d.mkdir()
+    secret = tmp_path / "secret.pdf"; secret.write_bytes(b"%PDF secret")
+    monkeypatch.setattr(base, "DOCS_DIR", d)
+    for bad in ("../secret.pdf", "/etc/passwd", "..\\secret.pdf", "a/../b.pdf", ".hidden.pdf", "notes.txt", ""):
+        r = client.post("/api/documents/delete", json={"filename": bad})
+        assert r.status_code in (400, 403, 404), bad
+    assert secret.exists()  # 폴더 밖 파일은 그대로
+    # 심볼릭 링크로 폴더 밖을 가리키는 파일명 — realpath 검증이 걸러야 함
+    link = d / "링크_2026-07-16_1010.pdf"
+    try:
+        os.symlink(secret, link)
+        r = client.post("/api/documents/delete", json={"filename": link.name})
+        assert r.status_code == 403 and secret.exists()
+    except OSError:
+        pass  # 심볼릭 미지원 파일시스템이면 스킵

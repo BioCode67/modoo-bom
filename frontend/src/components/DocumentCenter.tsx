@@ -11,6 +11,7 @@ import { setPendingReturn } from '@/lib/returnPrompt'
 import { RpaInfoForm } from '@/components/RpaInfoForm'
 import { RemoteRpaSetup } from '@/components/RemoteRpaSetup'
 import { DocCameraModal } from '@/components/DocCameraModal'
+import { DocVault, notifyDocsChanged } from '@/components/DocVault'
 import { cn } from '@/lib/utils'
 
 // 저장 경로를 사람이 읽게 축약 — '…/모두봄서류/주민등록등본_홍길동_2026-07-15_1430.pdf'
@@ -89,6 +90,7 @@ export function DocumentCenter() {
       const r = await res.json()
       setRegistered((s) => ({ ...s, [doc]: `✅ 등록됨 — 신청할 때 자동으로 첨부돼요 (${r.filename || filename})` }))
       if (!isDocDone(doc)) toggleDocDone(doc) // 준비 완료로 표시(체크리스트·신청 준비에 반영)
+      notifyDocsChanged() // 🗂 내 서류함 즉시 갱신
     } catch (err) {
       setRegistered((s) => ({ ...s, [doc]: err instanceof Error ? err.message : '등록에 실패했어요.' }))
     }
@@ -253,7 +255,11 @@ export function DocumentCenter() {
           shot: st.screenshot_b64 || undefined,
           stepsTail: Array.isArray(st.steps) ? st.steps.slice(-3).map((x: { time?: string; msg?: string }) => `${x.time || ''} ${String(x.msg || '').split('\n')[0]}`.trim()) : undefined,
         } }))
-        if (st.status === 'done' || st.status === 'error' || st.status === 'completed' || st.status === 'cancelled') break
+        if (st.status === 'done' || st.status === 'error' || st.status === 'completed' || st.status === 'cancelled') {
+          // 발급이 종결되면 🗂 내 서류함을 즉시 갱신(새 발급물이 목록·자동첨부 후보에 바로 보이게)
+          if (st.status === 'done' || st.status === 'completed') notifyDocsChanged()
+          break
+        }
       }
     } catch (e) {
       setRpa((s) => ({ ...s, [doc]: { status: 'error', step: e instanceof Error ? e.message : '실패' } }))
@@ -654,6 +660,8 @@ export function DocumentCenter() {
           )
         })}
       </div>
+      {/* 🗂 내 서류함 — 데스크탑 에이전트에서만(이 PC 폴더의 발급/등록물 가시화 + 자동첨부 후보 표시) */}
+      {localAgent && <DocVault />}
     </motion.section>
   )
 }

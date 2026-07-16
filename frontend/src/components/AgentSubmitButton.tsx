@@ -45,6 +45,25 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
     return () => { clearInterval(t); off() }
   }, [policy.name])
 
+  // 📎 자동첨부 미리보기 — '지금 신청하면 붙을 후보'를 서버 기준(/api/documents/list attach_candidate)으로
+  //   미리 보여준다. 자동첨부가 보이지 않는 마법이 아니라 시작 전 확인 가능한 상태가 되게(신뢰성).
+  const [attachPreview, setAttachPreview] = useState<string[] | null>(null)
+  const rpaOn = ready === true && !!caps?.rpa
+  useEffect(() => {
+    if (!rpaOn) { setAttachPreview(null); return }
+    let alive = true
+    fetch(`${getRpaBase()}/api/documents/list`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (!alive || !j) return
+        const names = (j.documents || []).filter((d: { attach_candidate?: boolean }) => d.attach_candidate)
+          .map((d: { display: string }) => d.display)
+        setAttachPreview(names)
+      })
+      .catch(() => { /* 미리보기는 부가 정보 — 실패해도 신청 흐름엔 영향 없음 */ })
+    return () => { alive = false }
+  }, [rpaOn, run?.status])
+
   // 복지로/한국장학재단 신청 URL을 가진 정책이면 자동신청 가능(내장 6종에 국한하지 않음)
   const app = policy.application || ''
   // ⚠️ 로컬 백엔드용 URL은 bestApplyUrl 결과 기준 — 복지로 '홈'(wlfareInfoId 없음, 미등록 서비스)은
@@ -182,6 +201,14 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
       {!run ? (
         <>
           <RpaInfoForm />
+          {/* 📎 자동첨부 미리보기(데스크탑) — 시작 전 '무엇이 자동으로 붙는지' 투명하게 */}
+          {canLocal && attachPreview !== null && (
+            <p className="mt-2 rounded-xl border border-sprout-100 bg-white/70 px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
+              {attachPreview.length > 0
+                ? <>📎 발급/등록해둔 <b className="text-sprout-700">{attachPreview.length}종</b>이 신청 양식에 자동첨부 후보예요: {attachPreview.slice(0, 4).join(' · ')}{attachPreview.length > 4 ? ' 외' : ''} <span>(첨부칸 이름과 맞는 것만 붙어요)</span></>
+                : <>📎 자동첨부할 서류가 아직 없어요 — <b>서류 준비 도우미</b>에서 먼저 발급·촬영하면 신청 때 자동으로 붙어요.</>}
+            </p>
+          )}
           <button onClick={start} className="btn-primary !py-2 mt-3 text-xs"><Bot className="h-4 w-4" /> 에이전트로 신청 시작</button>
         </>
       ) : (

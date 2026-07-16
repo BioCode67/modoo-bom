@@ -387,6 +387,77 @@ async def register_document(request: Request):
     return {"registered": True, "doc_name": doc_name, "saved_path": str(out), "filename": out.name}
 
 
+# 서류함 목록/삭제가 다루는 확장자 — 발급물(PDF/PNG)+등록물(JPG). 그 외 파일은 목록·삭제 대상에서 제외(안전).
+_DOCS_EXT = {".pdf", ".png", ".jpg", ".jpeg"}
+
+
+@app.get("/api/documents/list")
+async def list_documents():
+    """🗂 내 서류함 — 발급/등록된 서류 목록(사용자 본인 PC 폴더). 표시이름·크기·시각과 함께
+    '지금 신청하면 자동첨부 후보인지'(attach_candidate)를 서버 기준(RPA_ATTACH_MAX_AGE)으로 알려줘
+    프론트와 자동첨부 판정이 어긋나지 않게 한다(단일 소스). 같은 PC 사용자 본인용 정보라
+    open-folder/register 와 동일한 무토큰·CORS 게이트 정책을 따른다."""
+    import time as _time
+    from rpa.base import DOCS_DIR
+    import re as _re
+    attach_age = int(os.getenv("RPA_ATTACH_MAX_AGE", "1200"))
+    now = _time.time()
+    items = []
+    try:
+        if DOCS_DIR.is_dir():
+            for p in DOCS_DIR.iterdir():
+                if not p.is_file() or p.suffix.lower() not in _DOCS_EXT:
+                    continue
+                st = p.stat()
+                stem = p.stem
+                # 표시명: 신형 '_YYYY-MM-DD_HHMM(_SS)' / 구형 '_YYYYMMDD_HHMMSS' 접미 제거(recent_issued_docs 와 동일 규칙)
+                display = _re.sub(r"(_\d{4}-\d{2}-\d{2}_\d{4}(_\d{2})?|_\d{8}_\d{6})$", "", stem) or stem
+                items.append({
+                    "filename": p.name,
+                    "display": display,
+                    "ext": p.suffix.lower().lstrip("."),
+                    "size": st.st_size,
+                    "mtime": int(st.st_mtime),
+                    "attach_candidate": (now - st.st_mtime) <= attach_age,
+                })
+    except Exception:
+        pass  # 폴더 접근 실패 시 빈 목록(정직한 폴백 — 프론트는 '폴더 열기'로 유도)
+    items.sort(key=lambda x: x["mtime"], reverse=True)
+    return {"documents": items, "attach_window_sec": attach_age, "folder": str(DOCS_DIR)}
+
+
+@app.post("/api/documents/delete")
+async def delete_document(request: Request):
+    """서류함 파일 삭제 — 잘못 등록/발급한 서류를 앱에서 바로 지운다(PII 정리).
+    파일명(베이스네임)만 받으며, 실제 경로가 서류 폴더 안인지 재검증(rpa-file 과 동일한 이탈 방지)."""
+    from rpa.base import DOCS_DIR
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="요청 형식이 올바르지 않아요.")
+    filename = str((body or {}).get("filename") or "").strip()
+    # 베이스네임만 허용 — 경로 구분자·상위 이동이 섞이면 즉시 거절
+    if not filename or filename != os.path.basename(filename) or filename.startswith(".") or ".." in filename:
+        raise HTTPException(status_code=400, detail="올바르지 않은 파일명이에요.")
+    if os.path.splitext(filename)[1].lower() not in _DOCS_EXT:
+        raise HTTPException(status_code=400, detail="서류함이 관리하는 파일이 아니에요.")
+    target = os.path.realpath(str(DOCS_DIR / filename))
+    docs_root = os.path.realpath(str(DOCS_DIR))
+    try:
+        outside = os.path.commonpath([target, docs_root]) != docs_root
+    except ValueError:
+        outside = True
+    if outside:
+        raise HTTPException(status_code=403, detail="허용되지 않은 파일 경로입니다.")
+    if not os.path.isfile(target):
+        raise HTTPException(status_code=404, detail="파일이 이미 없거나 찾을 수 없어요.")
+    try:
+        os.remove(target)
+    except OSError as e:
+        raise HTTPException(status_code=500, detail=f"삭제 실패: {str(e)[:120]}")
+    return {"deleted": True, "filename": filename}
+
+
 # ── RPA 복지 신청 ──
 @app.get("/api/apply/supported")
 async def apply_supported():
