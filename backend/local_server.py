@@ -214,6 +214,55 @@ async def _selftest_browser():
             os.environ["RPA_HEADLESS"] = _prev_headless
 
 
+@app.get("/api/_diag")
+async def diagnostics():
+    """원클릭 진단 — 발급 실패 시 사용자가 개발자에게 붙여넣을 수 있는 기술 정보(확장의 '진단 복사'와 대칭).
+    ⚠️ PII 무포함 원칙: 실명·서류명·스크린샷·토큰은 절대 싣지 않는다(상태 redaction 하우스 규칙과 동일).
+    태스크는 상태별 '개수'와 최근 오류의 기술 문구(잘라냄)만."""
+    import platform
+    import sys as _sys
+    from rpa.manager import _rpa_tasks, _MAX_CONCURRENT, _active, _waiting
+    from rpa.base import DOCS_DIR
+    from rpa.config import rpa_enabled
+    counts: dict = {}
+    last_error = ""
+    try:
+        for t in list(_rpa_tasks.values()):
+            d = t if isinstance(t, dict) else t.to_dict()
+            st = str(d.get("status") or "?")
+            counts[st] = counts.get(st, 0) + 1
+            if st == "error":
+                # 기술 오류 문구만(발급 실패 원인) — 이름·서류명이 섞일 수 있는 안내문은 첫 줄 200자로 제한
+                last_error = str(d.get("current_step") or "")[:200]
+    except Exception:
+        pass
+    docs_count = 0
+    try:
+        if DOCS_DIR.is_dir():
+            docs_count = sum(1 for p in DOCS_DIR.iterdir() if p.is_file())
+    except Exception:
+        pass
+    try:
+        import playwright  # noqa: F401
+        pw = getattr(playwright, "__version__", "installed")
+    except Exception:
+        pw = "missing"
+    return {
+        "version": "0.3.0",
+        "platform": f"{platform.system()} {platform.release()}",
+        "python": _sys.version.split()[0],
+        "playwright": pw,
+        "rpa_enabled": rpa_enabled(),
+        "browser_channel_env": os.getenv("RPA_BROWSER_CHANNEL", "(auto)"),
+        "active_browser": os.getenv("RPA_ACTIVE_BROWSER", "(not launched yet)"),
+        "capacity": {"max": _MAX_CONCURRENT, "active": _active, "waiting": _waiting},
+        "tasks_by_status": counts,
+        "last_error": last_error,
+        "docs_dir_exists": DOCS_DIR.is_dir(),
+        "docs_file_count": docs_count,
+    }
+
+
 # ── RPA 서류 발급 ──
 # ⚠️ 유지보수 주의: 아래 RPA/apply 엔드포인트는 api/routes.py 의 동명 핸들러를 '의도적으로 복제'한 것이다.
 #   (routes.py 는 상단에서 chromadb/langchain 을 import 해, 경량 로컬 에이전트가 그대로 재사용하면

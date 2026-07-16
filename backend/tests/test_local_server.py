@@ -359,3 +359,26 @@ def test_documents_delete_rejects_traversal_and_foreign(monkeypatch, tmp_path):
         assert r.status_code == 403 and secret.exists()
     except OSError:
         pass  # 심볼릭 미지원 파일시스템이면 스킵
+
+
+def test_diag_has_tech_info_and_no_pii(monkeypatch, tmp_path):
+    """진단(/api/_diag)은 기술 정보만 — 실명·서류명·토큰·스크린샷을 절대 싣지 않는다(redaction 하우스 규칙)."""
+    from rpa import manager, base
+    monkeypatch.setattr(base, "DOCS_DIR", tmp_path)
+    manager._rpa_tasks["dg1"] = {"status": "error", "download_token": "secret-tok",
+                                 "screenshot_b64": "IMG", "user_name": "김복순",
+                                 "doc_name": "기초생활수급자 증명서",
+                                 "current_step": "브라우저를 실행할 수 없습니다 (기술 원인)"}
+    try:
+        r = client.get("/api/_diag")
+        assert r.status_code == 200
+        j = r.json()
+        text = r.text
+        assert j["version"] and j["platform"] and "tasks_by_status" in j
+        assert j["tasks_by_status"].get("error", 0) >= 1
+        assert "브라우저를 실행할 수" in j["last_error"]
+        # PII·비밀 무포함
+        for banned in ("김복순", "기초생활수급자", "secret-tok", "IMG", "user_name", "doc_name", "screenshot"):
+            assert banned not in text, banned
+    finally:
+        manager._rpa_tasks.pop("dg1", None)

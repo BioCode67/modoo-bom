@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Bot, CheckCircle2, Loader2, AlertCircle, Stethoscope } from 'lucide-react'
+import { Bot, CheckCircle2, Loader2, AlertCircle, Stethoscope, ClipboardCopy } from 'lucide-react'
 import { getRpaBase } from '@/lib/backend'
 import { useBackend } from '@/lib/useBackend'
 
@@ -12,6 +12,7 @@ export function AgentStatusStrip() {
   const { ready, caps } = useBackend()
   const [test, setTest] = useState<'idle' | 'running' | 'ok' | 'fail'>('idle')
   const [testMsg, setTestMsg] = useState('')
+  const [diagDone, setDiagDone] = useState(false) // 진단 복사 완료 표시(훅은 조기 return 앞에)
 
   if (ready !== true || !caps?.rpa) return null
   const cap = caps.rpaCapacity
@@ -33,6 +34,16 @@ export function AgentStatusStrip() {
     }
   }
 
+  // 🩺 진단 복사 — 발급이 안 될 때 개발자에게 그대로 붙여넣는 기술 정보(PII 무포함, 서버에서 걸러줌).
+  const copyDiag = async () => {
+    try {
+      const r = await fetch(`${getRpaBase()}/api/_diag`)
+      const j = await r.json()
+      await navigator.clipboard.writeText(`[모두봄 에이전트 진단]\n${JSON.stringify(j, null, 2)}`)
+      setDiagDone(true); setTimeout(() => setDiagDone(false), 2500)
+    } catch { /* 클립보드 미지원 등 — 조용히 무시(부가 기능) */ }
+  }
+
   return (
     <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl border border-sprout-100 bg-sprout-50/50 px-3.5 py-2 text-[11px]">
       <span className="inline-flex items-center gap-1.5 font-bold text-sprout-700">
@@ -51,6 +62,11 @@ export function AgentStatusStrip() {
           title="발급용 브라우저가 실제로 뜨는지 창 없이 점검해요(발급 시작 전 사전 확인)"
           className="rounded-lg border border-sprout-200 bg-white px-2 py-1 font-semibold text-sprout-700 hover:bg-sprout-50 disabled:opacity-50 inline-flex items-center gap-1">
           <Stethoscope className="h-3 w-3" /> 브라우저 점검
+        </button>
+        <button onClick={copyDiag}
+          title="발급이 안 될 때 개발자에게 붙여넣을 기술 정보를 복사해요(개인정보 없음)"
+          className="rounded-lg border border-sprout-200 bg-white px-2 py-1 font-semibold text-sprout-700 hover:bg-sprout-50 inline-flex items-center gap-1">
+          <ClipboardCopy className="h-3 w-3" /> {diagDone ? '복사됨 ✓' : '진단 복사'}
         </button>
       </span>
     </div>
