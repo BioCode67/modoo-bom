@@ -202,6 +202,20 @@ def test_apply_never_clicks_final_welfare_submit():
     assert ("의도적 미사용" in src) or ("누르지 않" in src) or ("human-in-the-loop" in src.lower())
 
 
+def test_journey_orders_docs_before_applications():
+    """완전자동화 연쇄(한 번 인증 → 여러 서류 발급 → 신청서 자동첨부)가 성립하려면, 여정은 모든 '서류 발급'을
+    모든 '복지 신청'보다 먼저 실행해야 한다 — 신청 단계의 자동첨부(recent_issued_docs)가 '방금 발급한' 서류를
+    찾을 수 있게. 순서가 뒤집히면 서류가 아직 없어 자동첨부가 비고, 사용자가 수동 첨부해야 한다(자동화 저하)."""
+    from rpa.orchestrator import _new_journey, _journeys
+    jid = _new_journey(["주민등록등본", "소득금액증명"], ["기초연금", "주거급여"], "테스트")
+    steps = _journeys[jid]["steps"]
+    doc_idx = [i for i, s in enumerate(steps) if s["kind"] == "doc"]
+    apply_idx = [i for i, s in enumerate(steps) if s["kind"] == "apply"]
+    assert doc_idx and apply_idx
+    assert max(doc_idx) < min(apply_idx), f"서류가 신청보다 먼저여야 자동첨부 성립: {[(s['kind'], s['name']) for s in steps]}"
+    _journeys.pop(jid, None)  # 테스트 정리
+
+
 def test_smart_agent_hands_final_submit_and_auth_to_human():
     """지능형 에이전트(smart_agent) 계약: 본인인증·최종제출은 사람에게 넘긴다(human_auth/human_submit).
     execute()가 인증정보를 대신 '제출'하거나 최종신청을 대리 클릭하지 않아야 한다(안전 계약 고정)."""
