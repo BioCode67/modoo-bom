@@ -12,6 +12,7 @@ import { RpaInfoForm } from '@/components/RpaInfoForm'
 import { RemoteRpaSetup } from '@/components/RemoteRpaSetup'
 import { DocCameraModal } from '@/components/DocCameraModal'
 import { DocVault, notifyDocsChanged } from '@/components/DocVault'
+import { AgentStatusStrip } from '@/components/AgentStatusStrip'
 import { cn } from '@/lib/utils'
 
 // 저장 경로를 사람이 읽게 축약 — '…/모두봄서류/주민등록등본_홍길동_2026-07-15_1430.pdf'
@@ -434,6 +435,9 @@ export function DocumentCenter() {
         담은 복지에 필요한 서류 {docs.length}종이에요. {backend ? '에이전트로 자동 발급하거나 발급처로 바로 이동하세요.' : '설치 없이 전자증명서로 발급하거나 발급처로 바로 이동하세요.'}
         {backend && <span className="block mt-0.5 text-xs">🔒 카카오 본인인증은 보안을 위해 본인이 직접 진행해요.</span>}
       </p>
+
+      {/* 🤖 에이전트 상태 스트립 — 연결·버전·발급 슬롯 + 사전 브라우저 점검(데스크탑) */}
+      {localAgent && <div className="mt-3"><AgentStatusStrip /></div>}
 
       {/* ⭐ 무설치 전자발급(전자증명서) — 권장 기본 경로. 확장·서버 없이 정부 공식 유통망으로 발급·제출.
           CTA는 남은 첫 서류의 민원 딥링크로 직결 — 발급 후 돌아와 완료 표시하면 다음 서류를 이어서 안내

@@ -67,7 +67,8 @@ export function AgentSummary() {
         {active
           ? ' 지금 바로 실행할 수 있어요.'
           : ' 지금 이 화면에서 설치 없이, 아래 ‘서류 준비 도우미’의 전자증명서 발급·공식 신청 링크로 바로 진행하실 수 있어요. 로그인·클릭·양식까지 대신하는 완전 자동은 데모용 에이전트를 연결하면 켜져요.'}
-        <span className="block mt-0.5 text-xs">🔒 개인정보는 서버로 전송되지 않고, 본인인증·최종 제출은 본인이 직접 합니다.</span>
+        {/* 원격 RPA 옵트인 시엔 '미전송'이 거짓 — 사실대로 분기(정직성 원칙) */}
+        <span className="block mt-0.5 text-xs">🔒 {caps?.rpaRemote ? '개인정보(이름·생년월일·연락처)는 회원님이 동의한 원격 에이전트로만 전송돼 자동입력에 쓰이고,' : '개인정보는 서버로 전송되지 않고,'} 본인인증·최종 제출은 본인이 직접 합니다.</span>
       </p>
 
       <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">

@@ -14,7 +14,9 @@ const AUTH_PROVIDERS = [
 
 /**
  * 에이전트 자동입력용 추가정보 입력(선택).
- * 본인인증 폼 자동 작성에만 쓰이며, 서버 전송 없이 내 기기(localStorage)에만 저장.
+ * 본인인증 폼 자동 작성에만 쓰이며, 기본은 서버 전송 없이 내 기기(localStorage)에만 저장.
+ * ⚠️ 예외: 사용자가 '원격 RPA 서버'에 명시 동의(rpaRemote)한 경우엔 그 서버로 전송돼 자동입력에 쓰인다 —
+ * 문구도 그 사실대로 분기한다(거짓 '미전송' 표기 금지, 정직성 원칙).
  */
 export function RpaInfoForm() {
   const { rpaInfo, setRpaInfo, resetForNextUser } = useAppStore()
@@ -29,7 +31,7 @@ export function RpaInfoForm() {
   return (
     <div className="mt-3 rounded-xl bg-white border border-sprout-100 p-3 space-y-2 scroll-mt-24">
       <p className="text-[11px] font-bold flex items-center gap-1 text-muted-foreground">
-        <ShieldCheck className="h-3.5 w-3.5 text-sprout-500" /> 자동입력 추가정보 (선택 · 내 기기에만 저장)
+        <ShieldCheck className="h-3.5 w-3.5 text-sprout-500" /> 자동입력 추가정보 (선택 · {caps?.rpaRemote ? '동의한 원격 에이전트로 전송돼 자동입력에만 사용' : '내 기기에만 저장'})
       </p>
       <p className="text-[11px] text-sprout-700 leading-relaxed">
         실명·생년월일·휴대폰을 넣어두면 서류 발급 때 <b>본인인증 화면까지 자동으로 채워드려요</b> — 폰에서 ‘인증 허용’만 누르면 끝이에요.

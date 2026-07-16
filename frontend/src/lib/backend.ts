@@ -26,6 +26,10 @@ export interface Capabilities {
   rpaRemote?: boolean
   ai_provider?: string
   rag?: string
+  /** 에이전트 버전(health.version) — 상태 스트립 표시·구버전 안내용 */
+  version?: string
+  /** 발급 동시성 상태(health.capabilities.rpa_capacity) — 슬롯 여유/혼잡 표시용 */
+  rpaCapacity?: { max_concurrent?: number; active?: number; waiting?: number; accepting?: boolean }
 }
 
 const ENV_API_BASE = (import.meta.env.VITE_API_BASE as string | undefined)?.trim() || ''
@@ -110,7 +114,11 @@ async function fetchHealth(base: string, ms: number): Promise<Capabilities | nul
     clearTimeout(t)
     if (!res.ok) return null
     const j = await res.json().catch(() => ({}))
-    return (j.capabilities as Capabilities) ?? { ai: j.mode === 'production', rpa: false }
+    const c = (j.capabilities as Capabilities & { rpa_capacity?: Capabilities['rpaCapacity'] }) ?? { ai: j.mode === 'production', rpa: false }
+    // 상태 스트립용 부가정보 — 버전(top-level)과 발급 동시성(rpa_capacity)을 함께 실어온다
+    if (j.version) c.version = String(j.version)
+    if (c.rpa_capacity) c.rpaCapacity = c.rpa_capacity
+    return c
   } catch {
     return null
   }
@@ -213,12 +221,15 @@ function finalizeCaps(
   //    잠깐 무응답이어도 로컬(경량 서버, WS/LLM 없음)으로 덮어써 실제 클라우드 AI를 영영 못 깨우는 것을 방지.
   //    (클라우드는 이후 실제 분석/챗 연결에서 깨어나거나 클라이언트 엔진으로 폴백)
   if (!aiCaps && local && !ENV_API_BASE) API_BASE = LOCAL_AGENT
+  const rpaSrc = local?.rpa ? local : (rpaRemote ? remoteRpaCaps : local) // 상태 스트립 정보는 실제 RPA 소스에서
   caps = {
     ai: aiCaps?.ai ?? local?.ai ?? false,
     rpa: rpaOk, // 로컬 RPA 베이스가 확정됐는지(''=동일출처도 유효). 클라우드는 isLocalRpaBase=false 로 차단됨.
     rpaRemote, // true=옵트인 원격 서버 RPA(PII 가 서버를 거침 → UI 는 동의 안내 유지)
     ai_provider: aiCaps?.ai_provider ?? (remoteRpaCaps?.ai_provider ?? local?.ai_provider),
     rag: aiCaps?.rag ?? local?.rag,
+    version: rpaSrc?.version,
+    rpaCapacity: rpaSrc?.rpaCapacity,
   }
 }
 
