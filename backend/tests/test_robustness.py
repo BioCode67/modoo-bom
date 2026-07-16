@@ -279,3 +279,81 @@ def test_gov24_form_options_helper_exists():
     # #1 회귀: 폼 옵션 선택 헬퍼가 존재(가족관계 유형·발급목적/연도 미선택 보완). 실동작은 Playwright 필요.
     from rpa import gov24_rpa
     assert callable(getattr(gov24_rpa, "_select_doc_form_options", None))
+
+
+# ── ETL save_catalog: 원자적 저장(임시파일+os.replace) — 실패해도 기존 파일 보존 ──
+class TestEtlAtomicSave:
+    def _seed(self, tmp_path):
+        out = tmp_path / "policies.json"
+        out.write_text(json.dumps([{"id": "OLD-1", "name": "기존"}], ensure_ascii=False),
+                       encoding="utf-8")
+        return out
+
+    def test_success_replaces_and_cleans_tmp(self, tmp_path):
+        from etl.ingest_welfare import save_catalog
+        out = self._seed(tmp_path)
+        assert save_catalog(out, [{"id": "NEW-1", "name": "새정책"}]) is True
+        data = json.loads(out.read_text(encoding="utf-8"))
+        assert data[0]["id"] == "NEW-1"
+        assert not (tmp_path / "policies.json.tmp").exists()
+
+    def test_creates_parent_dirs(self, tmp_path):
+        from etl.ingest_welfare import save_catalog
+        out = tmp_path / "a" / "b" / "policies.json"
+        assert save_catalog(out, [{"id": "X"}]) is True
+        assert json.loads(out.read_text(encoding="utf-8")) == [{"id": "X"}]
+
+    def test_serialization_failure_keeps_original(self, tmp_path):
+        # json.dumps 불가 값(set) → False 반환, 원본 무손상, 임시파일 정리
+        from etl.ingest_welfare import save_catalog
+        out = self._seed(tmp_path)
+        assert save_catalog(out, [{"id": "BAD", "tags": {"집합"}}]) is False
+        assert json.loads(out.read_text(encoding="utf-8"))[0]["id"] == "OLD-1"
+        assert not (tmp_path / "policies.json.tmp").exists()
+
+    def test_oserror_on_replace_keeps_original(self, tmp_path, monkeypatch):
+        # 디스크 부족(ENOSPC) 등 os.replace 실패 → False 반환, 원본 무손상, 임시파일 정리
+        import errno
+        import os as _os
+        from etl import ingest_welfare
+
+        out = self._seed(tmp_path)
+
+        def boom(src, dst):
+            raise OSError(errno.ENOSPC, "No space left on device")
+
+        monkeypatch.setattr(ingest_welfare.os, "replace", boom)
+        assert ingest_welfare.save_catalog(out, [{"id": "NEW-1"}]) is False
+        assert json.loads(out.read_text(encoding="utf-8"))[0]["id"] == "OLD-1"
+        assert not (tmp_path / "policies.json.tmp").exists()
+
+
+# ── ETL extract_conditions: 나이 경계 파싱 — _AGE_OPS 딕셔너리화 후에도 동작 동일 ──
+class TestEtlAgeConditions:
+    def _age(self, text):
+        from etl.ingest_welfare import extract_conditions
+        return extract_conditions(text).get("age")
+
+    def test_explicit_bounds(self):
+        assert self._age("만 65세 이상") == {"min": 65}
+        assert self._age("만 18세 초과") == {"min": 19}      # 초과 → min+1 (폐구간 정규화)
+        assert self._age("만 34세 이하") == {"max": 34}
+        assert self._age("만 40세 미만") == {"max": 39}      # 미만 → max-1
+
+    def test_range_tokens(self):
+        assert self._age("만 19세~34세 청년") == {"min": 19, "max": 34}
+        assert self._age("20세부터 30세까지") == {"min": 20, "max": 30}
+        assert self._age("만 19세 이상 34세 이하") == {"min": 19, "max": 34}
+
+    def test_first_bound_wins(self):
+        # 같은 종류 경계가 반복되면 첫 값만 채택
+        assert self._age("만 65세 이상, 만 70세 이상 우대") == {"min": 65}
+
+    def test_ambiguous_tokens_ignored(self):
+        # 경계어 없는 단독/나열 토큰과 op=None은 KeyError 없이 조용히 무시(오게이트 방지)
+        assert self._age("만 20세") is None
+        assert self._age("만 20세 또는 25세") is None
+        assert self._age("2026세대 지원") is None            # MAX_AGE 초과 잡음 배제
+
+    def test_contradictory_range_dropped(self):
+        assert self._age("만 65세 이상 30세 이하") is None    # lo > hi → 통째로 버림

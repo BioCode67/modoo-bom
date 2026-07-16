@@ -28,6 +28,7 @@
 from __future__ import annotations
 import argparse
 import csv
+import errno
 import io
 import json
 import os
@@ -142,12 +143,20 @@ _HOUSEHOLD_TAGS = {
 _INCOME_RE = re.compile(r"(중위소득|기준중위소득)\s*(?P<pct>[0-9]{1,3})\s*%|소득인정액|소득[^.]{0,6}이하")
 
 # 나이 조건 — '만 N세' 뒤에 바로 붙는 경계 표현만 신뢰한다.
-#   이상→min · 초과→min+1 · 이하→max · 미만→max-1 · (~ / - / 부터)→범위의 하한
+#   경계어→(min/max, 보정) 매핑은 _AGE_OPS · (~ / - / 부터)→범위의 하한
 # 경계어 없는 단독/나열/오타 토큰('만 20세', '만 20세 또는 25세')은 잘못된 자격 차단
 # (오게이트)을 막기 위해 조용히 무시한다. op 그룹은 '세' 바로 뒤 1개만 캡처하므로
 # mid가 다음 절까지 삼키던 문제도 없다.
 MAX_AGE = 120
 _AGE_RE = re.compile(r"(?:만\s*)?(?P<age>[0-9]{1,3})\s*세\s*(?P<op>이상|이하|미만|초과|부터|~|-)?")
+# 경계어 → (경계 종류, 보정값). 새 경계어는 여기에만 추가하면 된다.
+#   폐구간으로 정규화: 초과 = min을 1 올림, 미만 = max를 1 내림
+_AGE_OPS = {
+    "이상": ("min", 0),
+    "초과": ("min", +1),
+    "이하": ("max", 0),
+    "미만": ("max", -1),
+}
 
 
 def extract_conditions(*texts: str) -> dict:
@@ -174,19 +183,15 @@ def extract_conditions(*texts: str) -> dict:
         val = int(m.group("age"))
         if not (0 <= val <= MAX_AGE):   # 연도·코드 등 잡음 배제
             continue
-        op = m.group("op")
-        if op == "이상":
-            if lo is None:
-                lo = val
-        elif op == "초과":
-            if lo is None:
-                lo = val + 1
-        elif op == "이하":
-            if hi is None:
-                hi = val
-        elif op == "미만":
-            if hi is None:
-                hi = val - 1
+        op = m.group("op")            # 경계어 미포착 시 None — .get(None)도 안전
+        bound = _AGE_OPS.get(op)
+        if bound:
+            key, delta = bound
+            if key == "min":
+                if lo is None:        # 첫 경계만 채택(뒤따르는 중복 경계는 무시)
+                    lo = val + delta
+            elif hi is None:          # key == "max"
+                hi = val + delta
         elif op in ("~", "-", "부터"):
             if lo is None:
                 lo = val
@@ -662,6 +667,46 @@ def dedupe(policies: list[dict]) -> list[dict]:
     return out
 
 
+def save_catalog(out_path: Path, policies: list[dict]) -> bool:
+    """카탈로그를 원자적으로 저장하고 성공 여부를 돌려준다.
+
+    ① 같은 디렉터리의 `.tmp` 임시파일에 완성본 JSON을 전부 기록
+    ② 기록이 끝까지 성공했을 때만 os.replace()로 원본과 교체(원자적·크로스플랫폼)
+    ③ 도중 실패(디스크 부족·권한·직렬화 오류·중단)하면 임시파일만 정리하고 False
+       → 어떤 경우에도 기존 policies.json 이 반쯤 잘린 채 깨지지 않는다.
+    """
+    tmp_path = out_path.with_name(out_path.name + ".tmp")
+    try:
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        tmp_path.write_text(json.dumps(policies, ensure_ascii=False, indent=2), encoding="utf-8")
+        os.replace(tmp_path, out_path)  # 같은 디렉터리 → 같은 파일시스템이라 원자적
+        return True
+    except OSError as e:
+        # 복구 가능한 오류는 원인별 안내만 하고 종료코드로 알린다(스택트레이스로 죽지 않음).
+        if e.errno == errno.ENOSPC:
+            hint = "디스크 공간이 부족합니다. 공간을 확보한 뒤 다시 실행하세요."
+        elif e.errno in (errno.EACCES, errno.EPERM):
+            hint = f"쓰기 권한이 없습니다. 디렉터리 권한을 확인하세요: {out_path.parent}"
+        elif e.errno == errno.EROFS:
+            hint = "읽기 전용 파일시스템입니다. --out 으로 쓰기 가능한 경로를 지정하세요."
+        else:
+            hint = "경로/디스크 상태를 확인한 뒤 재시도하세요."
+        print(f"[etl] ❌ 저장 실패 ({e}) — {hint}\n"
+              f"      기존 파일은 그대로 유지됩니다: {out_path}")
+        return False
+    except (TypeError, ValueError) as e:
+        # json.dumps 실패 — 수집 데이터에 직렬화 불가 값이 섞인 경우
+        print(f"[etl] ❌ JSON 직렬화 실패 ({e}) — 수집 데이터를 확인하세요. "
+              f"기존 파일은 그대로 유지됩니다: {out_path}")
+        return False
+    finally:
+        # 성공 시엔 os.replace 로 이미 이동됐으므로 missing_ok 로 조용히 넘어간다
+        try:
+            tmp_path.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="모두봄 복지정책 ETL")
     ap.add_argument("--csv", type=str, help="공개 CSV 경로 (키 불필요). 여러 개면 콤마로 구분")
@@ -693,7 +738,8 @@ def main() -> int:
         combined = dedupe([p for p in (existing + sch) if p.get("name")])  # 기존 우선
         for p in combined:
             enrich_fields(p)
-        out_path.write_text(json.dumps(combined, ensure_ascii=False, indent=2), encoding="utf-8")
+        if not save_catalog(out_path, combined):
+            return 1
         added = len(combined) - len(existing)
         cash = sum(1 for p in combined if p.get("is_cash"))
         print(f"[etl] ✅ 병합 완료 — 총 {len(combined)}건(+{added} 장학금) · 현금성 {cash} → {out_path}")
@@ -716,7 +762,8 @@ def main() -> int:
         combined = dedupe([p for p in (existing + yth) if p.get("name")])  # 기존 우선
         for p in combined:
             enrich_fields(p)
-        out_path.write_text(json.dumps(combined, ensure_ascii=False, indent=2), encoding="utf-8")
+        if not save_catalog(out_path, combined):
+            return 1
         added = len(combined) - len(existing)
         print(f"[etl] ✅ 병합 완료 — 총 {len(combined)}건(+{added} 청년정책) → {out_path}")
         return 0
@@ -730,7 +777,8 @@ def main() -> int:
         existing = json.loads(out_path.read_text(encoding="utf-8"))
         for p in existing:
             enrich_fields(p)
-        out_path.write_text(json.dumps(existing, ensure_ascii=False, indent=2), encoding="utf-8")
+        if not save_catalog(out_path, existing):
+            return 1
         cash = sum(1 for p in existing if p.get("is_cash"))
         amt = sum(1 for p in existing if p.get("amount_krw"))
         cond = sum(1 for p in existing if p.get("conditions"))
@@ -752,7 +800,8 @@ def main() -> int:
         promoted = enrich_from_detail(existing, key)
         for p in existing:
             enrich_fields(p)
-        out_path.write_text(json.dumps(existing, ensure_ascii=False, indent=2), encoding="utf-8")
+        if not save_catalog(out_path, existing):
+            return 1
         cash = sum(1 for p in existing if p.get("is_cash"))
         docs = sum(1 for p in existing if p.get("required_docs"))
         print(f"[etl] ✅ 승격 {promoted}건 · 현금성 {cash}건 · 서류보유 {docs}건 → {out_path}")
@@ -804,8 +853,8 @@ def main() -> int:
         enrich_fields(p)
 
     out_path = Path(args.out).expanduser()
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(json.dumps(policies, ensure_ascii=False, indent=2), encoding="utf-8")
+    if not save_catalog(out_path, policies):
+        return 1
     cats = {}
     for p in policies:
         cats[p["category"]] = cats.get(p["category"], 0) + 1
