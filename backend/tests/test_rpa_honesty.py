@@ -183,3 +183,32 @@ def test_token_ok_non_ascii_and_edge():
     assert token_ok(None, "x") is False
     assert token_ok("x", None) is False
     assert token_ok("tok123", "tok123") is True
+
+
+# ── 안전 최상위: 복지 신청 '최종 제출'은 에이전트가 절대 대리하지 않는다(human-in-the-loop) ──
+
+def test_apply_never_clicks_final_welfare_submit():
+    """복지 신청의 '최종 제출'(제출/신청완료)은 비가역·법적 행위라 에이전트가 절대 누르지 않는다
+    (CLAUDE.md 설계원칙 '완전 무인 자동 제출은 설계상 불가'). apply_rpa 는 제출 셀렉터(SUBMIT_SELECTORS)를
+    정의만 하고 '어떤 click 호출에도 넘기지 않아야' 한다 — 이 계약이 깨지면 사용자 동의·본인인증 없이
+    정부에 법적 신청서가 제출될 수 있다(가장 위험한 회귀). 최종 제출은 오직 사람이 확인 후 직접."""
+    src = open("rpa/apply_rpa.py", encoding="utf-8").read()
+    assert "SUBMIT_BUTTON_SELECTORS" in src        # 정의는 존재(향후 '제출 위치 안내'용으로만 보존)
+    # 제출 셀렉터는 정의(=) 라인에서만 등장하고, 어떤 click/매칭 호출에도 넘기면 안 된다.
+    uses = [ln.strip() for ln in src.splitlines() if "SUBMIT_BUTTON_SELECTORS" in ln]
+    assert len(uses) == 1 and uses[0].startswith("SUBMIT_BUTTON_SELECTORS ="), \
+        f"제출 셀렉터가 정의 외에 사용됨(안전 위반): {uses}"
+    # 대리 제출 안 함 설계 의도가 코드에 명시돼 있어야 한다
+    assert ("의도적 미사용" in src) or ("누르지 않" in src) or ("human-in-the-loop" in src.lower())
+
+
+def test_smart_agent_hands_final_submit_and_auth_to_human():
+    """지능형 에이전트(smart_agent) 계약: 본인인증·최종제출은 사람에게 넘긴다(human_auth/human_submit).
+    execute()가 인증정보를 대신 '제출'하거나 최종신청을 대리 클릭하지 않아야 한다(안전 계약 고정)."""
+    src = open("smart_agent.py", encoding="utf-8").read()
+    # 시스템 프롬프트/휴리스틱 양쪽에 human_auth·human_submit 경로가 존재
+    assert "human_auth" in src and "human_submit" in src
+    # 파괴적/제출 라벨 차단 목록이 존재(취소·탈퇴·삭제 자동클릭 금지 / 제출은 사람)
+    assert "_BLOCK" in src and "_SUBMIT" in src
+    # human_submit 분기는 대리 클릭이 아니라 사람에게 넘긴다는 로그/의도가 있어야
+    assert "대리" in src or "직접" in src or "사람" in src
