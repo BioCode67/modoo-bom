@@ -10,6 +10,7 @@ import { detectExtension, issueViaExtension, issueManyViaExtension, getExtension
 import { setPendingReturn } from '@/lib/returnPrompt'
 import { RpaInfoForm } from '@/components/RpaInfoForm'
 import { RemoteRpaSetup } from '@/components/RemoteRpaSetup'
+import { DocCameraModal } from '@/components/DocCameraModal'
 import { cn } from '@/lib/utils'
 
 // 저장 경로를 사람이 읽게 축약 — '…/모두봄서류/주민등록등본_홍길동_2026-07-15_1430.pdf'
@@ -57,32 +58,46 @@ export function DocumentCenter() {
   // 진행 중 여정 id/토큰 — [중단] 버튼이 여정 전체를 취소할 수 있게 보관(단건은 taskId로 취소)
   const journeyRef = useRef<{ id: string; running: boolean } | null>(null)
 
-  // 📎 내 서류함 — 자동발급 불가 서류(임대차계약서·신분증 등)를 사용자가 직접 등록 → 로컬 서버가 발급 폴더에
-  //   같은 이름 규칙으로 저장 → 복지 신청의 자동첨부(recent_issued_docs)가 이 파일도 찾아 붙인다.
-  //   데스크탑 앱 전용(파일은 서버로 안 나가고 내 PC 폴더에만 저장).
+  // 📎/📷 내 서류함 — 자동발급 불가 서류(임대차계약서·신분증 등)를 사용자가 직접 등록/촬영 → 데스크탑앱이면
+  //   로컬 서버가 발급 폴더에 같은 이름 규칙으로 저장 → 복지 신청의 자동첨부(recent_issued_docs)가 이 파일도
+  //   찾아 붙인다. 웹(로컬 서버 없음)이면 파일로 내려받아 사용자가 신청 화면에서 직접 첨부.
   const fileInputRef = useRef<HTMLInputElement>(null)
   const registerForRef = useRef<string | null>(null)
   const [registered, setRegistered] = useState<Record<string, string>>({}) // 서류명 -> 상태 메시지
+  const [cameraFor, setCameraFor] = useState<string | null>(null) // 촬영 모달 대상 서류
   const pickFileFor = (doc: string) => { registerForRef.current = doc; fileInputRef.current?.click() }
-  const onFilePicked = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    const doc = registerForRef.current
-    e.target.value = '' // 같은 파일 다시 선택 가능하게 리셋
-    if (!file || !doc) return
+
+  // 파일/촬영본(Blob)을 서류함에 등록(데스크탑) 또는 내려받기(웹) — 파일선택·촬영이 공유하는 단일 경로.
+  const registerBlob = async (doc: string, blob: Blob, filename: string) => {
     setRegistered((s) => ({ ...s, [doc]: '등록 중…' }))
     try {
+      if (!localAgent) {
+        // 웹: 저장할 로컬 폴더가 없으니 파일로 내려받아 사용자가 신청 화면에서 직접 첨부하게 한다(정직한 폴백).
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a'); a.href = url; a.download = filename; a.click()
+        setTimeout(() => URL.revokeObjectURL(url), 1500)
+        setRegistered((s) => ({ ...s, [doc]: `⬇️ ${filename} 저장됨 — 신청 화면에서 이 파일을 첨부하세요` }))
+        if (!isDocDone(doc)) toggleDocDone(doc)
+        return
+      }
       const fd = new FormData()
       fd.append('doc_name', doc)
       fd.append('user_name', rpaInfo.name || profile?.name || '')
-      fd.append('file', file)
+      fd.append('file', blob, filename)
       const res = await fetch(`${getRpaBase()}/api/documents/register`, { method: 'POST', body: fd })
       if (!res.ok) { const d = await res.json().then((x) => x?.detail).catch(() => ''); throw new Error(d || '등록에 실패했어요.') }
       const r = await res.json()
-      setRegistered((s) => ({ ...s, [doc]: `✅ 등록됨 — 신청할 때 자동으로 첨부돼요 (${r.filename || file.name})` }))
+      setRegistered((s) => ({ ...s, [doc]: `✅ 등록됨 — 신청할 때 자동으로 첨부돼요 (${r.filename || filename})` }))
       if (!isDocDone(doc)) toggleDocDone(doc) // 준비 완료로 표시(체크리스트·신청 준비에 반영)
     } catch (err) {
       setRegistered((s) => ({ ...s, [doc]: err instanceof Error ? err.message : '등록에 실패했어요.' }))
     }
+  }
+  const onFilePicked = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    const doc = registerForRef.current
+    e.target.value = '' // 같은 파일 다시 선택 가능하게 리셋
+    if (file && doc) registerBlob(doc, file, file.name)
   }
 
   // ⏹ 진행 중 자동발급 중단 — 멈춘 카드의 복구 수단(백엔드 취소 API 호출). 로컬 에이전트에서만.
@@ -391,6 +406,14 @@ export function DocumentCenter() {
       {/* 📎 내 서류함 파일 선택(숨김) — '등록' 클릭 시 열리고, 선택하면 로컬 서버 발급 폴더에 저장 */}
       <input ref={fileInputRef} type="file" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg"
         className="hidden" onChange={onFilePicked} aria-hidden="true" tabIndex={-1} />
+      {/* 📷 서류 촬영 모달 — 완성 PDF를 서류함 등록(데스크탑) 또는 내려받기(웹) */}
+      {cameraFor && (
+        <DocCameraModal
+          docName={cameraFor}
+          onClose={() => setCameraFor(null)}
+          onComplete={(pdf) => registerBlob(cameraFor, new Blob([pdf as BlobPart], { type: 'application/pdf' }), `${cameraFor}.pdf`)}
+        />
+      )}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h2 className="text-lg font-extrabold flex items-center gap-2"><FileText className="h-5 w-5 text-sky2-500" /> 서류 준비 도우미</h2>
         {backend ? (
@@ -583,14 +606,26 @@ export function DocumentCenter() {
                     클릭 시 이름 클립보드 준비 + 복귀 확인 대기(발급 완료를 앱이 기억하게) */}
                 {/* 자동발급 불가 '본인 준비물'(임대차계약서·신분증 등): 데스크탑앱이면 '내 파일 등록'(→ 신청 자동첨부),
                     웹이면 정직하게 '본인 준비물' 칩(포털 홈 가짜 '발급' 버튼 금지, 감사 확정). */}
-                {!done && userProvided && localAgent ? (
-                  <button
-                    onClick={() => pickFileFor(doc)}
-                    title="내가 가진 파일(PDF·사진)을 등록하면 신청할 때 자동으로 첨부돼요"
-                    className="btn-secondary !px-3 !py-2 text-xs whitespace-nowrap"
-                  >
-                    📎 {regMsg?.startsWith('✅') ? '다시 등록' : '내 파일 등록'}
-                  </button>
+                {!done && userProvided ? (
+                  <>
+                    {/* 📷 촬영 → 자동 대비 보정 + 제출용 PDF. 데스크탑은 서류함 등록(자동첨부), 웹은 PDF 내려받기. */}
+                    <button
+                      onClick={() => setCameraFor(doc)}
+                      title="촬영하면 보정해서 제출용 PDF로 만들어요"
+                      className="btn-primary !px-2.5 !py-2 text-xs whitespace-nowrap"
+                    >
+                      📷 촬영
+                    </button>
+                    {localAgent && (
+                      <button
+                        onClick={() => pickFileFor(doc)}
+                        title="내가 가진 파일(PDF·사진)을 등록하면 신청할 때 자동으로 첨부돼요"
+                        className="btn-secondary !px-2.5 !py-2 text-xs whitespace-nowrap"
+                      >
+                        📎 {regMsg?.startsWith('✅') ? '다시' : '파일'}
+                      </button>
+                    )}
+                  </>
                 ) : !done && /본인 (준비|지참|보관)/.test(link.label) ? (
                   <span className="rounded-xl border-2 border-sprout-100 bg-sprout-50/60 px-3 py-2 text-xs font-semibold text-muted-foreground">
                     본인 준비물
