@@ -175,6 +175,18 @@ export function bestApplyUrl(application: string, policyName?: string, policyId?
 }
 
 /**
+ * 이 정책이 '복지로 자동신청(에이전트·확장)'이 실제로 가능한 딥링크로 해석되는가 —
+ * 자동신청 버튼 노출·'나의 복지' 집계가 어긋나지 않도록 하는 단일 기준.
+ * (application 필드가 '복지로 온라인 신청' 같은 표시문자열이어도 bestApplyUrl이 WLF…로 해석되면 true)
+ */
+export function isBokjiroApplyable(application: string, policyName?: string, policyId?: string): boolean {
+  const u = bestApplyUrl(application, policyName, policyId)
+  // 복지로 '딥링크'(wlfareInfoId 등)만 자동신청 대상 — 홈(www.bokjiro.go.kr)으로만 빠지는
+  //   방문형·미해석 정책을 자동신청 가능으로 오판하지 않게 generic 홈은 제외.
+  return /bokjiro\.go\.kr/.test(u) && !isGenericHome(u)
+}
+
+/**
  * 신청 CTA용 URL+라벨 세트 — 라벨은 '최종 목적지' 기준으로 산출해 라벨-착지 불일치를 없앤다
  * (감사 확정: raw applyLink 라벨('복지로에서 신청')을 단 버튼이 실제론 정부24 검색으로 가던 것).
  */

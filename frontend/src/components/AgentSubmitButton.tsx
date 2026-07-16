@@ -4,7 +4,7 @@ import type { Policy } from '@/data/policies'
 import type { EligiblePolicy } from '@/lib/welfare-engine'
 import { useBackend } from '@/lib/useBackend'
 import { isApplyAutomatable, applyLink } from '@/lib/officialLinks'
-import { bestApplyUrl } from '@/lib/quickApply'
+import { bestApplyUrl, isBokjiroApplyable } from '@/lib/quickApply'
 import { getRpaBase } from '@/lib/backend'
 import { detectExtension, applyViaExtension, onExtensionStatus, sameDocName } from '@/lib/extension'
 import { RpaInfoForm } from '@/components/RpaInfoForm'
@@ -47,14 +47,17 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
   // ⚠️ 로컬 백엔드용 URL은 bestApplyUrl 결과 기준 — 복지로 '홈'(wlfareInfoId 없음, 미등록 서비스)은
   //   bestApplyUrl이 gov.kr 검색으로 폴백해 백엔드가 400을 낸다. 결과가 실제 복지로일 때만 로컬 자동신청.
   const localApplyUrl = bestApplyUrl(policy.application, policy.name, policy.id)
-  const isBokjiroLocal = /bokjiro\.go\.kr/.test(localApplyUrl)
+  // 복지로 '딥링크'로 해석될 때만(홈으로만 빠지는 방문형 제외) 자동신청 노출/구동 — 단일 기준 helper 사용
+  const isBokjiroLocal = isBokjiroApplyable(policy.application, policy.name, policy.id)
   const isExtApplyable = /bokjiro\.go\.kr/.test(app) || /kosaf\.go\.kr/.test(app)  // 확장은 원 URL 기준(복지로+장학재단)
-  const showApply = automatable || isExtApplyable
+  // ⚠️ application 필드가 '복지로 온라인 신청'처럼 URL이 아닌 표시문자열이면 isExtApplyable=false라
+  //   청년월세지원 등 인기 서비스의 자동신청 버튼이 통째로 숨던 결함 → 해석된 복지로 딥링크(isBokjiroLocal)도 노출조건에 포함.
+  const showApply = automatable || isExtApplyable || isBokjiroLocal
   if (!showApply) return null
 
   // 실제 자동화 가능 여부: 확장(복지로/장학재단) 또는 로컬 에이전트(내장 6종 + 복지로 딥링크 일반화).
   const rpaReady = ready === true && !!caps?.rpa
-  const canExt = ext && isExtApplyable
+  const canExt = ext && (isExtApplyable || isBokjiroLocal)  // 확장도 해석된 복지로 딥링크로 신청 가능
   const canLocal = rpaReady && (automatable || isBokjiroLocal)
   const canRpa = canExt || canLocal
   if (!canRpa) {
@@ -83,7 +86,7 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
       const r = await applyViaExtension(policy.name, {
         user_name: rpaInfo.name || profile?.name || '사용자', birth_date: rpaInfo.birth_date, phone: rpaInfo.phone, carrier: rpaInfo.carrier,
         auth_provider: rpaInfo.auth_provider || 'kakao', // 확장 자동신청에도 인증수단 전달
-      }, policy.application)
+      }, localApplyUrl || policy.application) // 원 URL 대신 해석된 복지로 딥링크 전달(표시문자열이어도 이동 가능)
       if (!r.ok) setRun({ status: 'error', step: r.error || '이 서비스는 확장 자동신청을 아직 지원하지 않아요.', at: Date.now() })
       runningRef.current = false
       return

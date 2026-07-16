@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { bestApplyUrl, bestApplyInfo, isGenericHome, oneTapApply, borrowApplyUrl, KNOWN_APPLY_URLS } from './quickApply'
+import { bestApplyUrl, bestApplyInfo, isGenericHome, oneTapApply, borrowApplyUrl, isBokjiroApplyable, KNOWN_APPLY_URLS } from './quickApply'
 import { getCatalog } from '@/data/catalog'
 
 // 카탈로그 교차참조 테스트를 위해 getCatalog를 목킹(기본 빈 배열 → 기존 폴백 동작 유지).
@@ -58,6 +58,19 @@ describe('bestApplyUrl — 확장(2026-07): seed 정책도 실제 신청 상세�
   it('장애인연금·노인일자리 등 확장 정책도 복지로 직행', () => {
     expect(bestApplyUrl('복지로 신청', '장애인연금')).toContain('WLF00003249')
     expect(bestApplyUrl('주민센터 또는 복지로', '노인 일자리 및 사회활동 지원')).toContain('WLF00001155')
+  })
+})
+
+describe('isBokjiroApplyable — 자동신청 노출·집계 단일 기준(버튼과 요약 일치)', () => {
+  it('청년월세지원: application이 표시문자열이어도 복지로 딥링크로 해석 → true(버튼 노출 근거)', () => {
+    expect(isBokjiroApplyable('복지로 온라인 신청', '청년월세지원', 'POL-009')).toBe(true)
+  })
+  it('복지로 딥링크로 해석 안 되는 정책 → false', () => {
+    expect(isBokjiroApplyable('주민센터 방문 신청', '어떤 방문형 복지', 'POL-999')).toBe(false) // 오프라인 전용
+    expect(isBokjiroApplyable('복지로 신청', '희귀정책명', 'POL-998')).toBe(false) // gov.kr 검색 폴백(복지로 아님)
+  })
+  it('지자체(LOC-) 정책은 동명 국가사업 딥링크를 빌리지 않아 false(오연결 방지)', () => {
+    expect(isBokjiroApplyable('복지로 온라인 신청', '청년월세지원', 'LOC-1')).toBe(false)
   })
 })
 

@@ -4,6 +4,7 @@ import { Bot, FileText, Send, CheckCircle2, ExternalLink } from 'lucide-react'
 import { getPolicyMap } from '@/data/catalog'
 import { useAppStore } from '@/store/useAppStore'
 import { isRpaSupported, isApplyAutomatable } from '@/lib/officialLinks'
+import { isBokjiroApplyable } from '@/lib/quickApply'
 import { useBackend } from '@/lib/useBackend'
 import { detectExtension } from '@/lib/extension'
 
@@ -28,10 +29,13 @@ export function AgentSummary() {
     tracked.forEach((t) => {
       const p = map[t.policyId]
       if (!p) return
+      // 자동신청 노출 기준을 AgentSubmitButton과 일치시킨다 — 복지로 딥링크로 해석되면(청년월세지원 등
+      //   application이 표시문자열이어도) 자동신청 가능. (안 그러면 상세엔 버튼이 뜨는데 집계는 0인 모순)
+      const bokjiro = isBokjiroApplyable(p.application || '', p.name, p.id)
       if (extLike) {
-        if (/bokjiro\.go\.kr|kosaf\.go\.kr/.test(p.application || '')) applyable += 1
-      } else if (isApplyAutomatable(p.name)) {
-        applyable += 1 // 로컬 에이전트: 내장 자동신청 6종만
+        if (bokjiro || /kosaf\.go\.kr/.test(p.application || '')) applyable += 1
+      } else if (isApplyAutomatable(p.name) || bokjiro) {
+        applyable += 1 // 로컬 에이전트: 내장 6종 + 해석된 복지로 딥링크
       }
       ;(p.required_docs || []).forEach((d) => {
         if (extLike ? isRpaSupported(d) : isRpaSupported(d, 'local')) docs.add(d)
