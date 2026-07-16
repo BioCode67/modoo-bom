@@ -13,6 +13,7 @@ import { RemoteRpaSetup } from '@/components/RemoteRpaSetup'
 import { DocCameraModal } from '@/components/DocCameraModal'
 import { DocVault, notifyDocsChanged } from '@/components/DocVault'
 import { AgentStatusStrip } from '@/components/AgentStatusStrip'
+import { rememberLive, forgetLive, listLive } from '@/lib/liveTasks'
 import { cn } from '@/lib/utils'
 
 // 저장 경로를 사람이 읽게 축약 — '…/모두봄서류/주민등록등본_홍길동_2026-07-15_1430.pdf'
@@ -159,6 +160,35 @@ export function DocumentCenter() {
     return [...m.entries()].sort((a, b) => b[1].length - a[1].length)
   }, [tracked])
 
+  // 🔁 세션 연속성 — 새로고침·뷰 이탈 후 다시 들어오면 '진행 중이던' 발급/여정 추적을 재연결(감사 갭:
+  //   백엔드 브라우저는 계속 도는데 앱은 백지가 되던 문제). 시작 시 기억(rememberLive)해둔 태스크를
+  //   에이전트 감지 완료 시 1회 복원한다. 종결·소멸(404)은 폴링이 스스로 정리.
+  //   ⚠️ 이 훅은 아래 조기 return(null)보다 먼저 선언돼야 한다(rules-of-hooks). pollDocTask/pollJourney는
+  //   effect 실행 시점(마운트 후)엔 정의돼 있고, 카드가 하나도 없으면(docNeeds 0) 몸체가 참조 전에 빠져나간다.
+  const resumedRef = useRef(false)
+  useEffect(() => {
+    if (!localAgent || resumedRef.current || docNeeds.length === 0) return
+    resumedRef.current = true
+    const docSet = new Set(docNeeds.map(([d]) => d))
+    const liveDocs = listLive('doc')
+    for (const [doc, t] of Object.entries(liveDocs)) {
+      if (!docSet.has(doc)) continue // 지금 화면에 카드가 없는 서류는 표시할 곳이 없음(다시 담으면 그때 복원)
+      setRpa((s) => (s[doc] ? s : { ...s, [doc]: { status: 'running', step: '진행 상태 다시 연결 중…', at: Date.now(), taskId: t.taskId, downloadToken: t.token } }))
+      pollDocTask(doc, t.taskId, t.token, true)
+    }
+    const j = listLive('journey')['current']
+    if (j && Array.isArray(j.docs) && j.docs.length) {
+      journeyRef.current = { id: j.taskId, running: true }
+      setRpa((s) => {
+        const n = { ...s }
+        for (const d of j.docs!) if (docSet.has(d) && !n[d]) n[d] = { status: 'running', step: '진행 상태 다시 연결 중…', at: Date.now() }
+        return n
+      })
+      pollJourney(j.taskId, j.token, j.docs, true)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [localAgent, docNeeds.length])
+
   if (docNeeds.length === 0) return null
   // 발급 완료로 표시한 서류는 뒤로(진행 기억 — 남은 서류가 먼저 보이게, 정렬은 안정적으로 유지)
   const docs = [...docNeeds.map(([d]) => d)].sort((a, b) => Number(isDocDone(a)) - Number(isDocDone(b)))
@@ -217,53 +247,65 @@ export function DocumentCenter() {
       const issued = await res.json()
       const task_id = issued.task_id
       const downloadToken = issued.download_token || ''  // 시작자에게만 반환되는 다운로드 인가 토큰
-      // ⚠️ 폴링 상한을 백엔드 대기창(로그인 8분·전자서명 대기 등) 이상으로 — 어르신 본인인증이 90초를
-      //    넘겨도 UI가 완료 전에 멈추지 않게(과거 60회=90초라 인증이 느리면 발급돼도 '진행 중'에 영구 정지, 감사 확정).
-      let failStreak = 0
-      for (let i = 0; i < 1200; i++) { // 최대 ~30분
-        await new Promise((r) => setTimeout(r, 1500))
-        if (!mountedRef.current) return // 뷰를 떠나면 폴링 중단(언마운트 후 setState/fetch 방지)
-        // ?t= 토큰: 스크린샷 포함 응답 인가(백엔드 게이트) — 시작자만 진행 화면을 볼 수 있게
-        let st: { status?: string; current_step?: string; result?: { saved_path?: string }; screenshot_b64?: string; steps?: { time?: string; msg?: string }[] }
-        try {
-          const resp = await fetch(`${getRpaBase()}/api/documents/rpa-status/${task_id}${downloadToken ? `?t=${encodeURIComponent(downloadToken)}` : ''}`)
-          if (resp.status === 404) {
-            // 태스크가 사라짐(데스크탑앱 재시작 등) — 좀비 폴링 대신 정직하게 종료(감사 :147)
-            if (!mountedRef.current) return
-            setRpa((s) => ({ ...s, [doc]: { status: 'error', step: '자동발급 세션이 끊겼어요(앱 재시작 등) — 다시 시도해 주세요.', at: s[doc]?.at, taskId: task_id } }))
-            return
-          }
-          if (!resp.ok) throw new Error(`status ${resp.status}`)
-          st = await resp.json()
-          failStreak = 0
-        } catch {
-          // 일시적 네트워크 실패 1회로 폴링을 끝내지 않는다(감사 :160) — 연속 5회(≈7.5초) 실패만 종료
-          failStreak++
-          if (failStreak >= 5) {
-            if (!mountedRef.current) return
-            setRpa((s) => ({ ...s, [doc]: { status: 'error', step: '상태 확인이 계속 실패해요 — 네트워크를 확인하고 다시 시도해 주세요.', at: s[doc]?.at, taskId: task_id } }))
-            return
-          }
-          continue
-        }
-        if (!mountedRef.current) return
-        // 발급 완료 시 result.saved_path가 있으면 문서를 사용자에게 돌려줄 수 있음(다운로드 버튼 노출)
-        setRpa((s) => ({ ...s, [doc]: {
-          status: st.status || 'running', step: st.current_step || '', at: s[doc]?.at, taskId: task_id, downloadToken,
-          saved: !!(st.result && st.result.saved_path),
-          savedPath: (st.result && st.result.saved_path) || undefined,
-          // 진행 실화면(토큰 인가 시 응답에 포함) + 최근 단계 로그 — '멈춘 것처럼 보임' 해소(실사용 피드백)
-          shot: st.screenshot_b64 || undefined,
-          stepsTail: Array.isArray(st.steps) ? st.steps.slice(-3).map((x: { time?: string; msg?: string }) => `${x.time || ''} ${String(x.msg || '').split('\n')[0]}`.trim()) : undefined,
-        } }))
-        if (st.status === 'done' || st.status === 'error' || st.status === 'completed' || st.status === 'cancelled') {
-          // 발급이 종결되면 🗂 내 서류함을 즉시 갱신(새 발급물이 목록·자동첨부 후보에 바로 보이게)
-          if (st.status === 'done' || st.status === 'completed') notifyDocsChanged()
-          break
-        }
-      }
+      rememberLive('doc', doc, { taskId: task_id, token: downloadToken }) // 새로고침·뷰 이탈 후 복원용
+      await pollDocTask(doc, task_id, downloadToken)
     } catch (e) {
       setRpa((s) => ({ ...s, [doc]: { status: 'error', step: e instanceof Error ? e.message : '실패' } }))
+    }
+  }
+
+  // 단건 발급 폴링 — 시작(startRpa)과 복원(마운트 재연결)이 공유하는 단일 루프.
+  //   resumed=true(복원)면 404를 오류 카드 대신 '조용한 정리'로 처리 — 앱 재시작으로 사라진 태스크를
+  //   사용자가 다시 볼 이유가 없다(시작 직후 404는 기존대로 정직한 오류 표시).
+  const pollDocTask = async (doc: string, task_id: string, downloadToken: string, resumed = false) => {
+    // ⚠️ 폴링 상한을 백엔드 대기창(로그인 8분·전자서명 대기 등) 이상으로 — 어르신 본인인증이 90초를
+    //    넘겨도 UI가 완료 전에 멈추지 않게(과거 60회=90초라 인증이 느리면 발급돼도 '진행 중'에 영구 정지, 감사 확정).
+    let failStreak = 0
+    for (let i = 0; i < 1200; i++) { // 최대 ~30분
+      await new Promise((r) => setTimeout(r, 1500))
+      if (!mountedRef.current) return // 뷰를 떠나면 폴링 중단(언마운트 후 setState/fetch 방지 — 복원이 이어받음)
+      // ?t= 토큰: 스크린샷 포함 응답 인가(백엔드 게이트) — 시작자만 진행 화면을 볼 수 있게
+      let st: { status?: string; current_step?: string; result?: { saved_path?: string }; screenshot_b64?: string; steps?: { time?: string; msg?: string }[] }
+      try {
+        const resp = await fetch(`${getRpaBase()}/api/documents/rpa-status/${task_id}${downloadToken ? `?t=${encodeURIComponent(downloadToken)}` : ''}`)
+        if (resp.status === 404) {
+          // 태스크가 사라짐(데스크탑앱 재시작 등) — 좀비 폴링 대신 정직하게 종료(감사 :147)
+          forgetLive('doc', doc)
+          if (!mountedRef.current) return
+          if (resumed) { setRpa((s) => { const n = { ...s }; delete n[doc]; return n }) } // 복원 중 소멸 → 조용히 정리
+          else setRpa((s) => ({ ...s, [doc]: { status: 'error', step: '자동발급 세션이 끊겼어요(앱 재시작 등) — 다시 시도해 주세요.', at: s[doc]?.at, taskId: task_id } }))
+          return
+        }
+        if (!resp.ok) throw new Error(`status ${resp.status}`)
+        st = await resp.json()
+        failStreak = 0
+      } catch {
+        // 일시적 네트워크 실패 1회로 폴링을 끝내지 않는다(감사 :160) — 연속 5회(≈7.5초) 실패만 종료
+        failStreak++
+        if (failStreak >= 5) {
+          if (!mountedRef.current) return
+          // 네트워크 문제는 태스크 소멸이 아님 — 기억은 유지해 다음 마운트에서 재연결 기회를 남긴다
+          setRpa((s) => ({ ...s, [doc]: { status: 'error', step: '상태 확인이 계속 실패해요 — 네트워크를 확인하고 다시 시도해 주세요.', at: s[doc]?.at, taskId: task_id } }))
+          return
+        }
+        continue
+      }
+      if (!mountedRef.current) return
+      // 발급 완료 시 result.saved_path가 있으면 문서를 사용자에게 돌려줄 수 있음(다운로드 버튼 노출)
+      setRpa((s) => ({ ...s, [doc]: {
+        status: st.status || 'running', step: st.current_step || '', at: s[doc]?.at ?? Date.now(), taskId: task_id, downloadToken,
+        saved: !!(st.result && st.result.saved_path),
+        savedPath: (st.result && st.result.saved_path) || undefined,
+        // 진행 실화면(토큰 인가 시 응답에 포함) + 최근 단계 로그 — '멈춘 것처럼 보임' 해소(실사용 피드백)
+        shot: st.screenshot_b64 || undefined,
+        stepsTail: Array.isArray(st.steps) ? st.steps.slice(-3).map((x: { time?: string; msg?: string }) => `${x.time || ''} ${String(x.msg || '').split('\n')[0]}`.trim()) : undefined,
+      } }))
+      if (st.status === 'done' || st.status === 'error' || st.status === 'completed' || st.status === 'cancelled') {
+        forgetLive('doc', doc) // 종결 — 복원 대상에서 제거(좀비 복원 방지)
+        // 발급이 종결되면 🗂 내 서류함을 즉시 갱신(새 발급물이 목록·자동첨부 후보에 바로 보이게)
+        if (st.status === 'done' || st.status === 'completed') notifyDocsChanged()
+        break
+      }
     }
   }
 
@@ -311,6 +353,12 @@ export function DocumentCenter() {
     if (dropped.length) {
       setRpa((s) => ({ ...s, ...Object.fromEntries(dropped.map((d) => [d, { status: 'error', step: '이 서류는 자동발급 대상이 아니에요 — 옆의 발급 버튼으로 진행해 주세요.', at: Date.now() }])) }))
     }
+    rememberLive('journey', 'current', { taskId: journey_id, token: jtok, docs: accepted }) // 새로고침 복원용
+    await pollJourney(journey_id, jtok, accepted)
+  }
+
+  // 연쇄발급(여정) 폴링 — 시작과 복원이 공유. resumed=true면 404를 조용한 정리로(앱 재시작 등).
+  const pollJourney = async (journey_id: string, jtok: string, accepted: string[], resumed = false) => {
     const tq = jtok ? `?t=${encodeURIComponent(jtok)}` : ''
     // 폴링 상한을 백엔드 대기창 이상으로 — 각 서류 인증이 느려도 UI가 완료 전에 멈추지 않게(스텝당 최대 30분/여정)
     const MAX_POLL = 1400 // 최대 ~35분(다서류 순차 발급 + 각 인증 대기)
@@ -325,8 +373,10 @@ export function DocumentCenter() {
           const resp = await fetch(`${getRpaBase()}/api/journey/status/${journey_id}${tq}`)
           if (resp.status === 404) {
             // 여정이 사라짐(앱 재시작 등) — 아직 running 인 카드를 좀비 스피너로 두지 않고 정직하게 종료(감사 :147/:208)
+            forgetLive('journey', 'current')
             if (!mountedRef.current) return
-            setRpa((s) => markRemainingStuck(s, accepted, '자동발급 세션이 끊겼어요(앱 재시작 등) — 다시 시도해 주세요.'))
+            if (resumed) setRpa((s) => { const n = { ...s }; for (const d of accepted) delete n[d]; return n }) // 복원 중 소멸 → 조용히 정리
+            else setRpa((s) => markRemainingStuck(s, accepted, '자동발급 세션이 끊겼어요(앱 재시작 등) — 다시 시도해 주세요.'))
             finished = true
             return
           }
@@ -360,7 +410,11 @@ export function DocumentCenter() {
           }
           return next
         })
-        if (j.status === 'completed' || j.status === 'error' || j.status === 'cancelled') { finished = true; break }
+        if (j.status === 'completed' || j.status === 'error' || j.status === 'cancelled') {
+          forgetLive('journey', 'current') // 종결 — 복원 대상에서 제거
+          if (j.status === 'completed') notifyDocsChanged() // 발급물들이 서류함·자동첨부 후보에 바로 보이게
+          finished = true; break
+        }
       }
       // 폴링 상한에 도달했는데 여정이 끝나지 않았으면 — 남은 running 카드를 침묵 스피너로 두지 않는다(감사 :208)
       if (!finished && mountedRef.current) {

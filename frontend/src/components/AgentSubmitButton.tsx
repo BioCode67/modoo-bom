@@ -8,6 +8,7 @@ import { bestApplyUrl, isBokjiroApplyable } from '@/lib/quickApply'
 import { getRpaBase } from '@/lib/backend'
 import { detectExtension, applyViaExtension, onExtensionStatus, sameDocName } from '@/lib/extension'
 import { setPendingReturn } from '@/lib/returnPrompt'
+import { rememberLive, forgetLive, listLive } from '@/lib/liveTasks'
 import { RpaInfoForm } from '@/components/RpaInfoForm'
 import { useAppStore } from '@/store/useAppStore'
 
@@ -63,6 +64,23 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
       .catch(() => { /* 미리보기는 부가 정보 — 실패해도 신청 흐름엔 영향 없음 */ })
     return () => { alive = false }
   }, [rpaOn, run?.status])
+
+  // 🔁 세션 연속성 — 새로고침·뷰 이탈 후에도 진행 중이던 자동신청 추적을 재연결(문서센터와 동일 원리).
+  //   ⚠️ 훅은 아래 조기 return(null)보다 먼저 선언돼야 한다(rules-of-hooks). pollApply는 effect 실행
+  //   시점(마운트 후)엔 이미 정의돼 있어 안전하게 참조된다.
+  const resumedRef = useRef(false)
+  useEffect(() => {
+    if (!rpaOn || resumedRef.current || run) return
+    const t = listLive('apply')[policy.id]
+    if (!t) return
+    resumedRef.current = true
+    runningRef.current = true
+    const gen = ++genRef.current
+    const startedAt = Date.now()
+    setRun({ status: 'running', step: '진행 상태 다시 연결 중…', at: startedAt, taskId: t.taskId })
+    pollApply(t.taskId, t.token, startedAt, gen, true).finally(() => { if (genRef.current === gen) runningRef.current = false })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rpaOn])
 
   // 복지로/한국장학재단 신청 URL을 가진 정책이면 자동신청 가능(내장 6종에 국한하지 않음)
   const app = policy.application || ''
@@ -135,39 +153,9 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
       }
       const { task_id, download_token } = await res.json()
       armReturnConfirm() // 로컬 에이전트가 복지로 창을 여는 중 — 복귀 시 '신청하셨나요?' 확인으로 사후관리 진입
+      rememberLive('apply', policy.id, { taskId: task_id, token: download_token || '' }) // 새로고침·뷰 이탈 복원용
       setRun((prev) => ({ status: prev?.status || 'running', step: prev?.step || '', shot: prev?.shot, at: startedAt, taskId: task_id }))
-      // 스크린샷(정부 페이지 — PII 가능)은 시작자 토큰(?t=)이 있어야 응답에 포함된다(백엔드 게이트)
-      const tq = download_token ? `?t=${encodeURIComponent(download_token)}` : ''
-      let failStreak = 0
-      // 폴링 상한을 백엔드 대기창(로그인 5분 + 검토 10분) 이상으로 — 인증이 느려도 UI가 완료 전에 멈추지 않게
-      for (let i = 0; i < 800; i++) { // 최대 ~20분
-        await new Promise((r) => setTimeout(r, 1500))
-        if (!mountedRef.current || genRef.current !== gen) return  // 언마운트/재시작 시 폴링 종료(감사 :145)
-        let st: { status?: string; current_step?: string; screenshot_b64?: string }
-        try {
-          const resp = await fetch(`${getRpaBase()}/api/apply/status/${task_id}${tq}`)
-          if (resp.status === 404) {  // 태스크 소멸(앱 재시작 등) — 좀비 폴링 대신 정직 종료(감사 :147)
-            if (!mountedRef.current || genRef.current !== gen) return
-            setRun({ status: 'error', step: '자동신청 세션이 끊겼어요 — 다시 시도해 주세요.', at: startedAt, taskId: task_id })
-            return
-          }
-          if (!resp.ok) throw new Error(`status ${resp.status}`)
-          st = await resp.json()
-          failStreak = 0
-        } catch {
-          failStreak++  // 일시적 실패는 견디고(감사 :160), 연속 5회만 종료
-          if (failStreak >= 5) {
-            if (!mountedRef.current || genRef.current !== gen) return
-            setRun({ status: 'error', step: '상태 확인이 계속 실패해요 — 네트워크를 확인하고 다시 시도해 주세요.', at: startedAt, taskId: task_id })
-            return
-          }
-          continue
-        }
-        if (!mountedRef.current || genRef.current !== gen) return
-        // ⚠️ at을 유지해야(감사 :106) 30초 후 '멈춘 듯' 탈출구(공식 신청/처음부터 다시)가 뜬다 — 과거엔 at 누락으로 영영 안 떴다.
-        setRun({ status: st.status || 'running', step: st.current_step || st.status || '', shot: st.screenshot_b64 || undefined, at: startedAt, taskId: task_id })
-        if (['done', 'error', 'completed', 'cancelled'].includes(st.status || '')) break
-      }
+      await pollApply(task_id, download_token || '', startedAt, gen)
     } catch (e) {
       if (genRef.current === gen) setRun({ status: 'error', step: e instanceof Error ? e.message : '실패', at: startedAt })
     } finally {
@@ -175,10 +163,54 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
     }
   }
 
+  // 신청 폴링 — 시작(start)과 복원(마운트 재연결)이 공유. resumed=true면 404를 조용한 정리로.
+  const pollApply = async (task_id: string, download_token: string, startedAt: number, gen: number, resumed = false) => {
+    // 스크린샷(정부 페이지 — PII 가능)은 시작자 토큰(?t=)이 있어야 응답에 포함된다(백엔드 게이트)
+    const tq = download_token ? `?t=${encodeURIComponent(download_token)}` : ''
+    let failStreak = 0
+    // 폴링 상한을 백엔드 대기창(로그인 5분 + 검토 10분) 이상으로 — 인증이 느려도 UI가 완료 전에 멈추지 않게
+    for (let i = 0; i < 800; i++) { // 최대 ~20분
+      await new Promise((r) => setTimeout(r, 1500))
+      if (!mountedRef.current || genRef.current !== gen) return  // 언마운트/재시작 시 폴링 종료(감사 :145)
+      let st: { status?: string; current_step?: string; screenshot_b64?: string }
+      try {
+        const resp = await fetch(`${getRpaBase()}/api/apply/status/${task_id}${tq}`)
+        if (resp.status === 404) {  // 태스크 소멸(앱 재시작 등) — 좀비 폴링 대신 정직 종료(감사 :147)
+          forgetLive('apply', policy.id)
+          if (!mountedRef.current || genRef.current !== gen) return
+          if (resumed) setRun(null) // 복원 중 소멸 → 조용히 초기 상태로(없어진 신청을 오류로 띄우지 않음)
+          else setRun({ status: 'error', step: '자동신청 세션이 끊겼어요 — 다시 시도해 주세요.', at: startedAt, taskId: task_id })
+          return
+        }
+        if (!resp.ok) throw new Error(`status ${resp.status}`)
+        st = await resp.json()
+        failStreak = 0
+      } catch {
+        failStreak++  // 일시적 실패는 견디고(감사 :160), 연속 5회만 종료
+        if (failStreak >= 5) {
+          if (!mountedRef.current || genRef.current !== gen) return
+          // 네트워크 문제는 태스크 소멸이 아님 — 기억은 유지해 다음 마운트에서 재연결 기회를 남긴다
+          setRun({ status: 'error', step: '상태 확인이 계속 실패해요 — 네트워크를 확인하고 다시 시도해 주세요.', at: startedAt, taskId: task_id })
+          return
+        }
+        continue
+      }
+      if (!mountedRef.current || genRef.current !== gen) return
+      // ⚠️ at을 유지해야(감사 :106) 30초 후 '멈춘 듯' 탈출구(공식 신청/처음부터 다시)가 뜬다 — 과거엔 at 누락으로 영영 안 떴다.
+      setRun({ status: st.status || 'running', step: st.current_step || st.status || '', shot: st.screenshot_b64 || undefined, at: startedAt, taskId: task_id })
+      if (['done', 'error', 'completed', 'cancelled'].includes(st.status || '')) {
+        forgetLive('apply', policy.id) // 종결 — 복원 대상에서 제거
+        break
+      }
+    }
+  }
+
+
   // 진행 중 신청 자동화를 처음 상태로 — 폴링 루프를 끊고(세대 증가), 백엔드 태스크도 취소(로컬 에이전트).
   const reset = () => {
     genRef.current++            // 현재 폴링 루프 무효화(다음 틱에 스스로 빠져나감)
     runningRef.current = false  // 재시작 허용
+    forgetLive('apply', policy.id) // 사용자가 처음부터 다시 — 복원 대상에서도 제거
     const tid = run?.taskId
     if (tid && canLocal) {
       fetch(`${getRpaBase()}/api/documents/rpa-cancel/${tid}`, { method: 'POST' }).catch(() => { /* 창 닫으면 자동 정리 */ })

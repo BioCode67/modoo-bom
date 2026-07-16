@@ -2,6 +2,7 @@ import { ShieldCheck } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
 import { getRpaBase } from '@/lib/backend'
 import { useBackend } from '@/lib/useBackend'
+import { clearLive } from '@/lib/liveTasks'
 
 const CARRIERS = ['SKT', 'KT', 'LGU+', 'SKM', 'KTM', 'LGM']
 // 간편인증 수단 — 어르신 다수가 카카오 미사용(통신사 PASS 등)이라 선택 지원(복지관 현장 필수)
@@ -25,6 +26,7 @@ export function RpaInfoForm() {
   const nextUser = () => {
     if (!window.confirm('이전 상담자의 정보(이름·생년월일·연락처·담은 복지·발급 기록·대화 내용)를 모두 지우고 새 상담을 시작할까요?')) return
     resetForNextUser() // 화면·localStorage·챗 대화 초기화
+    clearLive() // 진행 중 태스크 복원 기록(taskId·토큰)도 제거 — 다음 상담자에게 직전 사용자의 진행이 복원되지 않게
     // 로컬 에이전트면 서버에 저장된 발급 서류(주민번호 포함 PDF)도 삭제 — 다음 분에게 안 남게
     if (localAgent) fetch(`${getRpaBase()}/api/session/reset`, { method: 'POST' }).catch(() => { /* 실패해도 화면은 초기화됨 */ })
   }
