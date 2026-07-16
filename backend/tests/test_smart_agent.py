@@ -19,8 +19,25 @@ def test_hybrid_routing_known_doc():
 
 def test_hybrid_routing_unknown_goes_to_llm():
     # 미검증 서류는 None → 지능형(LLM/휴리스틱) 탐색 경로로 넘어간다.
+    # (병역증명서 ≠ 병적증명서 — 다른 서류라 부분일치로 오라우팅되지 않아야 함)
     assert la.resolve_doc("병역증명서") is None
     assert la.resolve_doc("여권 재발급") is None
+
+
+def test_desktop_docs_aligned_with_server_rpa():
+    """데스크탑 CDP 경로(local_agent.DOCS)와 서버 RPA(gov24_rpa.DOC_CAPP)의 CappBizCD가 일치해야 한다 —
+    같은 서류를 같은 정부24 AA040 흐름으로 발급하므로 두 맵이 갈라지면 데스크탑앱이 조용히 서버보다
+    뒤처진다(드리프트 방지, CLAUDE.md '반드시 일치'). '가족관계증명서'만 별도 발급 흐름이라 데스크탑에서 제외."""
+    from rpa.gov24_rpa import DOC_CAPP
+    # ① 데스크탑의 모든 서류는 서버 맵에 '같은 CappBizCD'로 존재해야 한다(잘못된 코드로 발급 시도 방지)
+    for name, capp in la.DOCS.items():
+        assert DOC_CAPP.get(name) == capp, f"{name}: 데스크탑 {capp} vs 서버 {DOC_CAPP.get(name)}"
+    # ② 서버에만 있고 데스크탑에 없는 서류는 의도적 제외('가족관계증명서')뿐이어야 한다 —
+    #    서버에 새 서류가 추가되면 이 테스트가 실패해, 데스크탑 확장/제외를 '의식적으로' 결정하게 한다.
+    server_only = [k for k in DOC_CAPP if k not in la.DOCS]
+    assert server_only == ["가족관계증명서"], f"정합성 확인 필요 — 서버 전용 서류: {server_only}"
+    # ③ 데스크탑 원-로그인 즉시발급이 12종 이상(회귀로 줄지 않게 하한 고정)
+    assert len(la.DOCS) >= 12
 
 
 def test_heuristic_picks_simple_auth_at_login():
