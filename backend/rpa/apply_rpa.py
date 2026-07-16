@@ -269,7 +269,10 @@ async def run_apply_rpa(task, service_name: str, profile: dict) -> None:
                     f"신청하기 버튼을 찾지 못했습니다.\n"
                     f"브라우저에서 '{service_name}' 신청하기 버튼을 직접 클릭한 후\n"
                     f"신청 양식이 표시되면 계속 진행됩니다.", ss)
-                await asyncio.sleep(30)
+                # 사용자가 직접 클릭하도록 최대 30초 대기 — [중단]·창닫힘엔 즉시 탈출(고정 sleep은 취소 지연, 감사 H3)
+                for _ in range(30):
+                    check_cancel(task, context)
+                    await asyncio.sleep(1)
 
             ss = await take_screenshot(page)
             task.update("running", "신청 양식 로드 중...", ss)
