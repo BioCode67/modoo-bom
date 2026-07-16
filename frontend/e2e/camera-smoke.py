@@ -129,6 +129,13 @@ def main() -> int:
             print(f"[cam] ✅ 제출문서로 만들기 → {dl.suggested_filename} ({size} bytes, %PDF 헤더 확인)")
             out.unlink(missing_ok=True)
 
+            # 추가 검증: 자동신청 버튼 노출(데모 최대 결함 수정) — 청년월세지원 상세에 '에이전트 자동 신청' 카드가 뜨는가.
+            #   과거 application이 표시문자열이라 버튼이 통째로 숨었다(showApply=false→return null). 지금은 복지로 딥링크
+            #   해석(isBokjiroLocal)으로 노출돼야 한다(백엔드 없는 프리뷰는 '공식 신청 페이지' 폴백 카드로, 제목은 동일).
+            page.get_by_role("button", name="청년월세지원", exact=True).first.click()
+            page.wait_for_selector("text=에이전트 자동 신청", timeout=8000)
+            print("[cam] ✅ 청년월세지원 상세 → '에이전트 자동 신청' 카드 노출(자동신청 숨김 결함 수정 확인)")
+
             if errors:
                 print("[cam] ❌ 페이지/콘솔 에러:")
                 for e in errors[:8]:
