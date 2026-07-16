@@ -326,3 +326,34 @@ class TestEtlAtomicSave:
         assert ingest_welfare.save_catalog(out, [{"id": "NEW-1"}]) is False
         assert json.loads(out.read_text(encoding="utf-8"))[0]["id"] == "OLD-1"
         assert not (tmp_path / "policies.json.tmp").exists()
+
+
+# ── ETL extract_conditions: 나이 경계 파싱 — _AGE_OPS 딕셔너리화 후에도 동작 동일 ──
+class TestEtlAgeConditions:
+    def _age(self, text):
+        from etl.ingest_welfare import extract_conditions
+        return extract_conditions(text).get("age")
+
+    def test_explicit_bounds(self):
+        assert self._age("만 65세 이상") == {"min": 65}
+        assert self._age("만 18세 초과") == {"min": 19}      # 초과 → min+1 (폐구간 정규화)
+        assert self._age("만 34세 이하") == {"max": 34}
+        assert self._age("만 40세 미만") == {"max": 39}      # 미만 → max-1
+
+    def test_range_tokens(self):
+        assert self._age("만 19세~34세 청년") == {"min": 19, "max": 34}
+        assert self._age("20세부터 30세까지") == {"min": 20, "max": 30}
+        assert self._age("만 19세 이상 34세 이하") == {"min": 19, "max": 34}
+
+    def test_first_bound_wins(self):
+        # 같은 종류 경계가 반복되면 첫 값만 채택
+        assert self._age("만 65세 이상, 만 70세 이상 우대") == {"min": 65}
+
+    def test_ambiguous_tokens_ignored(self):
+        # 경계어 없는 단독/나열 토큰과 op=None은 KeyError 없이 조용히 무시(오게이트 방지)
+        assert self._age("만 20세") is None
+        assert self._age("만 20세 또는 25세") is None
+        assert self._age("2026세대 지원") is None            # MAX_AGE 초과 잡음 배제
+
+    def test_contradictory_range_dropped(self):
+        assert self._age("만 65세 이상 30세 이하") is None    # lo > hi → 통째로 버림

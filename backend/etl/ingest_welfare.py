@@ -143,12 +143,20 @@ _HOUSEHOLD_TAGS = {
 _INCOME_RE = re.compile(r"(중위소득|기준중위소득)\s*(?P<pct>[0-9]{1,3})\s*%|소득인정액|소득[^.]{0,6}이하")
 
 # 나이 조건 — '만 N세' 뒤에 바로 붙는 경계 표현만 신뢰한다.
-#   이상→min · 초과→min+1 · 이하→max · 미만→max-1 · (~ / - / 부터)→범위의 하한
+#   경계어→(min/max, 보정) 매핑은 _AGE_OPS · (~ / - / 부터)→범위의 하한
 # 경계어 없는 단독/나열/오타 토큰('만 20세', '만 20세 또는 25세')은 잘못된 자격 차단
 # (오게이트)을 막기 위해 조용히 무시한다. op 그룹은 '세' 바로 뒤 1개만 캡처하므로
 # mid가 다음 절까지 삼키던 문제도 없다.
 MAX_AGE = 120
 _AGE_RE = re.compile(r"(?:만\s*)?(?P<age>[0-9]{1,3})\s*세\s*(?P<op>이상|이하|미만|초과|부터|~|-)?")
+# 경계어 → (경계 종류, 보정값). 새 경계어는 여기에만 추가하면 된다.
+#   폐구간으로 정규화: 초과 = min을 1 올림, 미만 = max를 1 내림
+_AGE_OPS = {
+    "이상": ("min", 0),
+    "초과": ("min", +1),
+    "이하": ("max", 0),
+    "미만": ("max", -1),
+}
 
 
 def extract_conditions(*texts: str) -> dict:
@@ -175,19 +183,15 @@ def extract_conditions(*texts: str) -> dict:
         val = int(m.group("age"))
         if not (0 <= val <= MAX_AGE):   # 연도·코드 등 잡음 배제
             continue
-        op = m.group("op")
-        if op == "이상":
-            if lo is None:
-                lo = val
-        elif op == "초과":
-            if lo is None:
-                lo = val + 1
-        elif op == "이하":
-            if hi is None:
-                hi = val
-        elif op == "미만":
-            if hi is None:
-                hi = val - 1
+        op = m.group("op")            # 경계어 미포착 시 None — .get(None)도 안전
+        bound = _AGE_OPS.get(op)
+        if bound:
+            key, delta = bound
+            if key == "min":
+                if lo is None:        # 첫 경계만 채택(뒤따르는 중복 경계는 무시)
+                    lo = val + delta
+            elif hi is None:          # key == "max"
+                hi = val + delta
         elif op in ("~", "-", "부터"):
             if lo is None:
                 lo = val
