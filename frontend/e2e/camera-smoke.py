@@ -135,6 +135,16 @@ def main() -> int:
             page.wait_for_selector("div[role='dialog'] img[alt='2쪽']", timeout=8000)
             print("[cam] ✅ 촬영 1장 추가 → 2쪽(촬영+파일 혼합)")
 
+            # ✂️ 자르기(옵트인) — 2쪽 크롭 편집기 열고 기본 크롭 적용 → 캔버스가 작아지는지 확인(배경 제거)
+            w0 = page.evaluate("()=>document.querySelector(\"div[role='dialog'] img[alt='2쪽']\").naturalWidth")
+            page.locator("button[aria-label='2쪽 자르기']").click()
+            page.wait_for_selector("div[aria-label='서류 자르기']", timeout=6000)
+            page.locator("div[aria-label='서류 자르기'] button:has-text('자르기 적용')").click()
+            page.wait_for_selector("div[aria-label='서류 자르기']", state="detached", timeout=6000)
+            w1 = page.evaluate("()=>document.querySelector(\"div[role='dialog'] img[alt='2쪽']\").naturalWidth")
+            assert w1 < w0, f"크롭 후 폭이 안 줄었다: {w0}->{w1}"
+            print(f"[cam] ✅ 서류 자르기(크롭) 적용 → 폭 {w0}→{w1}px 축소(배경 제거)")
+
             # 제출문서로 만들기 → 웹은 PDF 다운로드
             with page.expect_download(timeout=15000) as dl_info:
                 page.locator("div[role='dialog'] button:has-text('제출문서로 만들기')").click()

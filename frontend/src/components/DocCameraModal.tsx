@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Camera, RotateCw, Trash2, Check, Loader2, ImagePlus, AlertCircle } from 'lucide-react'
+import { X, Camera, RotateCw, Trash2, Crop, Check, Loader2, ImagePlus, AlertCircle } from 'lucide-react'
 import { useModalFocus } from '@/hooks/useModalFocus'
 import { enhanceImageData, dataUrlToBytes, jpegPagesToPdf, type PdfPage } from '@/lib/docScan'
 
@@ -109,6 +109,58 @@ export function DocCameraModal({ docName, onClose, onComplete }: {
 
   const removeShot = (i: number) => setShots((s) => s.filter((_, idx) => idx !== i))
 
+  // ✂️ 촬영본 자르기(옵트인) — 배경(책상·여백)을 잘라 서류만 남긴다.
+  //   ⚠️ 기본은 '자르지 않음'(build는 shot.canvas 원본 사용) → 안 쓰면 현재 동작 그대로라 데모 흐름 불변.
+  const [cropIdx, setCropIdx] = useState<number | null>(null)
+  const [crop, setCrop] = useState({ x: 0.06, y: 0.06, w: 0.88, h: 0.88 }) // 이미지 대비 비율(0~1)
+  const cropContRef = useRef<HTMLDivElement>(null)
+  const dragRef = useRef<{ mode: string; sx: number; sy: number; box: { x: number; y: number; w: number; h: number } } | null>(null)
+  const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))
+  const openCrop = (i: number) => { setCrop({ x: 0.06, y: 0.06, w: 0.88, h: 0.88 }); setCropIdx(i) }
+  const startCropDrag = (mode: string) => (e: React.PointerEvent) => {
+    e.preventDefault(); e.stopPropagation()
+    try { (e.target as HTMLElement).setPointerCapture(e.pointerId) } catch { /* noop */ }
+    dragRef.current = { mode, sx: e.clientX, sy: e.clientY, box: { ...crop } }
+  }
+  const onCropMove = (e: React.PointerEvent) => {
+    const d = dragRef.current, cont = cropContRef.current
+    if (!d || !cont) return
+    const r = cont.getBoundingClientRect()
+    if (!r.width || !r.height) return
+    const dx = (e.clientX - d.sx) / r.width, dy = (e.clientY - d.sy) / r.height
+    let { x, y, w, h } = d.box
+    const MIN = 0.12
+    if (d.mode === 'move') { x = clamp(x + dx, 0, 1 - w); y = clamp(y + dy, 0, 1 - h) }
+    else {
+      if (d.mode.includes('l')) { const nx = clamp(x + dx, 0, x + w - MIN); w += x - nx; x = nx }
+      if (d.mode.includes('r')) { w = clamp(w + dx, MIN, 1 - x) }
+      if (d.mode.includes('t')) { const ny = clamp(y + dy, 0, y + h - MIN); h += y - ny; y = ny }
+      if (d.mode.includes('b')) { h = clamp(h + dy, MIN, 1 - y) }
+    }
+    setCrop({ x, y, w, h })
+  }
+  const endCropDrag = () => { dragRef.current = null }
+  const handleStyle = (h: string): React.CSSProperties => {
+    const st: React.CSSProperties = { cursor: (h === 'tl' || h === 'br') ? 'nwse-resize' : 'nesw-resize' }
+    if (h.includes('t')) st.top = -12; else st.bottom = -12
+    if (h.includes('l')) st.left = -12; else st.right = -12
+    return st
+  }
+  const applyCrop = () => {
+    if (cropIdx === null) return
+    const i = cropIdx
+    setShots((s) => s.map((shot, idx) => {
+      if (idx !== i) return shot
+      const src = shot.canvas
+      const cx = Math.round(crop.x * src.width), cy = Math.round(crop.y * src.height)
+      const cw = Math.max(1, Math.round(crop.w * src.width)), ch = Math.max(1, Math.round(crop.h * src.height))
+      const c = document.createElement('canvas'); c.width = cw; c.height = ch
+      c.getContext('2d')!.drawImage(src, cx, cy, cw, ch, 0, 0, cw, ch)
+      return { canvas: c, thumb: c.toDataURL('image/jpeg', 0.6) }
+    }))
+    setCropIdx(null)
+  }
+
   // 보정 적용 → JPEG 바이트 → PDF 조립 → onComplete
   const build = async () => {
     if (!shots.length || busy) return
@@ -135,6 +187,7 @@ export function DocCameraModal({ docName, onClose, onComplete }: {
   }
 
   return (
+    <>
     <AnimatePresence>
       <motion.div className="modal-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}>
         <motion.div
@@ -198,6 +251,11 @@ export function DocCameraModal({ docName, onClose, onComplete }: {
                         className="absolute -right-1.5 -top-1.5 rounded-full bg-rose-500 p-1 text-white shadow hover:bg-rose-600">
                         <Trash2 className="h-3 w-3" />
                       </button>
+                      {/* ✂️ 자르기 — 배경(책상·여백) 제거해 서류만 남기기 */}
+                      <button onClick={() => openCrop(i)} aria-label={`${i + 1}쪽 자르기`} title="자르기(배경 제거)"
+                        className="absolute -left-1.5 -bottom-1.5 rounded-full bg-sprout-500 p-1 text-white shadow hover:bg-sprout-600">
+                        <Crop className="h-3 w-3" />
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -206,7 +264,7 @@ export function DocCameraModal({ docName, onClose, onComplete }: {
 
             <p className="text-[11px] text-muted-foreground leading-relaxed">
               📸 촬영본은 자동 대비 보정 후 <b>제출용 PDF</b>로 만들어져요. 신분증은 <b>앞·뒤 2장</b>, 계약서는 페이지마다 한 장씩 찍으세요.
-              가로로 찍혔으면 썸네일의 <b>↻</b>로 세우세요. 모든 처리는 <b>이 기기 안에서</b>만 이뤄져요(사진은 서버로 보내지 않아요).
+              가로로 찍혔으면 <b>↻</b>로 세우고, 배경이 넓으면 <b>✂️</b>로 서류만 잘라내세요. 모든 처리는 <b>이 기기 안에서</b>만 이뤄져요(사진은 서버로 안 보내요).
             </p>
 
             <button onClick={build} disabled={!shots.length || busy} className="btn-primary w-full !py-2.5 text-sm justify-center disabled:opacity-50">
@@ -216,5 +274,33 @@ export function DocCameraModal({ docName, onClose, onComplete }: {
         </motion.div>
       </motion.div>
     </AnimatePresence>
+
+    {/* ✂️ 자르기 편집기 — 모서리를 끌어 서류 영역만 남긴다. 적용 시 해당 장 캔버스를 잘라 교체. */}
+    {cropIdx !== null && shots[cropIdx] && (
+      <div className="fixed inset-0 z-[70] bg-black/85 flex flex-col items-center justify-center gap-3 p-4"
+        onPointerMove={onCropMove} onPointerUp={endCropDrag} onPointerLeave={endCropDrag}
+        role="dialog" aria-modal="true" aria-label="서류 자르기">
+        <p className="text-white text-sm font-semibold">모서리를 끌어 <b className="text-sprout-300">서류 부분만</b> 남기세요</p>
+        <div ref={cropContRef} className="relative touch-none select-none">
+          <img src={shots[cropIdx].thumb} alt="자를 이미지" draggable={false} className="block max-w-[92vw] max-h-[62vh] w-auto h-auto rounded" />
+          {/* 바깥 어둡게 */}
+          <div className="pointer-events-none absolute inset-0 bg-black/45"
+            style={{ clipPath: `polygon(0 0, 100% 0, 100% 100%, 0 100%, 0 0, ${crop.x * 100}% ${crop.y * 100}%, ${crop.x * 100}% ${(crop.y + crop.h) * 100}%, ${(crop.x + crop.w) * 100}% ${(crop.y + crop.h) * 100}%, ${(crop.x + crop.w) * 100}% ${crop.y * 100}%, ${crop.x * 100}% ${crop.y * 100}%)` }} />
+          <div className="absolute border-2 border-sprout-400 bg-sprout-400/5 cursor-move"
+            style={{ left: `${crop.x * 100}%`, top: `${crop.y * 100}%`, width: `${crop.w * 100}%`, height: `${crop.h * 100}%` }}
+            onPointerDown={startCropDrag('move')}>
+            {(['tl', 'tr', 'bl', 'br'] as const).map((h) => (
+              <span key={h} onPointerDown={startCropDrag(h)}
+                className="absolute h-6 w-6 rounded-full bg-white border-2 border-sprout-500 shadow" style={handleStyle(h)} />
+            ))}
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={() => setCropIdx(null)} className="btn-secondary !px-5 !py-2 text-sm">취소</button>
+          <button onClick={applyCrop} className="btn-primary !px-5 !py-2 text-sm"><Crop className="h-4 w-4" /> 자르기 적용</button>
+        </div>
+      </div>
+    )}
+    </>
   )
 }
