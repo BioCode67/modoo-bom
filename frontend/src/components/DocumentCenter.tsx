@@ -14,6 +14,7 @@ import { DocCameraModal } from '@/components/DocCameraModal'
 import { DocVault, notifyDocsChanged } from '@/components/DocVault'
 import { AgentStatusStrip } from '@/components/AgentStatusStrip'
 import { rememberLive, forgetLive, listLive } from '@/lib/liveTasks'
+import { titleBadge } from '@/lib/titleBadge'
 import { cn } from '@/lib/utils'
 
 // 저장 경로를 사람이 읽게 축약 — '…/모두봄서류/주민등록등본_홍길동_2026-07-15_1430.pdf'
@@ -308,6 +309,8 @@ export function DocumentCenter() {
         forgetLive('doc', doc) // 종결 — 복원 대상에서 제거(좀비 복원 방지)
         // 발급이 종결되면 🗂 내 서류함을 즉시 갱신(새 발급물이 목록·자동첨부 후보에 바로 보이게)
         if (st.status === 'done' || st.status === 'completed') notifyDocsChanged()
+        // 다른 탭(정부 사이트 등)에 가 있으면 탭 제목으로 종결을 알림 — 돌아오면 자동 원복
+        titleBadge(st.status === 'done' || st.status === 'completed' ? `✅ ${doc} 발급 완료 — 모두봄` : `⚠️ ${doc} 확인 필요 — 모두봄`)
         break
       }
     }
@@ -423,6 +426,7 @@ export function DocumentCenter() {
         if (j.status === 'completed' || j.status === 'error' || j.status === 'cancelled') {
           forgetLive('journey', 'current') // 종결 — 복원 대상에서 제거
           if (j.status === 'completed') notifyDocsChanged() // 발급물들이 서류함·자동첨부 후보에 바로 보이게
+          titleBadge(j.status === 'completed' ? '✅ 연쇄 발급 완료 — 모두봄' : '⚠️ 연쇄 발급 확인 필요 — 모두봄')
           finished = true; break
         }
       }

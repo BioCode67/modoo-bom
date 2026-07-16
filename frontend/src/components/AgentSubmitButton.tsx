@@ -9,6 +9,7 @@ import { getRpaBase } from '@/lib/backend'
 import { detectExtension, applyViaExtension, onExtensionStatus, sameDocName } from '@/lib/extension'
 import { setPendingReturn } from '@/lib/returnPrompt'
 import { rememberLive, forgetLive, listLive } from '@/lib/liveTasks'
+import { titleBadge } from '@/lib/titleBadge'
 import { RpaInfoForm } from '@/components/RpaInfoForm'
 import { useAppStore } from '@/store/useAppStore'
 
@@ -24,6 +25,9 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
   const rpaInfo = useAppStore((s) => s.rpaInfo)
   const isSaved = useAppStore((s) => s.isSaved)
   const toggleSaved = useAppStore((s) => s.toggleSaved)
+  const setStatus = useAppStore((s) => s.setStatus)
+  const setView = useAppStore((s) => s.setView)
+  const [recorded, setRecorded] = useState(false) // '제출까지 마쳤어요' 기록 여부(이 세션 표시용)
   const [run, setRun] = useState<RunState>(null)
   const [ext, setExt] = useState(false)
   const automatable = isApplyAutomatable(policy.name)
@@ -200,6 +204,8 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
       setRun({ status: st.status || 'running', step: st.current_step || st.status || '', shot: st.screenshot_b64 || undefined, at: startedAt, taskId: task_id })
       if (['done', 'error', 'completed', 'cancelled'].includes(st.status || '')) {
         forgetLive('apply', policy.id) // 종결 — 복원 대상에서 제거
+        // 다른 탭에 가 있으면 탭 제목으로 알림(신청 양식 준비/확인 필요) — 돌아오면 자동 원복
+        titleBadge(st.status === 'done' || st.status === 'completed' ? '✅ 신청 양식 준비됨 — 모두봄' : '⚠️ 자동신청 확인 필요 — 모두봄')
         break
       }
     }
@@ -264,7 +270,40 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
           {run.shot && (
             <img src={`data:image/jpeg;base64,${run.shot}`} alt="에이전트 진행 화면" className="mt-2 w-full rounded-xl border border-sprout-100" />
           )}
-          {done && <p className="text-[11px] text-muted-foreground mt-2">브라우저 창에서 본인인증 후 내용을 확인하고 최종 제출해 주세요.</p>}
+          {done && (run.status === 'done' || run.status === 'completed') && (
+            <div className="mt-2">
+              <p className="text-[11px] text-muted-foreground">브라우저 창에서 본인인증 후 내용을 확인하고 최종 제출해 주세요.</p>
+              {/* 같은 창에서 제출까지 끝낸 사용자의 기록 경로 — 복귀 확인(탭 전환 감지)에만 의존하지 않게(감사 갭).
+                  사용자가 직접 눌러야만 기록(자동 낙관처리 금지, 정직성). */}
+              <div className="mt-2 flex flex-wrap gap-2">
+                {recorded ? (
+                  <span className="rounded-xl bg-success-50 border border-success-500/30 px-3 py-1.5 text-[11px] font-bold text-success-600">✅ 신청 완료로 기록했어요 — 사후관리에서 챙겨드릴게요</span>
+                ) : (
+                  <button
+                    onClick={() => {
+                      if (!isSaved(policy.id)) toggleSaved({ id: policy.id, name: policy.name, category: policy.category })
+                      setStatus(policy.id, 'applied'); setRecorded(true)
+                    }}
+                    className="rounded-xl border-2 border-success-500/40 bg-success-50 px-3 py-1.5 text-[11px] font-bold text-success-600 hover:bg-success-50/70">
+                    ✓ 제출까지 마쳤어요 — 신청 완료로 기록
+                  </button>
+                )}
+                <button onClick={() => setView('my')} className="rounded-xl border-2 border-sprout-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-sprout-700 hover:bg-sprout-50">
+                  🏠 나의 복지에서 관리
+                </button>
+              </div>
+            </div>
+          )}
+          {done && run.status !== 'done' && run.status !== 'completed' && (
+            /* 오류·중단 종결 — 기존엔 재시도 수단이 없어 막다른 UI였음(시작 버튼이 run 상태에 가려짐) */
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button onClick={reset} className="rounded-xl border-2 border-sprout-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-sprout-700 hover:bg-sprout-50">↻ 처음부터 다시</button>
+              <a href={bestApplyUrl(policy.application, policy.name, policy.id)} target="_blank" rel="noopener noreferrer"
+                className="rounded-xl border-2 border-sky2-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-sky2-700 hover:bg-sky2-50">
+                공식 페이지에서 직접 신청
+              </a>
+            </div>
+          )}
         </div>
       )}
     </div>
