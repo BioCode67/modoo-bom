@@ -779,6 +779,27 @@ export function DocumentCenter() {
           )
         })}
       </div>
+
+      {/* 📨 여정의 '자동신청' 단계 카드 — 서류 카드가 없는 apply 단계(청년월세지원 등)의 진행/결과 가시화.
+          (pollJourney가 모든 단계를 rpa 맵에 쓰므로, 서류 목록에 없는 키 = 신청 단계) */}
+      {Object.entries(rpa).filter(([k, v]) => v && !docs.includes(k)).map(([svc, st]) => (
+        <div key={svc} className="mt-3 flex items-start gap-3 rounded-2xl border-2 border-sky2-100 bg-sky2-50/40 p-3.5">
+          <span className="mt-0.5 shrink-0">
+            {st!.status === 'error' ? <AlertCircle className="h-4 w-4 text-rose-500" />
+              : ['done', 'completed'].includes(st!.status) ? <CheckCircle2 className="h-4 w-4 text-success-500" />
+              : st!.status === 'cancelled' ? <AlertCircle className="h-4 w-4 text-muted-foreground" />
+              : <Loader2 className="h-4 w-4 animate-spin text-sky2-500" />}
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-bold">📨 자동신청 — {svc}</p>
+            <p className="mt-0.5 whitespace-pre-line text-xs text-muted-foreground">{st!.step || '진행 중…'}</p>
+            {['done', 'completed'].includes(st!.status) && (
+              <p className="mt-1 text-[11px] font-semibold text-sprout-700">열린 브라우저 창에서 내용 확인 후 <b>최종 제출은 본인이 직접</b> 해주세요.</p>
+            )}
+          </div>
+        </div>
+      ))}
+
       {/* 🗂 내 서류함 — 데스크탑 에이전트에서만(이 PC 폴더의 발급/등록물 가시화 + 자동첨부 후보 표시) */}
       {localAgent && <DocVault />}
     </motion.section>
