@@ -67,3 +67,10 @@ def test_status_screenshot_gate_parity():
                 assert c.get(path + "?t=tokP").json().get("screenshot_b64") == "IMG", name
         finally:
             manager._rpa_tasks.pop(tid, None)
+
+
+def test_journey_skip_parity():
+    """두 앱 모두 /journey/skip 노출 + 미지 여정엔 200 {'skipped': False} — 개별 스킵 게이팅 동일."""
+    for name, c in _CLIENTS:
+        r = c.post("/api/journey/skip/none-such")
+        assert r.status_code == 200 and r.json() == {"skipped": False}, name

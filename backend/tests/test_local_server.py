@@ -443,3 +443,9 @@ def test_probe_site_http_error_counts_as_reachable(monkeypatch):
     monkeypatch.setattr(urllib.request, "urlopen", raise_neterr)
     ok, detail = local_server._probe_site("https://www.gov.kr", timeout=1.0)
     assert ok is False
+
+
+def test_journey_skip_endpoint_unknown_false():
+    """개별 단계 건너뛰기 — 미지/종결 여정엔 조용히 False(404 아님: 폴링과 같은 관용, 오동작 없음)."""
+    r = client.post("/api/journey/skip/none-such")
+    assert r.status_code == 200 and r.json() == {"skipped": False}
