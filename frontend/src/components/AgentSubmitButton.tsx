@@ -10,6 +10,7 @@ import { detectExtension, applyViaExtension, onExtensionStatus, sameDocName } fr
 import { setPendingReturn } from '@/lib/returnPrompt'
 import { rememberLive, forgetLive, listLive } from '@/lib/liveTasks'
 import { titleBadge } from '@/lib/titleBadge'
+import { playAuthCue, isAuthWaitTransition } from '@/lib/authCue'
 import { RpaInfoForm } from '@/components/RpaInfoForm'
 import { useAppStore } from '@/store/useAppStore'
 
@@ -172,6 +173,7 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
     // 스크린샷(정부 페이지 — PII 가능)은 시작자 토큰(?t=)이 있어야 응답에 포함된다(백엔드 게이트)
     const tq = download_token ? `?t=${encodeURIComponent(download_token)}` : ''
     let failStreak = 0
+    let prevStatus = '' // 📱 인증 대기 '전이' 감지용
     // 폴링 상한을 백엔드 대기창(로그인 5분 + 검토 10분) 이상으로 — 인증이 느려도 UI가 완료 전에 멈추지 않게
     for (let i = 0; i < 800; i++) { // 최대 ~20분
       await new Promise((r) => setTimeout(r, 1500))
@@ -202,6 +204,9 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
       if (!mountedRef.current || genRef.current !== gen) return
       // ⚠️ at을 유지해야(감사 :106) 30초 후 '멈춘 듯' 탈출구(공식 신청/처음부터 다시)가 뜬다 — 과거엔 at 누락으로 영영 안 떴다.
       setRun({ status: st.status || 'running', step: st.current_step || st.status || '', shot: st.screenshot_b64 || undefined, at: startedAt, taskId: task_id })
+      // 📱 인증 대기로 넘어가는 순간 알림음 + 탭 제목 배지 — 화면을 안 보고 있어도 폰을 집게
+      if (isAuthWaitTransition(prevStatus, st.status)) { playAuthCue(); titleBadge('📱 자동신청 — 휴대폰 인증 승인 필요') }
+      prevStatus = st.status || ''
       if (['done', 'error', 'completed', 'cancelled'].includes(st.status || '')) {
         forgetLive('apply', policy.id) // 종결 — 복원 대상에서 제거
         // 다른 탭에 가 있으면 탭 제목으로 알림(신청 양식 준비/확인 필요) — 돌아오면 자동 원복

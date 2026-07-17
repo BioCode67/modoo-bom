@@ -145,6 +145,44 @@ def main() -> int:
             assert cleaned == terminal, f"기억 정리({cleaned})가 서버 종결 상태({st})와 불일치"
             print(f"[desktop] ✅ 6. 새로고침 복원(무클릭 재연결, 서버상태={st}, 기억정리={cleaned})")
 
+            # 6.5) 📱 인증 대기 알림음 — running→waiting_login 전이에서 정확히 1회 울림(Web Audio 스텁으로 계수)
+            #      상태 응답을 인터셉트해 결정적으로 전이시킨다(실서버 태스크는 컨테이너에서 전이 타이밍 불정).
+            pg.evaluate("""()=>{
+              window.__cues = 0
+              class FakeOsc { constructor(){ this.frequency={value:0}; this.type='' }
+                connect(){ return { gain:{ setValueAtTime(){}, exponentialRampToValueAtTime(){} }, connect(){} } }
+                start(){ window.__cues++ } stop(){} }
+              window.AudioContext = class { constructor(){ this.state='running'; this.currentTime=0; this.destination={} }
+                resume(){ return Promise.resolve() }
+                createOscillator(){ return new FakeOsc() }
+                createGain(){ return { gain:{ setValueAtTime(){}, exponentialRampToValueAtTime(){} }, connect(){} } } }
+            }""")
+            calls = {"n": 0}
+            pg.route("**/api/documents/rpa-issue", lambda r: r.fulfill(
+                status=200, content_type="application/json",
+                body=json.dumps({"task_id": "cue-task", "download_token": "cuetok"})))
+            def oncue(r):
+                calls["n"] += 1
+                stt = "running" if calls["n"] == 1 else ("waiting_login" if calls["n"] <= 5 else "done")
+                r.fulfill(status=200, content_type="application/json", body=json.dumps({
+                    "status": stt,
+                    "current_step": ("📱 폰에서 [인증 허용]을 눌러주세요" if stt == "waiting_login"
+                                     else "✅ 발급 완료" if stt == "done" else "진행 중"),
+                    "result": {"saved_path": "x"} if stt == "done" else None}))
+            pg.route("**/api/documents/rpa-status/cue-task*", oncue)
+            pg.fill("input[placeholder*='실명']", "김청년")
+            pg.fill("input[placeholder*='생년월일']", "19980315")
+            pg.fill("input[placeholder*='휴대폰']", "01012345678")
+            row = pg.locator("div.card-cute", has=pg.locator("text=가족관계증명서")).first
+            row.get_by_role("button", name="자동", exact=True).click()
+            pg.wait_for_function("()=>window.__cues>=1", timeout=15000)  # 전이 1회 → 울림
+            pg.wait_for_timeout(3500)  # 같은 waiting_login 폴링이 반복돼도(2~5회차) 재울림 없음
+            cues = pg.evaluate("()=>window.__cues")
+            assert cues == 2, f"알림음 {cues}회(두 음=오실레이터 2회 기대, 재울림 금지)"
+            pg.wait_for_selector("text=발급 완료", timeout=15000)  # done 수렴으로 폴링 종료
+            pg.unroute("**/api/documents/rpa-issue"); pg.unroute("**/api/documents/rpa-status/cue-task*")
+            print("[desktop] ✅ 6.5. 인증 대기 알림음(전이 1회만, 폴링 반복 재울림 없음)")
+
             # 7.5) 🚀 원클릭 '발급→자동신청' 연쇄 — 체크박스(기본 ON)·CTA 라벨·여정 body 계약
             #      실서버 여정을 실제로 돌리지 않도록 run/status만 인터셉트(다른 검증은 실서버 그대로).
             captured: list = []
@@ -194,7 +232,7 @@ def main() -> int:
         for i in issues[:10]:
             print("  ", i)
         return 1
-    print("✅ 데스크탑 기능 9종 + pageerror 0 — 전부 통과")
+    print("✅ 데스크탑 기능 10종 + pageerror 0 — 전부 통과")
     return 0
 
 

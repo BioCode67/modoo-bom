@@ -16,6 +16,7 @@ import { DocVault, notifyDocsChanged } from '@/components/DocVault'
 import { AgentStatusStrip } from '@/components/AgentStatusStrip'
 import { rememberLive, forgetLive, listLive } from '@/lib/liveTasks'
 import { titleBadge } from '@/lib/titleBadge'
+import { playAuthCue, isAuthWaitTransition } from '@/lib/authCue'
 import { cn } from '@/lib/utils'
 
 // 저장 경로를 사람이 읽게 축약 — '…/모두봄서류/주민등록등본_홍길동_2026-07-15_1430.pdf'
@@ -280,6 +281,7 @@ export function DocumentCenter() {
     // ⚠️ 폴링 상한을 백엔드 대기창(로그인 8분·전자서명 대기 등) 이상으로 — 어르신 본인인증이 90초를
     //    넘겨도 UI가 완료 전에 멈추지 않게(과거 60회=90초라 인증이 느리면 발급돼도 '진행 중'에 영구 정지, 감사 확정).
     let failStreak = 0
+    let prevStatus = '' // 📱 인증 대기 '전이' 감지용(같은 대기 상태 폴링마다 울리지 않게)
     for (let i = 0; i < 1200; i++) { // 최대 ~30분
       await new Promise((r) => setTimeout(r, 1500))
       if (!mountedRef.current) return // 뷰를 떠나면 폴링 중단(언마운트 후 setState/fetch 방지 — 복원이 이어받음)
@@ -319,6 +321,9 @@ export function DocumentCenter() {
         shot: st.screenshot_b64 || undefined,
         stepsTail: Array.isArray(st.steps) ? st.steps.slice(-3).map((x: { time?: string; msg?: string }) => `${x.time || ''} ${String(x.msg || '').split('\n')[0]}`.trim()) : undefined,
       } }))
+      // 📱 인증 대기로 '넘어가는 순간' 알림음 + 탭 제목 배지 — 화면을 안 보고 있어도 폰을 집게
+      if (isAuthWaitTransition(prevStatus, st.status)) { playAuthCue(); titleBadge(`📱 ${doc} — 휴대폰 인증 승인 필요`) }
+      prevStatus = st.status || ''
       if (st.status === 'done' || st.status === 'error' || st.status === 'completed' || st.status === 'cancelled') {
         forgetLive('doc', doc) // 종결 — 복원 대상에서 제거(좀비 복원 방지)
         // 발급이 종결되면 🗂 내 서류함을 즉시 갱신(새 발급물이 목록·자동첨부 후보에 바로 보이게)
@@ -388,11 +393,12 @@ export function DocumentCenter() {
     const MAX_POLL = 1400 // 최대 ~35분(다서류 순차 발급 + 각 인증 대기)
     let failStreak = 0
     let finished = false
+    let prevAuthKey = '' // 📱 인증 대기 전이 감지 — 단계마다(등본→가족관계→…) 각각 한 번씩 울리게 단계명 포함
     try {
       for (let i = 0; i < MAX_POLL; i++) {
         await new Promise((r) => setTimeout(r, 1500))
         if (!mountedRef.current) return
-        let j: { status?: string; current?: string; current_message?: string; steps?: { name: string; status: string; saved_path?: string; error?: string; task_id?: string; download_token?: string }[] }
+        let j: { status?: string; current?: string; current_message?: string; current_status?: string; steps?: { name: string; status: string; saved_path?: string; error?: string; task_id?: string; download_token?: string }[] }
         try {
           const resp = await fetch(`${getRpaBase()}/api/journey/status/${journey_id}${tq}`)
           if (resp.status === 404) {
@@ -423,6 +429,12 @@ export function DocumentCenter() {
           const steps = j.steps || []
           const doneN = steps.filter((sp) => ['done', 'completed', 'error', 'cancelled'].includes(sp.status)).length
           setJourneyProg({ total: steps.length, done: doneN, current: j.current || undefined })
+        }
+        // 📱 현재 단계가 인증 대기로 넘어가는 순간 알림음 — 단계가 바뀔 때마다 각각 한 번씩
+        {
+          const authKey = j.current_status === 'waiting_login' ? `${j.current || ''}:waiting_login` : ''
+          if (authKey && authKey !== prevAuthKey) { playAuthCue(); titleBadge(`📱 ${j.current || '발급'} — 휴대폰 인증 승인 필요`) }
+          prevAuthKey = authKey
         }
         setRpa((s) => {
           const next = { ...s }
