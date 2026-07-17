@@ -684,7 +684,24 @@ def _find_app_dir() -> Path | None:
 _APP_DIR = _find_app_dir()
 if _APP_DIR is not None:
     from fastapi.staticfiles import StaticFiles
-    app.mount("/", StaticFiles(directory=str(_APP_DIR), html=True), name="local-app")
+
+    class _AppStatic(StaticFiles):
+        """dist-app 서빙 + 명시 캐시 정책 — stale 흰 화면 방지.
+
+        run-local-app.bat 이 git pull 후 dist-app 을 재빌드해도, 브라우저가 '휴리스틱 캐시'로
+        옛 index.html 을 재검증 없이 쓰면 이미 삭제된 옛 해시 자산을 참조해 흰 화면이 된다.
+        → index.html 등 비해시 파일은 no-cache(매번 재검증 — ETag 304라 여전히 빠름),
+          /assets/ 해시 파일은 immutable 영구 캐시(내용이 바뀌면 파일명이 바뀜)."""
+        def file_response(self, *args, **kwargs):  # type: ignore[override]
+            resp = super().file_response(*args, **kwargs)
+            p = str(getattr(resp, "path", "") or "").replace("\\", "/")
+            if "/assets/" in p:
+                resp.headers.setdefault("Cache-Control", "public, max-age=31536000, immutable")
+            else:
+                resp.headers["Cache-Control"] = "no-cache"
+            return resp
+
+    app.mount("/", _AppStatic(directory=str(_APP_DIR), html=True), name="local-app")
 
 
 def _port_in_use(host: str, port: int) -> bool:

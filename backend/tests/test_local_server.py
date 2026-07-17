@@ -449,3 +449,22 @@ def test_journey_skip_endpoint_unknown_false():
     """개별 단계 건너뛰기 — 미지/종결 여정엔 조용히 False(404 아님: 폴링과 같은 관용, 오동작 없음)."""
     r = client.post("/api/journey/skip/none-such")
     assert r.status_code == 200 and r.json() == {"skipped": False}
+
+
+def test_static_cache_policy_prevents_stale_index():
+    """정적 서빙 캐시 정책 — index.html은 no-cache(재빌드 즉시 반영), 해시 자산은 immutable.
+    git pull 후 재빌드했는데 브라우저 휴리스틱 캐시가 옛 index.html을 쓰면 삭제된 해시 자산을
+    참조해 흰 화면이 되는 배포 stale 사고 방지."""
+    if local_server._APP_DIR is None:
+        pytest.skip("dist-app 미빌드 환경")
+    r = client.get("/")
+    assert r.status_code == 200
+    assert r.headers.get("cache-control") == "no-cache"
+    import glob as _g
+    import os as _os
+    assets = _g.glob(str(local_server._APP_DIR / "assets" / "*.js"))
+    if not assets:
+        pytest.skip("해시 자산 없음")
+    r2 = client.get(f"/assets/{_os.path.basename(assets[0])}")
+    assert r2.status_code == 200
+    assert "immutable" in (r2.headers.get("cache-control") or "")
