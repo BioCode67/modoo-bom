@@ -526,20 +526,24 @@ export function DocumentCenter() {
       }, 80)
       return
     }
+    // 이미 단건으로 진행 중인 서류는 연쇄에서 제외 — 같은 서류가 슬롯 2개(브라우저 창 2개)로 중복 발급되는 것 방지
+    const busy = chainDocs.filter((d) => { const st = rpa[d]; return !!(st && !['done', 'completed', 'error', 'cancelled'].includes(st.status)) })
+    const chainRun = chainDocs.filter((d) => !busy.includes(d))
+    if (!chainRun.length) return // 전부 이미 진행 중 — 각 카드가 상태를 보여주고 있으므로 조용히 무시
     const userInfo = {
       user_name: rpaInfo.name || profile?.name || '사용자',
       birth_date: rpaInfo.birth_date, phone: rpaInfo.phone, carrier: rpaInfo.carrier,
       auth_provider: rpaInfo.auth_provider || 'kakao', // 확장 연쇄발급에도 인증수단 전달
     }
-    setRpa((s) => ({ ...s, ...Object.fromEntries(chainDocs.map((d) => [d, { status: 'running', step: '대기열에 추가됨…', at: Date.now() }])) }))
+    setRpa((s) => ({ ...s, ...Object.fromEntries(chainRun.map((d) => [d, { status: 'running', step: '대기열에 추가됨…', at: Date.now() }])) }))
     // 로컬 에이전트(데스크탑앱) 우선 — 확장이 없거나 로컬만 있을 때 백엔드 여정으로 연쇄 발급.
     if (localAgent && !ext) {
       try {
-        await runJourneyViaBackend(chainDocs, chainApply ? chainSvcs : [])
+        await runJourneyViaBackend(chainRun, chainApply ? chainSvcs : [])
       } catch (e) {
         // 시작 실패(503 등)면 첫 카드뿐 아니라 '대기열에 추가됨…'으로 켜둔 모든 카드를 정직히 종료(감사 :247)
         const msg = e instanceof Error ? e.message : '연쇄 발급 실패'
-        setRpa((s) => markRemainingStuck(s, chainDocs, msg))
+        setRpa((s) => markRemainingStuck(s, chainRun, msg))
       }
       return
     }
