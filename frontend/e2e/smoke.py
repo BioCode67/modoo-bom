@@ -100,6 +100,8 @@ def main() -> int:
                     return  # 백엔드 감지 프로브 노이즈(프리뷰 프록시 500) — 무해
                 if "cdn.jsdelivr.net" in loc:
                     return  # 폰트 CDN(프리텐다드) — 차단망/CI에선 실패해도 시스템 폰트 폴백으로 무해
+                if "huggingface.co" in loc or "huggingface.co" in m.text:
+                    return  # AI 임베딩 모델 CDN — 차단망/CI에선 실패해도 앱이 키워드 검색으로 정직 폴백(제품 검증은 별도 단계)
                 # /ws/analyze WS 403: 프리뷰는 임의 포트(localhost:PORT) origin이라 백엔드 허용목록 밖 → 정상 거절.
                 # 실제 배포 origin(biocode67.github.io)은 허용돼 스트리밍됨(라이브 실측 확인). 프론트도 WS 실패 시
                 # 클라이언트 에이전트 연출로 폴백하므로 사용자 영향 없음 → E2E 실패 게이트에서 제외.
