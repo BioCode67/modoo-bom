@@ -203,8 +203,8 @@ def main() -> int:
                                 {"name": "청년월세지원", "status": "pending"}]}
                 else:
                     body = {"status": "completed", "current": None, "steps": [
-                        {"name": "주민등록등본", "status": "cancelled"},
-                        {"name": "청년월세지원", "status": "done", "saved_path": "y"}]}
+                        {"name": "주민등록등본", "status": "cancelled", "kind": "doc"},
+                        {"name": "청년월세지원", "status": "done", "kind": "apply"}]}
                 r.fulfill(status=200, content_type="application/json", body=json.dumps(body))
             pg.route("**/api/journey/status/**", onjstatus)
             def onskip(r):
@@ -226,8 +226,12 @@ def main() -> int:
             pg.wait_for_timeout(2500)
             assert jstate["skips"] == 1, f"skip API 호출 {jstate['skips']}회"
             pg.wait_for_selector("text=연쇄 자동발급 진행 중", state="detached", timeout=10000)  # completed 수렴
+            # 여정 종결 요약 배너 — 건너뜀·신청 준비 집계가 정직하게 표기(무언 종료 방지)
+            summary = pg.inner_text("body")
+            assert "연쇄 자동발급 끝" in summary and "1건 건너뜀" in summary, "여정 요약 배너 누락"
             # 📨 신청 단계 카드의 '제출 완료 기록' — 직접 눌러야만 applied 기록(자동 낙관처리 금지)
             pg.wait_for_selector("text=📨 자동신청 — 청년월세지원", timeout=8000)
+            assert "신청 양식 준비 완료" in pg.inner_text("body"), "apply 단계에 서류용 '발급 미완료' 오문구"
             pg.locator("button:has-text('제출까지 마쳤어요')").click()
             pg.wait_for_selector("text=신청 완료로 기록했어요", timeout=6000)
             stat = pg.evaluate("()=>JSON.parse(localStorage.getItem('modoobom-store')).state.tracked[0].status")

@@ -65,6 +65,8 @@ export function DocumentCenter() {
   const journeyRef = useRef<{ id: string; running: boolean } | null>(null)
   // 여정 수준 진행률(n/m·현재 단계) — 카드별 상태만으론 전체 흐름이 안 보이던 갭(감사). null=여정 없음.
   const [journeyProg, setJourneyProg] = useState<{ total: number; done: number; current?: string } | null>(null)
+  // 여정 종결 요약(발급 n건·건너뜀 n건·신청 양식 준비 n건) — 헤더가 사라진 뒤 '어떻게 끝났는지' 한 줄 닫음말
+  const [journeySummary, setJourneySummary] = useState<string | null>(null)
   // 🚀→📨 발급 후 '자동신청까지' 이어갈 수 있는 담은 복지 — 단건 신청과 동일 기준(내장 6종 ∪ 복지로 딥링크 해석).
   //   백엔드 여정(service_names)이 서류 발급을 모두 마친 뒤 신청 단계를 이어서 실행한다(자동첨부 성립 순서).
   const chainSvcs = useMemo(() => {
@@ -369,6 +371,7 @@ export function DocumentCenter() {
   // 로컬 백엔드(데스크탑앱) 연쇄 발급 — 한 번 카카오 인증으로 서류들을 순차 발급(orchestrator journey).
   //   svcList가 있으면 발급을 모두 마친 뒤 '자동신청'까지 이어서(자동첨부 성립 순서, 제출 전 정지).
   const runJourneyViaBackend = async (docList: string[], svcList: string[] = []) => {
+    setJourneySummary(null) // 새 여정 시작 — 직전 여정의 종결 요약을 걷어낸다
     const res = await fetch(`${getRpaBase()}/api/journey/run`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -410,7 +413,7 @@ export function DocumentCenter() {
       for (let i = 0; i < MAX_POLL; i++) {
         await new Promise((r) => setTimeout(r, 1500))
         if (!mountedRef.current) return
-        let j: { status?: string; current?: string; current_message?: string; current_status?: string; steps?: { name: string; status: string; saved_path?: string; error?: string; task_id?: string; download_token?: string }[] }
+        let j: { status?: string; current?: string; current_message?: string; current_status?: string; steps?: { name: string; status: string; kind?: string; saved_path?: string; error?: string; task_id?: string; download_token?: string }[] }
         try {
           const resp = await fetch(`${getRpaBase()}/api/journey/status/${journey_id}${tq}`)
           if (resp.status === 404) {
@@ -455,8 +458,10 @@ export function DocumentCenter() {
             const msg = isCur && j.current_message ? j.current_message
               : step.status === 'running' ? '진행 중…'
               // 실발급 신호(saved_path)가 있어야 '발급 완료' — 없으면 완료로 오보하지 않음(감사 확정 정직성, 아이콘 amber와 동일 기준)
+              // 신청(apply) 단계는 애초에 saved_path 가 없다 — 서류용 '발급 미완료' 문구가 잘못 뜨지 않게 구분
               : (step.status === 'done' || step.status === 'completed')
-                ? (step.saved_path ? '발급 완료' : '발급 미완료 — 화면에서 확인해 주세요')
+                ? (step.kind === 'apply' ? '신청 양식 준비 완료 — 열린 창에서 확인 후 제출해 주세요'
+                  : step.saved_path ? '발급 완료' : '발급 미완료 — 화면에서 확인해 주세요')
               : step.status === 'error' ? (step.error || '실패')
               : step.status === 'cancelled' ? '중단했어요' : '대기 중…'
             // 발급 완료 단계는 taskId+토큰을 실어 '발급 문서 받기' 버튼이 뜨게(서버 RPA/원격에서 PDF 회수)
@@ -468,6 +473,20 @@ export function DocumentCenter() {
           forgetLive('journey', 'current') // 종결 — 복원 대상에서 제거
           if (j.status === 'completed') notifyDocsChanged() // 발급물들이 서류함·자동첨부 후보에 바로 보이게
           titleBadge(j.status === 'completed' ? '✅ 연쇄 발급 완료 — 모두봄' : '⚠️ 연쇄 발급 확인 필요 — 모두봄')
+          // 종결 요약 한 줄 — 실발급(saved_path)·건너뜀·신청 양식 준비만 정직하게 집계(0건 항목은 표기 생략)
+          {
+            const steps = j.steps || []
+            const issued = steps.filter((sp) => sp.kind !== 'apply' && sp.saved_path).length
+            const skipped = steps.filter((sp) => sp.status === 'cancelled').length
+            const prepared = steps.filter((sp) => sp.kind === 'apply' && ['done', 'completed'].includes(sp.status)).length
+            const parts = [
+              issued > 0 ? `서류 ${issued}건 발급` : '',
+              skipped > 0 ? `${skipped}건 건너뜀` : '',
+              prepared > 0 ? `신청 양식 ${prepared}건 준비(제출은 본인 확인 후)` : '',
+            ].filter(Boolean)
+            const head = j.status === 'completed' ? '✅ 연쇄 자동발급 끝' : j.status === 'cancelled' ? '⏹ 연쇄 중단됨' : '⚠️ 연쇄가 오류로 끝났어요'
+            setJourneySummary(parts.length ? `${head} — ${parts.join(' · ')}` : head)
+          }
           finished = true; break
         }
       }
@@ -655,6 +674,15 @@ export function DocumentCenter() {
               style={{ width: `${journeyProg.total ? Math.max(4, Math.round((journeyProg.done / journeyProg.total) * 100)) : 4}%` }} />
           </div>
           <p className="mt-1.5 text-[11px] text-muted-foreground">한 번 인증으로 순서대로 발급돼요 — 📱 인증 요청이 오면 승인만 해주세요.</p>
+        </div>
+      )}
+
+      {/* 여정 종결 요약 — 진행률 헤더가 사라진 자리에서 '어떻게 끝났는지' 한 줄로 닫는다(무언 종료 방지) */}
+      {!journeyProg && journeySummary && (
+        <div className="mt-4 flex items-center justify-between gap-2 rounded-2xl border-2 border-sprout-200 bg-white p-3.5 text-xs font-bold" role="status" aria-live="polite">
+          <span>{journeySummary}</span>
+          <button onClick={() => setJourneySummary(null)} aria-label="여정 요약 닫기"
+            className="rounded-lg px-1.5 py-0.5 text-muted-foreground hover:bg-sprout-50">✕</button>
         </div>
       )}
 
