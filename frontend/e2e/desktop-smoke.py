@@ -5,6 +5,7 @@
 검증(이번 데스크탑 강화 런의 기능들):
   1) 에이전트 상태 스트립 — 연결·버전·발급 슬롯 표시
   2) 🩺 진단 복사 — /api/_diag 복사(PII 무포함 스팟 체크)
+  2.5) 발급 전 점검 — /api/_preflight 5항목(브라우저·정부24·복지로·폴더·디스크) 체크리스트
   3) 🗂 내 서류함 — 빈 상태 → 촬영 등록 → 목록 갱신 + '첨부 후보' 배지
   4) 📎 신청 전 자동첨부 미리보기(상세 드로어)
   5) 서류함 개별 삭제(2탭 확인)
@@ -82,6 +83,17 @@ def main() -> int:
             assert "[모두봄 에이전트 진단]" in clip and '"version"' in clip
             assert all(x not in clip for x in ("user_name", "doc_name", "screenshot")), "진단에 PII 필드"
             print("[desktop] ✅ 2. 진단 복사(PII 무포함)")
+
+            # 2.5) 발급 전 점검(프리플라이트) — 실서버 5항목 체크리스트 렌더
+            #      (정부망은 컨테이너에서 막힐 수 있으므로 성패는 단정하지 않고, 항목 표시만 검증)
+            pg.locator("button:has-text('발급 전 점검')").click()
+            pg.wait_for_selector("text=자동화 브라우저", timeout=60000)
+            body = pg.inner_text("body")
+            for item in ("자동화 브라우저", "정부24 연결", "복지로 연결", "발급 폴더 쓰기", "디스크 여유"):
+                assert item in body, f"프리플라이트 항목 누락: {item}"
+            assert ("발급 준비 완료" in body) or ("점검 필요" in body)
+            pg.locator("button[aria-label='점검 결과 닫기']").click()
+            print("[desktop] ✅ 2.5. 발급 전 점검 — 5항목 체크리스트 렌더")
 
             # 3) 서류함: 촬영 등록 → 목록+배지
             pg.wait_for_selector("text=내 서류함", timeout=8000)
@@ -182,7 +194,7 @@ def main() -> int:
         for i in issues[:10]:
             print("  ", i)
         return 1
-    print("✅ 데스크탑 기능 7종 + pageerror 0 — 전부 통과")
+    print("✅ 데스크탑 기능 9종 + pageerror 0 — 전부 통과")
     return 0
 
 

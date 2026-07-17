@@ -185,33 +185,103 @@ async def health():
     }
 
 
-@app.get("/api/_selftest/browser")
-async def _selftest_browser():
-    """번들된 Playwright 드라이버/브라우저가 '실제로' 뜨는지 확인(패키징 스모크용, 네트워크 무관).
+async def _browser_probe() -> tuple[bool, str]:
+    """번들된 Playwright 드라이버/브라우저가 '실제로' 뜨는지 확인(네트워크 무관) — 셀프테스트·프리플라이트 공용.
 
     PyInstaller 번들의 가장 흔한 파손(node 드라이버 경로/브라우저 미탑재)은 health/supported 로는
     못 잡는다(그건 `import playwright` 만으로 통과). 여기서 about:blank 로 한 번 띄워 닫아 실증한다.
-    강제 headless(창 안 뜸). 실패 시 500 + 원인(브라우저/드라이버 없음 등)."""
+    반환: (성공 여부, 성공 시 브라우저 이름 / 실패 시 원인)."""
     from rpa.base import launch_browser
     from playwright.async_api import async_playwright
-    # ⚠️ 셀프테스트 동안만 headless — 전역 os.environ 을 영구히 바꾸면 이후 '모든' 발급이 보이지 않는 창에서
+    # ⚠️ 점검 동안만 headless — 전역 os.environ 을 영구히 바꾸면 이후 '모든' 발급이 보이지 않는 창에서
     #   돌아 카카오 인증 불가·연쇄 타임아웃이 된다(감사 :197). 반드시 원래 값으로 원복한다.
     _prev_headless = os.environ.get("RPA_HEADLESS")
-    os.environ["RPA_HEADLESS"] = "1"  # 스모크는 창 없이
+    os.environ["RPA_HEADLESS"] = "1"  # 점검은 창 없이
     try:
         async with async_playwright() as pw:
             browser = await launch_browser(pw, slow_mo=0)
             page = await browser.new_page()
             await page.goto("about:blank")
             await browser.close()
-        return {"ok": True, "browser": os.environ.get("RPA_ACTIVE_BROWSER", "chromium")}
+        return True, os.environ.get("RPA_ACTIVE_BROWSER", "chromium")
     except Exception as e:  # noqa: BLE001 — 원인을 그대로 반환(드라이버/브라우저 진단용)
-        return JSONResponse(status_code=500, content={"ok": False, "error": str(e)[:300]})
+        return False, str(e)[:300]
     finally:
         if _prev_headless is None:
             os.environ.pop("RPA_HEADLESS", None)
         else:
             os.environ["RPA_HEADLESS"] = _prev_headless
+
+
+@app.get("/api/_selftest/browser")
+async def _selftest_browser():
+    """브라우저 단독 셀프테스트(패키징 스모크용). 실패 시 500 + 원인."""
+    ok, detail = await _browser_probe()
+    if ok:
+        return {"ok": True, "browser": detail}
+    return JSONResponse(status_code=500, content={"ok": False, "error": detail})
+
+
+def _probe_site(url: str, timeout: float = 6.0) -> tuple[bool, str]:
+    """정부 사이트 연결 확인 — 어떤 HTTP 응답이든(403 포함) '서버가 응답함=연결 OK',
+    네트워크 오류(타임아웃·DNS·차단)만 실패로 본다. 발표장 회선이 정부망을 막는 경우를 미리 잡는 용도."""
+    import time as _time
+    import urllib.error
+    import urllib.request
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    t0 = _time.monotonic()
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            r.read(1)
+            return True, f"응답 {r.status} · {_time.monotonic() - t0:.1f}초"
+    except urllib.error.HTTPError as e:
+        return True, f"응답 {e.code} · {_time.monotonic() - t0:.1f}초"
+    except Exception as e:  # noqa: BLE001
+        return False, str(e)[:120]
+
+
+@app.get("/api/_preflight")
+async def preflight():
+    """🩺 발급 전 원버튼 점검 — 데모 런북의 '발표 직전 리허설'을 자동화한다.
+
+    항목: ① 자동화 브라우저 기동 ② 정부24 연결 ③ 복지로 연결 ④ 발급 폴더 쓰기 ⑤ 디스크 여유.
+    일부가 실패해도 200 + 정직한 항목별 결과(발표 전에 뭐가 문제인지 한눈에).
+    PII 무포함: 폴더는 이름만(홈 경로의 사용자명 미노출), 실명·서류명 없음."""
+    import asyncio
+    import shutil
+    from rpa.base import DOCS_DIR
+
+    def docs_check() -> dict:
+        try:
+            DOCS_DIR.mkdir(parents=True, exist_ok=True)
+            probe = DOCS_DIR / ".preflight-probe"
+            probe.write_text("ok", encoding="utf-8")
+            probe.unlink()
+            return {"id": "docs_dir", "name": "발급 폴더 쓰기", "ok": True, "detail": DOCS_DIR.name}
+        except Exception as e:  # noqa: BLE001
+            return {"id": "docs_dir", "name": "발급 폴더 쓰기", "ok": False, "detail": str(e)[:120]}
+
+    def disk_check() -> dict:
+        try:
+            root = DOCS_DIR if DOCS_DIR.is_dir() else Path.home()
+            free = shutil.disk_usage(str(root)).free
+            # 발급 PDF는 수백 KB 수준 — 200MB 미만이면 저장 실패가 임박한 상태로 경고
+            return {"id": "disk", "name": "디스크 여유", "ok": free > 200 * 1024 * 1024,
+                    "detail": f"{free / (1024 ** 3):.1f}GB"}
+        except Exception as e:  # noqa: BLE001
+            return {"id": "disk", "name": "디스크 여유", "ok": False, "detail": str(e)[:120]}
+
+    sites = [("gov24", "정부24 연결", "https://www.gov.kr"),
+             ("bokjiro", "복지로 연결", "https://www.bokjiro.go.kr")]
+    results = await asyncio.gather(
+        _browser_probe(), *[asyncio.to_thread(_probe_site, url) for _, _, url in sites])
+    b_ok, b_detail = results[0]
+    checks = [{"id": "browser", "name": "자동화 브라우저", "ok": b_ok, "detail": b_detail}]
+    for (sid, name, _url), (ok, detail) in zip(sites, results[1:]):
+        checks.append({"id": sid, "name": name, "ok": ok, "detail": detail})
+    checks.append(docs_check())
+    checks.append(disk_check())
+    return {"ok": all(c["ok"] for c in checks), "checks": checks}
 
 
 @app.get("/api/_diag")

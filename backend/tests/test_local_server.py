@@ -382,3 +382,64 @@ def test_diag_has_tech_info_and_no_pii(monkeypatch, tmp_path):
             assert banned not in text, banned
     finally:
         manager._rpa_tasks.pop("dg1", None)
+
+
+def test_preflight_all_green(monkeypatch, tmp_path):
+    """프리플라이트: 브라우저·정부사이트를 스텁하고 5항목 전부 정상일 때 ok=true + 항목별 결과."""
+    from rpa import base
+    monkeypatch.setattr(base, "DOCS_DIR", tmp_path)
+
+    async def fake_browser():
+        return True, "chrome"
+    monkeypatch.setattr(local_server, "_browser_probe", fake_browser)
+    monkeypatch.setattr(local_server, "_probe_site", lambda url, timeout=6.0: (True, "응답 200 · 0.3초"))
+
+    r = client.get("/api/_preflight")
+    assert r.status_code == 200
+    j = r.json()
+    assert j["ok"] is True
+    ids = [c["id"] for c in j["checks"]]
+    assert ids == ["browser", "gov24", "bokjiro", "docs_dir", "disk"]
+    assert all(c["ok"] for c in j["checks"])
+    # 발급 폴더는 '이름만'(홈 경로 사용자명 미노출) — PII 무포함 원칙
+    assert str(tmp_path.parent) not in r.text
+
+
+def test_preflight_honest_failures_still_200(monkeypatch, tmp_path):
+    """프리플라이트: 브라우저 파손·정부망 차단이어도 200 + 항목별 정직한 실패(전체 ok=false)."""
+    from rpa import base
+    monkeypatch.setattr(base, "DOCS_DIR", tmp_path)
+
+    async def broken_browser():
+        return False, "Executable doesn't exist"
+    monkeypatch.setattr(local_server, "_browser_probe", broken_browser)
+    monkeypatch.setattr(local_server, "_probe_site",
+                        lambda url, timeout=6.0: (False, "timed out"))
+
+    r = client.get("/api/_preflight")
+    assert r.status_code == 200
+    j = r.json()
+    assert j["ok"] is False
+    by_id = {c["id"]: c for c in j["checks"]}
+    assert by_id["browser"]["ok"] is False and "Executable" in by_id["browser"]["detail"]
+    assert by_id["gov24"]["ok"] is False and by_id["bokjiro"]["ok"] is False
+    # 폴더·디스크는 실제로 점검되어 정상
+    assert by_id["docs_dir"]["ok"] is True and by_id["disk"]["ok"] is True
+
+
+def test_probe_site_http_error_counts_as_reachable(monkeypatch):
+    """_probe_site: 403 같은 HTTP 오류 응답도 '서버가 응답함=연결 OK'로 본다(안티봇 403 오탐 방지)."""
+    import urllib.error
+    import urllib.request
+
+    def raise_403(req, timeout=0):
+        raise urllib.error.HTTPError(req.full_url, 403, "Forbidden", hdrs=None, fp=None)
+    monkeypatch.setattr(urllib.request, "urlopen", raise_403)
+    ok, detail = local_server._probe_site("https://www.gov.kr", timeout=1.0)
+    assert ok is True and "403" in detail
+
+    def raise_neterr(req, timeout=0):
+        raise urllib.error.URLError("timed out")
+    monkeypatch.setattr(urllib.request, "urlopen", raise_neterr)
+    ok, detail = local_server._probe_site("https://www.gov.kr", timeout=1.0)
+    assert ok is False
