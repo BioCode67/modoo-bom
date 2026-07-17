@@ -342,6 +342,9 @@ export function DocumentCenter() {
         forgetLive('doc', doc) // 종결 — 복원 대상에서 제거(좀비 복원 방지)
         // 발급이 종결되면 🗂 내 서류함을 즉시 갱신(새 발급물이 목록·자동첨부 후보에 바로 보이게)
         if (st.status === 'done' || st.status === 'completed') notifyDocsChanged()
+        // 실발급 성공(서버가 PDF 저장을 확인)은 '발급 완료'로 기억 — 재실행 시 같은 서류 중복 발급 방지.
+        //   saved_path 없는 done(⚠️)은 기억하지 않는다(등록 경로의 수동 표시와 동일한 실증 기준).
+        if ((st.status === 'done' || st.status === 'completed') && st.result?.saved_path && !isDocDone(doc)) toggleDocDone(doc)
         // 다른 탭(정부 사이트 등)에 가 있으면 탭 제목으로 종결을 알림 — 돌아오면 자동 원복
         titleBadge(st.status === 'done' || st.status === 'completed' ? `✅ ${doc} 발급 완료 — 모두봄` : `⚠️ ${doc} 확인 필요 — 모두봄`)
         break
@@ -450,6 +453,10 @@ export function DocumentCenter() {
           const authKey = j.current_status === 'waiting_login' ? `${j.current || ''}:waiting_login` : ''
           if (authKey && authKey !== prevAuthKey) { playAuthCue(); titleBadge(`📱 ${j.current || '발급'} — 휴대폰 인증 승인 필요`) }
           prevAuthKey = authKey
+        }
+        // 여정 중 실발급 성공한 서류는 즉시 '발급 완료'로 기억 — 중간 이탈/재실행에도 중복 발급 방지
+        for (const step of (j.steps || [])) {
+          if (step.kind !== 'apply' && step.saved_path && ['done', 'completed'].includes(step.status) && !isDocDone(step.name)) toggleDocDone(step.name)
         }
         setRpa((s) => {
           const next = { ...s }
@@ -710,7 +717,9 @@ export function DocumentCenter() {
                 <p className={cn('font-bold text-sm truncate', done && 'line-through decoration-success-500/60')}>{doc}</p>
                 {regMsg ? (
                   <p className={cn('text-xs font-semibold mt-0.5', regMsg.startsWith('✅') ? 'text-success-600' : regMsg === '등록 중…' ? 'text-sky2-700' : 'text-rose-600')}>{regMsg}</p>
-                ) : done ? (
+                ) : done && !(st && (st.status === 'done' || st.status === 'completed') && st.saved) ? (
+                  // 발급완료 표시(수동 체크 or 자동발급 성공 기억) — 단, 방금 발급 성공(st.saved)이면
+                  //   그 결과 UI('발급 문서 받기'·저장 위치)가 우선(자동 docDone 기억이 링크를 가리지 않게)
                   <p className="text-xs text-success-600 font-semibold">발급 완료로 표시했어요</p>
                 ) : st ? (
                   <>

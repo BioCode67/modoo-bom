@@ -180,8 +180,11 @@ def main() -> int:
             cues = pg.evaluate("()=>window.__cues")
             assert cues == 2, f"알림음 {cues}회(두 음=오실레이터 2회 기대, 재울림 금지)"
             pg.wait_for_selector("text=발급 완료", timeout=15000)  # done 수렴으로 폴링 종료
+            # 실발급 성공(saved_path)은 '발급 완료'로 자동 기억 — 재실행 중복 발급 방지(persist 검증)
+            dd = pg.evaluate("()=>JSON.parse(localStorage.getItem('modoobom-store')).state.docDone")
+            assert dd.get("가족관계증명서"), f"발급 성공이 기억되지 않음: {dd}"
             pg.unroute("**/api/documents/rpa-issue"); pg.unroute("**/api/documents/rpa-status/cue-task*")
-            print("[desktop] ✅ 6.5. 인증 대기 알림음(전이 1회만, 폴링 반복 재울림 없음)")
+            print("[desktop] ✅ 6.5. 인증 알림음 + 발급 성공 자동 기억(docDone persist)")
 
             # 7.5) 🚀 원클릭 '발급→자동신청' 연쇄 — 체크박스(기본 ON)·CTA 라벨·여정 body 계약
             #      실서버 여정을 실제로 돌리지 않도록 run/status만 인터셉트(다른 검증은 실서버 그대로).
