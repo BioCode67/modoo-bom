@@ -507,6 +507,11 @@ async def journey_run(req: JourneyRunRequest):
     # 재클릭 중복시작 가드 — 진행 중 여정이 있으면 겹쳐 시작하지 않고 그것을 반환(감사 :374, local_server 와 파리티)
     existing = active_journey_id()
     if existing:
+        # 🔒 공유(터널) 배포에선 남의 여정 토큰/ID를 절대 돌려주지 않는다(local_server 와 파리티 —
+        #   download_token 유출 시 타 이용자 스크린샷 열람·여정 취소/스킵 가능).
+        import os as _os
+        if _os.getenv("RPA_SHARED", "").strip().lower() in ("1", "true", "yes"):
+            raise HTTPException(status_code=503, detail="지금 다른 이용자의 연쇄 자동발급이 진행 중이에요 — 잠시 후 다시 시도해 주세요.")
         j = get_journey(existing) or {}
         steps = j.get("steps", [])
         return {"journey_id": existing, "status": "already_running", "download_token": journey_token(existing),

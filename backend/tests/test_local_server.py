@@ -485,3 +485,40 @@ def test_shared_mode_disables_vault_endpoints(monkeypatch, tmp_path):
     # 기본(로컬 데스크탑)은 기존대로 동작
     monkeypatch.delenv("RPA_SHARED")
     assert client.get("/api/documents/list").status_code == 200
+
+
+def test_shared_mode_hides_foreign_journey_token(monkeypatch):
+    """🔒 RPA_SHARED=1 — 진행 중인 '남의' 여정이 있을 때 journey/run 이 그 여정의
+    download_token/ID를 두 번째 호출자에게 돌려주지 않는다(503 정직 안내).
+    토큰이 새면 타 이용자의 정부 페이지 스크린샷(주민번호 가능)·저장 경로 열람과 취소/스킵까지 가능."""
+    from rpa import orchestrator
+    monkeypatch.setenv("RPA_ENABLED", "1")
+    monkeypatch.setenv("RPA_SHARED", "1")
+    orchestrator._journeys["shared-j1"] = {
+        "journey_id": "shared-j1", "status": "running", "download_token": "user-a-secret",
+        "steps": [], "current": None, "created_at": "2026-07-17T00:00:00"}
+    try:
+        r = client.post("/api/journey/run", json={"doc_names": ["주민등록등본"], "user_name": "사용자B"})
+        assert r.status_code == 503
+        assert "user-a-secret" not in r.text and "shared-j1" not in r.text
+    finally:
+        orchestrator._journeys.pop("shared-j1", None)
+
+
+def test_default_mode_still_returns_own_running_journey(monkeypatch):
+    """기본(내 PC) 모드 — 재클릭 중복시작 가드는 기존대로 이미 도는 여정을 그대로 반환(단일 사용자 UX)."""
+    from rpa import orchestrator
+    monkeypatch.setenv("RPA_ENABLED", "1")
+    monkeypatch.delenv("RPA_SHARED", raising=False)
+    orchestrator._journeys["own-j1"] = {
+        "journey_id": "own-j1", "status": "running", "download_token": "tok-own",
+        "steps": [{"kind": "doc", "name": "주민등록등본", "status": "running"}],
+        "current": "주민등록등본", "created_at": "2026-07-17T00:00:00"}
+    try:
+        r = client.post("/api/journey/run", json={"doc_names": ["주민등록등본"], "user_name": "본인"})
+        assert r.status_code == 200
+        j = r.json()
+        assert j["status"] == "already_running" and j["journey_id"] == "own-j1"
+        assert j["download_token"] == "tok-own"
+    finally:
+        orchestrator._journeys.pop("own-j1", None)

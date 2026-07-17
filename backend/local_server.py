@@ -643,6 +643,10 @@ async def journey_run(req: JourneyRunRequest):
     #   (겹쳐 시작하면 브라우저·슬롯 경합으로 연쇄 정체가 난다.)
     existing = active_journey_id()
     if existing:
+        # 🔒 공유(터널) 배포에선 남의 여정 토큰/ID를 절대 돌려주지 않는다 — download_token이 있으면
+        #   다른 이용자의 정부 페이지 스크린샷(주민번호 가능)·저장 경로 열람과 여정 취소/스킵까지 가능해진다.
+        if os.getenv("RPA_SHARED", "").strip().lower() in ("1", "true", "yes"):
+            raise HTTPException(status_code=503, detail="지금 다른 이용자의 연쇄 자동발급이 진행 중이에요 — 잠시 후 다시 시도해 주세요.")
         j = get_journey(existing) or {}
         steps = j.get("steps", [])
         return {"journey_id": existing, "status": "already_running", "download_token": journey_token(existing),
