@@ -53,10 +53,13 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
 
   // 📎 자동첨부 미리보기 — '지금 신청하면 붙을 후보'를 서버 기준(/api/documents/list attach_candidate)으로
   //   미리 보여준다. 자동첨부가 보이지 않는 마법이 아니라 시작 전 확인 가능한 상태가 되게(신뢰성).
+  //   ⚠️ '내 PC' 에이전트에서만 — 원격(공유) RPA에선 서버 목록에 다른 이용자의 서류 표시명(실명 포함)이
+  //   섞일 수 있어 조회하지 않는다(DocVault 와 동일한 프라이버시 게이트).
   const [attachPreview, setAttachPreview] = useState<string[] | null>(null)
   const rpaOn = ready === true && !!caps?.rpa
+  const previewOn = rpaOn && !caps?.rpaRemote
   useEffect(() => {
-    if (!rpaOn) { setAttachPreview(null); return }
+    if (!previewOn) { setAttachPreview(null); return }
     let alive = true
     fetch(`${getRpaBase()}/api/documents/list`)
       .then((r) => (r.ok ? r.json() : null))
@@ -68,7 +71,7 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
       })
       .catch(() => { /* 미리보기는 부가 정보 — 실패해도 신청 흐름엔 영향 없음 */ })
     return () => { alive = false }
-  }, [rpaOn, run?.status])
+  }, [previewOn, run?.status])
 
   // 🔁 세션 연속성 — 새로고침·뷰 이탈 후에도 진행 중이던 자동신청 추적을 재연결(문서센터와 동일 원리).
   //   ⚠️ 훅은 아래 조기 return(null)보다 먼저 선언돼야 한다(rules-of-hooks). pollApply는 effect 실행

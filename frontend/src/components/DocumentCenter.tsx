@@ -40,7 +40,10 @@ function markRemainingStuck(prev: Record<string, RpaState>, docs: string[], msg:
 export function DocumentCenter() {
   const { tracked, profile, rpaInfo, toggleDocDone, isDocDone, setStatus } = useAppStore()
   const { ready, caps } = useBackend()
-  const localAgent = ready === true && !!caps?.rpa   // RPA 가능한 로컬 에이전트
+  const localAgent = ready === true && !!caps?.rpa   // RPA 가능한 에이전트(원격 옵트인 포함)
+  // 🔒 서류함 계열(목록·등록·삭제)은 '내 PC' 에이전트에서만 — 원격(공유) RPA에선 서버 폴더에 다른
+  //   이용자의 서류(실명 표시명)가 섞일 수 있어 조회·업로드하지 않는다(서버도 RPA_SHARED=1로 차단).
+  const vaultOn = localAgent && !caps?.rpaRemote
   const [ext, setExt] = useState(false)              // 크롬 확장(브라우저 내 자동화)
   const backend = localAgent || ext                  // 둘 중 하나면 자동발급 노출
   const [rpa, setRpa] = useState<Record<string, RpaState>>({})
@@ -94,8 +97,9 @@ export function DocumentCenter() {
   const registerBlob = async (doc: string, blob: Blob, filename: string) => {
     setRegistered((s) => ({ ...s, [doc]: '등록 중…' }))
     try {
-      if (!localAgent) {
-        // 웹: 저장할 로컬 폴더가 없으니 파일로 내려받아 사용자가 신청 화면에서 직접 첨부하게 한다(정직한 폴백).
+      if (!vaultOn) {
+        // 웹/원격 RPA: 로컬 폴더가 없거나(웹) 공유 서버라(원격) 업로드하지 않는다 —
+        // 파일로 내려받아 사용자가 신청 화면에서 직접 첨부하게 한다(정직한 폴백).
         const url = URL.createObjectURL(blob)
         const a = document.createElement('a'); a.href = url; a.download = filename; a.click()
         setTimeout(() => URL.revokeObjectURL(url), 1500)
@@ -836,7 +840,7 @@ export function DocumentCenter() {
                     >
                       📷 촬영
                     </button>
-                    {localAgent && (
+                    {vaultOn && (
                       <button
                         onClick={() => pickFileFor(doc)}
                         title="내가 가진 파일(PDF·사진)을 등록하면 신청할 때 자동으로 첨부돼요"
@@ -914,7 +918,7 @@ export function DocumentCenter() {
       ))}
 
       {/* 🗂 내 서류함 — 데스크탑 에이전트에서만(이 PC 폴더의 발급/등록물 가시화 + 자동첨부 후보 표시) */}
-      {localAgent && <DocVault />}
+      {vaultOn && <DocVault />}
     </motion.section>
   )
 }

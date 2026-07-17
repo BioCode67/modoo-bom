@@ -468,3 +468,20 @@ def test_static_cache_policy_prevents_stale_index():
     r2 = client.get(f"/assets/{_os.path.basename(assets[0])}")
     assert r2.status_code == 200
     assert "immutable" in (r2.headers.get("cache-control") or "")
+
+
+def test_shared_mode_disables_vault_endpoints(monkeypatch, tmp_path):
+    """🔒 RPA_SHARED=1(터널/공유 배포) — 서류함 계열(목록·삭제·등록·폴더열기)이 403으로 꺼진다.
+    무토큰 '본인 PC 전용' 설계가 다중 사용자 서버에 노출되면 서로의 서류 표시명(실명)을 보거나
+    남의 파일을 지울 수 있는 문제 차단. 발급/신청 RPA 자체는 영향 없음."""
+    from rpa import base
+    monkeypatch.setattr(base, "DOCS_DIR", tmp_path)
+    monkeypatch.setenv("RPA_SHARED", "1")
+    assert client.get("/api/documents/list").status_code == 403
+    assert client.post("/api/documents/delete", json={"filename": "x.pdf"}).status_code == 403
+    assert client.post("/api/documents/open-folder").status_code == 403
+    assert client.post("/api/documents/register", files={"file": ("a.pdf", b"%PDF", "application/pdf")},
+                       data={"doc_name": "임대차계약서"}).status_code == 403
+    # 기본(로컬 데스크탑)은 기존대로 동작
+    monkeypatch.delenv("RPA_SHARED")
+    assert client.get("/api/documents/list").status_code == 200

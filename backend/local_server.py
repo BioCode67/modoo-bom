@@ -448,11 +448,22 @@ async def rpa_file(task_id: str, t: str = ""):
     })
 
 
+def _shared_mode_guard():
+    """🔒 공유(터널/원격) 배포 가드 — RPA_SHARED=1 이면 '내 서류함' 계열(목록·삭제·등록·폴더열기)을 차단.
+
+    이 엔드포인트들은 '사용자 본인 PC에서만 도는' 전제의 무토큰 설계다. 심사용 터널/원격 서버처럼
+    여러 사람이 같은 서버를 쓰면 서로의 서류 표시명(실명 포함)을 보거나 남의 파일을 지울 수 있다.
+    → 공유 배포 시 운영자가 RPA_SHARED=1 을 설정해 이 계열을 통째로 끈다(발급·신청 RPA는 그대로)."""
+    if os.getenv("RPA_SHARED", "").strip().lower() in ("1", "true", "yes"):
+        raise HTTPException(status_code=403, detail="공유 서버에서는 서류함 기능을 제공하지 않아요(개인정보 보호).")
+
+
 @app.post("/api/documents/open-folder")
 async def open_docs_folder():
     """발급 서류 저장 폴더를 파일 탐색기로 연다 — 데스크탑 앱 전용(이 서버는 사용자 본인 PC에서만 돈다).
     '서류가 어디 저장되는지 모르겠다'는 실사용 피드백 대응: 완료 카드의 [저장 폴더 열기] 버튼이 호출.
     열기 실패(원격 세션 등)여도 path 를 돌려줘 프론트가 경로를 안내할 수 있게 한다."""
+    _shared_mode_guard()
     from rpa.base import DOCS_DIR
     path = str(DOCS_DIR)
     try:
@@ -478,6 +489,7 @@ async def register_document(request: Request):
     발급 서류 폴더(DOCS_DIR)에 발급물과 '같은 이름 규칙'으로 저장 → 복지 신청의 자동첨부
     (recent_issued_docs)가 이 파일도 찾아 붙일 수 있게 한다. 데스크탑 앱 전용(사용자 본인 PC),
     파일은 서버로 나가지 않고 로컬 폴더에만 저장된다."""
+    _shared_mode_guard()
     import pathlib
     from rpa.base import DOCS_DIR, doc_basename
     try:
@@ -517,6 +529,7 @@ async def list_documents():
     '지금 신청하면 자동첨부 후보인지'(attach_candidate)를 서버 기준(RPA_ATTACH_MAX_AGE)으로 알려줘
     프론트와 자동첨부 판정이 어긋나지 않게 한다(단일 소스). 같은 PC 사용자 본인용 정보라
     open-folder/register 와 동일한 무토큰·CORS 게이트 정책을 따른다."""
+    _shared_mode_guard()
     import time as _time
     from rpa.base import DOCS_DIR
     import re as _re
@@ -550,6 +563,7 @@ async def list_documents():
 async def delete_document(request: Request):
     """서류함 파일 삭제 — 잘못 등록/발급한 서류를 앱에서 바로 지운다(PII 정리).
     파일명(베이스네임)만 받으며, 실제 경로가 서류 폴더 안인지 재검증(rpa-file 과 동일한 이탈 방지)."""
+    _shared_mode_guard()
     from rpa.base import DOCS_DIR
     try:
         body = await request.json()
