@@ -52,7 +52,7 @@ def check_frontend() -> bool:
     errors, page_errors = [], []
     ok_queries = 0
     with sync_playwright() as pw:
-        browser = pw.chromium.launch()
+        browser = pw.chromium.launch(executable_path=(__import__("glob").glob("/opt/pw-browsers/chromium-*/chrome-linux/chrome") or [None])[0])
         page = browser.new_context().new_page()
         page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
         page.on("pageerror", lambda e: page_errors.append(str(e)))

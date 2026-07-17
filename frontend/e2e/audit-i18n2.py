@@ -21,7 +21,7 @@ try:
     if not wait(PORT): print("preview fail"); sys.exit(1)
     from playwright.sync_api import sync_playwright
     with sync_playwright() as p:
-        b=p.chromium.launch(); ctx=b.new_context(viewport={"width":1280,"height":950})
+        b=p.chromium.launch(executable_path=(__import__("glob").glob("/opt/pw-browsers/chromium-*/chrome-linux/chrome") or [None])[0]); ctx=b.new_context(viewport={"width":1280,"height":950})
         ctx.add_init_script("try{localStorage.setItem('modoobom-store', JSON.stringify({state:{uiLang:'en',onboarded:true},version:0}))}catch(e){}")
         pg=ctx.new_page()
         pg.goto(BASE,wait_until="networkidle"); pg.wait_for_timeout(1500)

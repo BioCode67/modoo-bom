@@ -19,7 +19,7 @@ SITE = "https://biocode67.github.io/modoo-bom/"
 def run() -> bool:
     perrs = []
     with sync_playwright() as pw:
-        b = pw.chromium.launch()
+        b = pw.chromium.launch(executable_path=(__import__("glob").glob("/opt/pw-browsers/chromium-*/chrome-linux/chrome") or [None])[0])
         pg = b.new_context().new_page()
         pg.on("pageerror", lambda e: perrs.append(str(e)))
         pg.goto(SITE, wait_until="networkidle", timeout=60000)

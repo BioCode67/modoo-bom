@@ -21,7 +21,7 @@ try:
     if not wait(PORT): print("preview fail"); sys.exit(1)
     from playwright.sync_api import sync_playwright
     with sync_playwright() as p:
-        b=p.chromium.launch(); pg=b.new_page(viewport={"width":1280,"height":950})
+        b=p.chromium.launch(executable_path=(__import__("glob").glob("/opt/pw-browsers/chromium-*/chrome-linux/chrome") or [None])[0]); pg=b.new_page(viewport={"width":1280,"height":950})
         pg.goto(BASE,wait_until="networkidle"); pg.wait_for_timeout(1200)
         try: pg.click('[aria-label="닫기"]',timeout=3000)
         except Exception: pass

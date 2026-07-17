@@ -82,7 +82,7 @@ def main() -> int:
 
         errors: list[str] = []
         with sync_playwright() as p:
-            browser = p.chromium.launch()
+            browser = p.chromium.launch(executable_path=(__import__("glob").glob("/opt/pw-browsers/chromium-*/chrome-linux/chrome") or [None])[0])
             ctx = browser.new_context()
             # 관심목록 시드 — 위저드 여정은 smoke가 커버, 여기선 서류 도우미에 직행
             # ⚠️ init script는 매 내비게이션마다 실행 — 최초 1회만 시드(이후 앱이 쓴 persist를 보존)

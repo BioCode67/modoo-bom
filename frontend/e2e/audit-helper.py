@@ -26,7 +26,7 @@ try:
     payload={"v":1,"profile":{"name":"","age":72,"gender":"female","region":"서울","household_type":"1인가구","income_percentile":25,"disability":False,"disability_grade":"","employment_status":"","has_children":False,"children_ages":[],"is_pregnant":False,"life_events":[]},"tracked":[{"policyId":"POL-001","name":"기초연금"}]}
     enc=base64.urlsafe_b64encode(json.dumps(payload,ensure_ascii=False).encode()).decode().rstrip("=")
     with sync_playwright() as p:
-        b=p.chromium.launch(); pg=b.new_page(viewport={"width":1280,"height":950})
+        b=p.chromium.launch(executable_path=(__import__("glob").glob("/opt/pw-browsers/chromium-*/chrome-linux/chrome") or [None])[0]); pg=b.new_page(viewport={"width":1280,"height":950})
         errs=[]; pg.on("pageerror",lambda e: errs.append(str(e)))
         pg.goto(BASE+"#helper="+enc, wait_until="networkidle"); pg.wait_for_timeout(2500)
         try: pg.click('[aria-label="닫기"]',timeout=2000)

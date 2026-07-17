@@ -35,7 +35,7 @@ def main():
         if not wait_port(PORT): print("preview 실패"); return 1
         from playwright.sync_api import sync_playwright
         with sync_playwright() as p:
-            b = p.chromium.launch()
+            b = p.chromium.launch(executable_path=(__import__("glob").glob("/opt/pw-browsers/chromium-*/chrome-linux/chrome") or [None])[0])
             ctx = b.new_context(
                 viewport={"width":1280,"height":720},
                 record_video_dir=str(OUT),

@@ -20,7 +20,7 @@ SITE = "https://biocode67.github.io/modoo-bom/"
 def run() -> bool:
     ok = True
     with sync_playwright() as pw:
-        b = pw.chromium.launch()
+        b = pw.chromium.launch(executable_path=(__import__("glob").glob("/opt/pw-browsers/chromium-*/chrome-linux/chrome") or [None])[0])
 
         # 1) 베트남어 로케일 — 배너 노출 + 전환
         ctx = b.new_context(locale="vi-VN")

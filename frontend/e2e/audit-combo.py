@@ -21,16 +21,16 @@ try:
     if not wait(PORT): print("preview fail"); sys.exit(1)
     from playwright.sync_api import sync_playwright
     with sync_playwright() as p:
-        b=p.chromium.launch(); pg=b.new_page(viewport={"width":1280,"height":1000})
+        b=p.chromium.launch(executable_path=(__import__("glob").glob("/opt/pw-browsers/chromium-*/chrome-linux/chrome") or [None])[0]); pg=b.new_page(viewport={"width":1280,"height":1000})
         pg.goto(BASE,wait_until="networkidle"); pg.wait_for_timeout(1200)
         try: pg.click('[aria-label="닫기"]',timeout=3000)
         except Exception: pass
         pg.click("text=복지 찾기"); pg.click("text=직접 입력")
         # 복합: 66세 + 중증장애 + 저소득 → 기초연금·장애인연금 동시 → exclusive combo
         pg.fill('[aria-label="나이 직접 입력"]', "66"); pg.wait_for_timeout(200)
-        pg.click("text=가운데보다 낮아요")  # income 50? need low; pick 소득이 적은 편
-        pg.wait_for_timeout(200)
-        # step2 skip region; go next
+        # 위저드 3단계 개편: 소득 선택은 2단계(가구·소득)에 있다 — 1단계에서 바로 클릭하던 옛 흐름 수정
+        pg.click("text=다음"); pg.wait_for_timeout(300)
+        pg.click("text=가운데보다 낮아요"); pg.wait_for_timeout(200)
         pg.click("text=다음"); pg.wait_for_timeout(300)
         # step3 장애 토글
         try: pg.click("text=♿ 등록 장애인"); pg.wait_for_timeout(300)

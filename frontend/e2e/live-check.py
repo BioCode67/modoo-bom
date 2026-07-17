@@ -13,7 +13,7 @@ def main():
     from playwright.sync_api import sync_playwright
     fails = []
     with sync_playwright() as p:
-        b = p.chromium.launch()
+        b = p.chromium.launch(executable_path=(__import__("glob").glob("/opt/pw-browsers/chromium-*/chrome-linux/chrome") or [None])[0])
         pg = b.new_page(viewport={"width": 1280, "height": 900})
         errs = []
         pg.on("pageerror", lambda e: errs.append(str(e)))
