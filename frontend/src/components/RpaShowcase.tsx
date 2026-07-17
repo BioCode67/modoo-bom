@@ -62,7 +62,9 @@ export function RpaShowcase() {
           <div className="flex-1">
             <p className="font-bold">더 자동으로도 — 원하는 분만 (선택)</p>
             <p className="text-sm text-muted-foreground mt-0.5">
-              크롬 확장/로컬 에이전트를 쓰면 서류 발급·양식 작성까지 <b className="text-foreground">AI가 대신</b>(정부24 실제 조작). 본인인증·최종 제출만 본인이요.
+              데스크탑 앱에서는 <b className="text-foreground">🚀 원클릭 연쇄</b> — 필요한 서류를 순서대로 자동 발급하고, 방금 발급분을
+              복지로 신청 양식에 <b className="text-foreground">자동 첨부</b>한 뒤 <b className="text-foreground">제출 직전에 멈춰요</b>.
+              📱 카카오 인증 승인과 최종 제출만 본인이요(명의도용 방지 안전장치).
               <br className="hidden sm:block" />앞으로는 <b className="text-foreground">공공 마이데이터</b>로 <b className="text-foreground">인증 한 번이면 완전 자동</b> — 설치 없이 안전하게 준비 중이에요.
             </p>
           </div>
