@@ -38,7 +38,7 @@ function markRemainingStuck(prev: Record<string, RpaState>, docs: string[], msg:
 }
 
 export function DocumentCenter() {
-  const { tracked, profile, rpaInfo, toggleDocDone, isDocDone } = useAppStore()
+  const { tracked, profile, rpaInfo, toggleDocDone, isDocDone, setStatus } = useAppStore()
   const { ready, caps } = useBackend()
   const localAgent = ready === true && !!caps?.rpa   // RPA 가능한 로컬 에이전트
   const [ext, setExt] = useState(false)              // 크롬 확장(브라우저 내 자동화)
@@ -826,9 +826,27 @@ export function DocumentCenter() {
           <div className="min-w-0 flex-1">
             <p className="text-sm font-bold">📨 자동신청 — {svc}</p>
             <p className="mt-0.5 whitespace-pre-line text-xs text-muted-foreground">{st!.step || '진행 중…'}</p>
-            {['done', 'completed'].includes(st!.status) && (
-              <p className="mt-1 text-[11px] font-semibold text-sprout-700">열린 브라우저 창에서 내용 확인 후 <b>최종 제출은 본인이 직접</b> 해주세요.</p>
-            )}
+            {['done', 'completed'].includes(st!.status) && (() => {
+              // 원클릭 연쇄로 연 신청도 드로어의 단건 신청과 같은 '제출 완료 기록' 경로를 가진다 —
+              // 사용자가 직접 눌러야만 기록(자동 낙관처리 금지). 기록 여부는 스토어(tracked.status)가 진실.
+              const item = tracked.find((t) => getPolicyMap()[t.policyId]?.name === svc)
+              return (
+                <>
+                  <p className="mt-1 text-[11px] font-semibold text-sprout-700">열린 브라우저 창에서 내용 확인 후 <b>최종 제출은 본인이 직접</b> 해주세요.</p>
+                  {item && (item.status === 'applied' || item.status === 'done' ? (
+                    <span className="mt-1.5 inline-block rounded-xl border border-success-500/30 bg-success-50 px-3 py-1.5 text-[11px] font-bold text-success-600">
+                      ✅ 신청 완료로 기록했어요 — 아래 모니터링에서 챙겨드릴게요
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => setStatus(item.policyId, 'applied')}
+                      className="mt-1.5 rounded-xl border-2 border-success-500/40 bg-success-50 px-3 py-1.5 text-[11px] font-bold text-success-600 hover:bg-success-50/70">
+                      ✓ 제출까지 마쳤어요 — 신청 완료로 기록
+                    </button>
+                  ))}
+                </>
+              )
+            })()}
           </div>
         </div>
       ))}

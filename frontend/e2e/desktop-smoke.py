@@ -226,8 +226,14 @@ def main() -> int:
             pg.wait_for_timeout(2500)
             assert jstate["skips"] == 1, f"skip API 호출 {jstate['skips']}회"
             pg.wait_for_selector("text=연쇄 자동발급 진행 중", state="detached", timeout=10000)  # completed 수렴
+            # 📨 신청 단계 카드의 '제출 완료 기록' — 직접 눌러야만 applied 기록(자동 낙관처리 금지)
+            pg.wait_for_selector("text=📨 자동신청 — 청년월세지원", timeout=8000)
+            pg.locator("button:has-text('제출까지 마쳤어요')").click()
+            pg.wait_for_selector("text=신청 완료로 기록했어요", timeout=6000)
+            stat = pg.evaluate("()=>JSON.parse(localStorage.getItem('modoobom-store')).state.tracked[0].status")
+            assert stat == "applied", f"기록된 상태={stat}"
             pg.unroute("**/api/journey/run"); pg.unroute("**/api/journey/status/**"); pg.unroute("**/api/journey/skip/**")
-            print("[desktop] ✅ 7.5. 원클릭 연쇄(service_names 계약) + ⏭ 개별 단계 건너뛰기(진행률 헤더)")
+            print("[desktop] ✅ 7.5. 원클릭 연쇄 + ⏭ 단계 건너뛰기 + 📨 제출 완료 기록(applied 저장)")
 
             # 7) 검증형 리셋
             alerts = []
