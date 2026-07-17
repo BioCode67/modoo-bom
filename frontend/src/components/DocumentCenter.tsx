@@ -299,12 +299,14 @@ export function DocumentCenter() {
     // ⚠️ 폴링 상한을 백엔드 대기창(로그인 8분·전자서명 대기 등) 이상으로 — 어르신 본인인증이 90초를
     //    넘겨도 UI가 완료 전에 멈추지 않게(과거 60회=90초라 인증이 느리면 발급돼도 '진행 중'에 영구 정지, 감사 확정).
     let failStreak = 0
+    let prevBody = '' // 직전 응답 원문 — 같으면 setState/파싱 생략(1.5s 폴링의 불필요 리렌더 제거)
     let prevStatus = '' // 📱 인증 대기 '전이' 감지용(같은 대기 상태 폴링마다 울리지 않게)
     for (let i = 0; i < 1200; i++) { // 최대 ~30분
       await new Promise((r) => setTimeout(r, 1500))
       if (!mountedRef.current) return // 뷰를 떠나면 폴링 중단(언마운트 후 setState/fetch 방지 — 복원이 이어받음)
       // ?t= 토큰: 스크린샷 포함 응답 인가(백엔드 게이트) — 시작자만 진행 화면을 볼 수 있게
       let st: { status?: string; current_step?: string; result?: { saved_path?: string }; screenshot_b64?: string; steps?: { time?: string; msg?: string }[] }
+      let bodyTxt = ''
       try {
         const resp = await fetch(`${getRpaBase()}/api/documents/rpa-status/${task_id}${downloadToken ? `?t=${encodeURIComponent(downloadToken)}` : ''}`)
         if (resp.status === 404) {
@@ -316,7 +318,9 @@ export function DocumentCenter() {
           return
         }
         if (!resp.ok) throw new Error(`status ${resp.status}`)
-        st = await resp.json()
+        bodyTxt = await resp.text()
+        if (bodyTxt === prevBody) continue // 변화 없음(인증 대기 등) — 렌더 생략(구형 PC 부담↓, 종결은 반드시 변화로 도달)
+        st = JSON.parse(bodyTxt)
         failStreak = 0
       } catch {
         // 일시적 네트워크 실패 1회로 폴링을 끝내지 않는다(감사 :160) — 연속 5회(≈7.5초) 실패만 종료
@@ -330,6 +334,7 @@ export function DocumentCenter() {
         continue
       }
       if (!mountedRef.current) return
+      prevBody = bodyTxt
       // 발급 완료 시 result.saved_path가 있으면 문서를 사용자에게 돌려줄 수 있음(다운로드 버튼 노출)
       setRpa((s) => ({ ...s, [doc]: {
         status: st.status || 'running', step: st.current_step || '', at: s[doc]?.at ?? Date.now(), taskId: task_id, downloadToken,
@@ -421,12 +426,14 @@ export function DocumentCenter() {
     const MAX_POLL = 1400 // 최대 ~35분(다서류 순차 발급 + 각 인증 대기)
     let failStreak = 0
     let finished = false
+    let prevBody = '' // 직전 응답 원문 — 같으면 집계·setState 생략(장시간 여정의 불필요 리렌더 제거)
     let prevAuthKey = '' // 📱 인증 대기 전이 감지 — 단계마다(등본→가족관계→…) 각각 한 번씩 울리게 단계명 포함
     try {
       for (let i = 0; i < MAX_POLL; i++) {
         await new Promise((r) => setTimeout(r, 1500))
         if (!mountedRef.current) return
         let j: { status?: string; current?: string; current_message?: string; current_status?: string; steps?: { name: string; status: string; kind?: string; saved_path?: string; error?: string; task_id?: string; download_token?: string }[] }
+        let bodyTxt = ''
         try {
           const resp = await fetch(`${getRpaBase()}/api/journey/status/${journey_id}${tq}`)
           if (resp.status === 404) {
@@ -439,7 +446,9 @@ export function DocumentCenter() {
             return
           }
           if (!resp.ok) throw new Error(`status ${resp.status}`)
-          j = await resp.json()
+          bodyTxt = await resp.text()
+          if (bodyTxt === prevBody) continue // 변화 없음 — 렌더 생략(종결·전이는 반드시 응답 변화로 도달)
+          j = JSON.parse(bodyTxt)
           failStreak = 0
         } catch {
           // 일시적 네트워크 실패는 몇 번 견딘다(감사 :160) — 연속 5회만 종료
@@ -452,6 +461,7 @@ export function DocumentCenter() {
           }
           continue
         }
+        prevBody = bodyTxt
         // 여정 수준 집계(진행률 바) — 종결 단계 수/전체 + 현재 단계명 + 인증 대기 여부(헤더 강조)
         {
           const steps = j.steps || []

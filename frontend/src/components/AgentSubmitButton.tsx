@@ -176,12 +176,14 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
     // 스크린샷(정부 페이지 — PII 가능)은 시작자 토큰(?t=)이 있어야 응답에 포함된다(백엔드 게이트)
     const tq = download_token ? `?t=${encodeURIComponent(download_token)}` : ''
     let failStreak = 0
+    let prevBody = '' // 직전 응답 원문 — 같으면 setState 생략(불필요 리렌더 제거)
     let prevStatus = '' // 📱 인증 대기 '전이' 감지용
     // 폴링 상한을 백엔드 대기창(로그인 5분 + 검토 10분) 이상으로 — 인증이 느려도 UI가 완료 전에 멈추지 않게
     for (let i = 0; i < 800; i++) { // 최대 ~20분
       await new Promise((r) => setTimeout(r, 1500))
       if (!mountedRef.current || genRef.current !== gen) return  // 언마운트/재시작 시 폴링 종료(감사 :145)
       let st: { status?: string; current_step?: string; screenshot_b64?: string }
+      let bodyTxt = ''
       try {
         const resp = await fetch(`${getRpaBase()}/api/apply/status/${task_id}${tq}`)
         if (resp.status === 404) {  // 태스크 소멸(앱 재시작 등) — 좀비 폴링 대신 정직 종료(감사 :147)
@@ -192,7 +194,9 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
           return
         }
         if (!resp.ok) throw new Error(`status ${resp.status}`)
-        st = await resp.json()
+        bodyTxt = await resp.text()
+        if (bodyTxt === prevBody) continue // 변화 없음 — 렌더 생략(종결·전이는 반드시 응답 변화로 도달)
+        st = JSON.parse(bodyTxt)
         failStreak = 0
       } catch {
         failStreak++  // 일시적 실패는 견디고(감사 :160), 연속 5회만 종료
@@ -205,6 +209,7 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
         continue
       }
       if (!mountedRef.current || genRef.current !== gen) return
+      prevBody = bodyTxt
       // ⚠️ at을 유지해야(감사 :106) 30초 후 '멈춘 듯' 탈출구(공식 신청/처음부터 다시)가 뜬다 — 과거엔 at 누락으로 영영 안 떴다.
       setRun({ status: st.status || 'running', step: st.current_step || st.status || '', shot: st.screenshot_b64 || undefined, at: startedAt, taskId: task_id })
       // 📱 인증 대기로 넘어가는 순간 알림음 + 탭 제목 배지 — 화면을 안 보고 있어도 폰을 집게
