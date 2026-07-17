@@ -78,11 +78,18 @@ def main() -> int:
             return 1
 
         from playwright.sync_api import sync_playwright
+        import glob as _glob
 
         errors: list[str] = []
         with sync_playwright() as p:
-            browser = p.chromium.launch()
-            page = browser.new_page()
+            # 컨테이너/CI의 크로미움 경로 폴백(버전 불일치 회피) — 로컬 PC에선 빈 리스트라 기본 동작
+            _exe = _glob.glob("/opt/pw-browsers/chromium-*/chrome-linux/chrome")
+            browser = p.chromium.launch(executable_path=(_exe[0] if _exe else None))
+            # Windows UA로 고정 — 'Windows 앱 바로 받기' CTA가 Windows UA에서만 노출돼, 리눅스 CI/컨테이너에서
+            # 이 여정이 환경 때문에 실패하지 않게 한다(사용자 Windows PC와 동일 조건).
+            page = browser.new_context(user_agent=(
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/126.0.0.0 Safari/537.36")).new_page()
             page.on("pageerror", lambda e: errors.append(str(e)))
             # /api/health 는 백엔드 감지 프로브 — 프리뷰(프록시)에선 500이 정상 노이즈라 실패 게이트에서 제외
             def on_console(m):
@@ -91,6 +98,8 @@ def main() -> int:
                 loc = (m.location or {}).get("url", "") if hasattr(m, "location") else ""
                 if "/api/health" in loc or "/api/health" in m.text:
                     return  # 백엔드 감지 프로브 노이즈(프리뷰 프록시 500) — 무해
+                if "cdn.jsdelivr.net" in loc:
+                    return  # 폰트 CDN(프리텐다드) — 차단망/CI에선 실패해도 시스템 폰트 폴백으로 무해
                 # /ws/analyze WS 403: 프리뷰는 임의 포트(localhost:PORT) origin이라 백엔드 허용목록 밖 → 정상 거절.
                 # 실제 배포 origin(biocode67.github.io)은 허용돼 스트리밍됨(라이브 실측 확인). 프론트도 WS 실패 시
                 # 클라이언트 에이전트 연출로 폴백하므로 사용자 영향 없음 → E2E 실패 게이트에서 제외.
