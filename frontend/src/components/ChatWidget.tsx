@@ -36,6 +36,7 @@ export function ChatWidget() {
   const resetNonce = useAppStore((s) => s.resetNonce)
   const { ready, caps } = useBackend()
   const aiChat = ready === true && !!caps?.ai // 클라우드/로컬 백엔드의 진짜 LLM(Claude) 사용 가능
+  const agentOn = ready === true && !!caps?.rpa // 데스크탑 에이전트 — 서류/신청 답변이 자동화 경로를 안내
   const endRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -146,13 +147,13 @@ export function ChatWidget() {
             .slice(0, 3)
           botSay(res.answer, { policies: pols.length ? pols : undefined, ai: true })
         } else {
-          const r = agentReply(q, { profile, result, tracked })
+          const r = agentReply(q, { profile, result, tracked, agentOn })
           botSay(r.text, { policies: r.policies, cta: r.cta })
         }
       })
       return
     }
-    const r = agentReply(q, { profile, result, tracked })
+    const r = agentReply(q, { profile, result, tracked, agentOn })
     setTimeout(() => botSay(r.text, { policies: r.policies, cta: r.cta }), 350)
   }
 

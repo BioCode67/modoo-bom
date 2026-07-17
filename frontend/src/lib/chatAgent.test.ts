@@ -143,6 +143,15 @@ describe('docsReply — 서류 의도(행동형)', () => {
     expect(r.text).toMatch(/신청/)
     expect(r.cta?.view).toBe('my')
   })
+  it('데스크탑 에이전트 연결(agentOn) 시 서류·신청 답변이 자동화 경로를 안내(웹은 전자증명서 경로 유지)', () => {
+    const web = agentReply('서류 뭐 필요해?', { profile: null, result: null, tracked: [mkT('POL-001')] })
+    expect(web.text).toContain('전자증명서')
+    const app = agentReply('서류 뭐 필요해?', { profile: null, result: null, tracked: [mkT('POL-001')], agentOn: true })
+    expect(app.text).toContain('전부 자동발급')
+    const apply = agentReply('신청 어떻게 해?', { profile: null, result: null, tracked: [mkT('POL-001')], agentOn: true })
+    expect(apply.text).toContain('자동 첨부')
+    expect(apply.text).toContain('최종 제출')  // 정직한 경계는 항상 함께
+  })
   it('발급/신청 안내가 무설치 전자문서지갑(전자제출) 경로를 대화로 연결', () => {
     const d = agentReply('서류 어떻게 발급해?', { profile: null, result: null, tracked: [mkT('POL-001')] })
     expect(d.text).toContain('전자문서지갑')

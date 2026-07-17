@@ -123,8 +123,9 @@ const DOCS_RE = /(서류|준비물|구비).*(뭐|무엇|필요|어떤|알려|준
 // '신청 어떻게 해?/신청 방법/어디서 신청' — 신청 절차 안내는 로컬 에이전트가 즉시 답한다.
 const APPLY_RE = /신청.*(어떻게|방법|어디|하고|하려|할\s*수|해야|가능|절차|접수)|어떻게.*신청|어디서.*신청|신청하고\s*싶|접수.*방법/
 
-/** '서류 뭐 필요해?' — 담아둔 복지들의 필요 서류를 빈도순 요약 + 서류센터 연결(행동) */
-export function docsReply(tracked: TrackedItem[]): AgentReply {
+/** '서류 뭐 필요해?' — 담아둔 복지들의 필요 서류를 빈도순 요약 + 서류센터 연결(행동).
+ *  agentOn(데스크탑 에이전트 연결)일 땐 자동발급 경로를 우선 안내(웹 문구는 전자증명서 경로 유지). */
+export function docsReply(tracked: TrackedItem[], agentOn = false): AgentReply {
   if (!tracked.length) {
     return {
       text: '아직 담아둔 복지가 없어요. 먼저 분석으로 받을 복지를 찾아 담아두시면, 필요한 서류를 제가 모아서 챙겨드릴게요.',
@@ -139,21 +140,34 @@ export function docsReply(tracked: TrackedItem[]): AgentReply {
     return { text: '담아두신 복지는 별도 서류 없이 신청 가능한 것들이에요. 상세에서 신청 방법을 확인하세요.', cta: { view: 'my', label: '나의 복지 보기' } }
   }
   const lines = top.map(([d, n]) => `• ${d}${n > 1 ? ` (${n}곳에서 필요)` : ''}`).join('\n')
+  const how = agentOn
+    ? `지금 이 앱에서는 정부24 서류를 **자동 발급**할 수 있어요 — '나의 복지 → 서류 준비 도우미'의 [🚀 전부 자동발급]이 한 번 인증으로 순서대로 발급하고, 신청 양식 자동첨부까지 이어져요(📱 인증 승인만 직접).`
+    : `'나의 복지 → 서류 준비 도우미'에서 발급처로 바로 이어드려요. 정부24 서류는 설치 없이 **전자증명서(전자문서지갑)**로 발급하면, 복지로·주민센터에 **종이 없이 전자제출**까지 돼요(본인인증만 직접).`
   return {
     text: `담아두신 복지 ${tracked.length}건에 필요한 서류를 모아봤어요 👇
 ${lines}
 
-'나의 복지 → 서류 준비 도우미'에서 발급처로 바로 이어드려요. 정부24 서류는 설치 없이 **전자증명서(전자문서지갑)**로 발급하면, 복지로·주민센터에 **종이 없이 전자제출**까지 돼요(본인인증만 직접).`,
+${how}`,
     cta: { view: 'my', label: '서류 준비 도우미 열기' },
   }
 }
 
-/** '신청 어떻게 해?' — 신청 절차를 즉시 안내하고 신청 흐름으로 연결(행동). */
-export function applyReply(tracked: TrackedItem[]): AgentReply {
+/** '신청 어떻게 해?' — 신청 절차를 즉시 안내하고 신청 흐름으로 연결(행동).
+ *  agentOn이면 이 앱의 실제 자동화(발급→자동첨부→제출 직전 정지)를 정확히 안내. */
+export function applyReply(tracked: TrackedItem[], agentOn = false): AgentReply {
   if (!tracked.length) {
     return {
       text: '먼저 받을 복지를 찾아 담아두시면, 각 복지의 신청 방법과 공식 신청 페이지로 바로 안내해 드려요.',
       cta: { view: 'analyze', label: '내 복지 분석하기' },
+    }
+  }
+  if (agentOn) {
+    return {
+      text: `담아두신 복지 ${tracked.length}건, 이 앱에서는 신청까지 에이전트가 대신 진행해요 👇
+• '나의 복지 → 서류 준비 도우미'의 [🚀 전부 자동발급]을 누르면 서류 발급 → 복지로 신청 양식 작성 → 방금 발급한 서류 **자동 첨부**까지 한 흐름으로 진행돼요.
+• 개별 복지는 상세의 '에이전트 자동 신청'으로도 시작할 수 있어요.
+• 📱 카카오 인증 승인과 **최종 제출**만 직접 하시면 됩니다(제출 직전에 멈춰요 — 안전장치).`,
+      cta: { view: 'my', label: '나의 복지에서 신청하기' },
     }
   }
   return {
@@ -202,12 +216,12 @@ export function isLocalIntent(raw: string): boolean {
 }
 
 /** 메인 진입점 — 자유문장을 의도로 나눠 개인화·행동형으로 응답 */
-export function agentReply(raw: string, ctx: { profile: UserProfile | null; result: AnalysisResult | null; tracked?: TrackedItem[] }): AgentReply {
+export function agentReply(raw: string, ctx: { profile: UserProfile | null; result: AnalysisResult | null; tracked?: TrackedItem[]; agentOn?: boolean }): AgentReply {
   const q = raw.trim()
   if (!q) return { text: '' }
   if (GREET_RE.test(q)) return greetingReply(ctx.profile, [])
-  if (DOCS_RE.test(q)) return docsReply(ctx.tracked ?? [])
-  if (APPLY_RE.test(q)) return applyReply(ctx.tracked ?? [])
+  if (DOCS_RE.test(q)) return docsReply(ctx.tracked ?? [], ctx.agentOn ?? false)
+  if (APPLY_RE.test(q)) return applyReply(ctx.tracked ?? [], ctx.agentOn ?? false)
   if (ELIG_RE.test(q)) return eligibilityReply(ctx.profile, ctx.result)
   return searchReply(q, ctx.profile)
 }
