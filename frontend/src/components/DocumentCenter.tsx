@@ -63,8 +63,8 @@ export function DocumentCenter() {
   useEffect(() => () => { mountedRef.current = false }, [])
   // 진행 중 여정 id/토큰 — [중단] 버튼이 여정 전체를 취소할 수 있게 보관(단건은 taskId로 취소)
   const journeyRef = useRef<{ id: string; running: boolean } | null>(null)
-  // 여정 수준 진행률(n/m·현재 단계) — 카드별 상태만으론 전체 흐름이 안 보이던 갭(감사). null=여정 없음.
-  const [journeyProg, setJourneyProg] = useState<{ total: number; done: number; current?: string } | null>(null)
+  // 여정 수준 진행률(n/m·현재 단계·인증 대기 여부) — 카드별 상태만으론 전체 흐름이 안 보이던 갭(감사). null=여정 없음.
+  const [journeyProg, setJourneyProg] = useState<{ total: number; done: number; current?: string; authWait?: boolean } | null>(null)
   // 여정 종결 요약(발급 n건·건너뜀 n건·신청 양식 준비 n건) — 헤더가 사라진 뒤 '어떻게 끝났는지' 한 줄 닫음말
   const [journeySummary, setJourneySummary] = useState<string | null>(null)
   // 🚀→📨 발급 후 '자동신청까지' 이어갈 수 있는 담은 복지 — 단건 신청과 동일 기준(내장 6종 ∪ 복지로 딥링크 해석).
@@ -442,11 +442,11 @@ export function DocumentCenter() {
           }
           continue
         }
-        // 여정 수준 집계(진행률 바) — 종결 단계 수/전체 + 현재 단계명
+        // 여정 수준 집계(진행률 바) — 종결 단계 수/전체 + 현재 단계명 + 인증 대기 여부(헤더 강조)
         {
           const steps = j.steps || []
           const doneN = steps.filter((sp) => ['done', 'completed', 'error', 'cancelled'].includes(sp.status)).length
-          setJourneyProg({ total: steps.length, done: doneN, current: j.current || undefined })
+          setJourneyProg({ total: steps.length, done: doneN, current: j.current || undefined, authWait: j.current_status === 'waiting_login' })
         }
         // 📱 현재 단계가 인증 대기로 넘어가는 순간 알림음 — 단계가 바뀔 때마다 각각 한 번씩
         {
@@ -661,7 +661,14 @@ export function DocumentCenter() {
       {journeyProg && (
         <div className="mt-4 rounded-2xl border-2 border-sprout-200 bg-sprout-50/70 p-3.5" role="status" aria-live="polite">
           <div className="flex items-center justify-between gap-2 flex-wrap text-xs font-bold">
-            <span>🚀 연쇄 자동발급 진행 중 — {journeyProg.done}/{journeyProg.total} 완료{journeyProg.current ? ` · 지금: ${journeyProg.current}` : ''}</span>
+            <span>
+              🚀 연쇄 자동발급 진행 중 — {journeyProg.done}/{journeyProg.total} 완료{journeyProg.current ? ` · 지금: ${journeyProg.current}` : ''}
+              {journeyProg.authWait && (
+                <span className="ml-1.5 inline-block animate-pulse rounded-lg bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-800">
+                  📱 휴대폰에서 인증 승인해 주세요
+                </span>
+              )}
+            </span>
             <span className="inline-flex gap-1.5">
               {journeyProg.current && (
                 <button onClick={skipCurrent}

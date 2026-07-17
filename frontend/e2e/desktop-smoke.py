@@ -210,9 +210,10 @@ def main() -> int:
             jstate = {"phase": "running", "skips": 0}
             def onjstatus(r):
                 if jstate["phase"] == "running":
-                    body = {"status": "running", "current": "주민등록등본", "current_status": "running",
-                            "current_message": "정부24 로그인 중…", "steps": [
-                                {"name": "주민등록등본", "status": "running"},
+                    # 인증 대기 상태로 응답 — 헤더의 📱 강조 배지까지 함께 검증
+                    body = {"status": "running", "current": "주민등록등본", "current_status": "waiting_login",
+                            "current_message": "📱 인증 대기 중…", "steps": [
+                                {"name": "주민등록등본", "status": "waiting_login"},
                                 {"name": "청년월세지원", "status": "pending"}]}
                 else:
                     body = {"status": "completed", "current": None, "steps": [
@@ -233,8 +234,9 @@ def main() -> int:
             pg.locator("button:has-text('전부 자동발급')").click()
             pg.wait_for_timeout(2000)
             assert captured and captured[0].get("service_names") == ["청년월세지원"], captured[:1]
-            # 진행률 헤더 + ⏭ 이 단계 건너뛰기(개별 스킵) — 클릭이 skip API 로 전달되고 여정은 계속
+            # 진행률 헤더(📱 인증 대기 강조 포함) + ⏭ 이 단계 건너뛰기 — 클릭이 skip API 로 전달되고 여정은 계속
             pg.wait_for_selector("text=연쇄 자동발급 진행 중", timeout=10000)
+            pg.wait_for_selector("text=휴대폰에서 인증 승인해 주세요", timeout=6000)
             pg.locator("button:has-text('이 단계 건너뛰기')").click()
             pg.wait_for_timeout(2500)
             assert jstate["skips"] == 1, f"skip API 호출 {jstate['skips']}회"
