@@ -79,6 +79,7 @@ def _print_banner():
     print("      (다 쓰고 종료하려면 이 창을 닫거나 Ctrl+C 를 누르면 돼요.)")
     print("")
     print(f"  📄  서류 자동발급은 {_detect_browser()} 로 진행돼요. 폰에서 '인증 허용'만 누르면 끝!")
+    print("  🩺  발급이 잘 안 되면: 화면 상단 [발급 전 점검] → 안 풀리면 [진단 복사]를 개발자에게.")
     print(line + "\n", flush=True)
 
 

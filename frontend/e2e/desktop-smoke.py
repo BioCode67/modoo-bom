@@ -262,6 +262,25 @@ def main() -> int:
             pg.unroute("**/api/journey/run"); pg.unroute("**/api/journey/status/**"); pg.unroute("**/api/journey/skip/**")
             print("[desktop] ✅ 7.5. 원클릭 연쇄 + ⏭ 단계 건너뛰기 + 📨 제출 완료 기록(applied 저장)")
 
+            # 7.6) 여정 '오류' 경로 — 정부 사이트 불통 시에도 정직한 오류 요약 + 재시도 CTA가 남는지
+            #      (실사용자가 실제로 만나는 경로 — 가짜 성공·무언 종료·막다른 UI가 없어야 한다)
+            pg.route("**/api/journey/run", lambda r: r.fulfill(
+                status=200, content_type="application/json",
+                body=json.dumps({"journey_id": "j-err", "download_token": "t2",
+                                 "docs": ["주민등록등본", "소득금액증명"], "services": []})))
+            pg.route("**/api/journey/status/**", lambda r: r.fulfill(
+                status=200, content_type="application/json",
+                body=json.dumps({"status": "error", "current": None, "steps": [
+                    {"name": "주민등록등본", "status": "error", "kind": "doc", "error": "정부24가 응답하지 않아요 — 잠시 후 다시 시도해 주세요."},
+                    {"name": "소득금액증명", "status": "cancelled", "kind": "doc"}]})))
+            pg.locator("button:has-text('전부 자동발급')").click()
+            pg.wait_for_selector("text=연쇄가 오류로 끝났어요", timeout=10000)   # 종결 요약(정직 오류)
+            body2 = pg.inner_text("body")
+            assert "정부24가 응답하지 않아요" in body2, "단계 카드에 오류 원인 미표시"
+            assert pg.locator("button:has-text('전부 자동발급')").count() > 0, "재시도 CTA 소실(막다른 UI)"
+            pg.unroute("**/api/journey/run"); pg.unroute("**/api/journey/status/**")
+            print("[desktop] ✅ 7.6. 여정 오류 경로 — 정직한 요약·원인 표시·재시도 CTA 유지")
+
             # 7) 검증형 리셋
             alerts = []
             def ondlg(d):
@@ -284,7 +303,7 @@ def main() -> int:
         for i in issues[:10]:
             print("  ", i)
         return 1
-    print("✅ 데스크탑 기능 10종 + pageerror 0 — 전부 통과")
+    print("✅ 데스크탑 기능 11종 + pageerror 0 — 전부 통과")
     return 0
 
 
