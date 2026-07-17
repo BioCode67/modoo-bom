@@ -4,7 +4,7 @@ chcp 65001 >nul
 title 모두봄 - 전체 품질 게이트 점검(데모 전)
 
 rem ── 데모 전 한 번에 모든 품질 게이트를 돌려 초록불을 확인한다 ──────────
-rem  프론트: lint · tsc · vitest    백엔드: pytest    로컬앱: e2e 자동발급 체인
+rem  프론트: lint · tsc · vitest    백엔드: pytest    로컬앱: e2e 자동발급 체인 + 데스크탑 기능 스모크
 rem  실패한 항목은 [FAIL] 로 표시되고, 마지막에 요약된다.
 rem ────────────────────────────────────────────────────────────────────
 cd /d "%~dp0"
@@ -15,28 +15,28 @@ set "PYFULL="
 if exist "backend\venv\Scripts\python.exe" set "PYFULL=backend\venv\Scripts\python.exe"
 
 echo(
-echo === [1/5] 프론트 ESLint ===
+echo === [1/6] 프론트 ESLint ===
 pushd frontend
 call npm run lint
 if errorlevel 1 (set "FAIL=1"& echo [FAIL] lint) else (echo [OK] lint)
 popd
 
 echo(
-echo === [2/5] 타입체크(tsc) ===
+echo === [2/6] 타입체크(tsc) ===
 pushd frontend
 call npx tsc --noEmit
 if errorlevel 1 (set "FAIL=1"& echo [FAIL] tsc) else (echo [OK] tsc)
 popd
 
 echo(
-echo === [3/5] 프론트 단위테스트(vitest) ===
+echo === [3/6] 프론트 단위테스트(vitest) ===
 pushd frontend
 call npm test
 if errorlevel 1 (set "FAIL=1"& echo [FAIL] vitest) else (echo [OK] vitest)
 popd
 
 echo(
-echo === [4/5] 백엔드 pytest ===
+echo === [4/6] 백엔드 pytest ===
 if defined PYFULL (
   "%PYFULL%" -m pytest backend\tests -q
   if errorlevel 1 (set "FAIL=1"& echo [FAIL] pytest) else (echo [OK] pytest)
@@ -52,7 +52,7 @@ if defined PYFULL (
 )
 
 echo(
-echo === [5/5] 로컬앱 자동발급 E2E 체인 ===
+echo === [5/6] 로컬앱 자동발급 E2E 체인 ===
 set "PYE2E="
 if exist "backend\venv-local\Scripts\python.exe" set "PYE2E=..\backend\venv-local\Scripts\python.exe"
 if not defined PYE2E if defined PYFULL set "PYE2E=..\%PYFULL%"
@@ -63,6 +63,20 @@ if defined PYE2E (
   popd
 ) else (
   echo [SKIP] e2e:app — venv 없음(setup-local.bat 먼저 실행)
+)
+
+echo(
+echo === [6/6] 데스크탑 기능 스모크(에이전트 실행 중일 때만) ===
+curl -s -o NUL --max-time 3 http://localhost:8000/api/health
+if errorlevel 1 (
+  echo [SKIP] desktop-smoke — 로컬 에이전트가 :8000에 없음 ^(run-local-app.bat 실행 후 재시도^)
+) else if defined PYE2E (
+  pushd frontend
+  "%PYE2E%" e2e\desktop-smoke.py
+  if errorlevel 1 (set "FAIL=1"& echo [FAIL] desktop-smoke) else (echo [OK] desktop-smoke)
+  popd
+) else (
+  echo [SKIP] desktop-smoke — venv 없음
 )
 
 echo(
