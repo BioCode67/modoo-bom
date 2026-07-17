@@ -133,6 +133,33 @@ def main() -> int:
             assert cleaned == terminal, f"기억 정리({cleaned})가 서버 종결 상태({st})와 불일치"
             print(f"[desktop] ✅ 6. 새로고침 복원(무클릭 재연결, 서버상태={st}, 기억정리={cleaned})")
 
+            # 7.5) 🚀 원클릭 '발급→자동신청' 연쇄 — 체크박스(기본 ON)·CTA 라벨·여정 body 계약
+            #      실서버 여정을 실제로 돌리지 않도록 run/status만 인터셉트(다른 검증은 실서버 그대로).
+            captured: list = []
+            def onrun(r):
+                captured.append(json.loads(r.request.post_data or "{}"))
+                r.fulfill(status=200, content_type="application/json",
+                          body=json.dumps({"journey_id": "j-smoke", "download_token": "t",
+                                           "docs": ["주민등록등본", "가족관계증명서", "소득금액증명"],
+                                           "services": ["청년월세지원"]}))
+            pg.route("**/api/journey/run", onrun)
+            pg.route("**/api/journey/status/**", lambda r: r.fulfill(
+                status=200, content_type="application/json",
+                body=json.dumps({"status": "completed", "current": None, "steps": [
+                    {"name": "주민등록등본", "status": "done", "saved_path": "x"},
+                    {"name": "청년월세지원", "status": "done", "saved_path": "y"}]})))
+            pg.wait_for_selector("text=자동신청까지 이어서", timeout=8000)
+            pg.fill("input[placeholder*='실명']", "김청년")
+            pg.fill("input[placeholder*='생년월일']", "19980315")
+            pg.fill("input[placeholder*='휴대폰']", "01012345678")
+            label = pg.locator("button:has-text('전부 자동발급')").inner_text()
+            assert "자동신청까지" in label, label
+            pg.locator("button:has-text('전부 자동발급')").click()
+            pg.wait_for_timeout(2000)
+            assert captured and captured[0].get("service_names") == ["청년월세지원"], captured[:1]
+            pg.unroute("**/api/journey/run"); pg.unroute("**/api/journey/status/**")
+            print("[desktop] ✅ 7.5. 원클릭 발급→자동신청 연쇄(체크박스·CTA·service_names 계약)")
+
             # 7) 검증형 리셋
             alerts = []
             def ondlg(d):
