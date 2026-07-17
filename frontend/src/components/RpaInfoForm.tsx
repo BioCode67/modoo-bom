@@ -33,7 +33,11 @@ export function RpaInfoForm() {
     let msg = '✅ 새 상담 준비 완료 — 이 기기의 기록을 지웠어요.'
     if (localAgent) {
       try {
-        const r = await fetch(`${getRpaBase()}/api/session/reset`, { method: 'POST' }).then((x) => x.json())
+        // 서버가 행이면 confirm 뒤 아무 반응 없는 상태가 길어진다 → 5초 타임아웃(초과 시 정직한 경고 폴백)
+        const ctrl = new AbortController()
+        const to = setTimeout(() => ctrl.abort(), 5000)
+        const r = await fetch(`${getRpaBase()}/api/session/reset`, { method: 'POST', signal: ctrl.signal }).then((x) => x.json())
+        clearTimeout(to)
         msg = `✅ 새 상담 준비 완료 — 화면 기록과 발급 서류 파일 ${Number(r?.cleared ?? 0)}건을 지웠어요.`
       } catch {
         // 서버 삭제 실패는 숨기지 않는다 — 발급 폴더에 이전 분 서류(주민번호 포함)가 남았을 수 있음
