@@ -13,6 +13,37 @@
 let ctx: AudioContext | null = null
 let lastAt = 0
 
+// 🔊 음성 안내(옵트인) — 알림음에 더해 "휴대폰에서 인증 요청을 승인해 주세요"를 읽어준다.
+//   어르신·저시력 사용자가 화면을 안 보고 있어도 '무엇을 해야 하는지'까지 전달(비프음은 의미가 없음).
+//   설정은 이 기기(localStorage)에 기억 — 개인정보 아님.
+const VOICE_KEY = 'modoobom-auth-voice'
+let voiceEnabled: boolean | null = null
+
+export function isAuthVoice(): boolean {
+  if (voiceEnabled === null) {
+    try { voiceEnabled = localStorage.getItem(VOICE_KEY) === '1' } catch { voiceEnabled = false }
+  }
+  return voiceEnabled
+}
+
+export function setAuthVoice(on: boolean): void {
+  voiceEnabled = on
+  try {
+    if (on) localStorage.setItem(VOICE_KEY, '1')
+    else localStorage.removeItem(VOICE_KEY)
+  } catch { /* 프라이빗 모드 등 */ }
+}
+
+function speakAuthPrompt(): void {
+  try {
+    if (!('speechSynthesis' in window) || typeof SpeechSynthesisUtterance === 'undefined') return
+    const u = new SpeechSynthesisUtterance('휴대폰에서 인증 요청을 승인해 주세요')
+    u.lang = 'ko-KR'
+    u.rate = 0.95
+    window.speechSynthesis.speak(u) // cancel 없이 큐잉 — 다른 TTS(정책 읽어주기) 재생을 끊지 않는다
+  } catch { /* 미지원 — 무시 */ }
+}
+
 /** waiting_login 전이 판정 헬퍼 — 폴링 루프에서 (이전상태, 현재상태)로 호출 여부를 정한다. */
 export function isAuthWaitTransition(prev: string | undefined, next: string | undefined): boolean {
   return next === 'waiting_login' && prev !== 'waiting_login'
@@ -44,4 +75,5 @@ export function playAuthCue(): void {
       osc.stop(t0 + at + 0.22)
     }
   } catch { /* 미지원·정책 차단 — 부가 기능이라 조용히 무시 */ }
+  if (isAuthVoice()) speakAuthPrompt()
 }

@@ -148,7 +148,7 @@ def main() -> int:
             # 6.5) 📱 인증 대기 알림음 — running→waiting_login 전이에서 정확히 1회 울림(Web Audio 스텁으로 계수)
             #      상태 응답을 인터셉트해 결정적으로 전이시킨다(실서버 태스크는 컨테이너에서 전이 타이밍 불정).
             pg.evaluate("""()=>{
-              window.__cues = 0
+              window.__cues = 0; window.__spoken = []
               class FakeOsc { constructor(){ this.frequency={value:0}; this.type='' }
                 connect(){ return { gain:{ setValueAtTime(){}, exponentialRampToValueAtTime(){} }, connect(){} } }
                 start(){ window.__cues++ } stop(){} }
@@ -156,7 +156,13 @@ def main() -> int:
                 resume(){ return Promise.resolve() }
                 createOscillator(){ return new FakeOsc() }
                 createGain(){ return { gain:{ setValueAtTime(){}, exponentialRampToValueAtTime(){} }, connect(){} } } }
+              // 🔊 음성 안내 검증용 — speechSynthesis 스텁(실발화 없이 텍스트만 계수)
+              Object.defineProperty(window, 'speechSynthesis',
+                { value: { speak: (u)=>window.__spoken.push(u.text), cancel(){}, getVoices: ()=>[] }, configurable: true })
             }""")
+            # 🔊 인증 음성 안내 토글(옵트인, 기기 기억) — 켜고 발급을 시작한다
+            pg.locator("button:has-text('인증 음성 안내')").first.click()
+            assert pg.evaluate("()=>localStorage.getItem('modoobom-auth-voice')") == "1"
             calls = {"n": 0}
             pg.route("**/api/documents/rpa-issue", lambda r: r.fulfill(
                 status=200, content_type="application/json",
@@ -183,8 +189,12 @@ def main() -> int:
             # 실발급 성공(saved_path)은 '발급 완료'로 자동 기억 — 재실행 중복 발급 방지(persist 검증)
             dd = pg.evaluate("()=>JSON.parse(localStorage.getItem('modoobom-store')).state.docDone")
             assert dd.get("가족관계증명서"), f"발급 성공이 기억되지 않음: {dd}"
+            # 🔊 옵트인 음성 안내 — 인증 대기 전이 때 '휴대폰에서 인증 요청을 승인해 주세요' 1회 발화
+            spoken = pg.evaluate("()=>window.__spoken")
+            assert spoken == ["휴대폰에서 인증 요청을 승인해 주세요"], f"음성 안내: {spoken}"
+            pg.locator("button:has-text('인증 음성 안내')").first.click()  # 다음 단계 영향 없게 원복
             pg.unroute("**/api/documents/rpa-issue"); pg.unroute("**/api/documents/rpa-status/cue-task*")
-            print("[desktop] ✅ 6.5. 인증 알림음 + 발급 성공 자동 기억(docDone persist)")
+            print("[desktop] ✅ 6.5. 인증 알림음+🔊음성 안내(옵트인) + 발급 성공 자동 기억")
 
             # 7.5) 🚀 원클릭 '발급→자동신청' 연쇄 — 체크박스(기본 ON)·CTA 라벨·여정 body 계약
             #      실서버 여정을 실제로 돌리지 않도록 run/status만 인터셉트(다른 검증은 실서버 그대로).

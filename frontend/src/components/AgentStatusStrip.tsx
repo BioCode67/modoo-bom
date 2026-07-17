@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { Bot, CheckCircle2, Loader2, AlertCircle, Stethoscope, ClipboardCopy, X } from 'lucide-react'
+import { Bot, CheckCircle2, Loader2, AlertCircle, Stethoscope, ClipboardCopy, X, Volume2 } from 'lucide-react'
 import { getRpaBase } from '@/lib/backend'
+import { isAuthVoice, setAuthVoice } from '@/lib/authCue'
 import { useBackend } from '@/lib/useBackend'
 
 type PfCheck = { id: string; name: string; ok: boolean; detail?: string }
@@ -15,6 +16,7 @@ export function AgentStatusStrip() {
   const { ready, caps } = useBackend()
   const [pf, setPf] = useState<'idle' | 'running' | 'error' | PfResult>('idle')
   const [diagDone, setDiagDone] = useState(false) // 진단 복사 완료 표시(훅은 조기 return 앞에)
+  const [voice, setVoice] = useState(() => isAuthVoice()) // 🔊 인증 음성 안내(기기 기억, 옵트인)
 
   if (ready !== true || !caps?.rpa) return null
   const cap = caps.rpaCapacity
@@ -71,6 +73,13 @@ export function AgentStatusStrip() {
               <AlertCircle className="h-3 w-3" /> 점검 요청 실패 — 에이전트 연결 확인
             </span>
           )}
+          <button
+            onClick={() => setVoice((v) => { setAuthVoice(!v); return !v })}
+            aria-pressed={voice}
+            title="인증 승인 차례가 되면 알림음에 더해 '휴대폰에서 인증 요청을 승인해 주세요'를 음성으로 읽어줘요(화면을 안 보는 어르신용)"
+            className={`rounded-lg border px-2 py-1 font-semibold inline-flex items-center gap-1 ${voice ? 'border-sprout-500 bg-sprout-500 text-white' : 'border-sprout-200 bg-white text-sprout-700 hover:bg-sprout-50'}`}>
+            <Volume2 className="h-3 w-3" /> {voice ? '인증 음성 안내 켬' : '인증 음성 안내'}
+          </button>
           <button onClick={runPreflight} disabled={running}
             title="발급용 브라우저·정부24/복지로 연결·발급 폴더·디스크를 발급 시작 전에 한 번에 점검해요"
             className="rounded-lg border border-sprout-200 bg-white px-2 py-1 font-semibold text-sprout-700 hover:bg-sprout-50 disabled:opacity-50 inline-flex items-center gap-1">

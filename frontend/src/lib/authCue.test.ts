@@ -59,4 +59,32 @@ describe('playAuthCue', () => {
     const { playAuthCue } = await import('./authCue')
     expect(() => playAuthCue()).not.toThrow()
   })
+
+  it('🔊 음성 안내 옵트인 시에만 인증 안내를 읽어준다(+기기 기억)', async () => {
+    vi.setSystemTime(2_000_000)
+    const spoken: string[] = []
+    const store: Record<string, string> = {}
+    const { FakeAudioContext } = makeFakeAudio()
+    vi.stubGlobal('localStorage', {
+      getItem: (k: string) => store[k] ?? null,
+      setItem: (k: string, v: string) => { store[k] = v },
+      removeItem: (k: string) => { delete store[k] },
+    })
+    vi.stubGlobal('SpeechSynthesisUtterance', class { text: string; lang = ''; rate = 0; constructor(t: string) { this.text = t } })
+    vi.stubGlobal('window', {
+      AudioContext: FakeAudioContext,
+      speechSynthesis: { speak: (u: { text: string }) => spoken.push(u.text) },
+    })
+    const { playAuthCue, setAuthVoice, isAuthVoice } = await import('./authCue')
+    playAuthCue() // 기본 OFF — 비프만
+    expect(spoken).toHaveLength(0)
+    setAuthVoice(true)
+    expect(store['modoobom-auth-voice']).toBe('1') // 기기(localStorage) 기억
+    vi.setSystemTime(2_000_000 + 4000)
+    playAuthCue()
+    expect(spoken).toEqual(['휴대폰에서 인증 요청을 승인해 주세요'])
+    setAuthVoice(false)
+    expect(store['modoobom-auth-voice']).toBeUndefined()
+    expect(isAuthVoice()).toBe(false)
+  })
 })
