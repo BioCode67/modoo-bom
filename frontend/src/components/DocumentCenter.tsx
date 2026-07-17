@@ -897,7 +897,7 @@ export function DocumentCenter() {
                   <p className="mt-1 text-[11px] font-semibold text-sprout-700">열린 브라우저 창에서 내용 확인 후 <b>최종 제출은 본인이 직접</b> 해주세요.</p>
                   {item && (item.status === 'applied' || item.status === 'done' ? (
                     <span className="mt-1.5 inline-block rounded-xl border border-success-500/30 bg-success-50 px-3 py-1.5 text-[11px] font-bold text-success-600">
-                      ✅ 신청 완료로 기록했어요 — 아래 모니터링에서 챙겨드릴게요
+                      ✅ 신청 완료로 기록했어요 — 담은 복지 카드의 모니터링이 진행 점검을 챙겨드려요
                     </span>
                   ) : (
                     <button
