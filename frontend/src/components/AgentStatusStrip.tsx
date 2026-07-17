@@ -80,11 +80,14 @@ export function AgentStatusStrip() {
             className={`rounded-lg border px-2 py-1 font-semibold inline-flex items-center gap-1 ${voice ? 'border-sprout-500 bg-sprout-500 text-white' : 'border-sprout-200 bg-white text-sprout-700 hover:bg-sprout-50'}`}>
             <Volume2 className="h-3 w-3" /> {voice ? '인증 음성 안내 켬' : '인증 음성 안내'}
           </button>
-          <button onClick={runPreflight} disabled={running}
-            title="발급용 브라우저·정부24/복지로 연결·발급 폴더·디스크를 발급 시작 전에 한 번에 점검해요"
-            className="rounded-lg border border-sprout-200 bg-white px-2 py-1 font-semibold text-sprout-700 hover:bg-sprout-50 disabled:opacity-50 inline-flex items-center gap-1">
-            <Stethoscope className="h-3 w-3" /> 발급 전 점검
-          </button>
+          {!caps.rpaRemote && (
+            /* 발급 전 점검은 '내 PC' 전용 — 공유(원격) 서버에선 슬롯 우회 브라우저 기동이라 서버가 403으로 막는다 */
+            <button onClick={runPreflight} disabled={running}
+              title="발급용 브라우저·정부24/복지로 연결·발급 폴더·디스크를 발급 시작 전에 한 번에 점검해요"
+              className="rounded-lg border border-sprout-200 bg-white px-2 py-1 font-semibold text-sprout-700 hover:bg-sprout-50 disabled:opacity-50 inline-flex items-center gap-1">
+              <Stethoscope className="h-3 w-3" /> 발급 전 점검
+            </button>
+          )}
           <button onClick={copyDiag}
             title="발급이 안 될 때 개발자에게 붙여넣을 기술 정보를 복사해요(개인정보 없음)"
             className="rounded-lg border border-sprout-200 bg-white px-2 py-1 font-semibold text-sprout-700 hover:bg-sprout-50 inline-flex items-center gap-1">
