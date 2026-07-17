@@ -144,7 +144,11 @@ def main() -> int:
             terminal = st in ("done", "completed", "error", "cancelled", "gone")
             cleaned = not (live.get("doc") or {})
             assert cleaned == terminal, f"기억 정리({cleaned})가 서버 종결 상태({st})와 불일치"
-            print(f"[desktop] ✅ 6. 새로고침 복원(무클릭 재연결, 서버상태={st}, 기억정리={cleaned})")
+            # 실PC(check-all 등)에서는 이 실태스크가 '진짜 크롬'으로 정부24 발급을 진행 중일 수 있다 —
+            # 검증이 끝났으니 반드시 취소해 창/슬롯을 정리한다(컨테이너에선 이미 종결이라 무해한 no-op).
+            pg.evaluate(f"async()=>{{await fetch('/api/documents/rpa-cancel/{tid}',{{method:'POST'}}).catch(()=>{{}})}}")
+            pg.wait_for_timeout(1200)
+            print(f"[desktop] ✅ 6. 새로고침 복원(무클릭 재연결, 서버상태={st}, 기억정리={cleaned}) + 실태스크 정리")
 
             # 6.5) 📱 인증 대기 알림음 — running→waiting_login 전이에서 정확히 1회 울림(Web Audio 스텁으로 계수)
             #      상태 응답을 인터셉트해 결정적으로 전이시킨다(실서버 태스크는 컨테이너에서 전이 타이밍 불정).
