@@ -57,7 +57,7 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
   //   섞일 수 있어 조회하지 않는다(DocVault 와 동일한 프라이버시 게이트).
   const [attachPreview, setAttachPreview] = useState<string[] | null>(null)
   const rpaOn = ready === true && !!caps?.rpa
-  const previewOn = rpaOn && !caps?.rpaRemote
+  const previewOn = rpaOn && !caps?.rpaRemote && !caps?.shared
   useEffect(() => {
     if (!previewOn) { setAttachPreview(null); return }
     let alive = true

@@ -58,7 +58,7 @@ export function AgentStatusStrip() {
     <div className="mb-3 rounded-2xl border border-sprout-100 bg-sprout-50/50 px-3.5 py-2 text-[11px]">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className="inline-flex items-center gap-1.5 font-bold text-sprout-700">
-          <Bot className="h-3.5 w-3.5" /> {caps.rpaRemote ? '원격 에이전트' : '내 PC 에이전트'} 연결됨
+          <Bot className="h-3.5 w-3.5" /> {caps.rpaRemote ? '원격 에이전트' : caps.shared ? '공유 에이전트' : '내 PC 에이전트'} 연결됨
           {caps.version && <span className="font-semibold text-muted-foreground">v{caps.version}</span>}
         </span>
         {slots && <span className={busy ? 'font-semibold text-amber-700' : 'text-muted-foreground'}>{busy ? `혼잡 — ${slots}` : slots}</span>}
@@ -80,7 +80,7 @@ export function AgentStatusStrip() {
             className={`rounded-lg border px-2 py-1 font-semibold inline-flex items-center gap-1 ${voice ? 'border-sprout-500 bg-sprout-500 text-white' : 'border-sprout-200 bg-white text-sprout-700 hover:bg-sprout-50'}`}>
             <Volume2 className="h-3 w-3" /> {voice ? '인증 음성 안내 켬' : '인증 음성 안내'}
           </button>
-          {!caps.rpaRemote && (
+          {!caps.rpaRemote && !caps.shared && (
             /* 발급 전 점검은 '내 PC' 전용 — 공유(원격) 서버에선 슬롯 우회 브라우저 기동이라 서버가 403으로 막는다 */
             <button onClick={runPreflight} disabled={running}
               title="발급용 브라우저·정부24/복지로 연결·발급 폴더·디스크를 발급 시작 전에 한 번에 점검해요"

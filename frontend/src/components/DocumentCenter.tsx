@@ -43,7 +43,7 @@ export function DocumentCenter() {
   const localAgent = ready === true && !!caps?.rpa   // RPA 가능한 에이전트(원격 옵트인 포함)
   // 🔒 서류함 계열(목록·등록·삭제)은 '내 PC' 에이전트에서만 — 원격(공유) RPA에선 서버 폴더에 다른
   //   이용자의 서류(실명 표시명)가 섞일 수 있어 조회·업로드하지 않는다(서버도 RPA_SHARED=1로 차단).
-  const vaultOn = localAgent && !caps?.rpaRemote
+  const vaultOn = localAgent && !caps?.rpaRemote && !caps?.shared
   const [ext, setExt] = useState(false)              // 크롬 확장(브라우저 내 자동화)
   const backend = localAgent || ext                  // 둘 중 하나면 자동발급 노출
   const [rpa, setRpa] = useState<Record<string, RpaState>>({})

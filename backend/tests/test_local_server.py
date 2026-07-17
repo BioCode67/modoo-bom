@@ -492,6 +492,15 @@ def test_shared_mode_disables_vault_endpoints(monkeypatch, tmp_path):
     assert client.post("/api/session/reset").status_code == 200
 
 
+def test_health_reports_shared_flag(monkeypatch):
+    """health.capabilities.shared — 공유(터널) 배포 신호. 동일출처로 터널을 직접 여는 경우
+    프론트가 rpaRemote 를 감지할 수 없어, 이 플래그가 서류함 등 '본인 PC 전용' UI를 숨기는 유일한 신호다."""
+    monkeypatch.delenv("RPA_SHARED", raising=False)
+    assert client.get("/api/health").json()["capabilities"]["shared"] is False
+    monkeypatch.setenv("RPA_SHARED", "1")
+    assert client.get("/api/health").json()["capabilities"]["shared"] is True
+
+
 def test_shared_mode_hides_foreign_journey_token(monkeypatch):
     """🔒 RPA_SHARED=1 — 진행 중인 '남의' 여정이 있을 때 journey/run 이 그 여정의
     download_token/ID를 두 번째 호출자에게 돌려주지 않는다(503 정직 안내).

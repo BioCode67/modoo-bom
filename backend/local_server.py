@@ -182,6 +182,9 @@ async def health():
             "rpa": rpa_on,
             "rpa_capacity": capacity() if rpa_on else None,
             "ai_provider": "client-engine",
+            # 🔒 공유(터널) 배포 여부 — 프론트가 서류함/점검 등 '본인 PC 전용' UI를 스스로 숨기게(403 충돌 방지).
+            #   동일출처로 터널을 직접 여는 경우 rpaRemote 감지가 없어 이 플래그가 유일한 신호다.
+            "shared": os.getenv("RPA_SHARED", "").strip().lower() in ("1", "true", "yes"),
         },
     }
 
