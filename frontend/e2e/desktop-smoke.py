@@ -37,6 +37,7 @@ TINY_JPG = base64.b64decode(
     "Hh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAAB"
     "AAAAAAAAAAAAAAAAAAAAAP/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AfwD/2Q=="
 )
+TINY_JPG_B64 = base64.b64encode(TINY_JPG).decode()
 SEED = ("localStorage.setItem('modoobom-store',JSON.stringify({state:{onboarded:true,"
         "tracked:[{policyId:'POL-009',name:'청년월세지원',category:'청년',status:'idle',savedAt:1,checkedDocs:[]}],"
         "docDone:{}},version:0}))")
@@ -210,9 +211,11 @@ def main() -> int:
             jstate = {"phase": "running", "skips": 0}
             def onjstatus(r):
                 if jstate["phase"] == "running":
-                    # 인증 대기 상태로 응답 — 헤더의 📱 강조 배지까지 함께 검증
+                    # 인증 대기 상태로 응답 — 헤더의 📱 강조 배지 + 현재 단계 실화면(스크린샷)까지 함께 검증
                     body = {"status": "running", "current": "주민등록등본", "current_status": "waiting_login",
-                            "current_message": "📱 인증 대기 중…", "steps": [
+                            "current_message": "📱 인증 대기 중…",
+                            "current_screenshot": TINY_JPG_B64,  # 진행 실화면 — 여정에서도 카드에 떠야 함
+                            "steps": [
                                 {"name": "주민등록등본", "status": "waiting_login"},
                                 {"name": "청년월세지원", "status": "pending"}]}
                 else:
@@ -237,6 +240,7 @@ def main() -> int:
             # 진행률 헤더(📱 인증 대기 강조 포함) + ⏭ 이 단계 건너뛰기 — 클릭이 skip API 로 전달되고 여정은 계속
             pg.wait_for_selector("text=연쇄 자동발급 진행 중", timeout=10000)
             pg.wait_for_selector("text=휴대폰에서 인증 승인해 주세요", timeout=6000)
+            pg.wait_for_selector("img[alt='발급 진행 화면']", timeout=6000)  # 여정 현재 단계 실화면
             pg.locator("button:has-text('이 단계 건너뛰기')").click()
             pg.wait_for_timeout(2500)
             assert jstate["skips"] == 1, f"skip API 호출 {jstate['skips']}회"

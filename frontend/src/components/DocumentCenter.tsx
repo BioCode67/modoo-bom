@@ -432,7 +432,7 @@ export function DocumentCenter() {
       for (let i = 0; i < MAX_POLL; i++) {
         await new Promise((r) => setTimeout(r, 1500))
         if (!mountedRef.current) return
-        let j: { status?: string; current?: string; current_message?: string; current_status?: string; steps?: { name: string; status: string; kind?: string; saved_path?: string; error?: string; task_id?: string; download_token?: string }[] }
+        let j: { status?: string; current?: string; current_message?: string; current_status?: string; current_screenshot?: string; steps?: { name: string; status: string; kind?: string; saved_path?: string; error?: string; task_id?: string; download_token?: string }[] }
         let bodyTxt = ''
         try {
           const resp = await fetch(`${getRpaBase()}/api/journey/status/${journey_id}${tq}`)
@@ -492,7 +492,9 @@ export function DocumentCenter() {
               : step.status === 'error' ? (step.error || '실패')
               : step.status === 'cancelled' ? '중단했어요' : '대기 중…'
             // 발급 완료 단계는 taskId+토큰을 실어 '발급 문서 받기' 버튼이 뜨게(서버 RPA/원격에서 PDF 회수)
-            next[step.name] = { status: step.status, step: msg, at: s[step.name]?.at, saved: !!step.saved_path, savedPath: step.saved_path || undefined, taskId: step.task_id, downloadToken: step.download_token }
+            // 현재 단계는 진행 실화면(current_screenshot, 시작자 토큰 인가 시)도 실어 단건 발급과 동일하게
+            // '멈춘 것처럼 보임'을 해소한다 — 여정에서만 실화면이 빠져 있던 갭.
+            next[step.name] = { status: step.status, step: msg, at: s[step.name]?.at, saved: !!step.saved_path, savedPath: step.saved_path || undefined, taskId: step.task_id, downloadToken: step.download_token, shot: isCur ? j.current_screenshot || undefined : undefined }
           }
           return next
         })
