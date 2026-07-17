@@ -64,7 +64,18 @@ def main():
             pg.add_init_script("window.__csp=[];document.addEventListener('securitypolicyviolation',e=>window.__csp.push(e.violatedDirective+' '+(e.blockedURI||'').slice(0,30)))")
             pg.add_init_script("localStorage.setItem('modoobom-store',JSON.stringify({state:{onboarded:true},version:0}))")
             pg.on("pageerror", lambda e: note("pageerror", str(e)))
-            pg.on("console", lambda m: note("console", m.text) if m.type == "error" else None)
+            def on_console(m):
+                if m.type != "error":
+                    return
+                loc = ""
+                try:
+                    loc = (m.location or {}).get("url", "")
+                except Exception:
+                    pass
+                if "localhost:8000" in loc or "127.0.0.1:8000" in loc:
+                    return  # 로컬 에이전트 프로브 — 앱이 정상 폴백하므로 노이즈(데스크탑앱 병행 실행 시)
+                note("console", m.text)
+            pg.on("console", on_console)
 
             def step(tag, fn, critical=False):
                 try:
