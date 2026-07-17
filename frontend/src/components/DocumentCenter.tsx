@@ -400,6 +400,12 @@ export function DocumentCenter() {
     if (dropped.length) {
       setRpa((s) => ({ ...s, ...Object.fromEntries(dropped.map((d) => [d, { status: 'error', step: '이 서류는 자동발급 대상이 아니에요 — 옆의 발급 버튼으로 진행해 주세요.', at: Date.now() }])) }))
     }
+    // 요청한 '자동신청까지'가 여정에서 탈락했으면 침묵하지 않는다 — 사용자는 신청까지 이어진다고 알고 있음(정직성)
+    const acceptedSvcs: string[] = Array.isArray(started.services) ? started.services : []
+    const droppedSvcs = svcList.filter((sv) => !acceptedSvcs.includes(sv))
+    if (droppedSvcs.length) {
+      setRpa((s) => ({ ...s, ...Object.fromEntries(droppedSvcs.map((sv) => [sv, { status: 'error', step: '이 서비스는 자동신청 연쇄에 포함되지 못했어요 — 발급이 끝나면 정책 상세의 에이전트 신청이나 공식 페이지에서 이어 주세요.', at: Date.now() }])) }))
+    }
     rememberLive('journey', 'current', { taskId: journey_id, token: jtok, docs: accepted }) // 새로고침 복원용
     await pollJourney(journey_id, jtok, accepted)
   }
@@ -510,6 +516,14 @@ export function DocumentCenter() {
   const startAll = async () => {
     if (!rpaInfo.name?.trim() || !rpaInfo.birth_date?.trim() || !rpaInfo.phone?.trim()) {
       setRpa((s) => ({ ...s, [chainDocs[0]]: { status: 'error', step: '아래 "자동입력 추가정보"에 실명·생년월일·휴대폰을 먼저 입력해 주세요.', at: Date.now() } }))
+      // 단건 발급과 동일하게 '첫 빈 칸'으로 스크롤+포커스 — 원클릭 경로에서도 헤매지 않게
+      const missingIdx = !rpaInfo.name?.trim() ? 0 : !rpaInfo.birth_date?.trim() ? 1 : 2
+      setTimeout(() => {
+        const root = rpaFormRef.current
+        if (!root) return
+        root.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        ;(root.querySelectorAll('input')[missingIdx] as HTMLInputElement | undefined)?.focus({ preventScroll: true })
+      }, 80)
       return
     }
     const userInfo = {
