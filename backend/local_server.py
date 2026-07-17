@@ -216,7 +216,9 @@ async def _browser_probe() -> tuple[bool, str]:
 
 @app.get("/api/_selftest/browser")
 async def _selftest_browser():
-    """브라우저 단독 셀프테스트(패키징 스모크용). 실패 시 500 + 원인."""
+    """브라우저 단독 셀프테스트(패키징 스모크용). 실패 시 500 + 원인.
+    🔒 공유 배포에선 차단 — 발급 슬롯을 우회한 무제한 브라우저 기동(자원 소모) 방지."""
+    _shared_mode_guard()
     ok, detail = await _browser_probe()
     if ok:
         return {"ok": True, "browser": detail}
@@ -247,7 +249,9 @@ async def preflight():
 
     항목: ① 자동화 브라우저 기동 ② 정부24 연결 ③ 복지로 연결 ④ 발급 폴더 쓰기 ⑤ 디스크 여유.
     일부가 실패해도 200 + 정직한 항목별 결과(발표 전에 뭐가 문제인지 한눈에).
-    PII 무포함: 폴더는 이름만(홈 경로의 사용자명 미노출), 실명·서류명 없음."""
+    PII 무포함: 폴더는 이름만(홈 경로의 사용자명 미노출), 실명·서류명 없음.
+    🔒 공유 배포에선 차단(셀프테스트와 동일 — 슬롯 우회 브라우저 기동 방지)."""
+    _shared_mode_guard()
     import asyncio
     import shutil
     from rpa.base import DOCS_DIR
@@ -343,7 +347,9 @@ async def diagnostics():
 @app.post("/api/session/reset")
 async def session_reset():
     """공용 PC '다음 분 상담' 전환 — 발급 서류 폴더의 이전 사용자 PII 문서를 서버에서 삭제.
-    (프론트의 localStorage 리셋과 짝. 로컬 앱/서버 RPA 공통.)"""
+    (프론트의 localStorage 리셋과 짝. 로컬 앱/서버 RPA 공통.)
+    🔒 공유(터널) 배포에선 차단 — 다른 이용자가 방금 발급한 서류를 통째로 지울 수 있는 파괴적 호출."""
+    _shared_mode_guard()
     from rpa.base import clear_docs_dir
     return {"cleared": clear_docs_dir()}
 

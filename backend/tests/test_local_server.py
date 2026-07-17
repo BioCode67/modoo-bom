@@ -482,9 +482,14 @@ def test_shared_mode_disables_vault_endpoints(monkeypatch, tmp_path):
     assert client.post("/api/documents/open-folder").status_code == 403
     assert client.post("/api/documents/register", files={"file": ("a.pdf", b"%PDF", "application/pdf")},
                        data={"doc_name": "임대차계약서"}).status_code == 403
+    # 파괴적 리셋(타 이용자 발급물 전체 삭제)·슬롯 우회 브라우저 기동(셀프테스트/프리플라이트)도 차단
+    assert client.post("/api/session/reset").status_code == 403
+    assert client.get("/api/_selftest/browser").status_code == 403
+    assert client.get("/api/_preflight").status_code == 403
     # 기본(로컬 데스크탑)은 기존대로 동작
     monkeypatch.delenv("RPA_SHARED")
     assert client.get("/api/documents/list").status_code == 200
+    assert client.post("/api/session/reset").status_code == 200
 
 
 def test_shared_mode_hides_foreign_journey_token(monkeypatch):
