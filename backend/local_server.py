@@ -88,7 +88,8 @@ async def _lifespan(_app):
     yield
 
 
-app = FastAPI(title="ModooBom Local Agent", version="0.3.0", lifespan=_lifespan)
+_VERSION = "0.3.1"  # 데스크탑 신뢰성 런 — 헬스/스트립/진단이 함께 표시(한 곳만 수정)
+app = FastAPI(title="ModooBom Local Agent", version=_VERSION, lifespan=_lifespan)
 
 # 동일 출처가 기본이지만, 배포 웹(github.io)→로컬 에이전트 '브릿지'도 허용(사용자가 LNA 허용 시).
 # CORS_ORIGINS env(쉼표구분)로 추가 출처 허용 — 자체 도메인·터널·테스트 프론트 포트 등(공개 서버 배포 시 유용).
@@ -174,7 +175,7 @@ async def health():
     return {
         "status": "ok",
         "service": "ModooBom Local Agent",
-        "version": "0.3.0",
+        "version": _VERSION,
         "mode": "local-agent",
         "capabilities": {
             "ai": False,
@@ -318,7 +319,7 @@ async def diagnostics():
     except Exception:
         pw = "missing"
     return {
-        "version": "0.3.0",
+        "version": _VERSION,
         "platform": f"{platform.system()} {platform.release()}",
         "python": _sys.version.split()[0],
         "playwright": pw,

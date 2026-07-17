@@ -19,6 +19,7 @@
     "e2e:fin": "../backend/venv/Scripts/python.exe e2e/audit-fin.py",
     "e2e:ext": "../backend/venv/Scripts/python.exe e2e/ext-flow.py",
     "e2e:app": "../backend/venv/Scripts/python.exe e2e/local-app.py",
+    "e2e:desktop": "../backend/venv/Scripts/python.exe e2e/desktop-smoke.py",
     "e2e:exe": "../backend/venv/Scripts/python.exe e2e/installed-app.py",
     "e2e:ext:headed": "cross-env EXT_HEADED=1 ../backend/venv/Scripts/python.exe e2e/ext-flow.py",
     "embed": "node --experimental-strip-types scripts/embed-policies.mts",

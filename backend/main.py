@@ -49,7 +49,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="ModooBom API",
     description="개인 복지 자산 관리 AI Agent — 3주차 프로토타입",
-    version="0.3.0",
+    version="0.3.1",
     lifespan=lifespan,
 )
 
