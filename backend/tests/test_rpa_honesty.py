@@ -229,3 +229,24 @@ def test_smart_agent_guard_is_wired_before_execute():
     # 게이트 '호출'이 execute '호출'보다 소스상 먼저 나와야(방어 순서) — 정의가 아니라 호출부로 비교
     assert src.index("guard_action(action, elements, page.url)") < src.index("result = execute(action"), \
         "게이트 호출이 execute 호출 이전에 배선돼야"
+
+
+def test_journey_accepts_verified_deeplink_services(monkeypatch):
+    """여정 서비스 수락이 단건 신청과 정합 — 청년월세지원(SERVICE_APPLY_URLS 실측 딥링크)이 여정에서
+    탈락하지 않는다('발급→신청' 원클릭 연쇄의 성립 조건). 미검증 서비스는 여전히 거절."""
+    from rpa import orchestrator
+    spawned = []
+    monkeypatch.setattr("rpa.manager._spawn_bg", lambda coro: (spawned.append(1), coro.close()))
+    jid, docs, svcs = orchestrator.start_journey(
+        ["주민등록등본"], ["청년월세지원", "존재하지않는서비스"], "테스트", {}, {})
+    assert "청년월세지원" in svcs           # 실측 딥링크 보유 → 수락
+    assert "존재하지않는서비스" not in svcs   # 미검증 → 거절
+    assert docs == ["주민등록등본"] and spawned
+    # 단일 서비스 + 검증된 복지로 딥링크(profile.apply_url) 일반화 수락
+    jid2, _, svcs2 = orchestrator.start_journey(
+        [], ["희귀서비스"], "테스트", {},
+        {"apply_url": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00009999"})
+    assert svcs2 == ["희귀서비스"]
+    # 딥링크 없는 미지 서비스는 거절
+    jid3, _, svcs3 = orchestrator.start_journey([], ["희귀서비스"], "테스트", {}, {})
+    assert svcs3 == []

@@ -3,7 +3,8 @@ import { motion } from 'framer-motion'
 import { FileText, ExternalLink, Bot, Loader2, CheckCircle2, AlertCircle, Check, Undo2 } from 'lucide-react'
 import { getPolicyMap } from '@/data/catalog'
 import { useAppStore } from '@/store/useAppStore'
-import { docLink, isRpaSupported, isCertIssuable, certKind, CERT_WALLET } from '@/lib/officialLinks'
+import { docLink, isRpaSupported, isCertIssuable, certKind, CERT_WALLET, isApplyAutomatable } from '@/lib/officialLinks'
+import { isBokjiroApplyable } from '@/lib/quickApply'
 import { getRpaBase } from '@/lib/backend'
 import { useBackend } from '@/lib/useBackend'
 import { detectExtension, issueViaExtension, issueManyViaExtension, getExtensionTrace, onExtensionStatus, sameDocName } from '@/lib/extension'
@@ -63,6 +64,19 @@ export function DocumentCenter() {
   const journeyRef = useRef<{ id: string; running: boolean } | null>(null)
   // 여정 수준 진행률(n/m·현재 단계) — 카드별 상태만으론 전체 흐름이 안 보이던 갭(감사). null=여정 없음.
   const [journeyProg, setJourneyProg] = useState<{ total: number; done: number; current?: string } | null>(null)
+  // 🚀→📨 발급 후 '자동신청까지' 이어갈 수 있는 담은 복지 — 단건 신청과 동일 기준(내장 6종 ∪ 복지로 딥링크 해석).
+  //   백엔드 여정(service_names)이 서류 발급을 모두 마친 뒤 신청 단계를 이어서 실행한다(자동첨부 성립 순서).
+  const chainSvcs = useMemo(() => {
+    const map = getPolicyMap()
+    const names: string[] = []
+    for (const t of tracked) {
+      const p = map[t.policyId]
+      if (!p || t.status === 'applied' || t.status === 'done') continue // 이미 신청한 건 제외
+      if ((isApplyAutomatable(p.name) || isBokjiroApplyable(p.application || '', p.name, p.id)) && !names.includes(p.name)) names.push(p.name)
+    }
+    return names
+  }, [tracked])
+  const [chainApply, setChainApply] = useState(true) // 발급 후 자동신청 연쇄(제출 전 정지) — 원클릭 전체 사이클
 
   // 📎/📷 내 서류함 — 자동발급 불가 서류(임대차계약서·신분증 등)를 사용자가 직접 등록/촬영 → 데스크탑앱이면
   //   로컬 서버가 발급 폴더에 같은 이름 규칙으로 저장 → 복지 신청의 자동첨부(recent_issued_docs)가 이 파일도
@@ -336,14 +350,17 @@ export function DocumentCenter() {
     if (nm) navigator.clipboard?.writeText(nm).catch(() => { /* 미지원 환경 무시 */ })
   }
   // 로컬 백엔드(데스크탑앱) 연쇄 발급 — 한 번 카카오 인증으로 서류들을 순차 발급(orchestrator journey).
-  const runJourneyViaBackend = async (docList: string[]) => {
+  //   svcList가 있으면 발급을 모두 마친 뒤 '자동신청'까지 이어서(자동첨부 성립 순서, 제출 전 정지).
+  const runJourneyViaBackend = async (docList: string[], svcList: string[] = []) => {
     const res = await fetch(`${getRpaBase()}/api/journey/run`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        doc_names: docList, user_name: rpaInfo.name || profile?.name || '사용자',
+        doc_names: docList, service_names: svcList,
+        user_name: rpaInfo.name || profile?.name || '사용자',
         birth_date: rpaInfo.birth_date, phone: rpaInfo.phone, carrier: rpaInfo.carrier,
         auth_provider: rpaInfo.auth_provider || 'kakao',
         sido: rpaInfo.sido, sigungu: rpaInfo.sigungu, // 연쇄발급에서도 주민등록 주소 자동정정
+        profile: { ...(profile || {}) }, // 신청 단계 자동입력·일반화 딥링크 판단에 사용
       }),
     })
     if (!res.ok) {
@@ -454,7 +471,7 @@ export function DocumentCenter() {
     // 로컬 에이전트(데스크탑앱) 우선 — 확장이 없거나 로컬만 있을 때 백엔드 여정으로 연쇄 발급.
     if (localAgent && !ext) {
       try {
-        await runJourneyViaBackend(chainDocs)
+        await runJourneyViaBackend(chainDocs, chainApply ? chainSvcs : [])
       } catch (e) {
         // 시작 실패(503 등)면 첫 카드뿐 아니라 '대기열에 추가됨…'으로 켜둔 모든 카드를 정직히 종료(감사 :247)
         const msg = e instanceof Error ? e.message : '연쇄 발급 실패'
@@ -559,9 +576,20 @@ export function DocumentCenter() {
       {/* 🚀 연쇄 자동발급 — 확장이 있고 지원 서류가 2개 이상일 때 */}
       {/* 연쇄 자동발급 — 확장(전체) 또는 로컬 에이전트(데스크탑앱, 로컬 지원분)로 한 번 인증에 이어서 발급 */}
       {(ext || localAgent) && chainDocs.length > 1 && (
-        <button onClick={startAll} className="btn-primary w-full mt-3 !py-2.5 text-sm">
-          🚀 필요한 서류 {chainDocs.length}종 전부 자동발급 (한 번 인증으로 이어서)
-        </button>
+        <div className="mt-3">
+          <button onClick={startAll} className="btn-primary w-full !py-2.5 text-sm">
+            🚀 필요한 서류 {chainDocs.length}종 전부 자동발급{!ext && chainApply && chainSvcs.length > 0 ? ' + 자동신청까지' : ''} (한 번 인증으로 이어서)
+          </button>
+          {/* 발급→신청 원클릭 연쇄(데스크탑) — 발급이 끝나면 담은 복지의 신청 양식까지 이어서 작성·자동첨부.
+              최종 제출은 언제나 본인(제출 직전 정지) — 켜져 있어도 비가역 행위는 일어나지 않는다. */}
+          {!ext && localAgent && chainSvcs.length > 0 && (
+            <label className="mt-1.5 flex items-start gap-1.5 text-[11px] font-medium text-muted-foreground cursor-pointer select-none">
+              <input type="checkbox" checked={chainApply} onChange={(e) => setChainApply(e.target.checked)} className="mt-0.5 accent-sprout-600" />
+              <span>발급이 끝나면 <b className="text-sprout-700">{chainSvcs.slice(0, 2).join(' · ')}{chainSvcs.length > 2 ? ` 외 ${chainSvcs.length - 2}건` : ''}</b> 자동신청까지 이어서
+                — 방금 발급한 서류를 양식에 자동첨부하고 <b>제출 직전에 멈춰요</b>(제출은 본인 확인 후)</span>
+            </label>
+          )}
+        </div>
       )}
 
       {/* 🔍 진단 복사 — 발급이 멈추거나 오류일 때만 노출(완료는 제외 — 성공 후에도 뜨면 오해) */}

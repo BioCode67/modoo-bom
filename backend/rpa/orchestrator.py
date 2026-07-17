@@ -133,8 +133,17 @@ def start_journey(doc_names, service_names, user_name, user_info, profile):
     ⚠️ 지원목록 밖 항목은 제외되는데, 이를 프론트에 알려주지 않으면 해당 카드가 '대기…' 스피너로
        영구 고정된다(감사 확정) → accepted 목록을 함께 반환해 프론트가 그것만 추적하게 한다."""
     from rpa.manager import SUPPORTED_DOC_NAMES, SUPPORTED_SERVICE_NAMES
+    from rpa.apply_rpa import SERVICE_APPLY_URLS, _valid_bokjiro_url
     docs = [d for d in (doc_names or []) if d in SUPPORTED_DOC_NAMES]
-    svcs = [s for s in (service_names or []) if s in SUPPORTED_SERVICE_NAMES]
+    # 서비스 수락 기준을 단건 신청(apply_start)과 정합화 — 하드코딩 6종만 받으면 청년월세지원처럼
+    # 실측 검증 딥링크(SERVICE_APPLY_URLS)가 있는 서비스가 여정에서 조용히 탈락해 '발급→신청' 연쇄가 끊긴다.
+    svcs = [s for s in (service_names or []) if s in SUPPORTED_SERVICE_NAMES or s in SERVICE_APPLY_URLS]
+    # 그 밖의 서비스는 '단일 서비스 + 검증된 복지로 딥링크(profile.apply_url)'일 때만 일반화 수락 —
+    # 여러 서비스에 같은 apply_url이 잘못 재사용되는 것 방지(resolve_apply_url 주의사항과 동일).
+    if not svcs and service_names and len(service_names) == 1:
+        cand = (profile or {}).get("apply_url") or (profile or {}).get("applyUrl")
+        if _valid_bokjiro_url(cand):
+            svcs = [service_names[0]]
     jid = _new_journey(docs, svcs, user_name)
     # 강한 참조 보관(_spawn_bg)로 GC가 실행 중 여정을 취소하지 못하게 한다.
     from rpa.manager import _spawn_bg
