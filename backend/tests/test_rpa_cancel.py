@@ -265,3 +265,50 @@ async def test_context_alive_detects_all_closed():
         def __init__(self, pages): self.pages = pages
     assert await context_alive(Ctx([Page(False), Page(True)])) is True   # 하나라도 살아있음
     assert await context_alive(Ctx([Page(True), Page(True)])) is False   # 전부 닫힘
+
+
+# ── 9) 여정 개별 단계 건너뛰기(skip) — 전체 중단과 구분 ─────────────────────────
+@pytest.mark.asyncio
+async def test_journey_skip_current_step_continues_next(monkeypatch):
+    """현재 단계만 cancelled 로 접고 여정은 다음 단계로 계속 — 스킵 후 다음 단계가 실제로 돌아
+    성공하면 여정 최종 상태는 completed(중단 아님)여야 한다. 스킵 플래그는 소모된다."""
+    ran = []
+
+    async def doc_runner(task, name, info):
+        task.update("running", "진행 중")
+        ran.append(name)
+        if name == "주민등록등본":
+            for _ in range(2000):  # 스킵 요청이 올 때까지 진행 흉내(협조적 취소 루프)
+                check_cancel(task, None)
+                await asyncio.sleep(0.01)
+        else:  # 다음 단계는 즉시 성공
+            task.update("done", "발급 완료")
+            task.result = {"success": True, "saved_path": f"/docs/{name}.pdf"}
+
+    monkeypatch.setattr(orchestrator, "_run_step_doc", doc_runner)
+    jid, _, _ = orchestrator.start_journey(["주민등록등본", "가족관계증명서"], [], "홍", {}, {})
+    for _ in range(200):
+        await asyncio.sleep(0.02)
+        if orchestrator._journeys[jid].get("current") == "주민등록등본" and ran:
+            break
+    assert orchestrator.request_journey_skip(jid) is True
+    j = orchestrator._journeys[jid]
+    for _ in range(400):
+        await asyncio.sleep(0.02)
+        if j["status"] in orchestrator._JOURNEY_TERMINAL:
+            break
+    assert j["steps"][0]["status"] == "cancelled"   # 스킵된 단계
+    assert "가족관계증명서" in ran                    # 다음 단계가 '실제로' 실행됨
+    assert j["steps"][1]["status"] == "done"
+    assert j["status"] == "completed"               # 여정은 중단이 아니라 완료
+    assert not j.get("skip_step_task_id")           # 플래그 소모(다음 단계 오염 없음)
+    assert j["saved_docs"] == ["/docs/가족관계증명서.pdf"]
+
+
+def test_journey_skip_rejects_when_no_current_or_terminal():
+    """건너뛸 '현재 단계'가 없거나(시작 전) 여정이 끝났으면 skip 은 False — 오동작 금지."""
+    orchestrator._journeys["sk1"] = {"status": "running", "current_task_id": None, "steps": []}
+    assert orchestrator.request_journey_skip("sk1") is False
+    orchestrator._journeys["sk2"] = {"status": "completed", "current_task_id": "t1", "steps": []}
+    assert orchestrator.request_journey_skip("sk2") is False
+    assert orchestrator.request_journey_skip("없는여정") is False

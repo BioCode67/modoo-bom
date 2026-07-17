@@ -642,6 +642,13 @@ async def journey_run(req: JourneyRunRequest):
             "docs": accepted_docs, "services": accepted_svcs}
 
 
+@app.post("/api/journey/skip/{journey_id}")
+async def journey_skip(journey_id: str):
+    """연쇄 여정의 '현재 단계만' 건너뛰기 — 이 단계 RPA를 접고 다음 단계로 계속(전체 중단과 구분)."""
+    from rpa.orchestrator import request_journey_skip
+    return {"skipped": request_journey_skip(journey_id)}
+
+
 @app.post("/api/journey/cancel/{journey_id}")
 async def journey_cancel(journey_id: str):
     """진행 중 여정을 중단 — 현재 단계 RPA를 취소하고 다음 단계 브라우저가 뜨지 않게 한다(멈춤 복구)."""

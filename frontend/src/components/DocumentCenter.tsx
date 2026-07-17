@@ -122,11 +122,23 @@ export function DocumentCenter() {
     if (file && doc) registerBlob(doc, file, file.name)
   }
 
+  // ⏭ 여정 '현재 단계만' 건너뛰기 — 이 서류 발급만 접고 다음 단계로 계속(전체 중단과 구분).
+  //   인증이 반복 실패하거나 지금 필요 없는 서류 하나 때문에 연쇄 전체를 끊지 않게 하는 탈출구.
+  const skipCurrent = async () => {
+    if (!journeyRef.current?.running) return
+    try {
+      const r = await fetch(`${getRpaBase()}/api/journey/skip/${journeyRef.current.id}`, { method: 'POST' })
+      const j = await r.json().catch(() => ({}))
+      // 수락 실패(단계 전환 중 등)는 다음 폴링이 실상태를 그려주므로 조용히 둔다 — 거짓 '건너뜀' 표시 금지
+      if (!j?.skipped) return
+    } catch { /* 요청 실패 — 폴링이 계속 실상태를 반영 */ }
+  }
+
   // ⏹ 진행 중 자동발급 중단 — 멈춘 카드의 복구 수단(백엔드 취소 API 호출). 로컬 에이전트에서만.
   const cancel = async (doc: string) => {
     const st = rpa[doc]
     // 여정 중이면 카드 하나의 ⏹이 '여정 전체'를 취소한다 — 사용자가 모르고 전체를 끊지 않게 확인(감사 갭)
-    if (journeyRef.current?.running && !window.confirm('연쇄 자동발급 전체를 중단할까요?\n(개별 서류만 건너뛰는 기능은 아직 없어요 — 남은 서류는 나중에 다시 시작할 수 있어요)')) return
+    if (journeyRef.current?.running && !window.confirm('연쇄 자동발급 전체를 중단할까요?\n(이 서류만 넘기려면 취소하고 위 진행률 바의 [이 단계 건너뛰기]를 누르세요)')) return
     setRpa((s) => (s[doc] ? { ...s, [doc]: { ...s[doc]!, step: '중단하는 중…' } } : s))
     try {
       if (journeyRef.current?.running) {
@@ -624,10 +636,19 @@ export function DocumentCenter() {
         <div className="mt-4 rounded-2xl border-2 border-sprout-200 bg-sprout-50/70 p-3.5" role="status" aria-live="polite">
           <div className="flex items-center justify-between gap-2 flex-wrap text-xs font-bold">
             <span>🚀 연쇄 자동발급 진행 중 — {journeyProg.done}/{journeyProg.total} 완료{journeyProg.current ? ` · 지금: ${journeyProg.current}` : ''}</span>
-            <button onClick={() => cancel(journeyProg.current || docs[0])}
-              className="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-[11px] font-semibold text-rose-600 hover:bg-rose-100">
-              ⏹ 전체 중단
-            </button>
+            <span className="inline-flex gap-1.5">
+              {journeyProg.current && (
+                <button onClick={skipCurrent}
+                  title="지금 단계만 접고 다음 서류/신청으로 넘어가요(인증이 계속 실패할 때의 탈출구)"
+                  className="rounded-lg border border-sprout-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-sprout-700 hover:bg-sprout-50">
+                  ⏭ 이 단계 건너뛰기
+                </button>
+              )}
+              <button onClick={() => cancel(journeyProg.current || docs[0])}
+                className="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-[11px] font-semibold text-rose-600 hover:bg-rose-100">
+                ⏹ 전체 중단
+              </button>
+            </span>
           </div>
           <div className="mt-2 h-2 overflow-hidden rounded-full border border-sprout-100 bg-white">
             <div className="h-full rounded-full bg-sprout-500 transition-all duration-500"

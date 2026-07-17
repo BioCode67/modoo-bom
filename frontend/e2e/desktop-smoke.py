@@ -193,11 +193,24 @@ def main() -> int:
                                            "docs": ["주민등록등본", "가족관계증명서", "소득금액증명"],
                                            "services": ["청년월세지원"]}))
             pg.route("**/api/journey/run", onrun)
-            pg.route("**/api/journey/status/**", lambda r: r.fulfill(
-                status=200, content_type="application/json",
-                body=json.dumps({"status": "completed", "current": None, "steps": [
-                    {"name": "주민등록등본", "status": "done", "saved_path": "x"},
-                    {"name": "청년월세지원", "status": "done", "saved_path": "y"}]})))
+            # 처음엔 running(진행률 헤더 + [이 단계 건너뛰기] 노출) → 스킵 클릭 후 completed 로 수렴
+            jstate = {"phase": "running", "skips": 0}
+            def onjstatus(r):
+                if jstate["phase"] == "running":
+                    body = {"status": "running", "current": "주민등록등본", "current_status": "running",
+                            "current_message": "정부24 로그인 중…", "steps": [
+                                {"name": "주민등록등본", "status": "running"},
+                                {"name": "청년월세지원", "status": "pending"}]}
+                else:
+                    body = {"status": "completed", "current": None, "steps": [
+                        {"name": "주민등록등본", "status": "cancelled"},
+                        {"name": "청년월세지원", "status": "done", "saved_path": "y"}]}
+                r.fulfill(status=200, content_type="application/json", body=json.dumps(body))
+            pg.route("**/api/journey/status/**", onjstatus)
+            def onskip(r):
+                jstate["skips"] += 1; jstate["phase"] = "done"
+                r.fulfill(status=200, content_type="application/json", body=json.dumps({"skipped": True}))
+            pg.route("**/api/journey/skip/**", onskip)
             pg.wait_for_selector("text=자동신청까지 이어서", timeout=8000)
             pg.fill("input[placeholder*='실명']", "김청년")
             pg.fill("input[placeholder*='생년월일']", "19980315")
@@ -207,8 +220,14 @@ def main() -> int:
             pg.locator("button:has-text('전부 자동발급')").click()
             pg.wait_for_timeout(2000)
             assert captured and captured[0].get("service_names") == ["청년월세지원"], captured[:1]
-            pg.unroute("**/api/journey/run"); pg.unroute("**/api/journey/status/**")
-            print("[desktop] ✅ 7.5. 원클릭 발급→자동신청 연쇄(체크박스·CTA·service_names 계약)")
+            # 진행률 헤더 + ⏭ 이 단계 건너뛰기(개별 스킵) — 클릭이 skip API 로 전달되고 여정은 계속
+            pg.wait_for_selector("text=연쇄 자동발급 진행 중", timeout=10000)
+            pg.locator("button:has-text('이 단계 건너뛰기')").click()
+            pg.wait_for_timeout(2500)
+            assert jstate["skips"] == 1, f"skip API 호출 {jstate['skips']}회"
+            pg.wait_for_selector("text=연쇄 자동발급 진행 중", state="detached", timeout=10000)  # completed 수렴
+            pg.unroute("**/api/journey/run"); pg.unroute("**/api/journey/status/**"); pg.unroute("**/api/journey/skip/**")
+            print("[desktop] ✅ 7.5. 원클릭 연쇄(service_names 계약) + ⏭ 개별 단계 건너뛰기(진행률 헤더)")
 
             # 7) 검증형 리셋
             alerts = []

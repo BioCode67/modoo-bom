@@ -530,6 +530,13 @@ async def journey_cancel(journey_id: str):
     return {"cancelled": request_journey_cancel(journey_id)}
 
 
+@router.post("/journey/skip/{journey_id}")
+async def journey_skip(journey_id: str):
+    """연쇄 여정의 '현재 단계만' 건너뛰기 — 이 단계 RPA를 접고 다음 단계로 계속(전체 중단과 구분)."""
+    from rpa.orchestrator import request_journey_skip
+    return {"skipped": request_journey_skip(journey_id)}
+
+
 @router.get("/journey/status/{journey_id}")
 async def journey_status(journey_id: str, t: str = ""):
     """여정 진행상황 조회. 스크린샷·실명·저장경로는 시작자 토큰(?t=) 일치 시에만."""

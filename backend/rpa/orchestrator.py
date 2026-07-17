@@ -47,6 +47,34 @@ def request_journey_cancel(journey_id: str) -> bool:
     return True
 
 
+def request_journey_skip(journey_id: str) -> bool:
+    """진행 중 여정의 '현재 단계만' 건너뛰기 — 이 단계 RPA를 취소하되 여정은 다음 단계로 계속.
+
+    전체 중단(request_journey_cancel)과 달리 cancel_requested 를 세우지 않는다.
+    skip_step_task_id 에 '지금 도는' 단계의 task_id 를 기록해, 루프의 취소 예외 처리가
+    (동명 단계·이후 단계 오스킵 없이) 이 취소가 '건너뛰기'였음을 식별한다. 반환: 요청 수락 여부."""
+    from rpa.manager import request_cancel
+    j = _journeys.get(journey_id)
+    if j is None or j.get("status") in _JOURNEY_TERMINAL:
+        return False
+    tid = j.get("current_task_id")
+    if not tid:
+        return False  # 단계 시작 전(다음 단계 준비 중) — 건너뛸 '현재 단계'가 없다
+    j["skip_step_task_id"] = tid
+    ok = request_cancel(tid)
+    if not ok:
+        j["skip_step_task_id"] = None  # 이미 종결된 단계 — 스킵 플래그가 다음 단계를 오염하지 않게 회수
+    return ok
+
+
+def _consume_skip(j, task) -> bool:
+    """이 단계의 취소가 '건너뛰기' 요청이었는지 확인하고 플래그를 소모한다(단계 task_id 일치 시에만)."""
+    if j.get("skip_step_task_id") == task.task_id:
+        j["skip_step_task_id"] = None
+        return True
+    return False
+
+
 def active_journey_id():
     """진행 중(pending/running)인 여정 id 하나 반환(없으면 None) — 재클릭 중복시작 가드용(감사 :374)."""
     for jid, j in _journeys.items():
@@ -202,10 +230,13 @@ async def _run_journey(jid, user_info, profile):
                 task._guard_handle = asyncio.current_task()  # 큐 대기 중 하드취소 대상(슬롯 대기를 끊음)
                 async with queued_slot():
                     if task.cancel_requested:
-                        # 슬롯 대기 중 [중단] — 브라우저를 띄우지 않고 즉시 중단(큐 취소 태스크의 뒤늦은 기동 방지)
-                        cancelled = True
-                        j["cancel_requested"] = True
-                        task.update("cancelled", "여정을 중단했어요.")
+                        # 슬롯 대기 중 취소 — 건너뛰기면 이 단계만 접고 계속, 아니면 여정 전체 중단
+                        if _consume_skip(j, task):
+                            task.update("cancelled", "이 단계를 건너뛰었어요 — 다음 단계로 진행해요.")
+                        else:
+                            cancelled = True
+                            j["cancel_requested"] = True
+                            task.update("cancelled", "여정을 중단했어요.")
                     else:
                         coro = (_run_step_doc(task, step["name"], user_info) if step["kind"] == "doc"
                                 else run_apply_rpa(task, step["name"], {**profile, **user_info}))
@@ -229,17 +260,25 @@ async def _run_journey(jid, user_info, profile):
                 if task.status not in ("done", "completed") and not (task.result or {}).get("saved_path"):
                     task.update("error", "시간 초과로 이 단계를 종료했어요.")
             except asyncio.CancelledError:
-                # 하드취소(request_cancel 유예 취소) — 이 단계·여정을 중단으로 종결
-                cancelled = True
-                j["cancel_requested"] = True
-                if task.status not in ("done", "completed"):
-                    task.update("cancelled", "자동화를 중단했어요.")
+                # 하드취소(request_cancel 유예 취소) — 건너뛰기면 이 단계만, 아니면 여정 전체 중단
+                if _consume_skip(j, task):
+                    if task.status not in ("done", "completed"):
+                        task.update("cancelled", "이 단계를 건너뛰었어요 — 다음 단계로 진행해요.")
+                else:
+                    cancelled = True
+                    j["cancel_requested"] = True
+                    if task.status not in ("done", "completed"):
+                        task.update("cancelled", "자동화를 중단했어요.")
             except CancelledByUser:
-                # 사용자가 여정/창을 닫음 — 이 단계와 여정을 중단으로 종결(감사 :123)
-                cancelled = True
-                j["cancel_requested"] = True
-                if task.status not in ("done", "completed"):
-                    task.update("cancelled", "여정을 중단했어요.")
+                # 협조적 취소(러너 대기 틱) — 건너뛰기 요청이면 이 단계만 접고 다음 단계로(감사 :123)
+                if _consume_skip(j, task):
+                    if task.status not in ("done", "completed"):
+                        task.update("cancelled", "이 단계를 건너뛰었어요 — 다음 단계로 진행해요.")
+                else:
+                    cancelled = True
+                    j["cancel_requested"] = True
+                    if task.status not in ("done", "completed"):
+                        task.update("cancelled", "여정을 중단했어요.")
             except Exception as e:
                 if task.status not in ("done", "completed"):
                     task.update("error", str(e)[:200])
