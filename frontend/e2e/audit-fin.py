@@ -2,6 +2,7 @@
 """서민금융(FIN) 노출 확인 — 탐색에서 '햇살론'/'서민금융' 검색 시 결과가 뜨는지 + 캡처.
 실행: backend\\venv\\Scripts\\python.exe frontend\\e2e\\audit-fin.py
 """
+import os
 import io as _io, socket, subprocess, sys, time
 from pathlib import Path
 sys.stdout = _io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
@@ -62,8 +63,15 @@ def main():
                 print("❌ '대출' 검색 실패")
             b.close()
     finally:
-        subprocess.run(f"taskkill /F /T /PID {server.pid}", shell=True,
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if os.name == "nt":
+            subprocess.run(f"taskkill /F /T /PID {server.pid}", shell=True,
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        else:  # 리눅스/맥 — taskkill이 없어 프리뷰가 고아로 남던 문제(포트 점유 원인) 방지
+            server.terminate()
+            try:
+                server.wait(timeout=5)
+            except Exception:
+                server.kill()
         log.close()
     if fails:
         print("\n❌ 서민금융 노출 회귀:", *fails, sep="\n  - "); return 1

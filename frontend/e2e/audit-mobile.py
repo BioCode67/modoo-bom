@@ -3,6 +3,7 @@
 '결국 PC 켜야 한다'는 기존 복지앱 불만에 대응해 모바일 완성도를 눈으로 검수.
 실행: backend\\venv\\Scripts\\python.exe frontend\\e2e\\audit-mobile.py
 """
+import os
 import io as _io, socket, subprocess, sys, time
 from pathlib import Path
 sys.stdout = _io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
@@ -72,8 +73,15 @@ def main():
             else: print("✅ 페이지 에러 0")
             b.close()
     finally:
-        subprocess.run(f"taskkill /F /T /PID {server.pid}", shell=True,
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if os.name == "nt":
+            subprocess.run(f"taskkill /F /T /PID {server.pid}", shell=True,
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        else:  # 리눅스/맥 — taskkill이 없어 프리뷰가 고아로 남던 문제(포트 점유 원인) 방지
+            server.terminate()
+            try:
+                server.wait(timeout=5)
+            except Exception:
+                server.kill()
         log.close()
     print("done →", OUT); return 0
 

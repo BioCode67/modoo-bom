@@ -215,8 +215,11 @@ def main() -> int:
             ctx.close()
     finally:
         try:
-            subprocess.run(f"taskkill /F /T /PID {server.pid}", shell=True,
-                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            if os.name == "nt":
+                subprocess.run(f"taskkill /F /T /PID {server.pid}", shell=True,
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            else:  # 리눅스/맥 — 프리뷰 고아 방지
+                server.terminate()
         except Exception:
             pass
         log.close()

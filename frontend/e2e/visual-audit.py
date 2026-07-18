@@ -2,6 +2,7 @@
 """배포 화면 시각 감사 — 핵심 뷰를 스크린샷으로 캡처해 개선 지점을 눈으로 찾는다.
 실행: backend\\venv\\Scripts\\python.exe frontend\\e2e\\visual-audit.py
 """
+import os
 import io as _io, os, socket, subprocess, sys, time
 from pathlib import Path
 sys.stdout = _io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
@@ -61,8 +62,15 @@ def main():
             print("✅ 02-home-full")
             b.close()
     finally:
-        subprocess.run(f"taskkill /F /T /PID {server.pid}", shell=True,
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if os.name == "nt":
+            subprocess.run(f"taskkill /F /T /PID {server.pid}", shell=True,
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        else:  # 리눅스/맥 — taskkill이 없어 프리뷰가 고아로 남던 문제(포트 점유 원인) 방지
+            server.terminate()
+            try:
+                server.wait(timeout=5)
+            except Exception:
+                server.kill()
         log.close()
     print("done →", OUT)
     return 0

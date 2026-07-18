@@ -125,7 +125,10 @@ export function Explore() {
   }, [catalog, region])
 
   // 필터/검색/정렬 변경 시 노출 개수 초기화(점진 렌더링)
-  useEffect(() => { setVisible(PAGE_FIRST) }, [dq, bucket, sort, onlyCash, benefitType, region, gungu])
+  // 검색어가 있으면 초기 노출을 PAGE(60)로 — 검색 결과 가시성 계약 유지(실측: '대출' 검색에서
+  // 서민금융(FIN) 최고 순위 48위가 24컷에 잘려 e2e:fin 회귀). 타이핑 부드러움은 dq 지연이 담당하고,
+  // 확정 커밋 1회의 60장 비용은 수용(중간 커밋 다발이 문제였지 최종 1회가 아님). 브라우징(무검색)은 24 유지.
+  useEffect(() => { setVisible(dq.trim() ? PAGE : PAGE_FIRST) }, [dq, bucket, sort, onlyCash, benefitType, region, gungu])
   // 시·도가 바뀌면 시·군·구 선택 초기화
   useEffect(() => { setGungu('') }, [region])
 

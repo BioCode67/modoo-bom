@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import os
 import io as _io, socket, subprocess, sys, time
 from pathlib import Path
 sys.stdout = _io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
@@ -46,7 +47,7 @@ try:
         pg.screenshot(path=str(OUT/"43-helper.png"))
         b.close()
 finally:
-    subprocess.run(f"taskkill /F /T /PID {srv.pid}",shell=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL); log.close()
+    (subprocess.run(f"taskkill /F /T /PID {srv.pid}",shell=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL) if os.name=="nt" else srv.terminate()); log.close()  # 비윈도우 고아 프리뷰 방지
 if fails:
     print("❌", *fails, sep="\n  - "); sys.exit(1)
 print("🎉 도우미 링크 전 항목 통과")

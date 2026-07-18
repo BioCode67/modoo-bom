@@ -4,6 +4,7 @@
 실행: backend\\venv\\Scripts\\python.exe frontend\\e2e\\record-demo.py
 출력: frontend/e2e/demo-video/*.webm (유튜브 업로드 가능)
 """
+import os
 import io as _io, socket, subprocess, sys, time
 from pathlib import Path
 sys.stdout = _io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
@@ -97,8 +98,15 @@ def main():
         else:
             print("[rec] ❌ 비디오 파일 없음"); return 1
     finally:
-        subprocess.run(f"taskkill /F /T /PID {server.pid}", shell=True,
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if os.name == "nt":
+            subprocess.run(f"taskkill /F /T /PID {server.pid}", shell=True,
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        else:  # 리눅스/맥 — taskkill이 없어 프리뷰가 고아로 남던 문제(포트 점유 원인) 방지
+            server.terminate()
+            try:
+                server.wait(timeout=5)
+            except Exception:
+                server.kill()
         log.close()
     return 0
 

@@ -3,6 +3,7 @@
 '분석 직후 다 담아줘'가 저장으로 이어지지 않던 회귀(챗 맥락 없으면 검색으로 샘)를 막는다.
 실패 시 non-zero 반환. 실행: backend\\venv\\Scripts\\python.exe frontend\\e2e\\audit-flow.py
 """
+import os
 import io as _io, socket, subprocess, sys, time
 from pathlib import Path
 sys.stdout = _io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
@@ -82,8 +83,15 @@ def main():
                 print("❌ 서류 준비 도우미 미노출")
             b.close()
     finally:
-        subprocess.run(f"taskkill /F /T /PID {server.pid}", shell=True,
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if os.name == "nt":
+            subprocess.run(f"taskkill /F /T /PID {server.pid}", shell=True,
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        else:  # 리눅스/맥 — taskkill이 없어 프리뷰가 고아로 남던 문제(포트 점유 원인) 방지
+            server.terminate()
+            try:
+                server.wait(timeout=5)
+            except Exception:
+                server.kill()
         log.close()
     if fails:
         print("\n❌ 자동화 저장 흐름 회귀:")
