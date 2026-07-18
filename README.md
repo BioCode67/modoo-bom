@@ -217,7 +217,7 @@ docker compose up --build
 | 신혼 출산 가정 (32세) | 부모급여, 아동수당, 국민행복카드 등 |
 | 중증장애인 (45세) | 장애인연금, 활동지원서비스 등 |
 
-각 프로필은 10노드 LangGraph를 실행하며, 우측 패널에서 노드별 실행 시간과 결과를 실시간으로 확인할 수 있습니다.
+각 프로필은 클라이언트 복지 엔진이 즉시 분석하고(서버 불필요), 백엔드 연결 시 LangGraph 스트리밍·RPA 자동화가 추가로 활성화됩니다.
 
 ---
 
@@ -280,7 +280,7 @@ docker compose up --build
 | `GET` | `/api/health` | 서버 상태 + DB 정보 |
 | `POST` | `/api/search` | 복지 정책 RAG 검색 |
 | `POST` | `/api/documents/issue` | 서류 발급 (Mock) |
-| `POST` | `/api/admin/seed` | ChromaDB 120건 시딩 |
+| `POST` | `/api/admin/seed` | ChromaDB 시딩(카탈로그 전체 — 클라우드 5,200여 건) |
 | `GET` | `/api/admin/env` | 환경변수 상태 확인 |
 
 ---
@@ -294,9 +294,11 @@ modoo-bom/
 │   ├── agents/                      # state.py, graph.py, mock_responses.py, nodes/(10노드)
 │   ├── rag/sample_data.py           # 복지 정책 120건 (+ embedder/chromadb)
 │   ├── api/                         # routes.py(REST), websocket.py, chat.py
-│   ├── rpa/                         # Playwright 자동화: gov24/nhis/work24/apply + base/manager
+│   ├── rpa/                         # Playwright 자동화: gov24/nhis/work24/apply + base/manager/orchestrator(연쇄)
+│   ├── local_server.py              # 데스크탑앱 경량 서버(dist-app 동일출처 서빙 + RPA) — run-local-app.bat/EXE 진입
+│   ├── agent_entry.py               # PyInstaller EXE 진입점
 │   ├── etl/ingest_welfare.py        # 공공데이터 → policies.json (중앙 --api / 지자체 --local / CSV)
-│   └── tests/test_mock_mode.py      # pytest 12
+│   └── tests/                       # pytest 130+ (Mock·RPA 취소/정직성/패리티·서류함·프리플라이트)
 └── frontend/                        # 메인 — 백엔드 없이 동작 (정적 배포)
     ├── src/
     │   ├── App.tsx                  # 셸 + 상태기반 뷰(home/analyze/explore/my) + 챗봇/공유/인쇄
@@ -309,8 +311,9 @@ modoo-bom/
     │   ├── components/              # ProfileWizard, ResultsView, WelfareScore, FutureWelfare,
     │   │                            #   MonitorFeed, WelfareCalendar, HouseholdAnalyzer,
     │   │                            #   EmergencyHelp, DocumentCenter, AgentSubmitButton,
+    │   │                            #   DocVault(서류함), AgentStatusStrip(점검), DocCameraModal(촬영),
     │   │                            #   PolicyCard/Drawer, BenefitCharts, ChatWidget, ShareButton …
-    │   └── lib/*.test.ts            # vitest 15 (engine/simulate)
+    │   └── src/**/*.test.ts         # vitest 710 (엔진·검색·모니터링·docScan·authCue …)
     └── public/                      # favicon, 404.html, robots.txt, (policies.json: ETL 생성)
 ```
 
@@ -387,7 +390,8 @@ modoo-bom/
    transformers.js), 모니터링. 개인정보 이탈 0 — 이름은 디스크에도 저장하지 않음(메모리만).
 2. **백엔드(선택, 감지 시 자동 활성)** — FastAPI+WebSocket, LangGraph 10노드 StateGraph, LLM 지식형 챗(Gemini 2.5 Flash — Groq·Claude 자동 폴백), ChromaDB RAG.
    미연결이면 규칙 폴백으로 동일 기능 — 폴백은 결함이 아니라 신뢰성 설계.
-3. **실행층(선택, 크롬 확장)** — 정부24·복지로·건보·고용24·국민연금·장학재단 실사이트 RPA.
+3. **실행층(선택, 데스크탑앱·크롬 확장)** — 정부24·복지로·건보·고용24·국민연금·장학재단 실사이트 RPA.
+   데스크탑앱은 🚀 원클릭 연쇄(발급→자동첨부→제출 직전 정지)·발급 전 점검·서류함·이어보기까지.
    CDP 신뢰클릭으로 안티봇(Mbuster) 통과 실증(스크린샷 증거: `04-스크린샷/화면14`). 개인정보는 사용자 브라우저 안에서만.
 
 **하이브리드 챗**(다이어그램 06): 행동·개인화=로컬 에이전트(즉시·정확), 지식 질문=클라우드 LLM(별도 라벨 표시, 12초 타임아웃), 실패=규칙 폴백.
@@ -396,7 +400,7 @@ modoo-bom/
 
 - **정직성 코드화**: 민간재단·서민금융은 심사·상환형이라 `priority high/신뢰도 0.68↑` 표시가 테스트에서 거부됨.
   현금성 합산은 보수적(바우처·대출 제외). 모집종료 정책은 추천 제외(`isClosedForNew`).
-- **품질 게이트**(차트 4): 프론트 vitest 710 · 백엔드 pytest 130+ · 실브라우저 E2E 5스위트(웹 10여정·데스크탑 10종·모바일·촬영·흐름
+- **품질 게이트**(차트 4): 프론트 vitest 710 · 백엔드 pytest 130+ · 실브라우저 E2E 5스위트(웹 10여정·데스크탑 13종·모바일·촬영·흐름
   +대화온보딩·저장흐름·확장연동·라이브체크 전용 게이트) · lint 0 · tsc 0 — 매 변경마다 실행.
 - **멀티에이전트 상호감사**: 29개 AI 에이전트가 데이터·URL·코드·문구·보안 5차원을 감사하고 발견마다 별도 검증자가 반박 시도 —
   확정 23건 전부 즉시 정정(오탐 1건은 반박으로 기각). "AI가 만들고 AI가 감사하는" 개발 프로세스 자체가 차별점.
@@ -412,6 +416,7 @@ modoo-bom/
 | 출산 가정(0세) 발견액 | 월 최대 1,193,000원 + 60일 소급 알림 | 데모 페르소나 '신혼 출산가정' |
 | 중증장애인 발견액 | 월 최대 349,700원 + 민간 의료·재활 연계 | 데모 페르소나 '중증 장애인' |
 | 서류 발급 조작 | 9단계 중 본인 1번(폰 인증 승인) | `npm run e2e:ext:headed` (실브라우저 검증) |
+| 🚀 원클릭 연쇄(발급→자동첨부→신청 대기) | 클릭 1번 + 인증 승인만 | `npm run e2e:desktop` (13종 회귀) |
 | 운영비 | $0 (정적+온디바이스) | GitHub Pages + 브라우저 내 AI |
 
 ※ 발견액은 '월 최대·중복 미반영' 기준 — 강력추천 중 현금성만 보수 합산. 결과 화면과 동일 수치.
