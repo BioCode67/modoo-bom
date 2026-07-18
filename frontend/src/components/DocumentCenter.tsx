@@ -4,6 +4,7 @@ import { FileText, ExternalLink, Bot, Loader2, CheckCircle2, AlertCircle, Check,
 import { getPolicyMap } from '@/data/catalog'
 import { useAppStore } from '@/store/useAppStore'
 import { docLink, isRpaSupported, isCertIssuable, certKind, CERT_WALLET, isApplyAutomatable } from '@/lib/officialLinks'
+import { issuableCanonical, substituteIssuableDoc } from '@/lib/docAliases'
 import { isBokjiroApplyable } from '@/lib/quickApply'
 import { getRpaBase } from '@/lib/backend'
 import { useBackend } from '@/lib/useBackend'
@@ -192,17 +193,27 @@ export function DocumentCenter() {
   }, [])
 
   // 담은 정책들의 필요 서류 → 어떤 복지들에 필요한지까지 집계 (공통 서류 우선 준비)
-  const docNeeds = useMemo(() => {
+  // 표기 변형('자녀 주민등록등본'·'한부모 확인서')은 정식 발급명으로 정규화해 카드·발급·첨부가 한 이름을
+  // 쓰게 한다 — 백엔드는 정확명만 수락하므로 변형명 그대로면 단건 400·여정 탈락이 났다(잠재 결함 해소).
+  // 같은 문서의 변형끼리는 카드도 합쳐진다(등본 1장이면 되는데 2장을 떼던 낭비 제거). 원 표기는 카드에 병기.
+  const { docNeeds, docVariants } = useMemo(() => {
     const map = getPolicyMap()
     const m = new Map<string, string[]>()
+    const variants = new Map<string, string[]>()
     tracked.forEach((t) => map[t.policyId]?.required_docs.forEach((d) => {
-      const arr = m.get(d) ?? []
+      const canon = issuableCanonical(d, 'local') ?? d
+      const arr = m.get(canon) ?? []
       const nm = map[t.policyId]?.name
       if (nm && !arr.includes(nm)) arr.push(nm)
-      m.set(d, arr)
+      m.set(canon, arr)
+      if (canon !== d) {
+        const vs = variants.get(canon) ?? []
+        if (!vs.includes(d)) vs.push(d)
+        variants.set(canon, vs)
+      }
     }))
     // 여러 복지에 공통으로 필요한 서류를 위로 정렬
-    return [...m.entries()].sort((a, b) => b[1].length - a[1].length)
+    return { docNeeds: [...m.entries()].sort((a, b) => b[1].length - a[1].length), docVariants: variants }
   }, [tracked])
 
   // 🔁 세션 연속성 — 새로고침·뷰 이탈 후 다시 들어오면 '진행 중이던' 발급/여정 추적을 재연결(감사 갭:
@@ -848,6 +859,18 @@ export function DocumentCenter() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className={cn('font-bold text-sm truncate', done && 'line-through decoration-success-500/60')}>{doc}</p>
+                {/* 정규화로 합쳐진 원 표기 병기 — 정책이 요구한 이름과 발급물 이름이 달라도 어리둥절하지 않게 */}
+                {(docVariants.get(doc)?.length ?? 0) > 0 && (
+                  <p className="text-[10px] text-muted-foreground/80 truncate" title={docVariants.get(doc)!.join(', ')}>
+                    정책 표기: {docVariants.get(doc)!.slice(0, 2).join(' · ')}{docVariants.get(doc)!.length > 2 ? ' 외' : ''} — 이 서류로 충족돼요
+                  </p>
+                )}
+                {/* 대체 발급물 힌트 — 다른 문서지만 통상 이걸로 충족(자동 편입은 안 함 — 제출처 확인 필요) */}
+                {userProvided && substituteIssuableDoc(doc) && (
+                  <p className="text-[10px] font-semibold text-sprout-700">
+                    💡 보통 「{substituteIssuableDoc(doc)}」(자동발급 지원)으로 충족돼요 — 제출처 요구를 확인해 보세요
+                  </p>
+                )}
                 {regMsg ? (
                   <p className={cn('text-xs font-semibold mt-0.5', regMsg.startsWith('✅') ? 'text-success-600' : regMsg === '등록 중…' ? 'text-sky2-700' : 'text-rose-600')}>{regMsg}</p>
                 ) : done && !(st && (st.status === 'done' || st.status === 'completed') && st.saved) ? (
