@@ -284,7 +284,13 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
           {/* 📦 이 신청의 발급물만 ZIP — 자동첨부 대신 복지로에 '직접' 첨부하려는 사용자의 지름길.
               보유분이 있을 때만(없으면 묶을 것도 없음). 실패 사유는 alert 대신 인라인이 낫지만
               부가 기능이라 간결히 alert(빈도 낮음). */}
-          {canLocal && attachPreview !== null && attachPreview.length > 0 && (
+          {canLocal && vaultDocs !== null && (() => {
+            // 이 정책의 필요 서류(정식명)와 서류함 실보유의 교집합이 있을 때만 — 묶을 게 없는데
+            // 버튼을 보여주고 404 alert를 주는 막다른 경로 방지. 부족분은 바로 아래 진단 라인이 알려준다.
+            const canon = [...new Set((policy.required_docs || []).map((d) => issuableCanonical(d, 'local') ?? d))]
+            const have = new Set(vaultDocs.map((d) => d.doc_type.replace(/\s/g, '')))
+            return canon.some((c) => have.has(c.replace(/\s/g, '')))
+          })() && (
             <button
               onClick={() => {
                 const canon = [...new Set((policy.required_docs || [])
