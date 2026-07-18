@@ -16,7 +16,9 @@ const AUTH_PROVIDERS = [
 
 /**
  * 에이전트 자동입력용 추가정보 입력(선택).
- * 본인인증 폼 자동 작성에만 쓰이며, 기본은 서버 전송 없이 내 기기(localStorage)에만 저장.
+ * 본인인증 폼 자동 작성에만 쓰이며, 기본은 서버 전송 없이 '메모리에만' 유지된다 —
+ * rpaInfo는 persist(partialize)에서 의도적으로 제외돼 디스크(localStorage)에 남지 않고,
+ * 새로고침하면 비워진다(공용 PC에서 실명·연락처가 디스크에 잔류하지 않게 하는 프라이버시 설계).
  * ⚠️ 예외: 사용자가 '원격 RPA 서버'에 명시 동의(rpaRemote)한 경우엔 그 서버로 전송돼 자동입력에 쓰인다 —
  * 문구도 그 사실대로 분기한다(거짓 '미전송' 표기 금지, 정직성 원칙).
  */
@@ -31,7 +33,9 @@ export function RpaInfoForm() {
     if (!window.confirm('이전 상담자의 정보(이름·생년월일·연락처·담은 복지·발급 기록·대화 내용)를 모두 지우고 새 상담을 시작할까요?')) return
     // 서버의 발급 서류(주민번호 포함 PDF)부터 삭제 — 결과 건수를 확보한 뒤 화면을 리셋한다.
     let msg = '✅ 새 상담 준비 완료 — 이 기기의 기록을 지웠어요.'
-    if (localAgent) {
+    // 서버 발급 폴더 삭제는 '내 PC' 에이전트에서만 — 원격/공유 서버의 폴더는 내 것이 아니며
+    // 서버도 RPA_SHARED에서 403으로 막는다(호출하면 불필요한 실패 경고만 뜸).
+    if (localAgent && !caps?.rpaRemote && !caps?.shared) {
       try {
         // 서버가 행이면 confirm 뒤 아무 반응 없는 상태가 길어진다 → 5초 타임아웃(초과 시 정직한 경고 폴백)
         const ctrl = new AbortController()
@@ -52,7 +56,7 @@ export function RpaInfoForm() {
   return (
     <div className="mt-3 rounded-xl bg-white border border-sprout-100 p-3 space-y-2 scroll-mt-24">
       <p className="text-[11px] font-bold flex items-center gap-1 text-muted-foreground">
-        <ShieldCheck className="h-3.5 w-3.5 text-sprout-500" /> 자동입력 추가정보 (선택 · {caps?.rpaRemote ? '동의한 원격 에이전트로 전송돼 자동입력에만 사용' : '내 기기에만 저장'})
+        <ShieldCheck className="h-3.5 w-3.5 text-sprout-500" /> 자동입력 추가정보 (선택 · {caps?.rpaRemote ? '동의한 원격 에이전트로 전송돼 자동입력에만 사용' : '내 기기에서만 사용 · 디스크에 저장 안 함(새로고침 시 비워짐)'})
       </p>
       <p className="text-[11px] text-sprout-700 leading-relaxed">
         실명·생년월일·휴대폰을 넣어두면 서류 발급 때 <b>본인인증 화면까지 자동으로 채워드려요</b> — 폰에서 ‘인증 허용’만 누르면 끝이에요.
