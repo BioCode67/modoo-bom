@@ -862,12 +862,14 @@ export function DocumentCenter() {
           // 30초 넘게 진행상태가 안 오면(새 탭에서 사용자 조작 대기 등) 웹에서도 정직하게 안내
           const stale = !!(st && !['done', 'completed', 'error', 'cancelled'].includes(st.status) && st.at && Date.now() - st.at > 30000 && tick >= 0)
           return (
-            <div key={doc} className={cn('card-cute p-4 flex items-center gap-3', done && 'opacity-75')}>
+            // flex-wrap + 제목 최소폭 — 큰글씨 모드×390px에서 버튼이 폭을 다 먹어 제목이 '주..'로
+            // 뭉개지던 실측 문제. 좁으면 버튼들이 아랫줄로 내려가고 서류명은 항상 읽힌다(어르신 1순위).
+            <div key={doc} className={cn('card-cute p-4 flex flex-wrap items-center gap-3', done && 'opacity-75')}>
               <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl', done ? 'bg-success-50 text-success-500' : 'bg-sky2-100 text-sky2-700')}>
                 {done ? <CheckCircle2 className="h-5 w-5" /> : <FileText className="h-5 w-5" />}
               </div>
-              <div className="flex-1 min-w-0">
-                <p className={cn('font-bold text-sm truncate', done && 'line-through decoration-success-500/60')}>{doc}</p>
+              <div className="flex-1 min-w-[9rem]">
+                <p className={cn('font-bold text-sm', done && 'line-through decoration-success-500/60')}>{doc}</p>
                 {/* 정규화로 합쳐진 원 표기 병기 — 정책이 요구한 이름과 발급물 이름이 달라도 어리둥절하지 않게 */}
                 {(docVariants.get(doc)?.length ?? 0) > 0 && (
                   <p className="text-[10px] text-muted-foreground/80 truncate" title={docVariants.get(doc)!.join(', ')}>

@@ -137,9 +137,9 @@ export function DocVault() {
       {docs.length > 0 && (
         <ul className="mt-2 space-y-1">
           {docs.slice(0, 8).map((d) => (
-            <li key={d.filename} className="flex items-center gap-2 rounded-xl border border-sky2-100 bg-white px-3 py-1.5">
+            <li key={d.filename} className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border border-sky2-100 bg-white px-3 py-1.5">
               {d.ext === 'pdf' ? <FileText className="h-4 w-4 shrink-0 text-sky2-500" /> : <ImageIcon className="h-4 w-4 shrink-0 text-sky2-500" />}
-              <span className="min-w-0 flex-1 truncate text-xs font-semibold">{d.display}</span>
+              <span className="min-w-[8rem] flex-1 text-xs font-semibold break-all">{d.display}</span>
               {d.attach_candidate && <span title="지금 신청하면 자동첨부 후보" className="shrink-0 inline-flex items-center gap-0.5 rounded-md bg-sprout-100 px-1.5 py-0.5 text-[10px] font-bold text-sprout-700"><Paperclip className="h-3 w-3" /> 첨부 후보</span>}
               {d.validity === 'stale' && <span title={`발급 ${d.age_days}일 지남 — 관공서 제출용 증명서는 통상 '발급 3개월 이내'를 요구해요(기관별 상이). 다시 발급을 권해요.`} className="shrink-0 rounded-md bg-rose-100 px-1.5 py-0.5 text-[10px] font-bold text-rose-700">⚠️ 3개월 지남</span>}
               {d.validity === 'aging' && <span title={`발급 ${d.age_days}일째 — 제출처가 '3개월 이내'를 요구하면 곧 만료돼요. 제출 예정이면 유효기간을 확인하세요.`} className="shrink-0 rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800">유효 확인</span>}

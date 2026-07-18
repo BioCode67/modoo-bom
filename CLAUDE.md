@@ -113,7 +113,7 @@ src/
   긴급복지 진단, 복지 점수·TOP3, **대표문의 전화 tel: 연결**, **포트폴리오 차트**(SVG), 온보딩,
   **로그인·동기화**(카카오·구글, Supabase 무료 티어, 선택 — 미설정 시 인증 UI 숨김 + supabase-js 트리셰이킹 제외, 설정은 `supabase/SETUP.md`),
   **PWA**(설치형·오프라인·autoUpdate·beforeinstallprompt), 큰글씨·고대비·ESC·ARIA·focus-visible 접근성, ErrorBoundary.
-- **품질 게이트(모두 통과)**: `npm run lint`(eslint9 flat, react-hooks, 0건) · `npm test`(vitest **719**) ·
+- **품질 게이트(모두 통과)**: `npm run lint`(eslint9 flat, react-hooks, 0건) · `npm test`(vitest **728**) ·
   `tsc --noEmit` · `npm run build` · E2E 스모크(`frontend/e2e/smoke.py`, 실브라우저 10여정 + e2e:chat/save/fin/ext + **e2e:a11y** — axe-core 전 화면(기본 4+고대비) 위반 0, 마운트 게이트로 무효 측정 방지) / 백엔드 `pytest`(**130**). 변경마다 브라우저 회귀 검증.
 - **견고성 감사(2026-07)**: 다중에이전트 감사로 백엔드 확정결함 8건(extract_json dict 보장·RPA 태스크
   강한참조·chat 세션유지·카탈로그 파싱·검색캐시 사본·ETL _pick 섀도잉) + 프론트 5건(sidoOf 도우선·
