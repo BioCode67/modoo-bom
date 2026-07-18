@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Search, X, Mic, ArrowDownWideNarrow, Calculator, ChevronDown, Globe, Sparkles, Volume2, Square, Languages } from 'lucide-react'
 import { useSpeech } from '@/lib/useSpeech'
@@ -47,7 +47,10 @@ const BUCKETS: { key: string; label: string; emoji: string; match?: string[]; te
 ]
 
 type SortKey = 'default' | 'amount' | 'name'
-const PAGE = 60
+const PAGE = 60 // '더 보기' 1회당 추가 노출 수
+// 첫 화면·검색어 변경 직후 노출 수 — 검색 중 지연 커밋(카드 마운트) 비용을 낮춘다.
+// CPU×4 실측: 60장 커밋이 타이핑 중 100~600ms 롱태스크의 주범(구형 PC 타이핑 끊김). 24장도 2~3화면 분량.
+const PAGE_FIRST = 24
 
 // 다국어 AI 의미 검색 체험용 예시(클릭하면 바로 검색) — 다양한 언어로 "대단함"을 즉시 각인
 const AI_EXAMPLES: { text: string; lang: string }[] = [
@@ -60,6 +63,10 @@ const AI_EXAMPLES: { text: string; lang: string }[] = [
 
 export function Explore() {
   const [q, setQ] = useState('')
+  // 검색 입력 지연값 — 5,300건 관련도 계산·리스트 렌더를 키입력마다 동기로 돌리면 구형 PC에서
+  // 타이핑이 얼어붙는다(CPU×4 실측: 8타에 롱태스크 16회·최장 1011ms·합계 5.0s). 입력칸은 q로 즉시
+  // 반응하고, 무거운 filtered 계산·리스트 렌더는 지연값으로 미뤄 중간 타이핑 프레임을 건너뛴다.
+  const dq = useDeferredValue(q)
   const [bucket, setBucket] = useState('all')
   const [sort, setSort] = useState<SortKey>('default')
   const [onlyCash, setOnlyCash] = useState(false)
@@ -68,7 +75,7 @@ export function Explore() {
   const [gungu, setGungu] = useState('')
   const [showCalc, setShowCalc] = useState(false)
   const [selected, setSelected] = useState<Policy | EligiblePolicy | null>(null)
-  const [visible, setVisible] = useState(PAGE)
+  const [visible, setVisible] = useState(PAGE_FIRST)
   // 온디바이스 AI 의미 검색(다국어)
   const [aiMode, setAiMode] = useState(false)
   const [aiHits, setAiHits] = useState<SemanticHit[] | null>(null)
@@ -118,7 +125,7 @@ export function Explore() {
   }, [catalog, region])
 
   // 필터/검색/정렬 변경 시 노출 개수 초기화(점진 렌더링)
-  useEffect(() => { setVisible(PAGE) }, [q, bucket, sort, onlyCash, benefitType, region, gungu])
+  useEffect(() => { setVisible(PAGE_FIRST) }, [dq, bucket, sort, onlyCash, benefitType, region, gungu])
   // 시·도가 바뀌면 시·군·구 선택 초기화
   useEffect(() => { setGungu('') }, [region])
 
@@ -235,15 +242,15 @@ export function Explore() {
       list = aiHits.map((h) => h.policy).filter(passNonSearch)
     } else {
       const base = catalog.filter(passNonSearch)
-      const concepts = queryConcepts(q)
+      const concepts = queryConcepts(dq)
       // 검색어가 있으면 개념 확장 + 관련도순. 다단어·생활어·다개념 우대.
       if (concepts.length) {
         list = base
-          .map((p) => ({ p, s: relevance(p, concepts, q) }))
+          .map((p) => ({ p, s: relevance(p, concepts, dq) }))
           .filter((x) => x.s > 0)
           .sort((a, b2) => b2.s - a.s)
           .map((x) => x.p)
-      } else if (aiMode && q.trim()) {
+      } else if (aiMode && dq.trim()) {
         // AI 모드인데 질의가 있고, 키워드로도 못 잡으며(비한국어 등) AI 결과도 아직 없음(로딩/실패).
         // → 전체 카탈로그 수천 건을 쏟지 않고 비운다. 아래 로딩/오류 안내가 상황을 설명.
         list = []
@@ -260,7 +267,7 @@ export function Explore() {
     } else if (sort === 'name') out = [...list].sort((a, b2) => a.name.localeCompare(b2.name, 'ko'))
     // 같은 프로그램 중복(문화누리 3중복 등) 접기 — 결과 뷰와 동일 기준. POL- 시드에만 적용, 외부 데이터는 그대로.
     return collapseProgramDuplicates(out)
-  }, [q, catalog, sort, aiMode, aiHits, passNonSearch])
+  }, [dq, catalog, sort, aiMode, aiHits, passNonSearch])
 
   // 감지 언어 배지·다누리 안내·번역 배너는 '실제로 그 언어로 답/번역할 때만' 표시 —
   //   답변/번역은 보수적 detectUiLang을 쓰는데 배지만 공격적 detectLang을 쓰면, 한 단어 영어('housing')에

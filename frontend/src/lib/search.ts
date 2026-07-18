@@ -76,9 +76,30 @@ export function expandQuery(q: string): string[] {
   return [...new Set(queryConcepts(q).flat())]
 }
 
+// 정책별 소문자 필드 캐시 — fieldScore는 (정책 × 개념 × 동의어)마다 불려 키입력당 수만 회
+// toLowerCase가 돌았다(5,300건 카탈로그 실측: 타이핑 롱태스크의 주범). 정책 객체는 카탈로그
+// 로드 후 불변이므로 WeakMap에 1회만 소문자화해 둔다(EligiblePolicy는 새 객체라 따로 캐시됨).
+type LowFields = { name: string; category: string; department: string; target: string; elig: string; benefit: string }
+const lowCache = new WeakMap<object, LowFields>()
+function lowFields(p: Policy | EligiblePolicy): LowFields {
+  let f = lowCache.get(p)
+  if (!f) {
+    f = {
+      name: p.name.toLowerCase(),
+      category: p.category.toLowerCase(),
+      department: (p.department || '').toLowerCase(),
+      target: (p.target || '').toLowerCase(),
+      elig: (p.eligibility || '').toLowerCase(),
+      benefit: (p.benefit || '').toLowerCase(),
+    }
+    lowCache.set(p, f)
+  }
+  return f
+}
+
 function fieldScore(p: Policy | EligiblePolicy, t: string, isUserTerm = false): number {
   if (!t) return 0
-  const name = p.name.toLowerCase()
+  const { name } = lowFields(p)
   // 1글자 용어는 substring 오탐이 심하다(동의어 '집'이 '어린이집'에 걸려 주거 검색을 오염).
   // 자동확장 동의어의 1글자는 완전히 제외하고, 사용자가 '직접 친' 1글자만 예외로 허용하되
   // 그것도 이름의 '시작' 또는 '비한글 경계' 매칭만 인정한다 — '암'→'암환자의료비지원' O,
@@ -91,17 +112,15 @@ function fieldScore(p: Policy | EligiblePolicy, t: string, isUserTerm = false): 
     return name.startsWith(t) || new RegExp(`[^가-힣]${esc}`).test(name) ? 3 : 0
   }
   let s = 0
+  const { category, department, target, elig, benefit } = lowFields(p)
   if (name === t) s += 8
   else if (name.includes(t)) s += 3
-  if (p.category.toLowerCase().includes(t)) s += 2
+  if (category.includes(t)) s += 2
   // 담당부처/기관(department)도 스캔 — 'SH'(서울주택도시공사)·'LH'처럼 이름엔 없고 담당기관에만 있는
   //   검색어가 0건이 되던 결함(감사 확정). 기관명 매칭은 소폭 가산.
-  if ((p.department || '').toLowerCase().includes(t)) s += 1.5
+  if (department.includes(t)) s += 1.5
   // ⚠️ 지자체(LOC-) 요약 정책 다수(실측 418건)는 target=benefit=eligibility가 완전 동일 문장이라
   //    3개 필드에 각각 가산되면 랭킹이 왜곡된다. 세 본문 필드를 '합쳐서 한 번만' 점수화한다.
-  const target = (p.target || '').toLowerCase()
-  const elig = (p.eligibility || '').toLowerCase()
-  const benefit = (p.benefit || '').toLowerCase()
   const bodyHit = target.includes(t) || elig.includes(t) || benefit.includes(t)
   if (bodyHit) {
     // 서로 다른 내용을 담은 필드가 여럿 맞으면 소폭 더 가산(중복 문장이면 1회만)
@@ -115,10 +134,21 @@ function fieldScore(p: Policy | EligiblePolicy, t: string, isUserTerm = false): 
  * 정책 1건의 관련도. 각 개념은 동의어 중 가장 잘 맞는 점수로 평가하고,
  * 둘 이상의 개념을 동시에 충족하면 충족 개념 수만큼 가산한다(다개념 우대).
  */
+// relevance는 정책마다 불리므로 rawQuery→Set 변환을 질의당 1회로 캐시(직전 질의 1건이면 충분)
+let uwRaw = ''
+let uwSet = new Set<string>()
+function userWordsOf(rawQuery: string): Set<string> {
+  if (rawQuery !== uwRaw) {
+    uwRaw = rawQuery
+    uwSet = new Set(rawQuery.trim().toLowerCase().split(/\s+/).filter(Boolean))
+  }
+  return uwSet
+}
+
 export function relevance(p: Policy | EligiblePolicy, concepts: string[][], rawQuery = ''): number {
   if (!concepts.length) return 0
   // 사용자가 직접 입력한 원문 단어(동의어 확장 이전) — 1글자여도 매칭을 허용할 대상.
-  const userWords = new Set(rawQuery.trim().toLowerCase().split(/\s+/).filter(Boolean))
+  const userWords = userWordsOf(rawQuery)
   let total = 0
   let covered = 0
   for (const terms of concepts) {
