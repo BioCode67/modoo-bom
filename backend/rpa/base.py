@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Optional, Callable
 
 
-def get_launch_options(slow_mo: int = None) -> dict:
+def get_launch_options(slow_mo: int = None, headless: bool | None = None) -> dict:
     """모든 RPA가 공통으로 쓰는 브라우저 실행 옵션.
 
     윈도우에서는 Playwright 번들 Chromium이 일부 잠긴(관리형) PC에서 SxS(부속 구성)
@@ -25,7 +25,9 @@ def get_launch_options(slow_mo: int = None) -> dict:
     if slow_mo is None:
         slow_mo = max(0, int(os.getenv("RPA_SLOW_MO", "120")))
     opts = {
-        "headless": os.getenv("RPA_HEADLESS", "0") == "1",
+        # headless 명시 인자가 env보다 우선 — 셀프테스트/프리플라이트가 전역 env를 잠깐 바꾸는 방식은
+        # 그 사이 시작된 '실제 발급'까지 헤드리스로 띄워 카카오 인증을 불가능하게 하는 레이스가 있었다.
+        "headless": (headless if headless is not None else os.getenv("RPA_HEADLESS", "0") == "1"),
         "slow_mo": slow_mo,
         "args": [
             "--start-maximized",
@@ -72,13 +74,13 @@ def _browser_candidates() -> list[str]:
     return uniq
 
 
-async def launch_browser(pw, slow_mo: int = None):
+async def launch_browser(pw, slow_mo: int = None, headless: bool | None = None):
     """가용 브라우저를 우선순위로 시도해 첫 성공을 반환(설치 안 된 채널은 건너뜀).
 
     Chrome→Edge→번들 Chromium 순 폴백이라, 특정 브라우저 미설치 PC에서도 자동발급이 끊기지 않는다.
     전부 실패하면 사용자가 조치할 수 있는 명확한 메시지와 함께 예외를 던진다.
     """
-    base = get_launch_options(slow_mo)
+    base = get_launch_options(slow_mo, headless=headless)
     base.pop("channel", None)
     base_args = [a for a in base.get("args", []) if a != "--no-sandbox"]
     tried, last_err = [], None

@@ -198,24 +198,18 @@ async def _browser_probe() -> tuple[bool, str]:
     반환: (성공 여부, 성공 시 브라우저 이름 / 실패 시 원인)."""
     from rpa.base import launch_browser
     from playwright.async_api import async_playwright
-    # ⚠️ 점검 동안만 headless — 전역 os.environ 을 영구히 바꾸면 이후 '모든' 발급이 보이지 않는 창에서
-    #   돌아 카카오 인증 불가·연쇄 타임아웃이 된다(감사 :197). 반드시 원래 값으로 원복한다.
-    _prev_headless = os.environ.get("RPA_HEADLESS")
-    os.environ["RPA_HEADLESS"] = "1"  # 점검은 창 없이
+    # 점검은 창 없이 — 전역 env(RPA_HEADLESS)를 잠깐 바꾸는 옛 방식은 그 몇 초 사이에 시작된
+    # '실제 발급'까지 헤드리스로 띄워 카카오 인증이 불가능해지는 레이스가 있었다(진행 중 점검 클릭 등).
+    # launch_browser 의 명시 headless 인자만 사용해 다른 실행에 영향을 주지 않는다.
     try:
         async with async_playwright() as pw:
-            browser = await launch_browser(pw, slow_mo=0)
+            browser = await launch_browser(pw, slow_mo=0, headless=True)
             page = await browser.new_page()
             await page.goto("about:blank")
             await browser.close()
         return True, os.environ.get("RPA_ACTIVE_BROWSER", "chromium")
     except Exception as e:  # noqa: BLE001 — 원인을 그대로 반환(드라이버/브라우저 진단용)
         return False, str(e)[:300]
-    finally:
-        if _prev_headless is None:
-            os.environ.pop("RPA_HEADLESS", None)
-        else:
-            os.environ["RPA_HEADLESS"] = _prev_headless
 
 
 @app.get("/api/_selftest/browser")

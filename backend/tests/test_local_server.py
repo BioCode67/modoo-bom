@@ -536,3 +536,20 @@ def test_default_mode_still_returns_own_running_journey(monkeypatch):
         assert j["download_token"] == "tok-own"
     finally:
         orchestrator._journeys.pop("own-j1", None)
+
+
+def test_browser_probe_does_not_mutate_global_headless_env(monkeypatch):
+    """프리플라이트/셀프테스트의 브라우저 점검이 전역 RPA_HEADLESS 를 건드리지 않는다 —
+    점검 몇 초 사이 시작된 '실제 발급'이 헤드리스로 떠 카카오 인증이 불가능해지던 레이스 차단.
+    (명시 headless 인자 사용 — 소스 계약 + 옵션 우선순위 행위 검증)"""
+    src = open("local_server.py", encoding="utf-8").read()
+    probe = src.split("async def _browser_probe")[1].split("@app.get")[0]
+    assert 'os.environ["RPA_HEADLESS"]' not in probe, "probe가 전역 env를 변조하면 안 됨"
+    assert "headless=True" in probe
+    from rpa.base import get_launch_options
+    monkeypatch.delenv("RPA_HEADLESS", raising=False)
+    assert get_launch_options(headless=True)["headless"] is True    # 인자 명시 시 env 무관
+    assert get_launch_options()["headless"] is False                # 기본은 headed(인증 창)
+    monkeypatch.setenv("RPA_HEADLESS", "1")
+    assert get_launch_options()["headless"] is True                 # env 재정의는 그대로 존중
+    assert get_launch_options(headless=False)["headless"] is False  # 명시 인자가 env보다 우선
