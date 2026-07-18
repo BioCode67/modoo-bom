@@ -272,6 +272,30 @@ def main() -> int:
             pg.wait_for_timeout(400)
             print("[desktop] ✅ 6.8. 챗 에이전트 데스크탑 인지(자동화 경로 안내)")
 
+            # 6.9) 🔁 여정(연쇄) 이어보기 — 새로고침 후 무클릭 재연결(플래그십 복원, 인터셉트 결정적)
+            pg.route("**/api/journey/status/**", lambda r: r.fulfill(
+                status=200, content_type="application/json",
+                body=json.dumps({"status": "running", "current": "소득금액증명", "current_status": "running",
+                                 "current_message": "정부24에서 발급 진행 중…", "steps": [
+                                     {"name": "소득금액증명", "status": "running", "kind": "doc"}]})))
+            pg.evaluate("()=>sessionStorage.setItem('modoobom-live-v1',JSON.stringify({doc:{},apply:{},"
+                        "journey:{current:{taskId:'j-resume',token:'t',docs:['소득금액증명'],at:Date.now()}}}))")
+            pg.reload(wait_until="domcontentloaded")
+            pg.wait_for_selector("text=정부·지자체·민간 복지", timeout=20000)
+            pg.click("text=나의 복지")
+            pg.wait_for_selector("text=서류 준비 도우미", timeout=15000)
+            pg.wait_for_selector("text=연쇄 자동발급 진행 중", timeout=15000)  # 무클릭 헤더 복원
+            assert "소득금액증명" in pg.inner_text("body")
+            # 종결로 전환해 폴링을 닫고 다음 단계로(기억 정리까지)
+            pg.unroute("**/api/journey/status/**")
+            pg.route("**/api/journey/status/**", lambda r: r.fulfill(
+                status=200, content_type="application/json",
+                body=json.dumps({"status": "cancelled", "current": None, "steps": [
+                    {"name": "소득금액증명", "status": "cancelled", "kind": "doc"}]})))
+            pg.wait_for_selector("text=연쇄 자동발급 진행 중", state="detached", timeout=10000)
+            pg.unroute("**/api/journey/status/**")
+            print("[desktop] ✅ 6.9. 여정 이어보기 — 새로고침 후 무클릭 재연결(헤더·카드 복원)")
+
             # 7.6) 여정 '오류' 경로 — 정부 사이트 불통 시에도 정직한 오류 요약 + 재시도 CTA가 남는지
             #      (실사용자가 실제로 만나는 경로 — 가짜 성공·무언 종료·막다른 UI가 없어야 한다)
             pg.route("**/api/journey/run", lambda r: r.fulfill(
@@ -283,6 +307,10 @@ def main() -> int:
                 body=json.dumps({"status": "error", "current": None, "steps": [
                     {"name": "주민등록등본", "status": "error", "kind": "doc", "error": "정부24가 응답하지 않아요 — 잠시 후 다시 시도해 주세요."},
                     {"name": "소득금액증명", "status": "cancelled", "kind": "doc"}]})))
+            # 6.9의 새로고침으로 인증정보 폼이 비워짐 — rpaInfo는 '디스크에 안 남기는' 프라이버시 설계(persist 제외)
+            pg.fill("input[placeholder*='실명']", "김청년")
+            pg.fill("input[placeholder*='생년월일']", "19980315")
+            pg.fill("input[placeholder*='휴대폰']", "01012345678")
             pg.locator("button:has-text('전부 자동발급')").click()
             pg.wait_for_selector("text=연쇄가 오류로 끝났어요", timeout=10000)   # 종결 요약(정직 오류)
             body2 = pg.inner_text("body")
@@ -313,7 +341,7 @@ def main() -> int:
         for i in issues[:10]:
             print("  ", i)
         return 1
-    print("✅ 데스크탑 기능 12종 + pageerror 0 — 전부 통과")
+    print("✅ 데스크탑 기능 13종 + pageerror 0 — 전부 통과")
     return 0
 
 
