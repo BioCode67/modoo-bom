@@ -160,16 +160,22 @@ def test_recent_issued_docs_recency_filter(monkeypatch, tmp_path):
 
 
 def test_clear_docs_dir_removes_pii(monkeypatch, tmp_path):
-    """'다음 분 상담' 리셋 시 서버 발급 문서(주민번호 PDF)를 전부 삭제."""
+    """'다음 분 상담' 리셋 시 발급물(PDF/PNG)과 '내 서류함' 등록 사진(JPG/JPEG)까지 전부 삭제.
+
+    회귀 고정: 과거 PDF/PNG 만 지워 이전 사용자의 신분증·계약서 '사진'(JPG — PII 밀도 최고)이
+    폴더에 남았고, 등록 20분 안이면 다음 사용자의 자동첨부 후보에까지 오르던 결함."""
     import os
     from rpa import base
     monkeypatch.setattr(base, "DOCS_DIR", tmp_path)
     (tmp_path / "a.pdf").write_bytes(b"x")
     (tmp_path / "b.png").write_bytes(b"x")
-    (tmp_path / "keep.txt").write_text("not a doc")  # PDF/PNG 만 대상
+    (tmp_path / "신분증_홍길동.jpg").write_bytes(b"x")   # 서류함 등록 사진(_REGISTER_EXT 허용)
+    (tmp_path / "계약서.jpeg").write_bytes(b"x")
+    (tmp_path / "keep.txt").write_text("not a doc")  # 서류 확장자 외 파일은 보존
     n = base.clear_docs_dir()
-    assert n == 2
-    assert not (tmp_path / "a.pdf").exists() and not (tmp_path / "b.png").exists()
+    assert n == 4
+    for gone in ("a.pdf", "b.png", "신분증_홍길동.jpg", "계약서.jpeg"):
+        assert not (tmp_path / gone).exists()
     assert (tmp_path / "keep.txt").exists()  # 문서 외 파일은 유지
 
 

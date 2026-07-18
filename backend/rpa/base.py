@@ -170,12 +170,16 @@ def recent_issued_docs(limit: int = 10, within_seconds: Optional[int] = None):
 
 
 def clear_docs_dir() -> int:
-    """발급 서류 폴더(DOCS_DIR)의 PDF/PNG 를 모두 삭제 — 공용 PC '다음 분 상담' 전환 시 이전 사용자 PII 제거.
-    반환: 삭제한 파일 수. (폴더 자체는 유지)"""
+    """발급 서류 폴더(DOCS_DIR)의 발급물(PDF/PNG)과 등록물(JPG/JPEG)을 모두 삭제 —
+    공용 PC '다음 분 상담' 전환 시 이전 사용자 PII 제거. 반환: 삭제한 파일 수. (폴더 자체는 유지)
+
+    ⚠️ JPG/JPEG 는 '내 서류함'에 등록한 신분증·계약서 '사진'이라 PII 밀도가 가장 높다 —
+    과거 PDF/PNG 만 지워 이전 분 사진이 남았고, 등록 20분 안이면 다음 사용자의 자동첨부
+    후보(recent_issued_docs)에까지 올랐다. 서류함이 다루는 확장자(_REGISTER_EXT)와 반드시 일치시킬 것."""
     import glob
     n = 0
     try:
-        for ext in ("*.pdf", "*.png"):
+        for ext in ("*.pdf", "*.png", "*.jpg", "*.jpeg"):
             for f in glob.glob(os.path.join(str(DOCS_DIR), ext)):
                 try:
                     os.remove(f)
