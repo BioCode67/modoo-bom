@@ -262,6 +262,16 @@ def main() -> int:
             pg.unroute("**/api/journey/run"); pg.unroute("**/api/journey/status/**"); pg.unroute("**/api/journey/skip/**")
             print("[desktop] ✅ 7.5. 원클릭 연쇄 + ⏭ 단계 건너뛰기 + 📨 제출 완료 기록(applied 저장)")
 
+            # 6.8) 💬 챗 에이전트 데스크탑 인지 — 서류 질문에 자동화 경로([전부 자동발급])를 안내하는지
+            pg.locator("button[aria-label='복지 도우미 챗봇 열기']").click()
+            pg.wait_for_selector("div[role='dialog'][aria-label='복지 도우미 챗봇']", timeout=8000)
+            pg.fill("input[aria-label='질문 입력']", "서류 어떻게 발급해?")
+            pg.keyboard.press("Enter")
+            pg.wait_for_selector("text=전부 자동발급", timeout=10000)  # agentOn 분기 응답
+            pg.locator("button[aria-label='복지 도우미 챗봇 닫기']").click()
+            pg.wait_for_timeout(400)
+            print("[desktop] ✅ 6.8. 챗 에이전트 데스크탑 인지(자동화 경로 안내)")
+
             # 7.6) 여정 '오류' 경로 — 정부 사이트 불통 시에도 정직한 오류 요약 + 재시도 CTA가 남는지
             #      (실사용자가 실제로 만나는 경로 — 가짜 성공·무언 종료·막다른 UI가 없어야 한다)
             pg.route("**/api/journey/run", lambda r: r.fulfill(
@@ -303,7 +313,7 @@ def main() -> int:
         for i in issues[:10]:
             print("  ", i)
         return 1
-    print("✅ 데스크탑 기능 11종 + pageerror 0 — 전부 통과")
+    print("✅ 데스크탑 기능 12종 + pageerror 0 — 전부 통과")
     return 0
 
 
