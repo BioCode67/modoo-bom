@@ -2,6 +2,11 @@ import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
+import { readFileSync } from 'fs'
+
+// 푸터 버전 표기용 — package.json 버전을 빌드타임에 주입(스테일 캐시 제보를 1초에 판정).
+// npm 스크립트 밖에서 vite를 직접 불러도 동작하게 env 대신 파일을 읽는다.
+const pkg = JSON.parse(readFileSync(path.resolve(__dirname, 'package.json'), 'utf-8')) as { version: string }
 
 // GitHub Pages(project site)는 /modoo-bom/ 하위에 서빙되므로 빌드 시 base를 맞춘다.
 // 개발 서버는 루트('/')를 사용.
@@ -91,6 +96,11 @@ export default defineConfig(({ command, mode }) => {
     alias: {
       '@': path.resolve(__dirname, './src'),
     },
+  },
+  // 빌드타임 상수(선언은 src/vite-env.d.ts) — 런타임 fetch 없이 번들 자체가 자기 버전을 안다
+  define: {
+    __APP_VERSION__: JSON.stringify(pkg.version),
+    __BUILD_DATE__: JSON.stringify(new Date().toISOString().slice(0, 10)),
   },
   // transformers.js는 dev 사전번들에서 제외(무거운 ONNX 런타임) — 지연 동적 import로만 로드.
   optimizeDeps: {
