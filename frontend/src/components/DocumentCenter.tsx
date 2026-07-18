@@ -3,7 +3,7 @@ import { motion } from 'framer-motion'
 import { FileText, ExternalLink, Bot, Loader2, CheckCircle2, AlertCircle, Check, Undo2 } from 'lucide-react'
 import { getPolicyMap } from '@/data/catalog'
 import { useAppStore } from '@/store/useAppStore'
-import { docLink, isRpaSupported, isCertIssuable, certKind, CERT_WALLET, isApplyAutomatable } from '@/lib/officialLinks'
+import { docLink, isRpaSupported, isCertIssuable, certKind, CERT_WALLET, isApplyAutomatable, LOCAL_RPA_DOCS } from '@/lib/officialLinks'
 import { issuableCanonical, substituteIssuableDoc } from '@/lib/docAliases'
 import { isBokjiroApplyable } from '@/lib/quickApply'
 import { getRpaBase } from '@/lib/backend'
@@ -73,6 +73,10 @@ export function DocumentCenter() {
   // 여정 종결 요약(발급 n건·건너뜀 n건·신청 양식 준비 n건) — 헤더가 사라진 뒤 '어떻게 끝났는지' 한 줄 닫음말.
   //   issued는 '발급물 폴더 열기' CTA 노출 판단용(실발급 0건이면 폴더를 열 이유가 없다).
   const [journeySummary, setJourneySummary] = useState<{ text: string; issued: number } | null>(null)
+  // 🗂 자유 선택 일괄발급 — 담은 정책의 필요서류 밖이라도 지원 서류를 골라 한 번 인증으로 연쇄 발급
+  const [pickOpen, setPickOpen] = useState(false)
+  const [picked, setPicked] = useState<Record<string, boolean>>({})
+  const [pickMsg, setPickMsg] = useState('')
   // 🚀→📨 발급 후 '자동신청까지' 이어갈 수 있는 담은 복지 — 단건 신청과 동일 기준(내장 6종 ∪ 복지로 딥링크 해석).
   //   백엔드 여정(service_names)이 서류 발급을 모두 마친 뒤 신청 단계를 이어서 실행한다(자동첨부 성립 순서).
   const chainSvcs = useMemo(() => {
@@ -652,6 +656,24 @@ export function DocumentCenter() {
     }
   }
 
+  // 🗂 자유 선택 일괄발급 시작 — 검증·중복 가드는 원클릭 연쇄(startAll)와 동일 기준
+  const startPicked = async () => {
+    const sel = LOCAL_RPA_DOCS.filter((d) => picked[d])
+    if (!sel.length) { setPickMsg('발급할 서류를 하나 이상 선택해 주세요.'); return }
+    if (!rpaInfoReady) { setPickMsg('아래 "자동입력 추가정보"에 실명·생년월일·휴대폰을 먼저 입력해 주세요.'); focusRpaForm(); return }
+    // 이미 진행 중인 서류는 제외 — 같은 서류가 브라우저 2개로 중복 발급되는 것 방지(startAll과 동일)
+    const busy = sel.filter((d) => { const st = rpa[d]; return !!(st && !['done', 'completed', 'error', 'cancelled'].includes(st.status)) })
+    const run = sel.filter((d) => !busy.includes(d))
+    if (!run.length) { setPickMsg('선택한 서류는 모두 이미 진행 중이에요 — 아래 진행 상태를 확인해 주세요.'); return }
+    setPickMsg('')
+    setRpa((s) => ({ ...s, ...Object.fromEntries(run.map((d) => [d, { status: 'running', step: '대기열에 추가됨…', at: Date.now() }])) }))
+    try {
+      await runJourneyViaBackend(run, [])
+    } catch (e) {
+      setRpa((s) => markRemainingStuck(s, run, e instanceof Error ? e.message : '일괄 발급을 시작하지 못했어요.'))
+    }
+  }
+
   return (
     <motion.section initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="mt-8">
       {/* 📎 내 서류함 파일 선택(숨김) — '등록' 클릭 시 열리고, 선택하면 로컬 서버 발급 폴더에 저장 */}
@@ -767,6 +789,52 @@ export function DocumentCenter() {
           </button>
           <p className="mt-1 text-[11px] text-muted-foreground">🗂 서류함의 유효한 발급물을 신청 양식에 자동첨부해요 · 최종 제출은 본인 확인 후예요</p>
           {applyOnlyMsg && <p className="mt-1 text-[11px] font-semibold text-rose-600">{applyOnlyMsg}</p>}
+        </div>
+      )}
+
+      {/* 🗂 자유 선택 일괄발급(데스크탑) — 담은 정책의 필요서류 밖이라도, 지원 서류 전체에서 골라
+          한 번 인증으로 연쇄 발급. 심사·상담처럼 '이 서류들 미리 떼두자'가 필요한 상황의 직행 경로. */}
+      {!ext && localAgent && (
+        <div className="mt-3">
+          {!pickOpen ? (
+            <button
+              onClick={() => { setPickOpen(true); setPicked(Object.fromEntries(chainDocs.map((d) => [d, true]))) }}
+              className="btn-secondary w-full !py-2 text-xs">
+              🗂 다른 서류도 필요하세요? 지원 {LOCAL_RPA_DOCS.length}종에서 골라 한번에 발급 →
+            </button>
+          ) : (
+            <div className="rounded-2xl border-2 border-sky2-100 bg-sky2-50/40 p-3.5">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <p className="text-sm font-bold">🗂 원하는 서류 골라 일괄발급 <span className="text-xs font-semibold text-muted-foreground">지원 {LOCAL_RPA_DOCS.length}종 · 한 번 인증으로 이어서</span></p>
+                <button onClick={() => setPickOpen(false)} aria-label="일괄발급 선택 닫기" className="text-xs font-semibold text-muted-foreground hover:underline">닫기</button>
+              </div>
+              <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1.5">
+                {LOCAL_RPA_DOCS.map((d) => (
+                  <label key={d} className="flex items-start gap-1.5 text-xs font-medium cursor-pointer select-none">
+                    <input type="checkbox" checked={!!picked[d]} onChange={(e) => setPicked((s) => ({ ...s, [d]: e.target.checked }))} className="mt-0.5 accent-sky2-600" />
+                    <span className="break-keep">{d}
+                      {vaultOk(d) && <span className="ml-1 rounded-md bg-sky2-100 px-1 py-0.5 text-[10px] font-bold text-sky2-700" title="서류함에 유효한 파일이 이미 있어요 — 다시 발급하지 않아도 돼요">🗂 있음</span>}
+                    </span>
+                  </label>
+                ))}
+              </div>
+              <button onClick={startPicked} className="btn-primary w-full mt-2.5 !py-2 text-sm">
+                🚀 선택한 {LOCAL_RPA_DOCS.filter((d) => picked[d]).length}종 한번에 발급 (한 번 인증으로 이어서)
+              </button>
+              {pickMsg && <p className="mt-1 text-[11px] font-semibold text-rose-600">{pickMsg}</p>}
+              <p className="mt-1 text-[11px] text-muted-foreground">📱 각 서류 차례에 인증 요청이 오면 승인만 해주세요 · 발급물은 🗂 서류함에 모여요</p>
+              {/* 담은 정책 카드 밖 서류의 진행 상태 — 카드가 없으므로 여기서 그대로 보여준다(침묵 금지) */}
+              {LOCAL_RPA_DOCS.filter((d) => rpa[d] && !docs.includes(d)).map((d) => {
+                const st = rpa[d]!
+                const done = ['done', 'completed'].includes(st.status)
+                return (
+                  <p key={d} className={`mt-1 text-[11px] font-semibold ${st.status === 'error' ? 'text-rose-600' : done ? 'text-sprout-700' : st.status === 'cancelled' ? 'text-muted-foreground' : 'text-sky2-700'}`}>
+                    {done ? '✅' : st.status === 'error' ? '⚠️' : st.status === 'cancelled' ? '⏹' : '⏳'} {d} — {String(st.step || st.status).split('\n')[0]}
+                  </p>
+                )
+              })}
+            </div>
+          )}
         </div>
       )}
 

@@ -2,9 +2,9 @@
 """데스크탑앱 스모크 — local_server(:8000)가 dist-app을 서빙하는 '진짜 배포 셋업'에서
 데스크탑 전용 기능을 실브라우저로 회귀 검증한다(웹 프리뷰 스모크로는 localAgent 기능이 안 보임).
 
-검증 17종(번호는 추가 순서 — 실행 순서는 코드 순):
+검증 18종(번호는 추가 순서 — 실행 순서는 코드 순):
   1 상태 스트립 · 2 진단 복사(PII 0) · 2.5 발급 전 점검(5항목) · 3 서류함 등록+첨부 후보 배지
-  4 자동첨부 미리보기 · 5 개별 삭제(2탭) · 5.5 유효기간 배지+📦 ZIP · 5.6 종류별 그룹핑(최신본 대표) · 5.7 부족분만 발급→📨 자동신청만
+  4 자동첨부 미리보기 · 5 개별 삭제(2탭) · 5.5 유효기간 배지+📦 ZIP · 5.6 종류별 그룹핑(최신본 대표) · 5.7 부족분만 발급→📨 자동신청만 · 5.8 자유 선택 일괄발급
   6 새로고침 복원+실태스크 정리 · 6.5 인증 알림음+🔊 음성(옵트인)+발급 자동 기억
   6.8 챗 에이전트 인지 · 6.9 여정 이어보기 · 6.95 인증정보 탭-기억 옵트인
   7.5 원클릭 연쇄+⏭ 스킵+📨 기록 CTA · 7.6 여정 오류 경로(정직 요약) · 7 검증형 리셋
@@ -178,6 +178,19 @@ def main() -> int:
                     f.unlink(missing_ok=True)
             pg.evaluate(notify)
             pg.wait_for_selector("text=3종 전부 자동발급", timeout=8000)  # 원복(상태 잔류 없음)
+
+            # 5.8) 🗂 자유 선택 일괄발급 — 지원 15종 그리드·부족분 기본 선택·미입력 가드(여정 미시작)
+            pg.locator("button:has-text('골라 한번에 발급')").click()
+            pg.wait_for_selector("text=원하는 서류 골라 일괄발급", timeout=6000)
+            n_boxes = pg.locator("input.accent-sky2-600").count()
+            assert n_boxes == 15, f"자유 선택 지원 서류 수 불일치: {n_boxes}"
+            pg.wait_for_selector("button:has-text('선택한 3종 한번에 발급')", timeout=4000)  # 부족 3종이 기본 선택
+            pg.locator("label:has-text('병적증명서') input").check()
+            pg.wait_for_selector("button:has-text('선택한 4종 한번에 발급')", timeout=4000)
+            pg.locator("button:has-text('선택한 4종 한번에 발급')").click()
+            pg.wait_for_selector("text=실명·생년월일·휴대폰을 먼저 입력", timeout=4000)  # 가드 — 여정 미시작
+            pg.locator("button[aria-label='일괄발급 선택 닫기']").click()
+            print("[desktop] ✅ 5.8. 자유 선택 일괄발급 — 15종 그리드·부족분 기본 선택·미입력 가드")
 
             # 6) 세션 연속성 — 실태스크(곧 종결) 기억 → 새로고침 → 자동 재연결
             r = pg.evaluate("""async()=>{
@@ -415,7 +428,7 @@ def main() -> int:
         for i in issues[:10]:
             print("  ", i)
         return 1
-    print("✅ 데스크탑 기능 17종 + pageerror 0 — 전부 통과")
+    print("✅ 데스크탑 기능 18종 + pageerror 0 — 전부 통과")
     return 0
 
 
