@@ -225,8 +225,10 @@ async def run_work24_rpa(task, user_info: dict = None) -> None:
                     "완료 후 자동으로 감지합니다.",
                     ss,
                 )
-                # 사용자가 수동 탐색할 시간 대기
-                await asyncio.sleep(30)
+                # 사용자가 수동 탐색할 시간 대기 — 고정 30초는 [중단]을 그만큼 지연(감사 H3와 동일 패턴)하므로 1초 틱으로
+                for _ in range(30):
+                    check_cancel(task, context)
+                    await asyncio.sleep(1)
                 ss = await take_screenshot(page)
                 task.update("running", "현재 화면 확인", ss)
 
