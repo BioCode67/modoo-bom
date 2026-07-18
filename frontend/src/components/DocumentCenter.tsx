@@ -873,8 +873,9 @@ export function DocumentCenter() {
                     정책 표기: {docVariants.get(doc)!.slice(0, 2).join(' · ')}{docVariants.get(doc)!.length > 2 ? ' 외' : ''} — 이 서류로 충족돼요
                   </p>
                 )}
-                {/* 대체 발급물 힌트 — 다른 문서지만 통상 이걸로 충족(자동 편입은 안 함 — 제출처 확인 필요) */}
-                {userProvided && substituteIssuableDoc(doc) && (
+                {/* 대체 발급물 힌트 — 다른 문서지만 통상 이걸로 충족(자동 편입은 안 함 — 제출처 확인 필요).
+                    자동발급 미지원이면 전자발급형이어도 안내(예: '수급자 확인서' → 기초생활수급자 증명서 자동발급) */}
+                {!supported && substituteIssuableDoc(doc) && (
                   <p className="text-[10px] font-semibold text-sprout-700">
                     💡 보통 「{substituteIssuableDoc(doc)}」(자동발급 지원)으로 충족돼요 — 제출처 요구를 확인해 보세요
                   </p>
