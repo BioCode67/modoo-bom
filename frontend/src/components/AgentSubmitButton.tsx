@@ -5,6 +5,7 @@ import type { EligiblePolicy } from '@/lib/welfare-engine'
 import { useBackend } from '@/lib/useBackend'
 import { isApplyAutomatable, applyLink } from '@/lib/officialLinks'
 import { issuableCanonical } from '@/lib/docAliases'
+import { downloadDocsBundle } from '@/lib/bundleDocs'
 import { bestApplyUrl, isBokjiroApplyable } from '@/lib/quickApply'
 import { getRpaBase } from '@/lib/backend'
 import { detectExtension, applyViaExtension, onExtensionStatus, sameDocName } from '@/lib/extension'
@@ -279,6 +280,20 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
                 ? <>📎 발급/등록해둔 <b className="text-sprout-700">{attachPreview.length}종</b>이 신청 양식에 자동첨부 후보예요: {attachPreview.slice(0, 4).join(' · ')}{attachPreview.length > 4 ? ' 외' : ''} <span>(첨부칸 이름과 맞는 것만 붙어요)</span></>
                 : <>📎 자동첨부할 서류가 아직 없어요 — <b>서류 준비 도우미</b>에서 먼저 발급·촬영하면 신청 때 자동으로 붙어요.</>}
             </p>
+          )}
+          {/* 📦 이 신청의 발급물만 ZIP — 자동첨부 대신 복지로에 '직접' 첨부하려는 사용자의 지름길.
+              보유분이 있을 때만(없으면 묶을 것도 없음). 실패 사유는 alert 대신 인라인이 낫지만
+              부가 기능이라 간결히 alert(빈도 낮음). */}
+          {canLocal && attachPreview !== null && attachPreview.length > 0 && (
+            <button
+              onClick={() => {
+                const canon = [...new Set((policy.required_docs || [])
+                  .map((d) => issuableCanonical(d, 'local') ?? d))]
+                downloadDocsBundle(canon, policy.name).catch((e) => window.alert(e instanceof Error ? e.message : '서류 묶음에 실패했어요.'))
+              }}
+              className="mt-1.5 rounded-lg border border-sprout-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-sprout-700 hover:bg-sprout-50">
+              📦 이 신청에 쓸 서류만 ZIP으로 받기 (직접 첨부용)
+            </button>
           )}
           {/* 🧾 부족 서류 진단 — '무엇이 더 있어야 신청이 완전한지'를 시작 전에(자동발급으로 채울 수 있는 것만 셈) */}
           {canLocal && missingAuto !== null && missingAuto.length > 0 && (
