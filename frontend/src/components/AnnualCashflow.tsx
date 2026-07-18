@@ -30,9 +30,10 @@ export function AnnualCashflow({ policies }: { policies: CashflowInput[] }) {
         <TrendingUp className="h-5 w-5" />
         <span className="text-sm font-bold">올해 복지 현금흐름</span>
       </div>
-      <h3 className="mt-1.5 text-lg font-extrabold sm:text-xl">
+      {/* h2 — '나의 복지'(h1) 바로 다음 섹션 제목이라 h3면 헤딩 레벨 점프(axe heading-order 실측) */}
+      <h2 className="mt-1.5 text-lg font-extrabold sm:text-xl">
         앞으로 1년, 최대 <span className="text-sprout-700">{formatWon(cf.annualTotal)}</span>까지 받을 수 있어요
-      </h3>
+      </h2>
       <p className="mt-1 text-sm text-muted-foreground">
         매월 <b className="text-foreground">{formatWon(cf.monthlyRecurring)}</b>
         {cf.oneTimeTotal > 0 && <> + 첫 달 일시금 <b className="text-peach-700">{formatWon(cf.oneTimeTotal)}</b></>}

@@ -24,7 +24,8 @@
     "e2e:ext:headed": "cross-env EXT_HEADED=1 ../backend/venv/Scripts/python.exe e2e/ext-flow.py",
     "embed": "node --experimental-strip-types scripts/embed-policies.mts",
     "verify:semantic": "node scripts/verify-semantic.mjs",
-    "check:links": "node scripts/check-links.mjs"
+    "check:links": "node scripts/check-links.mjs",
+    "e2e:a11y": "../backend/venv/Scripts/python.exe e2e/audit-a11y.py"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.2.0",
@@ -47,6 +48,7 @@
     "@types/three": "^0.171.0",
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
+    "axe-core": "^4.12.1",
     "eslint": "^9.39.4",
     "eslint-plugin-react-hooks": "^5.2.0",
     "gh-pages": "^6.3.0",
