@@ -43,6 +43,22 @@ def main():
             print(f"  ✓ slide{i}.png")
         pg.pdf(path=str(PDF), width="1280px", height="720px", print_background=True,
                margin={"top": "0", "bottom": "0", "left": "0", "right": "0"})
+
+        # 본선 포스터(A2 세로)도 같은 파이프라인에서 — 있으면 함께 렌더
+        poster_src = HERE / "본선-포스터-초안.html"
+        if poster_src.exists():
+            pp = b.new_page(viewport={"width": 1240, "height": 1754}, device_scale_factor=2)
+            pp.goto(poster_src.as_uri())
+            pp.wait_for_load_state("networkidle")
+            try:
+                pp.evaluate("document.fonts.ready")
+            except Exception:
+                pass
+            pp.wait_for_timeout(500)
+            pp.screenshot(path=str(HERE / "본선-포스터-초안.png"), full_page=True)
+            pp.pdf(path=str(HERE / "본선-포스터-초안.pdf"), width="1240px", height="1754px",
+                   print_background=True, margin={"top": "0", "bottom": "0", "left": "0", "right": "0"})
+            print("  ✓ 본선-포스터-초안.png / .pdf")
         b.close()
     print(f"\n완료: {PDF.name} + _preview/slide*.png")
 
