@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { FolderOpen, RefreshCw, Trash2, FileText, Image as ImageIcon, Paperclip } from 'lucide-react'
+import { FolderOpen, RefreshCw, Trash2, FileText, Image as ImageIcon, Paperclip, FolderDown } from 'lucide-react'
 import { getRpaBase } from '@/lib/backend'
 import { cn } from '@/lib/utils'
 
@@ -7,9 +7,13 @@ import { cn } from '@/lib/utils'
 interface VaultDoc {
   filename: string
   display: string
+  doc_type: string
   ext: string
   size: number
   mtime: number
+  age_days: number
+  /** 발급형 증명서만 계산됨(통상 '발급 3개월 이내' 제출 요구) — 소지 서류(계약서·신분증)는 null */
+  validity: 'fresh' | 'aging' | 'stale' | null
   attach_candidate: boolean
 }
 
@@ -81,6 +85,32 @@ export function DocVault() {
 
   const openFolder = () => { fetch(`${getRpaBase()}/api/documents/open-folder`, { method: 'POST' }).catch(() => {}) }
 
+  // 📦 종류별 최신 1건씩 ZIP — 복지로 수동 첨부·이메일 제출처럼 '흩어진 발급물을 한 번에' 옮길 때
+  const [zipBusy, setZipBusy] = useState(false)
+  const bundleAll = async () => {
+    if (zipBusy) return
+    setZipBusy(true)
+    try {
+      const r = await fetch(`${getRpaBase()}/api/documents/bundle`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}),
+      })
+      if (!r.ok) { const d = await r.json().then((x) => x?.detail).catch(() => ''); throw new Error(d || `묶음 실패(${r.status})`) }
+      const blob = await r.blob()
+      // 파일명은 서버 Content-Disposition(filename*=UTF-8'')을 그대로 존중, 실패 시 무난한 폴백
+      const cd = r.headers.get('content-disposition') || ''
+      const m = /filename\*=UTF-8''([^;]+)/.exec(cd)
+      const name = m ? decodeURIComponent(m[1]) : '신청서류.zip'
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a'); a.href = url; a.download = name; a.click()
+      setTimeout(() => URL.revokeObjectURL(url), 1500)
+      setErr('')
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : '서류 묶음에 실패했어요.')
+    } finally {
+      setZipBusy(false)
+    }
+  }
+
   if (docs === null) return null // 첫 로드 전엔 자리 차지하지 않음
   const candidates = docs.filter((d) => d.attach_candidate)
 
@@ -90,6 +120,13 @@ export function DocVault() {
         <p className="text-sm font-bold flex items-center gap-1.5">🗂 내 서류함 <span className="text-xs font-semibold text-muted-foreground">({docs.length}건 · 이 PC에만 저장)</span></p>
         <div className="ml-auto flex gap-1.5">
           <button onClick={load} title="새로고침" aria-label="서류함 새로고침" className="rounded-lg border border-sky2-200 bg-white p-1.5 text-sky2-700 hover:bg-sky2-50"><RefreshCw className="h-3.5 w-3.5" /></button>
+          {docs.length > 0 && (
+            <button onClick={bundleAll} disabled={zipBusy}
+              title="서류 종류별 최신 1건씩 ZIP 한 파일로 — 복지로 수동 첨부·이메일 제출용"
+              className="rounded-lg border border-sky2-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-sky2-700 hover:bg-sky2-50 inline-flex items-center gap-1 disabled:opacity-50">
+              <FolderDown className="h-3.5 w-3.5" /> {zipBusy ? '묶는 중…' : '묶음 받기(ZIP)'}
+            </button>
+          )}
           <button onClick={openFolder} className="rounded-lg border border-sky2-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-sky2-700 hover:bg-sky2-50 inline-flex items-center gap-1"><FolderOpen className="h-3.5 w-3.5" /> 폴더 열기</button>
         </div>
       </div>
@@ -101,6 +138,11 @@ export function DocVault() {
             ? '최근 발급/등록분이 없어 자동첨부 후보가 없어요 — 신청 직전에 발급·등록하면 자동첨부돼요.'
             : '아직 서류가 없어요 — 위에서 자동발급하거나 📷 촬영·📎 파일로 등록하면 여기에 모여요.'}
       </p>
+      {docs.some((d) => d.validity === 'stale') && (
+        <p className="mt-1 text-[11px] font-semibold text-rose-600">
+          ⚠️ {docs.filter((d) => d.validity === 'stale').length}건은 발급 3개월이 지났어요 — 제출처에 따라 재발급이 필요할 수 있어요(위 [자동발급]으로 다시 뗄 수 있어요).
+        </p>
+      )}
       {err && <p className="mt-1 text-[11px] font-medium text-rose-600">{err}</p>}
       {docs.length > 0 && (
         <ul className="mt-2 space-y-1">
@@ -109,6 +151,8 @@ export function DocVault() {
               {d.ext === 'pdf' ? <FileText className="h-4 w-4 shrink-0 text-sky2-500" /> : <ImageIcon className="h-4 w-4 shrink-0 text-sky2-500" />}
               <span className="min-w-0 flex-1 truncate text-xs font-semibold">{d.display}</span>
               {d.attach_candidate && <span title="지금 신청하면 자동첨부 후보" className="shrink-0 inline-flex items-center gap-0.5 rounded-md bg-sprout-100 px-1.5 py-0.5 text-[10px] font-bold text-sprout-700"><Paperclip className="h-3 w-3" /> 첨부 후보</span>}
+              {d.validity === 'stale' && <span title={`발급 ${d.age_days}일 지남 — 관공서 제출용 증명서는 통상 '발급 3개월 이내'를 요구해요(기관별 상이). 다시 발급을 권해요.`} className="shrink-0 rounded-md bg-rose-100 px-1.5 py-0.5 text-[10px] font-bold text-rose-700">⚠️ 3개월 지남</span>}
+              {d.validity === 'aging' && <span title={`발급 ${d.age_days}일째 — 제출처가 '3개월 이내'를 요구하면 곧 만료돼요. 제출 예정이면 유효기간을 확인하세요.`} className="shrink-0 rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800">유효 확인</span>}
               <span className="shrink-0 text-[10px] text-muted-foreground">{d.ext.toUpperCase()} · {fmtSize(d.size)} · {fmtWhen(d.mtime)}</span>
               {confirmDel === d.filename ? (
                 <span className="shrink-0 inline-flex items-center gap-1">

@@ -36,7 +36,7 @@ if str(_BASE) not in sys.path:
     sys.path.insert(0, str(_BASE))
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import Response as _Response
 from pydantic import BaseModel
@@ -534,9 +534,27 @@ async def list_documents():
     프론트와 자동첨부 판정이 어긋나지 않게 한다(단일 소스). 같은 PC 사용자 본인용 정보라
     open-folder/register 와 동일한 무토큰·CORS 게이트 정책을 따른다."""
     _shared_mode_guard()
-    import time as _time
+    items = _scan_documents()
+    attach_age = int(os.getenv("RPA_ATTACH_MAX_AGE", "1200"))
     from rpa.base import DOCS_DIR
+    return {"documents": items, "attach_window_sec": attach_age, "folder": str(DOCS_DIR)}
+
+
+def _scan_documents():
+    """서류함 폴더 스캔 — 목록/번들(ZIP)이 공유하는 단일 스캐너.
+
+    항목별로 표시명 외에 '서류 관리 지능' 필드를 계산한다:
+      · doc_type  : 표시명에서 사람 이름을 뗀 서류 종류('주민등록등본_홍길동' → '주민등록등본')
+      · age_days  : 발급/등록 후 경과일
+      · validity  : 발급형 증명서(자동발급 15종)에만 통용 유효 상태 —
+                    관공서 제출용 증명서는 통상 '발급일로부터 3개월 이내'를 요구한다(기관별 상이).
+                    fresh(≤60일)·aging(61~90일, 확인 권장)·stale(>90일, 재발급 권장).
+                    임대차계약서·신분증 등 본인 소지 서류는 만료 개념이 달라 None(표시 안 함 — 오표시 방지).
+    """
+    import time as _time
     import re as _re
+    from rpa.base import DOCS_DIR
+    from rpa.manager import SUPPORTED_DOC_NAMES
     attach_age = int(os.getenv("RPA_ATTACH_MAX_AGE", "1200"))
     now = _time.time()
     items = []
@@ -549,18 +567,80 @@ async def list_documents():
                 stem = p.stem
                 # 표시명: 신형 '_YYYY-MM-DD_HHMM(_SS)' / 구형 '_YYYYMMDD_HHMMSS' 접미 제거(recent_issued_docs 와 동일 규칙)
                 display = _re.sub(r"(_\d{4}-\d{2}-\d{2}_\d{4}(_\d{2})?|_\d{8}_\d{6})$", "", stem) or stem
+                # 서류 종류 — '{서류명}_{이름}'에서 이름 접미 제거(서류명 자체는 '_'를 쓰지 않는 명명 규칙)
+                doc_type = display.split("_")[0] if "_" in display else display
+                age_days = int((now - st.st_mtime) // 86400)
+                if doc_type in SUPPORTED_DOC_NAMES:
+                    validity = "fresh" if age_days <= 60 else ("aging" if age_days <= 90 else "stale")
+                else:
+                    validity = None
                 items.append({
                     "filename": p.name,
                     "display": display,
+                    "doc_type": doc_type,
                     "ext": p.suffix.lower().lstrip("."),
                     "size": st.st_size,
                     "mtime": int(st.st_mtime),
+                    "age_days": age_days,
+                    "validity": validity,
                     "attach_candidate": (now - st.st_mtime) <= attach_age,
                 })
     except Exception:
         pass  # 폴더 접근 실패 시 빈 목록(정직한 폴백 — 프론트는 '폴더 열기'로 유도)
     items.sort(key=lambda x: x["mtime"], reverse=True)
-    return {"documents": items, "attach_window_sec": attach_age, "folder": str(DOCS_DIR)}
+    return items
+
+
+@app.post("/api/documents/bundle")
+async def bundle_documents(request: Request):
+    """📦 신청 서류 묶음(ZIP) — 요청한 서류 종류별 '최신 파일 1건'씩 골라 ZIP으로 내려준다.
+
+    쓰임: 복지로/주민센터 제출·이메일 첨부처럼 '흩어진 발급물을 한 번에' 옮겨야 할 때.
+    docs 를 비우면 서류함 전체(종류별 최신 1건). label 은 ZIP 파일명 표기용(정책명 등).
+    응답 헤더 X-Bundle-Matched / X-Bundle-Missing 으로 몇 종이 담겼고 몇 종이 없는지
+    정직하게 알린다(없는 서류를 담은 척하지 않는다). 데스크탑 앱 전용(_shared_mode_guard)."""
+    _shared_mode_guard()
+    import io
+    import re as _re
+    import zipfile
+    from datetime import datetime
+    from rpa.base import DOCS_DIR
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    want = [str(d).strip() for d in (body or {}).get("docs") or [] if str(d).strip()]
+    label = _re.sub(r"[^0-9A-Za-z가-힣 _-]", "", str((body or {}).get("label") or "")).strip()[:40]
+    items = _scan_documents()
+    # 종류별 최신 1건(스캔 결과는 이미 최신순) — 같은 서류를 여러 번 발급했어도 최신본만 담는다
+    latest_by_type = {}
+    for it in items:
+        latest_by_type.setdefault(it["doc_type"], it)
+    if want:
+        matched = [latest_by_type[d] for d in want if d in latest_by_type]
+        missing = [d for d in want if d not in latest_by_type]
+    else:
+        matched = list(latest_by_type.values())
+        missing = []
+    if not matched:
+        raise HTTPException(status_code=404, detail="묶을 서류가 없어요 — 먼저 발급하거나 서류함에 등록해 주세요.")
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        for it in matched:
+            try:
+                z.write(str(DOCS_DIR / it["filename"]), arcname=it["filename"])
+            except OSError:
+                missing.append(it["doc_type"])  # 목록엔 있었는데 읽기 실패 — 숨기지 않고 누락으로 보고
+    buf.seek(0)
+    stamp = datetime.now().strftime("%Y-%m-%d")
+    zip_name = f"신청서류_{label + '_' if label else ''}{stamp}.zip"
+    from urllib.parse import quote
+    return Response(content=buf.getvalue(), media_type="application/zip", headers={
+        "Content-Disposition": f"attachment; filename*=UTF-8''{quote(zip_name)}",
+        "Cache-Control": "no-store",
+        "X-Bundle-Matched": str(len(matched)),
+        "X-Bundle-Missing": quote(",".join(dict.fromkeys(missing))),
+    })
 
 
 @app.post("/api/documents/delete")

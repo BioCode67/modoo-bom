@@ -553,3 +553,79 @@ def test_browser_probe_does_not_mutate_global_headless_env(monkeypatch):
     monkeypatch.setenv("RPA_HEADLESS", "1")
     assert get_launch_options()["headless"] is True                 # env 재정의는 그대로 존중
     assert get_launch_options(headless=False)["headless"] is False  # 명시 인자가 env보다 우선
+
+
+# ── 🗂 서류함 지능화: 목록 강화 필드(doc_type·age_days·validity) + 📦 신청 서류 묶음(ZIP) ──
+
+def _mk_doc(tmp_path, name: str, age_days: float = 0) -> None:
+    import os as _os
+    import time as _time
+    f = tmp_path / name
+    f.write_bytes(b"%PDF-1.4 test")
+    ts = _time.time() - age_days * 86400
+    _os.utime(f, (ts, ts))
+
+
+def test_list_documents_enriched_fields(monkeypatch, tmp_path):
+    """목록이 서류 종류·경과일·유효 상태를 계산한다 — 발급형만 유효 배지, 소지 서류는 None(오표시 방지)."""
+    from rpa import base
+    monkeypatch.setattr(base, "DOCS_DIR", tmp_path)
+    _mk_doc(tmp_path, "주민등록등본_홍길동_2026-04-01_1000.pdf", age_days=95)   # 발급형 → stale
+    _mk_doc(tmp_path, "소득금액증명_홍길동_2026-06-01_1000.pdf", age_days=70)   # 발급형 → aging
+    _mk_doc(tmp_path, "가족관계증명서_홍길동_2026-07-17_1000.pdf", age_days=1)  # 발급형 → fresh
+    _mk_doc(tmp_path, "임대차계약서_홍길동_2026-07-01_1000.jpg", age_days=17)   # 소지 서류 → None
+    r = client.get("/api/documents/list")
+    assert r.status_code == 200
+    by_type = {d["doc_type"]: d for d in r.json()["documents"]}
+    assert by_type["주민등록등본"]["validity"] == "stale"
+    assert by_type["주민등록등본"]["age_days"] >= 94
+    assert by_type["소득금액증명"]["validity"] == "aging"
+    assert by_type["가족관계증명서"]["validity"] == "fresh"
+    assert by_type["임대차계약서"]["validity"] is None
+    assert by_type["가족관계증명서"]["display"] == "가족관계증명서_홍길동"
+
+
+def test_bundle_picks_latest_per_type_and_reports_missing(monkeypatch, tmp_path):
+    """요청 서류별 '최신 1건'만 담고, 없는 서류는 담은 척하지 않고 X-Bundle-Missing 으로 보고한다."""
+    import io
+    import zipfile
+    from rpa import base
+    monkeypatch.setattr(base, "DOCS_DIR", tmp_path)
+    _mk_doc(tmp_path, "주민등록등본_홍길동_2026-07-01_1000.pdf", age_days=17)  # 구본
+    _mk_doc(tmp_path, "주민등록등본_홍길동_2026-07-18_1000.pdf", age_days=0)   # 최신본
+    _mk_doc(tmp_path, "가족관계증명서_홍길동_2026-07-18_1000.pdf", age_days=0)
+    r = client.post("/api/documents/bundle", json={"docs": ["주민등록등본", "소득금액증명"], "label": "청년월세지원"})
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "application/zip"
+    assert r.headers["x-bundle-matched"] == "1"
+    from urllib.parse import unquote
+    assert unquote(r.headers["x-bundle-missing"]) == "소득금액증명"
+    names = zipfile.ZipFile(io.BytesIO(r.content)).namelist()
+    assert names == ["주민등록등본_홍길동_2026-07-18_1000.pdf"]  # 최신본 1건만(구본·가족관계 제외)
+    assert "청년월세지원" in unquote(r.headers["content-disposition"])
+
+
+def test_bundle_all_mode_and_empty_404(monkeypatch, tmp_path):
+    """docs 비우면 종류별 최신 1건 전체 묶음 — 서류가 하나도 없으면 정직한 404."""
+    import io
+    import zipfile
+    from rpa import base
+    monkeypatch.setattr(base, "DOCS_DIR", tmp_path)
+    r = client.post("/api/documents/bundle", json={})
+    assert r.status_code == 404
+    _mk_doc(tmp_path, "주민등록등본_홍길동_2026-07-18_1000.pdf")
+    _mk_doc(tmp_path, "임대차계약서_홍길동_2026-07-01_1000.jpg", age_days=17)
+    r = client.post("/api/documents/bundle", json={})
+    assert r.status_code == 200
+    names = sorted(zipfile.ZipFile(io.BytesIO(r.content)).namelist())
+    assert len(names) == 2 and any("임대차계약서" in n for n in names)
+
+
+def test_bundle_blocked_in_shared_mode(monkeypatch, tmp_path):
+    """공유(터널) 배포에선 서류함 계열과 동일하게 403 — 남의 발급물이 ZIP 으로 새지 않게."""
+    from rpa import base
+    monkeypatch.setattr(base, "DOCS_DIR", tmp_path)
+    _mk_doc(tmp_path, "주민등록등본_홍길동_2026-07-18_1000.pdf")
+    monkeypatch.setenv("RPA_SHARED", "1")
+    r = client.post("/api/documents/bundle", json={})
+    assert r.status_code == 403

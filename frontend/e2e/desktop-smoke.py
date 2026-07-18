@@ -121,6 +121,30 @@ def main() -> int:
             pg.wait_for_timeout(800)
             print("[desktop] ✅ 5. 서류함 개별 삭제")
 
+            # 5.5) 🗂 서류함 지능화 — 유효기간 배지(발급 3개월 경과) + 📦 묶음 받기(ZIP)
+            #      서버의 실제 발급 폴더를 목록 API의 folder 필드로 알아내 '95일 지난 발급형' 파일을 심는다.
+            folder = pg.evaluate("async()=>(await (await fetch('/api/documents/list')).json()).folder")
+            aged = Path(folder) / "주민등록등본_스모크_2026-04-01_1000.pdf"
+            aged.write_bytes(b"%PDF-1.4 smoke")
+            _old = time.time() - 95 * 86400
+            os.utime(aged, (_old, _old))
+            fresh = Path(folder) / "가족관계증명서_스모크_2026-07-18_1000.pdf"
+            fresh.write_bytes(b"%PDF-1.4 smoke2")
+            try:
+                pg.locator("button[aria-label='서류함 새로고침']").click()
+                pg.wait_for_selector("text=3개월 지남", timeout=8000)          # stale 배지
+                pg.wait_for_selector("text=재발급이 필요할 수 있어요", timeout=4000)  # 요약 경고(정직 문구)
+                with pg.expect_download(timeout=10000) as dl:
+                    pg.locator("button:has-text('묶음 받기')").click()
+                d = dl.value
+                assert d.suggested_filename.startswith("신청서류_") and d.suggested_filename.endswith(".zip"), d.suggested_filename
+                print("[desktop] ✅ 5.5. 서류함 지능화 — 3개월 경과 배지 + 묶음 받기(ZIP)")
+            finally:
+                aged.unlink(missing_ok=True)
+                fresh.unlink(missing_ok=True)
+            pg.locator("button[aria-label='서류함 새로고침']").click()
+            pg.wait_for_timeout(500)
+
             # 6) 세션 연속성 — 실태스크(곧 종결) 기억 → 새로고침 → 자동 재연결
             r = pg.evaluate("""async()=>{
               const res=await fetch('/api/documents/rpa-issue',{method:'POST',headers:{'Content-Type':'application/json'},
@@ -357,7 +381,7 @@ def main() -> int:
         for i in issues[:10]:
             print("  ", i)
         return 1
-    print("✅ 데스크탑 기능 14종 + pageerror 0 — 전부 통과")
+    print("✅ 데스크탑 기능 15종 + pageerror 0 — 전부 통과")
     return 0
 
 
