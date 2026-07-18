@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+import { useMemo, useEffect, useRef, useState } from 'react'
 import { Bot, Loader2, ExternalLink, ShieldCheck, AlertCircle } from 'lucide-react'
 import type { Policy } from '@/data/policies'
 import type { EligiblePolicy } from '@/lib/welfare-engine'
 import { useBackend } from '@/lib/useBackend'
-import { isApplyAutomatable, applyLink } from '@/lib/officialLinks'
+import { isApplyAutomatable, applyLink, isRpaSupported } from '@/lib/officialLinks'
 import { bestApplyUrl, isBokjiroApplyable } from '@/lib/quickApply'
 import { getRpaBase } from '@/lib/backend'
 import { detectExtension, applyViaExtension, onExtensionStatus, sameDocName } from '@/lib/extension'
@@ -61,6 +61,8 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
   //   ⚠️ '내 PC' 에이전트에서만 — 원격(공유) RPA에선 서버 목록에 다른 이용자의 서류 표시명(실명 포함)이
   //   섞일 수 있어 조회하지 않는다(DocVault 와 동일한 프라이버시 게이트).
   const [attachPreview, setAttachPreview] = useState<string[] | null>(null)
+  // 서류함 원자료(종류·유효상태) — 부족 진단은 아래 useMemo 파생(효과 deps 경고 없이 렌더에서 계산)
+  const [vaultDocs, setVaultDocs] = useState<{ doc_type: string; validity: string | null }[] | null>(null)
   const rpaOn = ready === true && !!caps?.rpa
   const previewOn = rpaOn && !caps?.rpaRemote && !caps?.shared
   useEffect(() => {
@@ -70,13 +72,21 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => {
         if (!alive || !j) return
-        const names = (j.documents || []).filter((d: { attach_candidate?: boolean }) => d.attach_candidate)
-          .map((d: { display: string }) => d.display)
-        setAttachPreview(names)
+        const docsArr = (j.documents || []) as { display: string; doc_type?: string; validity?: string | null; attach_candidate?: boolean }[]
+        setAttachPreview(docsArr.filter((d) => d.attach_candidate).map((d) => d.display))
+        setVaultDocs(docsArr.map((d) => ({ doc_type: d.doc_type || '', validity: d.validity ?? null })))
       })
       .catch(() => { /* 미리보기는 부가 정보 — 실패해도 신청 흐름엔 영향 없음 */ })
     return () => { alive = false }
   }, [previewOn, run?.status])
+
+  // 🧾 이 정책의 필요 서류 중 '자동발급으로 채울 수 있는 부족분' — 서류함 실파일(유효본) 기준.
+  //    stale(발급 3개월 초과)은 보유로 치지 않는다(제출처 거절 위험). 진단 전(null)엔 표시 생략.
+  const missingAuto = useMemo(() => {
+    if (vaultDocs === null) return null
+    const haveOk = new Set(vaultDocs.filter((d) => d.validity !== 'stale').map((d) => d.doc_type.replace(/\s/g, '')))
+    return (policy.required_docs || []).filter((d) => isRpaSupported(d, 'local') && !haveOk.has(d.replace(/\s/g, '')))
+  }, [vaultDocs, policy.required_docs])
 
   // 🔁 세션 연속성 — 새로고침·뷰 이탈 후에도 진행 중이던 자동신청 추적을 재연결(문서센터와 동일 원리).
   //   ⚠️ 훅은 아래 조기 return(null)보다 먼저 선언돼야 한다(rules-of-hooks). pollApply는 effect 실행
@@ -263,6 +273,13 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
               {attachPreview.length > 0
                 ? <>📎 발급/등록해둔 <b className="text-sprout-700">{attachPreview.length}종</b>이 신청 양식에 자동첨부 후보예요: {attachPreview.slice(0, 4).join(' · ')}{attachPreview.length > 4 ? ' 외' : ''} <span>(첨부칸 이름과 맞는 것만 붙어요)</span></>
                 : <>📎 자동첨부할 서류가 아직 없어요 — <b>서류 준비 도우미</b>에서 먼저 발급·촬영하면 신청 때 자동으로 붙어요.</>}
+            </p>
+          )}
+          {/* 🧾 부족 서류 진단 — '무엇이 더 있어야 신청이 완전한지'를 시작 전에(자동발급으로 채울 수 있는 것만 셈) */}
+          {canLocal && missingAuto !== null && missingAuto.length > 0 && (
+            <p className="mt-1.5 rounded-xl border border-amber-200 bg-amber-50/70 px-3 py-2 text-[11px] leading-relaxed text-amber-800">
+              🧾 이 신청에 필요한 서류 중 <b>{missingAuto.length}종</b>이 아직 서류함에 없어요: {missingAuto.slice(0, 3).join(' · ')}{missingAuto.length > 3 ? ' 외' : ''}
+              — 나의 복지의 <b>서류 준비 도우미 🚀 자동발급</b>으로 먼저 채우면 신청 때 자동첨부돼요.
             </p>
           )}
           <button onClick={start} className="btn-primary !py-2 mt-3 text-xs"><Bot className="h-4 w-4" /> 에이전트로 신청 시작</button>

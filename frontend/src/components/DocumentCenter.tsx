@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { FileText, ExternalLink, Bot, Loader2, CheckCircle2, AlertCircle, Check, Undo2 } from 'lucide-react'
 import { getPolicyMap } from '@/data/catalog'
@@ -12,7 +12,7 @@ import { setPendingReturn } from '@/lib/returnPrompt'
 import { RpaInfoForm } from '@/components/RpaInfoForm'
 import { RemoteRpaSetup } from '@/components/RemoteRpaSetup'
 import { DocCameraModal } from '@/components/DocCameraModal'
-import { DocVault, notifyDocsChanged } from '@/components/DocVault'
+import { DocVault, notifyDocsChanged, DOCS_CHANGED_EVENT } from '@/components/DocVault'
 import { AgentStatusStrip } from '@/components/AgentStatusStrip'
 import { rememberLive, forgetLive, listLive } from '@/lib/liveTasks'
 import { titleBadge } from '@/lib/titleBadge'
@@ -234,6 +234,39 @@ export function DocumentCenter() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [localAgent, docNeeds.length])
 
+  // 🗂 서류함 실파일 기준 '이미 있음' 인덱스 — docDone(이 기기 기억)과 별개의 '서버 폴더 진실'.
+  //    다른 경로(전자증명서·직접 등록)로 이미 확보한 서류를 연쇄가 또 발급하지 않게 한다.
+  //    stale(발급 3개월 초과)은 '있음'으로 치지 않는다(제출처 거절 위험 — 재발급 대상 유지).
+  //    목록 조회 실패 시엔 비워둔다(모르면 발급하는 쪽이 안전 — 누락보다 중복이 낫다).
+  const [vaultHave, setVaultHave] = useState<Record<string, 'ok' | 'stale'>>({})
+  const loadVaultTypes = useCallback(async () => {
+    if (!vaultOn) { setVaultHave({}); return }
+    try {
+      const r = await fetch(`${getRpaBase()}/api/documents/list`)
+      if (!r.ok) return
+      const j = await r.json()
+      const map: Record<string, 'ok' | 'stale'> = {}
+      for (const d of (j.documents || []) as { doc_type?: string; validity?: string | null }[]) {
+        const k = (d.doc_type || '').replace(/\s/g, '')
+        if (!k) continue
+        if (map[k] !== 'ok') map[k] = d.validity === 'stale' ? 'stale' : 'ok' // 유효본이 하나라도 있으면 ok
+      }
+      setVaultHave(map)
+    } catch { /* 조회 실패 — 스킵 없이 전량 발급(안전한 쪽) */ }
+  }, [vaultOn])
+  useEffect(() => {
+    loadVaultTypes()
+    window.addEventListener(DOCS_CHANGED_EVENT, loadVaultTypes)
+    // 정부 사이트 탭에서 전자발급을 마치고 돌아온 순간에도 — 새 파일이 폴더에 생겼을 수 있다(DocVault와 동일)
+    const onVis = () => { if (document.visibilityState === 'visible') loadVaultTypes() }
+    document.addEventListener('visibilitychange', onVis)
+    return () => { window.removeEventListener(DOCS_CHANGED_EVENT, loadVaultTypes); document.removeEventListener('visibilitychange', onVis) }
+  }, [loadVaultTypes])
+  const vaultOk = (d: string) => vaultHave[d.replace(/\s/g, '')] === 'ok'
+
+  // 📨 자동신청만 진행 경로의 안내 메시지 — 훅은 조기 return 앞(rules-of-hooks)
+  const [applyOnlyMsg, setApplyOnlyMsg] = useState('')
+
   if (docNeeds.length === 0) return null
   // 발급 완료로 표시한 서류는 뒤로(진행 기억 — 남은 서류가 먼저 보이게, 정렬은 안정적으로 유지)
   const docs = [...docNeeds.map(([d]) => d)].sort((a, b) => Number(isDocDone(a)) - Number(isDocDone(b)))
@@ -374,7 +407,11 @@ export function DocumentCenter() {
   // 로컬 백엔드(데스크탑앱)가 실제로 발급 가능한 서류 — 확장 지원목록(13종)과 로컬 지원목록(15종)은 서로
   //   포함관계가 아니라, rpaDocs(확장 기준)를 다시 거르면 로컬 전용 서류(건보료 납부확인서 등)가 '전부 자동발급'에서
   //   누락된다(감사). 전체 docs에 'local' 채널을 직접 적용해야 15종을 온전히 포함한다.
-  const rpaDocsLocal = docs.filter((d) => isRpaSupported(d, 'local') && !isDocDone(d))
+  //   + 서류함에 '유효한 실파일'이 이미 있는 서류도 제외(부족분만 발급) — 확장 경로는 서버 폴더를
+  //     쓰지 않으므로(다운로드 폴더 저장) 로컬 에이전트 연쇄에만 적용한다.
+  const rpaDocsLocal = docs.filter((d) => isRpaSupported(d, 'local') && !isDocDone(d) && !vaultOk(d))
+  // 서류함 덕에 건너뛰는 서류(사용자에게 '왜 n종만 발급하는지' 보여줄 목록)
+  const vaultCovered = docs.filter((d) => isRpaSupported(d, 'local') && !isDocDone(d) && vaultOk(d))
   // 연쇄 발급 대상: 확장 있으면 전체(13종), 없고 로컬 에이전트면 로컬 지원분(15종)
   const chainDocs = ext ? rpaDocs : rpaDocsLocal
   const certAll = docs.filter((d) => isCertIssuable(d)) // 무설치 전자발급(전자증명서) 가능 서류
@@ -536,17 +573,34 @@ export function DocumentCenter() {
     }
   }
 
+  // 인증정보 미입력 시 폼의 '첫 빈 칸'으로 스크롤+포커스 — 원클릭/자동신청 경로 공용
+  const focusRpaForm = () => {
+    const missingIdx = !rpaInfo.name?.trim() ? 0 : !rpaInfo.birth_date?.trim() ? 1 : 2
+    setTimeout(() => {
+      const root = rpaFormRef.current
+      if (!root) return
+      root.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      ;(root.querySelectorAll('input')[missingIdx] as HTMLInputElement | undefined)?.focus({ preventScroll: true })
+    }, 80)
+  }
+  const rpaInfoReady = !!(rpaInfo.name?.trim() && rpaInfo.birth_date?.trim() && rpaInfo.phone?.trim())
+
+  // 📨 '서류는 전부 준비됨 + 신청만 남음' 경로 — 발급 0건 여정으로 자동신청만 진행(상태 훅은 상단 선언)
+  const startApplyOnly = async () => {
+    if (!rpaInfoReady) { setApplyOnlyMsg('아래 "자동입력 추가정보"에 실명·생년월일·휴대폰을 먼저 입력해 주세요.'); focusRpaForm(); return }
+    setApplyOnlyMsg('')
+    try {
+      await runJourneyViaBackend([], chainSvcs)
+    } catch (e) {
+      setApplyOnlyMsg(e instanceof Error ? e.message : '자동신청 시작에 실패했어요 — 잠시 후 다시 시도해 주세요.')
+    }
+  }
+
   const startAll = async () => {
-    if (!rpaInfo.name?.trim() || !rpaInfo.birth_date?.trim() || !rpaInfo.phone?.trim()) {
+    if (!rpaInfoReady) {
       setRpa((s) => ({ ...s, [chainDocs[0]]: { status: 'error', step: '아래 "자동입력 추가정보"에 실명·생년월일·휴대폰을 먼저 입력해 주세요.', at: Date.now() } }))
       // 단건 발급과 동일하게 '첫 빈 칸'으로 스크롤+포커스 — 원클릭 경로에서도 헤매지 않게
-      const missingIdx = !rpaInfo.name?.trim() ? 0 : !rpaInfo.birth_date?.trim() ? 1 : 2
-      setTimeout(() => {
-        const root = rpaFormRef.current
-        if (!root) return
-        root.scrollIntoView({ behavior: 'smooth', block: 'center' })
-        ;(root.querySelectorAll('input')[missingIdx] as HTMLInputElement | undefined)?.focus({ preventScroll: true })
-      }, 80)
+      focusRpaForm()
       return
     }
     // 이미 단건으로 진행 중인 서류는 연쇄에서 제외 — 같은 서류가 슬롯 2개(브라우저 창 2개)로 중복 발급되는 것 방지
@@ -669,8 +723,16 @@ export function DocumentCenter() {
       {(ext || localAgent) && chainDocs.length > 1 && (
         <div className="mt-3">
           <button onClick={startAll} className="btn-primary w-full !py-2.5 text-sm">
-            🚀 필요한 서류 {chainDocs.length}종 전부 자동발급{!ext && chainApply && chainSvcs.length > 0 ? ' + 자동신청까지' : ''} (한 번 인증으로 이어서)
+            🚀 {vaultCovered.length > 0
+              ? `부족한 서류 ${chainDocs.length}종만 자동발급`
+              : `필요한 서류 ${chainDocs.length}종 전부 자동발급`}{!ext && chainApply && chainSvcs.length > 0 ? ' + 자동신청까지' : ''} (한 번 인증으로 이어서)
           </button>
+          {/* 🗂 서류함 실파일 기준 스마트 스킵 가시화 — '왜 n종만 발급하는지'를 숨기지 않는다 */}
+          {!ext && vaultCovered.length > 0 && (
+            <p className="mt-1.5 text-[11px] font-medium text-sky2-700">
+              🗂 서류함에 이미 유효한 <b>{vaultCovered.length}종</b>({vaultCovered.slice(0, 3).join(' · ')}{vaultCovered.length > 3 ? ' 외' : ''})이 있어 건너뛰어요 — 신청 때 그 파일이 자동첨부돼요
+            </p>
+          )}
           {/* 발급→신청 원클릭 연쇄(데스크탑) — 발급이 끝나면 담은 복지의 신청 양식까지 이어서 작성·자동첨부.
               최종 제출은 언제나 본인(제출 직전 정지) — 켜져 있어도 비가역 행위는 일어나지 않는다. */}
           {!ext && localAgent && chainSvcs.length > 0 && (
@@ -680,6 +742,18 @@ export function DocumentCenter() {
                 — 방금 발급한 서류를 양식에 자동첨부하고 <b>제출 직전에 멈춰요</b>(제출은 본인 확인 후)</span>
             </label>
           )}
+        </div>
+      )}
+
+      {/* 📨 서류는 준비 완료 + 신청만 남음 — 발급 0건 여정으로 자동신청만(제출 직전 정지는 동일) */}
+      {!ext && localAgent && chainDocs.length === 0 && chainSvcs.length > 0
+        && (vaultCovered.length > 0 || docs.some((d) => isDocDone(d))) && (
+        <div className="mt-3">
+          <button onClick={startApplyOnly} className="btn-primary w-full !py-2.5 text-sm">
+            📨 서류는 준비 완료 — {chainSvcs.slice(0, 2).join(' · ')}{chainSvcs.length > 2 ? ` 외 ${chainSvcs.length - 2}건` : ''} 자동신청만 진행 (제출 직전 정지)
+          </button>
+          <p className="mt-1 text-[11px] text-muted-foreground">🗂 서류함의 유효한 발급물을 신청 양식에 자동첨부해요 · 최종 제출은 본인 확인 후예요</p>
+          {applyOnlyMsg && <p className="mt-1 text-[11px] font-semibold text-rose-600">{applyOnlyMsg}</p>}
         </div>
       )}
 

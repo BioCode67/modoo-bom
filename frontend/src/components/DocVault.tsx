@@ -75,7 +75,7 @@ export function DocVault() {
       })
       if (!r.ok) { const d = await r.json().then((x) => x?.detail).catch(() => ''); throw new Error(d || '삭제 실패') }
       setConfirmDel(null)
-      await load()
+      notifyDocsChanged() // 자체 목록 + 문서센터의 '서류함 보유' 인덱스(부족분만 발급)까지 함께 갱신
     } catch (e) {
       setErr(e instanceof Error ? e.message : '삭제에 실패했어요.')
     } finally {

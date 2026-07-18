@@ -145,6 +145,32 @@ def main() -> int:
             pg.locator("button[aria-label='서류함 새로고침']").click()
             pg.wait_for_timeout(500)
 
+            # 5.7) 🧾 신청 준비도 인텔리전스 — 서류함 실파일 기준 '부족분만 발급' + '자동신청만 진행'
+            #      청년월세지원 자동발급 3종(등본·가족관계·소득금액) 중 보유분만큼 연쇄 대상이 줄어야 한다.
+            notify = "() => window.dispatchEvent(new Event('modoobom:docs-changed'))"
+            pg.wait_for_selector("text=3종 전부 자동발급", timeout=8000)  # 시작 상태(보유 0)
+            f1 = Path(folder) / "주민등록등본_스모크_2026-07-18_1100.pdf"
+            f1.write_bytes(b"%PDF-1.4 s1")
+            try:
+                pg.evaluate(notify)
+                pg.wait_for_selector("text=부족한 서류 2종만 자동발급", timeout=8000)
+                pg.wait_for_selector("text=건너뛰어요", timeout=4000)  # 스마트 스킵 가시화 문구
+                f2 = Path(folder) / "가족관계증명서_스모크_2026-07-18_1100.pdf"
+                f3 = Path(folder) / "소득금액증명_스모크_2026-07-18_1100.pdf"
+                f2.write_bytes(b"%PDF-1.4 s2"); f3.write_bytes(b"%PDF-1.4 s3")
+                pg.evaluate(notify)
+                pg.wait_for_selector("text=자동신청만 진행", timeout=8000)  # 서류 완비 → 📨 경로
+                # 인증정보 미입력 상태에서 클릭 → 여정을 시작하지 않고 정직한 안내 + 폼 포커스 유도
+                pg.locator("button:has-text('자동신청만 진행')").click()
+                pg.wait_for_selector("text=실명·생년월일·휴대폰을 먼저 입력", timeout=4000)
+                print("[desktop] ✅ 5.7. 준비도 인텔리전스 — 부족분만 발급·완비 시 자동신청만(+미입력 가드)")
+            finally:
+                for f in (f1, Path(folder) / "가족관계증명서_스모크_2026-07-18_1100.pdf",
+                          Path(folder) / "소득금액증명_스모크_2026-07-18_1100.pdf"):
+                    f.unlink(missing_ok=True)
+            pg.evaluate(notify)
+            pg.wait_for_selector("text=3종 전부 자동발급", timeout=8000)  # 원복(상태 잔류 없음)
+
             # 6) 세션 연속성 — 실태스크(곧 종결) 기억 → 새로고침 → 자동 재연결
             r = pg.evaluate("""async()=>{
               const res=await fetch('/api/documents/rpa-issue',{method:'POST',headers:{'Content-Type':'application/json'},
@@ -381,7 +407,7 @@ def main() -> int:
         for i in issues[:10]:
             print("  ", i)
         return 1
-    print("✅ 데스크탑 기능 15종 + pageerror 0 — 전부 통과")
+    print("✅ 데스크탑 기능 16종 + pageerror 0 — 전부 통과")
     return 0
 
 
