@@ -131,6 +131,11 @@ def main() -> int:
                 ignore_default_args=["--enable-automation"],
                 # webdriver 플래그를 최대한 지운다
             )
+            # 컨테이너/CI 크로미움 경로 폴백(버전 불일치 회피) — 로컬 PC에선 빈 리스트라 기본 동작
+            import glob as _glob
+            _exe = _glob.glob("/opt/pw-browsers/chromium-*/chrome-linux/chrome")
+            if _exe:
+                launch_kw["executable_path"] = _exe[0]
             if headed:
                 print("[ext-e2e] headed(실사용 근사) + 확장 로드 — Mbuster 통과 여부 확인")
                 ctx = p.chromium.launch_persistent_context(user_dir, headless=False, **launch_kw)
@@ -138,7 +143,8 @@ def main() -> int:
                 # MV3 확장은 신형 headless(chromium 채널)에서만 동작
                 try:
                     ctx = p.chromium.launch_persistent_context(
-                        user_dir, channel="chromium", headless=True, **launch_kw)
+                        user_dir, headless=True,
+                        **({} if _exe else {"channel": "chromium"}), **launch_kw)  # 경로 지정 시 channel 생략(충돌)
                     print("[ext-e2e] chromium(신형 headless) + 확장 로드")
                 except Exception as ex:
                     print(f"[ext-e2e] headless 확장 로드 실패({str(ex)[:80]}) → headed 폴백")

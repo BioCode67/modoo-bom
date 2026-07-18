@@ -45,8 +45,13 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
   useEffect(() => {
     detectExtension().then(setExt)
     const t = setInterval(() => setTick((x) => x + 1), 7000)
+    let extAuthWait = false // 확장 경로 인증 대기 전이 감지(이 정책 1회)
     const off = onExtensionStatus((s) => {
-      if (sameDocName(s.docName, policy.name)) setRun({ status: s.status, step: s.step, at: Date.now() })
+      if (!sameDocName(s.docName, policy.name)) return
+      const isAuthWait = s.status === 'waiting' && /\[인증 허용\]|인증 허용|📱/.test(s.step || '')
+      if (isAuthWait && !extAuthWait) { playAuthCue(); titleBadge('📱 자동신청 — 휴대폰 인증 승인 필요') }
+      extAuthWait = isAuthWait
+      setRun({ status: s.status, step: s.step, at: Date.now() })
     })
     return () => { clearInterval(t); off() }
   }, [policy.name])

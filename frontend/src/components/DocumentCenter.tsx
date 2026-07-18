@@ -169,8 +169,14 @@ export function DocumentCenter() {
   useEffect(() => {
     detectExtension().then(setExt)
     const t = setInterval(() => setTick((x) => x + 1), 7000) // 무응답 감지용 리렌더
+    const extAuthWaitRef = { cur: new Set<string>() } // 확장 경로 인증 대기 '전이' 감지(서류별 1회)
     const off = onExtensionStatus((s) => {
       if (!s.docName) return
+      // 📱 확장 경로에도 인증 대기 알림음 — 'waiting' + [인증 허용]/📱 신호로 전이 판정(로컬 에이전트와 파리티)
+      const isAuthWait = s.status === 'waiting' && /\[인증 허용\]|인증 허용|📱/.test(s.step || '')
+      if (isAuthWait && !extAuthWaitRef.cur.has(s.docName)) { playAuthCue(); titleBadge(`📱 ${s.docName} — 휴대폰 인증 승인 필요`) }
+      if (isAuthWait) extAuthWaitRef.cur.add(s.docName)
+      else extAuthWaitRef.cur.delete(s.docName)
       setRpa((prev) => {
         // 확장은 서류명을 정규화(resolveDoc)해 보내므로, 표기가 다른 여러 카드('주민등록등본',
         // '청년 주민등록등본' 등)가 같은 정규명으로 매칭될 수 있음 → 매칭되는 카드 전부 갱신
