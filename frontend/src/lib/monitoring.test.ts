@@ -28,6 +28,13 @@ describe('monitorItem', () => {
     const m = monitorItem(mk({ status: 'tracking', checkedDocs: ['신분증', '통장사본'] }), policy)
     expect(m.alerts.some((a) => a.kind === 'submit')).toBe(true)
   })
+  it('표기 변형 서류도 정식명 docDone(정규화 발급 기억)으로 준비 인정된다', () => {
+    // 정책이 '자녀 주민등록등본'을 요구 — 서류 도우미는 정식명 '주민등록등본'으로 발급·기억한다
+    const p2: Policy = { ...policy, required_docs: ['자녀 주민등록등본', '통장사본'] }
+    const m = monitorItem(mk({ status: 'tracking', checkedDocs: [] }), p2, { 주민등록등본: Date.now() })
+    expect(m.docDone).toBe(1)
+    expect(m.docMissing).toEqual(['통장사본'])
+  })
   it('applied + 점검 7일 경과 → reCheckDue', () => {
     const m = monitorItem(mk({ status: 'applied', appliedAt: Date.now() - 10 * DAY, lastChecked: Date.now() - 8 * DAY }), policy)
     expect(m.reCheckDue).toBe(true)

@@ -234,7 +234,8 @@ export function DocumentCenter() {
       pollDocTask(doc, t.taskId, t.token, true)
     }
     const j = listLive('journey')['current']
-    if (j && Array.isArray(j.docs) && j.docs.length) {
+    // docs가 비어도(자동신청만 여정) 복원한다 — 신청 카드 진행은 pollJourney의 step 매핑이 그린다
+    if (j && Array.isArray(j.docs)) {
       journeyRef.current = { id: j.taskId, running: true }
       setRpa((s) => {
         const n = { ...s }

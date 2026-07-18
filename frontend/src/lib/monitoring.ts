@@ -1,4 +1,5 @@
 import type { Policy } from '@/data/policies'
+import { issuableCanonical } from '@/lib/docAliases'
 import type { TrackedItem, AppStatus } from '@/store/useAppStore'
 
 const DAY = 86400000
@@ -50,7 +51,10 @@ function isAnnualRenewal(renewal: string): boolean {
 export function monitorItem(item: TrackedItem, policy: Policy | undefined, globalDocDone: Record<string, number> = {}): ItemMonitor {
   const required = policy?.required_docs ?? []
   // 서류는 정책 단위 체크(checkedDocs) 또는 서류 도우미의 '발급 완료' 기억(docDone, 공백 제거 정규명)이면 준비된 것
+  // 표기 변형('자녀 주민등록등본')은 정식 발급명(docDone 키)으로도 대조 — 서류 도우미의 정규화 발급
+  // 기억이 모니터링 준비도에 그대로 반영되게(발급했는데 '미비'로 남던 갭).
   const prepared = (d: string) => item.checkedDocs.includes(d) || !!globalDocDone[d.replace(/\s/g, '')]
+    || !!globalDocDone[(issuableCanonical(d, 'local') ?? d).replace(/\s/g, '')]
   const docDone = required.filter(prepared).length
   const docMissing = required.filter((d) => !prepared(d))
   // appliedAt이 없는 레거시/동기화 항목(2026-06 이전 신청분·클라우드 병합)은 savedAt으로 폴백 — null로 떨어져 '신청 0일째' 고정·재점검 미알림 방지
