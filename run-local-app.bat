@@ -26,8 +26,19 @@ if defined NEED_BUILD (
   echo [모두봄] 최신 화면으로 프론트를 빌드합니다... ^(1~2분, 최초/업데이트 시^)
   pushd frontend
   call npm run build:app
+  rem errorlevel 은 popd 가 0으로 덮기 전에 판정해 둔다(배치 특성).
+  if errorlevel 1 (set "BUILD_FAIL=1") else (set "BUILD_FAIL=")
   popd
-  if defined CUR_HEAD >"frontend\dist-app\.build-commit" echo %CUR_HEAD%
+  rem 빌드 성공시에만 빌드 커밋을 기록 — 실패했는데 기록하면 다음 실행이 '최신'으로
+  rem 오인해 재빌드를 건너뛰고, 구버전 화면이 조용히 계속 뜬다(정직성 위반).
+  if defined BUILD_FAIL (
+    if exist "frontend\dist-app\index.html" (
+      echo [주의] 프론트 빌드에 실패해, 이전에 빌드된 화면으로 우선 실행합니다.
+      echo        frontend 폴더에서 "npm install" 후 다시 실행하면 최신 화면이 반영돼요.
+    )
+  ) else (
+    if defined CUR_HEAD >"frontend\dist-app\.build-commit" echo %CUR_HEAD%
+  )
 )
 if not exist "frontend\dist-app\index.html" (
   echo [오류] 프론트 빌드에 실패했습니다. Node.js 설치 후 frontend에서 "npm install" 하세요.
