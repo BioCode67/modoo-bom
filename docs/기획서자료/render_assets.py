@@ -57,7 +57,9 @@ def main():
     PREVIEW.mkdir(exist_ok=True)
     saved = 0
     with sync_playwright() as p:
-        browser = p.chromium.launch()
+        import glob as _g
+        _exe = _g.glob('/opt/pw-browsers/chromium-*/chrome-linux/chrome')
+        browser = p.chromium.launch(executable_path=(_exe[0] if _exe else None))
         # deviceScaleFactor=2 → 인쇄·PPT에서도 또렷한 고해상도.
         page = browser.new_page(viewport={"width": 1120, "height": 900}, device_scale_factor=2)
         page.goto(KIT.as_uri())
