@@ -16,6 +16,7 @@ import { DocCameraModal } from '@/components/DocCameraModal'
 import { DocVault, notifyDocsChanged, DOCS_CHANGED_EVENT } from '@/components/DocVault'
 import { AgentStatusStrip } from '@/components/AgentStatusStrip'
 import { rememberLive, forgetLive, listLive } from '@/lib/liveTasks'
+import { downloadDocsBundle } from '@/lib/bundleDocs'
 import { titleBadge } from '@/lib/titleBadge'
 import { playAuthCue, isAuthWaitTransition } from '@/lib/authCue'
 import { cn } from '@/lib/utils'
@@ -825,11 +826,18 @@ export function DocumentCenter() {
             {/* 실발급 ≥1건 + 내 PC 에이전트일 때만 — 방금 만들어진 PDF를 1클릭으로 확인(데모·실사용 마무리).
                 원격/공유 서버의 폴더는 내 것이 아니므로 열지 않는다(실패 메시지는 위 folderMsg 자리에 뜸). */}
             {journeySummary.issued > 0 && vaultOn && (
-              <button onClick={openFolder}
-                title="방금 발급된 PDF가 저장된 폴더를 탐색기로 열어요"
-                className="rounded-lg border border-sprout-200 bg-sprout-50 px-2 py-1 text-[11px] font-semibold text-sprout-700 hover:bg-sprout-100">
-                🗂 발급물 폴더 열기
-              </button>
+              <>
+                <button onClick={() => { downloadDocsBundle().catch((e) => setFolderMsg(e instanceof Error ? e.message : '서류 묶음에 실패했어요.')) }}
+                  title="서류 종류별 최신 1건씩 ZIP 한 파일로 — 복지로 수동 첨부·이메일 제출용"
+                  className="rounded-lg border border-sprout-200 bg-sprout-50 px-2 py-1 text-[11px] font-semibold text-sprout-700 hover:bg-sprout-100">
+                  📦 묶음 받기(ZIP)
+                </button>
+                <button onClick={openFolder}
+                  title="방금 발급된 PDF가 저장된 폴더를 탐색기로 열어요"
+                  className="rounded-lg border border-sprout-200 bg-sprout-50 px-2 py-1 text-[11px] font-semibold text-sprout-700 hover:bg-sprout-100">
+                  🗂 발급물 폴더 열기
+                </button>
+              </>
             )}
             <button onClick={() => setJourneySummary(null)} aria-label="여정 요약 닫기"
               className="rounded-lg px-1.5 py-0.5 text-muted-foreground hover:bg-sprout-50">✕</button>

@@ -3,7 +3,8 @@ import { Bot, Loader2, ExternalLink, ShieldCheck, AlertCircle } from 'lucide-rea
 import type { Policy } from '@/data/policies'
 import type { EligiblePolicy } from '@/lib/welfare-engine'
 import { useBackend } from '@/lib/useBackend'
-import { isApplyAutomatable, applyLink, isRpaSupported } from '@/lib/officialLinks'
+import { isApplyAutomatable, applyLink } from '@/lib/officialLinks'
+import { issuableCanonical } from '@/lib/docAliases'
 import { bestApplyUrl, isBokjiroApplyable } from '@/lib/quickApply'
 import { getRpaBase } from '@/lib/backend'
 import { detectExtension, applyViaExtension, onExtensionStatus, sameDocName } from '@/lib/extension'
@@ -85,7 +86,11 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
   const missingAuto = useMemo(() => {
     if (vaultDocs === null) return null
     const haveOk = new Set(vaultDocs.filter((d) => d.validity !== 'stale').map((d) => d.doc_type.replace(/\s/g, '')))
-    return (policy.required_docs || []).filter((d) => isRpaSupported(d, 'local') && !haveOk.has(d.replace(/\s/g, '')))
+    // 표기 변형('자녀 주민등록등본')도 정식 발급명으로 해석해 진단·대조 — 발급물 파일명은 정식명이다
+    const canon = (policy.required_docs || [])
+      .map((d) => issuableCanonical(d, 'local'))
+      .filter((c): c is string => c !== null)
+    return [...new Set(canon)].filter((c) => !haveOk.has(c.replace(/\s/g, '')))
   }, [vaultDocs, policy.required_docs])
 
   // 🔁 세션 연속성 — 새로고침·뷰 이탈 후에도 진행 중이던 자동신청 추적을 재연결(문서센터와 동일 원리).
