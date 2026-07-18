@@ -38,7 +38,7 @@
 - **접근성** — 음성 입력·음성 안내(TTS), 큰글씨, 인쇄/PDF("내 복지 안내서"), reduced-motion
 - **3D 카툰 UI / PWA** — 새싹 마스코트(React Three Fiber, 지연 로딩) + framer-motion, 반응형, 설치형·오프라인 PWA
 
-품질: ESLint(0) · 단위 테스트(vitest 710 + pytest 130+) · 실브라우저 E2E 5스위트(웹·데스크탑·모바일·촬영·흐름) · TypeScript · ErrorBoundary · 주요 복지 금액 2026년 공식 출처 검증
+품질: ESLint(0) · 단위 테스트(vitest 717 + pytest 130+) · 실브라우저 E2E 5스위트(웹·데스크탑·모바일·촬영·흐름) · TypeScript · ErrorBoundary · 주요 복지 금액 2026년 공식 출처 검증
 팀원용 기획서 자료실: [`기획서자료실/`](기획서자료실/) — 인포그래픽·다이어그램 8종·통계차트 6종·스크린샷 14장·경쟁비교표·PPT 55페이지 구성안까지 전부 (아래 [프로젝트 상세 문서](#프로젝트-상세-기획서용-전체-문서)와 함께 사용).
 기획서 자료: `docs/기획서자료/`에 아키텍처·AI흐름·RPA·데이터 다이어그램 + 차트 + 한 장 요약 포스터 제공.
 
@@ -313,7 +313,7 @@ modoo-bom/
     │   │                            #   EmergencyHelp, DocumentCenter, AgentSubmitButton,
     │   │                            #   DocVault(서류함), AgentStatusStrip(점검), DocCameraModal(촬영),
     │   │                            #   PolicyCard/Drawer, BenefitCharts, ChatWidget, ShareButton …
-    │   └── src/**/*.test.ts         # vitest 710 (엔진·검색·모니터링·docScan·authCue …)
+    │   └── src/**/*.test.ts         # vitest 717 (엔진·검색·모니터링·docScan·authCue …)
     └── public/                      # favicon, 404.html, robots.txt, (policies.json: ETL 생성)
 ```
 
@@ -400,7 +400,7 @@ modoo-bom/
 
 - **정직성 코드화**: 민간재단·서민금융은 심사·상환형이라 `priority high/신뢰도 0.68↑` 표시가 테스트에서 거부됨.
   현금성 합산은 보수적(바우처·대출 제외). 모집종료 정책은 추천 제외(`isClosedForNew`).
-- **품질 게이트**(차트 4): 프론트 vitest 710 · 백엔드 pytest 130+ · 실브라우저 E2E 5스위트(웹 10여정·데스크탑 13종·모바일·촬영·흐름
+- **품질 게이트**(차트 4): 프론트 vitest 717 · 백엔드 pytest 130+ · 실브라우저 E2E 5스위트(웹 10여정·데스크탑 14종·모바일·촬영·흐름
   +대화온보딩·저장흐름·확장연동·라이브체크 전용 게이트) · lint 0 · tsc 0 — 매 변경마다 실행.
 - **멀티에이전트 상호감사**: 29개 AI 에이전트가 데이터·URL·코드·문구·보안 5차원을 감사하고 발견마다 별도 검증자가 반박 시도 —
   확정 23건 전부 즉시 정정(오탐 1건은 반박으로 기각). "AI가 만들고 AI가 감사하는" 개발 프로세스 자체가 차별점.
@@ -416,7 +416,7 @@ modoo-bom/
 | 출산 가정(0세) 발견액 | 월 최대 1,193,000원 + 60일 소급 알림 | 데모 페르소나 '신혼 출산가정' |
 | 중증장애인 발견액 | 월 최대 349,700원 + 민간 의료·재활 연계 | 데모 페르소나 '중증 장애인' |
 | 서류 발급 조작 | 9단계 중 본인 1번(폰 인증 승인) | `npm run e2e:ext:headed` (실브라우저 검증) |
-| 🚀 원클릭 연쇄(발급→자동첨부→신청 대기) | 클릭 1번 + 인증 승인만 | `npm run e2e:desktop` (13종 회귀) |
+| 🚀 원클릭 연쇄(발급→자동첨부→신청 대기) | 클릭 1번 + 인증 승인만 | `npm run e2e:desktop` (14종 회귀) |
 | 운영비 | $0 (정적+온디바이스) | GitHub Pages + 브라우저 내 AI |
 
 ※ 발견액은 '월 최대·중복 미반영' 기준 — 강력추천 중 현금성만 보수 합산. 결과 화면과 동일 수치.
