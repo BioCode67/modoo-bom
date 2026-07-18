@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from 'react'
+import { Fragment, useCallback, useEffect, useState } from 'react'
 import { FolderOpen, RefreshCw, Trash2, FileText, Image as ImageIcon, Paperclip, FolderDown } from 'lucide-react'
 import { getRpaBase } from '@/lib/backend'
 import { downloadDocsBundle } from '@/lib/bundleDocs'
+import { groupVaultDocs } from '@/lib/vaultGroups'
 import { cn } from '@/lib/utils'
 
 /** 서류함 항목(백엔드 /api/documents/list 응답) */
@@ -44,6 +45,7 @@ export function DocVault() {
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
   const [confirmDel, setConfirmDel] = useState<string | null>(null) // 파일명 — 2탭 확인(오삭제 방지)
+  const [openTypes, setOpenTypes] = useState<Record<string, boolean>>({}) // 종류별 '이전 버전' 펼침 상태
 
   const load = useCallback(async () => {
     try {
@@ -103,11 +105,36 @@ export function DocVault() {
 
   if (docs === null) return null // 첫 로드 전엔 자리 차지하지 않음
   const candidates = docs.filter((d) => d.attach_candidate)
+  // 종류별 그룹 — 화면도 묶음ZIP·자동첨부와 같은 '종류별 최신 1건' 기준으로 정리(재발급이 쌓여도 깔끔)
+  const groups = groupVaultDocs(docs)
+
+  const row = (d: VaultDoc, old = false) => (
+    <li key={d.filename} className={cn('flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border border-sky2-100 bg-white px-3 py-1.5', old && 'ml-5 border-dashed bg-sky2-50/40')}>
+      {d.ext === 'pdf' ? <FileText className="h-4 w-4 shrink-0 text-sky2-500" /> : <ImageIcon className="h-4 w-4 shrink-0 text-sky2-500" />}
+      <span className={cn('min-w-[8rem] flex-1 text-xs font-semibold break-all', old && 'text-muted-foreground')}>{d.display}</span>
+      {old && <span title="같은 종류의 더 새 발급본이 있어요 — 묶음 ZIP·자동첨부는 최신본만 써요" className="shrink-0 rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-500">이전 버전</span>}
+      {!old && d.attach_candidate && <span title="지금 신청하면 자동첨부 후보" className="shrink-0 inline-flex items-center gap-0.5 rounded-md bg-sprout-100 px-1.5 py-0.5 text-[10px] font-bold text-sprout-700"><Paperclip className="h-3 w-3" /> 첨부 후보</span>}
+      {d.validity === 'stale' && <span title={`발급 ${d.age_days}일 지남 — 관공서 제출용 증명서는 통상 '발급 3개월 이내'를 요구해요(기관별 상이). 다시 발급을 권해요.`} className="shrink-0 rounded-md bg-rose-100 px-1.5 py-0.5 text-[10px] font-bold text-rose-700">⚠️ 3개월 지남</span>}
+      {d.validity === 'aging' && <span title={`발급 ${d.age_days}일째 — 제출처가 '3개월 이내'를 요구하면 곧 만료돼요. 제출 예정이면 유효기간을 확인하세요.`} className="shrink-0 rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800">유효 확인</span>}
+      <span className="shrink-0 text-[10px] text-muted-foreground">{d.ext.toUpperCase()} · {fmtSize(d.size)} · {fmtWhen(d.mtime)}</span>
+      {confirmDel === d.filename ? (
+        <span className="shrink-0 inline-flex items-center gap-1">
+          <button onClick={() => del(d.filename)} disabled={busy} className="rounded-md bg-rose-500 px-2 py-0.5 text-[10px] font-bold text-white hover:bg-rose-600 disabled:opacity-50">삭제</button>
+          <button onClick={() => setConfirmDel(null)} className="rounded-md border border-sky2-200 px-2 py-0.5 text-[10px] font-semibold">취소</button>
+        </span>
+      ) : (
+        <button onClick={() => setConfirmDel(d.filename)} aria-label={`${d.display} 삭제`} title="이 서류 삭제(내 PC에서 제거)"
+          className={cn('shrink-0 rounded-md p-1 text-muted-foreground hover:bg-rose-50 hover:text-rose-500', busy && 'opacity-50')}>
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      )}
+    </li>
+  )
 
   return (
     <div className="mt-4 rounded-2xl border-2 border-sky2-100 bg-sky2-50/40 p-4">
       <div className="flex items-center gap-2 flex-wrap">
-        <p className="text-sm font-bold flex items-center gap-1.5">🗂 내 서류함 <span className="text-xs font-semibold text-muted-foreground">({docs.length}건 · 이 PC에만 저장)</span></p>
+        <p className="text-sm font-bold flex items-center gap-1.5">🗂 내 서류함 <span className="text-xs font-semibold text-muted-foreground">({groups.length}종 {docs.length}건 · 이 PC에만 저장)</span></p>
         <div className="ml-auto flex gap-1.5">
           <button onClick={load} title="새로고침" aria-label="서류함 새로고침" className="rounded-lg border border-sky2-200 bg-white p-1.5 text-sky2-700 hover:bg-sky2-50"><RefreshCw className="h-3.5 w-3.5" /></button>
           {docs.length > 0 && (
@@ -134,30 +161,24 @@ export function DocVault() {
         </p>
       )}
       {err && <p className="mt-1 text-[11px] font-medium text-rose-600">{err}</p>}
-      {docs.length > 0 && (
+      {groups.length > 0 && (
         <ul className="mt-2 space-y-1">
-          {docs.slice(0, 8).map((d) => (
-            <li key={d.filename} className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border border-sky2-100 bg-white px-3 py-1.5">
-              {d.ext === 'pdf' ? <FileText className="h-4 w-4 shrink-0 text-sky2-500" /> : <ImageIcon className="h-4 w-4 shrink-0 text-sky2-500" />}
-              <span className="min-w-[8rem] flex-1 text-xs font-semibold break-all">{d.display}</span>
-              {d.attach_candidate && <span title="지금 신청하면 자동첨부 후보" className="shrink-0 inline-flex items-center gap-0.5 rounded-md bg-sprout-100 px-1.5 py-0.5 text-[10px] font-bold text-sprout-700"><Paperclip className="h-3 w-3" /> 첨부 후보</span>}
-              {d.validity === 'stale' && <span title={`발급 ${d.age_days}일 지남 — 관공서 제출용 증명서는 통상 '발급 3개월 이내'를 요구해요(기관별 상이). 다시 발급을 권해요.`} className="shrink-0 rounded-md bg-rose-100 px-1.5 py-0.5 text-[10px] font-bold text-rose-700">⚠️ 3개월 지남</span>}
-              {d.validity === 'aging' && <span title={`발급 ${d.age_days}일째 — 제출처가 '3개월 이내'를 요구하면 곧 만료돼요. 제출 예정이면 유효기간을 확인하세요.`} className="shrink-0 rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800">유효 확인</span>}
-              <span className="shrink-0 text-[10px] text-muted-foreground">{d.ext.toUpperCase()} · {fmtSize(d.size)} · {fmtWhen(d.mtime)}</span>
-              {confirmDel === d.filename ? (
-                <span className="shrink-0 inline-flex items-center gap-1">
-                  <button onClick={() => del(d.filename)} disabled={busy} className="rounded-md bg-rose-500 px-2 py-0.5 text-[10px] font-bold text-white hover:bg-rose-600 disabled:opacity-50">삭제</button>
-                  <button onClick={() => setConfirmDel(null)} className="rounded-md border border-sky2-200 px-2 py-0.5 text-[10px] font-semibold">취소</button>
-                </span>
-              ) : (
-                <button onClick={() => setConfirmDel(d.filename)} aria-label={`${d.display} 삭제`} title="이 서류 삭제(내 PC에서 제거)"
-                  className={cn('shrink-0 rounded-md p-1 text-muted-foreground hover:bg-rose-50 hover:text-rose-500', busy && 'opacity-50')}>
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
+          {groups.slice(0, 8).map((g) => (
+            <Fragment key={g.type}>
+              {row(g.latest)}
+              {g.older.length > 0 && (
+                <li className="ml-5">
+                  <button onClick={() => setOpenTypes((s) => ({ ...s, [g.type]: !s[g.type] }))}
+                    aria-expanded={!!openTypes[g.type]}
+                    className="text-[11px] font-semibold text-sky2-700 hover:underline">
+                    {openTypes[g.type] ? '▾ 이전 버전 접기' : `▸ 이전 버전 ${g.older.length}건 보기`}
+                  </button>
+                </li>
               )}
-            </li>
+              {openTypes[g.type] && g.older.map((d) => row(d, true))}
+            </Fragment>
           ))}
-          {docs.length > 8 && <li className="text-center text-[11px] text-muted-foreground">… 외 {docs.length - 8}건은 폴더에서 확인</li>}
+          {groups.length > 8 && <li className="text-center text-[11px] text-muted-foreground">… 외 {groups.length - 8}종은 폴더에서 확인</li>}
         </ul>
       )}
     </div>
