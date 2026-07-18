@@ -319,9 +319,9 @@ export function DocumentCenter() {
         }
         if (!resp.ok) throw new Error(`status ${resp.status}`)
         bodyTxt = await resp.text()
+        failStreak = 0 // 성공 응답 — '연속' 실패 카운터는 여기서 리셋(변화 없음 continue보다 먼저, 누적 오탐 방지)
         if (bodyTxt === prevBody) continue // 변화 없음(인증 대기 등) — 렌더 생략(구형 PC 부담↓, 종결은 반드시 변화로 도달)
         st = JSON.parse(bodyTxt)
-        failStreak = 0
       } catch {
         // 일시적 네트워크 실패 1회로 폴링을 끝내지 않는다(감사 :160) — 연속 5회(≈7.5초) 실패만 종료
         failStreak++
@@ -447,9 +447,9 @@ export function DocumentCenter() {
           }
           if (!resp.ok) throw new Error(`status ${resp.status}`)
           bodyTxt = await resp.text()
+          failStreak = 0 // 성공 응답 — '연속' 실패 카운터 리셋(변화 없음 continue보다 먼저, 누적 오탐 방지)
           if (bodyTxt === prevBody) continue // 변화 없음 — 렌더 생략(종결·전이는 반드시 응답 변화로 도달)
           j = JSON.parse(bodyTxt)
-          failStreak = 0
         } catch {
           // 일시적 네트워크 실패는 몇 번 견딘다(감사 :160) — 연속 5회만 종료
           failStreak++
