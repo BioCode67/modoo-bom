@@ -68,8 +68,9 @@ export function DocumentCenter() {
   const journeyRef = useRef<{ id: string; running: boolean } | null>(null)
   // 여정 수준 진행률(n/m·현재 단계·인증 대기 여부) — 카드별 상태만으론 전체 흐름이 안 보이던 갭(감사). null=여정 없음.
   const [journeyProg, setJourneyProg] = useState<{ total: number; done: number; current?: string; authWait?: boolean } | null>(null)
-  // 여정 종결 요약(발급 n건·건너뜀 n건·신청 양식 준비 n건) — 헤더가 사라진 뒤 '어떻게 끝났는지' 한 줄 닫음말
-  const [journeySummary, setJourneySummary] = useState<string | null>(null)
+  // 여정 종결 요약(발급 n건·건너뜀 n건·신청 양식 준비 n건) — 헤더가 사라진 뒤 '어떻게 끝났는지' 한 줄 닫음말.
+  //   issued는 '발급물 폴더 열기' CTA 노출 판단용(실발급 0건이면 폴더를 열 이유가 없다).
+  const [journeySummary, setJourneySummary] = useState<{ text: string; issued: number } | null>(null)
   // 🚀→📨 발급 후 '자동신청까지' 이어갈 수 있는 담은 복지 — 단건 신청과 동일 기준(내장 6종 ∪ 복지로 딥링크 해석).
   //   백엔드 여정(service_names)이 서류 발급을 모두 마친 뒤 신청 단계를 이어서 실행한다(자동첨부 성립 순서).
   const chainSvcs = useMemo(() => {
@@ -520,7 +521,7 @@ export function DocumentCenter() {
               prepared > 0 ? `신청 양식 ${prepared}건 준비(제출은 본인 확인 후)` : '',
             ].filter(Boolean)
             const head = j.status === 'completed' ? '✅ 연쇄 자동발급 끝' : j.status === 'cancelled' ? '⏹ 연쇄 중단됨' : '⚠️ 연쇄가 오류로 끝났어요'
-            setJourneySummary(parts.length ? `${head} — ${parts.join(' · ')}` : head)
+            setJourneySummary({ text: parts.length ? `${head} — ${parts.join(' · ')}` : head, issued })
           }
           finished = true; break
         }
@@ -733,10 +734,21 @@ export function DocumentCenter() {
 
       {/* 여정 종결 요약 — 진행률 헤더가 사라진 자리에서 '어떻게 끝났는지' 한 줄로 닫는다(무언 종료 방지) */}
       {!journeyProg && journeySummary && (
-        <div className="mt-4 flex items-center justify-between gap-2 rounded-2xl border-2 border-sprout-200 bg-white p-3.5 text-xs font-bold" role="status" aria-live="polite">
-          <span>{journeySummary}</span>
-          <button onClick={() => setJourneySummary(null)} aria-label="여정 요약 닫기"
-            className="rounded-lg px-1.5 py-0.5 text-muted-foreground hover:bg-sprout-50">✕</button>
+        <div className="mt-4 flex items-center justify-between gap-2 flex-wrap rounded-2xl border-2 border-sprout-200 bg-white p-3.5 text-xs font-bold" role="status" aria-live="polite">
+          <span>{journeySummary.text}</span>
+          <span className="inline-flex items-center gap-1.5 shrink-0">
+            {/* 실발급 ≥1건 + 내 PC 에이전트일 때만 — 방금 만들어진 PDF를 1클릭으로 확인(데모·실사용 마무리).
+                원격/공유 서버의 폴더는 내 것이 아니므로 열지 않는다(실패 메시지는 위 folderMsg 자리에 뜸). */}
+            {journeySummary.issued > 0 && vaultOn && (
+              <button onClick={openFolder}
+                title="방금 발급된 PDF가 저장된 폴더를 탐색기로 열어요"
+                className="rounded-lg border border-sprout-200 bg-sprout-50 px-2 py-1 text-[11px] font-semibold text-sprout-700 hover:bg-sprout-100">
+                🗂 발급물 폴더 열기
+              </button>
+            )}
+            <button onClick={() => setJourneySummary(null)} aria-label="여정 요약 닫기"
+              className="rounded-lg px-1.5 py-0.5 text-muted-foreground hover:bg-sprout-50">✕</button>
+          </span>
         </div>
       )}
 

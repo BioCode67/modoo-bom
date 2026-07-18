@@ -1,8 +1,10 @@
+import { useEffect, useRef, useState } from 'react'
 import { ShieldCheck } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
 import { getRpaBase } from '@/lib/backend'
 import { useBackend } from '@/lib/useBackend'
 import { clearLive } from '@/lib/liveTasks'
+import { isKeepOn, setKeepOn, saveKept, loadKept, clearKept } from '@/lib/rpaInfoKeep'
 import { notifyDocsChanged } from '@/components/DocVault'
 
 const CARRIERS = ['SKT', 'KT', 'LGU+', 'SKM', 'KTM', 'LGM']
@@ -19,13 +21,30 @@ const AUTH_PROVIDERS = [
  * 본인인증 폼 자동 작성에만 쓰이며, 기본은 서버 전송 없이 '메모리에만' 유지된다 —
  * rpaInfo는 persist(partialize)에서 의도적으로 제외돼 디스크(localStorage)에 남지 않고,
  * 새로고침하면 비워진다(공용 PC에서 실명·연락처가 디스크에 잔류하지 않게 하는 프라이버시 설계).
- * ⚠️ 예외: 사용자가 '원격 RPA 서버'에 명시 동의(rpaRemote)한 경우엔 그 서버로 전송돼 자동입력에 쓰인다 —
+ * ⚠️ 예외 1: 사용자가 '원격 RPA 서버'에 명시 동의(rpaRemote)한 경우엔 그 서버로 전송돼 자동입력에 쓰인다 —
  * 문구도 그 사실대로 분기한다(거짓 '미전송' 표기 금지, 정직성 원칙).
+ * ⚠️ 예외 2(옵트인): '이 탭에서는 기억하기'를 켜면 sessionStorage에만 보관 — 새로고침(F5)에도 유지되고
+ * 탭을 닫으면 브라우저가 삭제한다. 기본 OFF, '다음 분 상담 시작'이 보관분+옵트인을 함께 지운다(rpaInfoKeep).
  */
 export function RpaInfoForm() {
   const { rpaInfo, setRpaInfo, resetForNextUser } = useAppStore()
   const { ready, caps } = useBackend()
   const localAgent = ready === true && !!caps?.rpa
+  // '이 탭에서는 기억' 옵트인 — 새로고침 실수로 인증정보를 재입력하는 실사용 불편의 안전망(발표·상담 현장)
+  const [keep, setKeep] = useState(isKeepOn)
+  const hydratedRef = useRef(false)
+  useEffect(() => {
+    // 마운트 1회: 옵트인 상태고 폼이 비어 있으면 이 탭 보관분 복원(입력 중 값 덮어쓰기 금지)
+    if (hydratedRef.current) return
+    hydratedRef.current = true
+    if (!isKeepOn()) return
+    const kept = loadKept()
+    if (kept && !rpaInfo.name?.trim() && !rpaInfo.birth_date?.trim() && !rpaInfo.phone?.trim()) setRpaInfo(kept)
+  }, [rpaInfo, setRpaInfo])
+  useEffect(() => {
+    // 입력 변경마다 — 옵트인 시에만 이 탭(sessionStorage)에 반영(OFF면 saveKept가 no-op)
+    if (keep) saveKept(rpaInfo)
+  }, [keep, rpaInfo])
   // 검증형 리셋 — '지웠다'고 말만 하지 않고 무엇이 지워졌는지 결과로 보여준다(복지관 공용 PC 신뢰성).
   //   ⚠️ 리셋이 tracked를 비우면 이 폼(DocumentCenter 안)이 통째로 언마운트되므로 인라인 메시지는
   //   보일 곳이 없다 → 언마운트와 무관한 alert로 결과를 확정 표시(기존 confirm과 동일한 대화 방식).
@@ -50,14 +69,25 @@ export function RpaInfoForm() {
     }
     resetForNextUser() // 화면·localStorage·챗 대화 초기화
     clearLive() // 진행 중 태스크 복원 기록(taskId·토큰)도 제거 — 다음 상담자에게 직전 사용자의 진행이 복원되지 않게
+    clearKept(); setKeep(false) // '이 탭에서는 기억' 보관분+옵트인도 삭제 — 다음 분에게 이전 분 인증정보가 남지 않게
     notifyDocsChanged() // 🗂 내 서류함도 비워진 상태로 갱신
     window.alert(msg)
   }
   return (
     <div className="mt-3 rounded-xl bg-white border border-sprout-100 p-3 space-y-2 scroll-mt-24">
       <p className="text-[11px] font-bold flex items-center gap-1 text-muted-foreground">
-        <ShieldCheck className="h-3.5 w-3.5 text-sprout-500" /> 자동입력 추가정보 (선택 · {caps?.rpaRemote ? '동의한 원격 에이전트로 전송돼 자동입력에만 사용' : '내 기기에서만 사용 · 디스크에 저장 안 함(새로고침 시 비워짐)'})
+        {/* 보관 방식 문구는 실제 상태 그대로 분기 — 옵트인을 켰는데 '새로고침 시 비워짐'이라 쓰면 거짓 */}
+        <ShieldCheck className="h-3.5 w-3.5 text-sprout-500" /> 자동입력 추가정보 (선택 · {caps?.rpaRemote ? '동의한 원격 에이전트로 전송돼 자동입력에만 사용' : keep ? '내 기기에서만 사용 · 이 탭에만 잠시 보관(탭 닫으면 삭제)' : '내 기기에서만 사용 · 디스크에 저장 안 함(새로고침 시 비워짐)'})
       </p>
+      <label className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground cursor-pointer select-none">
+        <input
+          type="checkbox"
+          checked={keep}
+          onChange={(e) => { const on = e.target.checked; setKeep(on); setKeepOn(on, rpaInfo) }}
+          className="accent-sprout-600"
+        />
+        이 탭에서는 기억하기 — 실수로 새로고침해도 유지 · 탭을 닫으면 자동 삭제
+      </label>
       <p className="text-[11px] text-sprout-700 leading-relaxed">
         실명·생년월일·휴대폰을 넣어두면 서류 발급 때 <b>본인인증 화면까지 자동으로 채워드려요</b> — 폰에서 ‘인증 허용’만 누르면 끝이에요.
       </p>

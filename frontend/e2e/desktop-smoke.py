@@ -296,6 +296,22 @@ def main() -> int:
             pg.unroute("**/api/journey/status/**")
             print("[desktop] ✅ 6.9. 여정 이어보기 — 새로고침 후 무클릭 재연결(헤더·카드 복원)")
 
+            # 6.95) 🔁 인증정보 '이 탭에서는 기억'(옵트인) — 발표·상담 중 F5 실수에도 폼 복원,
+            #       끄면(옵트아웃) sessionStorage 보관분까지 즉시 삭제(흔적 미잔류 계약)
+            pg.locator("label:has-text('이 탭에서는 기억하기') input").check()
+            pg.fill("input[placeholder*='실명']", "김기억")
+            pg.wait_for_timeout(300)  # keep effect가 sessionStorage에 반영될 시간
+            pg.reload(wait_until="domcontentloaded")
+            pg.wait_for_selector("text=정부·지자체·민간 복지", timeout=20000)
+            pg.click("text=나의 복지")
+            pg.wait_for_selector("text=서류 준비 도우미", timeout=15000)
+            assert pg.locator("label:has-text('이 탭에서는 기억하기') input").is_checked(), "옵트인 상태 미복원"
+            pg.wait_for_function(  # 마운트 후 hydrate effect가 채울 때까지(레이스 방지)
+                "() => document.querySelector(\"input[placeholder*='실명']\")?.value === '김기억'", timeout=5000)
+            pg.locator("label:has-text('이 탭에서는 기억하기') input").uncheck()
+            assert pg.evaluate("()=>sessionStorage.getItem('modoobom-rpainfo-session')") is None, "옵트아웃 후 보관분 잔류"
+            print("[desktop] ✅ 6.95. 인증정보 탭-기억 옵트인 — F5 복원 + 옵트아웃 흔적 삭제")
+
             # 7.6) 여정 '오류' 경로 — 정부 사이트 불통 시에도 정직한 오류 요약 + 재시도 CTA가 남는지
             #      (실사용자가 실제로 만나는 경로 — 가짜 성공·무언 종료·막다른 UI가 없어야 한다)
             pg.route("**/api/journey/run", lambda r: r.fulfill(
@@ -307,7 +323,7 @@ def main() -> int:
                 body=json.dumps({"status": "error", "current": None, "steps": [
                     {"name": "주민등록등본", "status": "error", "kind": "doc", "error": "정부24가 응답하지 않아요 — 잠시 후 다시 시도해 주세요."},
                     {"name": "소득금액증명", "status": "cancelled", "kind": "doc"}]})))
-            # 6.9의 새로고침으로 인증정보 폼이 비워짐 — rpaInfo는 '디스크에 안 남기는' 프라이버시 설계(persist 제외)
+            # 6.95의 옵트아웃 상태 — 폼에 값이 남아 있어도(메모리) 아래에서 새로 채워 정확한 전제로 시작
             pg.fill("input[placeholder*='실명']", "김청년")
             pg.fill("input[placeholder*='생년월일']", "19980315")
             pg.fill("input[placeholder*='휴대폰']", "01012345678")
@@ -341,7 +357,7 @@ def main() -> int:
         for i in issues[:10]:
             print("  ", i)
         return 1
-    print("✅ 데스크탑 기능 13종 + pageerror 0 — 전부 통과")
+    print("✅ 데스크탑 기능 14종 + pageerror 0 — 전부 통과")
     return 0
 
 
