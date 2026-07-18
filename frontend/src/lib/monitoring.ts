@@ -80,12 +80,22 @@ export function monitorItem(item: TrackedItem, policy: Policy | undefined, globa
         alerts.push({ level: 'high', kind: 'submit', text: '신청할 준비가 끝났어요. 지금 신청하세요.' })
       }
       break
-    case 'applied':
-      nextAction = `심사 진행 중 (신청 ${daysApplied ?? 0}일째). 보통 2~4주 정도 걸려요.`
-      if (reCheckDue) {
-        alerts.push({ level: 'medium', kind: 'recheck', text: '진행상황을 점검할 때예요. 공식 사이트에서 확인해 보세요.' })
+    case 'applied': {
+      // 심사 상한(보통 2~4주)을 한참 지난 신청 건에 '보통 2~4주 걸려요'를 반복하면 모순 안내가 된다
+      // (예: 신청 366일째 카드 — 실화면 스위프에서 확인). 45일(4주+유예)을 넘으면 정직하게 격상:
+      // 결과를 이미 받았는데 상태를 안 바꾼 경우가 대부분이라 상태 변경 권유 + 기관 확인 안내.
+      const staleReview = (daysApplied ?? 0) > 45
+      if (staleReview) {
+        nextAction = `심사 기간(보통 2~4주)을 한참 지났어요 (신청 ${daysApplied}일째) — 결과를 받으셨다면 카드 상태를 바꿔주시고, 소식이 없다면 담당 기관에 확인해 보세요.`
+        alerts.push({ level: 'high', kind: 'recheck', text: '심사 기간을 훌쩍 지났어요 — 공식 사이트나 담당 기관에서 진행 상황을 꼭 확인해 보세요.' })
+      } else {
+        nextAction = `심사 진행 중 (신청 ${daysApplied ?? 0}일째). 보통 2~4주 정도 걸려요.`
+        if (reCheckDue) {
+          alerts.push({ level: 'medium', kind: 'recheck', text: '진행상황을 점검할 때예요. 공식 사이트에서 확인해 보세요.' })
+        }
       }
       break
+    }
     case 'done':
       nextAction = policy?.renewal ? `수급 중이에요 🎉 갱신: ${policy.renewal}` : '수급 중이에요 🎉'
       if (policy && isAnnualRenewal(policy.renewal)) {

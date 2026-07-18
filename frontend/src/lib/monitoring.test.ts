@@ -33,6 +33,19 @@ describe('monitorItem', () => {
     expect(m.reCheckDue).toBe(true)
     expect(m.daysApplied).toBe(10)
   })
+  it('applied 45일 이내 → 통상 심사 안내(2~4주 문구)', () => {
+    const m = monitorItem(mk({ status: 'applied', appliedAt: Date.now() - 20 * DAY }), policy)
+    expect(m.nextAction).toContain('보통 2~4주')
+    expect(m.alerts.some((a) => a.level === 'high' && a.kind === 'recheck')).toBe(false)
+  })
+  it('applied 45일 초과 → 모순된 2~4주 반복 대신 기관 확인 격상(high recheck)', () => {
+    // 실화면 스위프에서 발견: 신청 366일째 카드에 '보통 2~4주 걸려요'가 그대로 반복되던 문제
+    const m = monitorItem(mk({ status: 'applied', appliedAt: Date.now() - 366 * DAY }), policy)
+    expect(m.nextAction).toContain('한참 지났어요')
+    expect(m.nextAction).toContain('366일째')
+    expect(m.nextAction).not.toMatch(/걸려요\.$/)
+    expect(m.alerts.some((a) => a.level === 'high' && a.kind === 'recheck')).toBe(true)
+  })
   it('done + 매년 갱신 + 330일 경과 → 갱신 경고(high)', () => {
     const m = monitorItem(mk({ status: 'done', appliedAt: Date.now() - 340 * DAY }), policy)
     expect(m.alerts.some((a) => a.kind === 'renew')).toBe(true)
