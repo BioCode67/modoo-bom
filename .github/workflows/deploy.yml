@@ -15,6 +15,13 @@ jobs:
           node-version: 20
       - run: npm ci
         working-directory: frontend
+      # 품질 게이트 — 빌드만 되는 회귀가 라이브로 새지 않게(lint 0 · 타입 0 · vitest 710+)
+      - run: npm run lint
+        working-directory: frontend
+      - run: npx tsc --noEmit
+        working-directory: frontend
+      - run: npm test
+        working-directory: frontend
       - run: npm run build
         working-directory: frontend
       - uses: peaceiris/actions-gh-pages@v4
