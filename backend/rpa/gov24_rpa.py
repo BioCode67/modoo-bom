@@ -398,9 +398,39 @@ async def _select_doc_form_options(page, doc_name: str) -> None:
 
 def _is_maintenance_notice(txt: str) -> bool:
     """정부 사이트 '서비스 점검 중' 팝업 감지 — 외부기관 연계 서류(가족관계=대법원, 소득=국세청 홈택스)는
-    야간·새벽 점검이 잦아 이 팝업이 뜨면 '앱 오류'가 아니라 정부 사이트 상태다(정직 안내로 전환)."""
+    야간·새벽 점검이 잦아 이 팝업이 뜨면 '앱 오류'가 아니라 정부 사이트 상태다(정직 안내로 전환).
+    ⚠️ '점검' 단독은 안내문(정기 점검 시간 안내 등)에도 흔해 오탐 → '점검 중/점검입니다/점검 시간입니다'처럼
+       상태를 못박는 구절만 매칭한다(과잉 차단 방지)."""
     t = txt or ""
-    return ("서비스 점검 중" in t) or ("점검 중입니다" in t) or ("점검중입니다" in t)
+    return any(k in t for k in (
+        "서비스 점검 중", "점검 중입니다", "점검중입니다",
+        "시스템 점검 중", "점검 시간입니다", "점검으로 인해",
+    ))
+
+
+def _maintenance_msg(doc_name: str) -> str:
+    """점검 팝업 감지 시 사용자에게 보여줄 정직 안내(앱 오류가 아니라 정부 사이트 상태임을 명시)."""
+    return (
+        f"정부24에서 ‘{doc_name}’ 서비스가 점검 중이에요(정부 사이트 상태 · 앱 오류 아님). "
+        f"이 서류는 외부기관 연계(가족관계=대법원, 소득=국세청 홈택스)라 야간·새벽(01~06시)엔 점검이 잦아요. "
+        f"낮 시간(특히 08~22시)에 다시 시도하거나, 옆 [전자발급]으로 공식 사이트에서 직접 발급해 주세요."
+    )
+
+
+async def _all_frames_text(page) -> str:
+    """메인 문서 + 모든 iframe의 보이는 텍스트를 합쳐 반환 — '서비스 점검 중' 팝업이 연계기관
+    iframe(대법원 가족관계·국세청 홈택스) 안에 떠도 메인 body만 보고 놓치지 않게(실사용 제보:
+    가족관계·소득이 '지연'으로만 보이고 점검 감지가 안 되던 원인). cross-origin·소멸 프레임은
+    접근 시 예외라 조용히 건너뛴다(무해)."""
+    parts = []
+    for fr in page.frames:
+        try:
+            t = await fr.evaluate("() => document.body ? document.body.innerText : ''")
+            if t:
+                parts.append(t)
+        except Exception:
+            continue
+    return "\n".join(parts)
 
 
 def _pick_result_page(context, fallback):
@@ -552,14 +582,21 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None, session=Non
             #   소득금액증명·지방세·기초생활수급자·한부모 등은 발급목적/연도 미선택이면 신청이 안 넘어가 발급이 미완됨.
             await _select_doc_form_options(page, doc_name)
 
-            # ④ 신청하기 — 자동입력 주소가 실제 주민등록 주소와 다르면(정보 없음 안내) 사용자가 고칠 때까지 기다렸다 자동 재시도
+            # ④ 신청하기 — 자동입력만으로 다음 단계로 못 넘어가면(주소 불일치·필수항목 미선택 등)
+            #    사용자가 화면 폼을 직접 고칠 시간을 준 뒤 자동으로 다시 신청한다(human-in-the-loop 보정).
             submitted = False
             addr_warned = False
+            fix_hinted = False   # '폼을 직접 확인/선택' 안내를 이미 띄웠는지(중복 안내 방지)
+            stuck = 0            # 진행 신호 없이 헛돈 횟수 — 일정 이상이면 사용자 수정 유예 부여
             task.update("running", "신청 버튼을 눌러 발급을 진행하고 있어요…", await take_screenshot(page))
-            for _hb in range(24):  # 최대 ~4분(주소 정정 대기 포함)
+            # 폼 진입 직후 '서비스 점검 중' 팝업(연계기관 야간 점검)부터 확인 — 헛돌지 않고 즉시 정직 안내.
+            if _is_maintenance_notice(await _all_frames_text(page)):
+                task.update("error", _maintenance_msg(doc_name), await take_screenshot(page))
+                return
+            for _hb in range(24):  # 최대 ~4분(주소·폼 정정 대기 포함)
                 check_cancel(task, context)  # 취소·창닫힘 즉시 탈출
                 # 하트비트: 침묵 구간(과거 최대 4분 무갱신 → '멈췄다' 오인, 실사용 피드백)마다 진행 화면 공유.
-                # ⚠️ 주소 정정 대기 중엔 generic 문구로 '해야 할 일 안내'를 덮어쓰지 않는다(자가 검토에서 잡은 회귀)
+                # ⚠️ 대기 안내(주소·폼 수정)는 generic 문구로 '해야 할 일 안내'를 덮어쓰지 않는다(자가 검토 회귀)
                 #    — 대신 같은 안내를 새 스크린샷과 함께 반복해 살아있음을 보여준다.
                 if _hb and _hb % 4 == 0:
                     if addr_warned:
@@ -567,6 +604,13 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None, session=Non
                             "waiting_login",
                             "⚠️ 화면의 '주민등록상 주소'를 본인 주소(시도·시군구)로 바꿔 주세요.\n"
                             "바꾸면 자동으로 다시 신청합니다. (계속 기다리는 중…)",
+                            await take_screenshot(page),
+                        )
+                    elif fix_hinted:
+                        task.update(
+                            "waiting_login",
+                            "⚠️ 화면 폼에서 필요한 항목(대상자·발급목적·유형 등)이 있으면 직접 확인/선택해 주세요.\n"
+                            "고치면 잠시 후 자동으로 다시 신청합니다. (계속 기다리는 중…)",
                             await take_screenshot(page),
                         )
                     else:
@@ -578,15 +622,10 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None, session=Non
                 txt = await _txt()
                 # 🛠 정부 사이트 '서비스 점검 중' 팝업 — 등본(행안부·24h)과 달리 가족관계(대법원 전자가족관계등록)·
                 #   소득금액증명(국세청 홈택스 08~22시) 등 외부기관 연계 서류는 야간·새벽 점검이 잦다.
-                #   4분 헛돌지 않고 즉시 '앱 오류 아님 + 낮에 재시도'를 정직하게 알린다(실사용 데모 제보).
-                if _is_maintenance_notice(txt):
-                    task.update(
-                        "error",
-                        f"정부24에서 ‘{doc_name}’ 서비스가 점검 중이에요(정부 사이트 상태 · 앱 오류 아님). "
-                        f"이 서류는 외부기관 연계(가족관계=대법원, 소득=국세청 홈택스)라 야간·새벽(01~06시)엔 점검이 잦아요. "
-                        f"낮 시간(특히 08~22시)에 다시 시도하거나, 옆 [전자발급]으로 공식 사이트에서 직접 발급해 주세요.",
-                        await take_screenshot(page),
-                    )
+                #   ⚠️ 팝업은 연계기관 iframe 안에 뜰 수 있어 메인 body만 보면 놓친다(실사용: '지연'으로만 보임)
+                #      → 메인+전체 프레임 텍스트를 함께 확인. 4분 헛돌지 않고 즉시 정직 안내.
+                if _is_maintenance_notice(txt) or _is_maintenance_notice(await _all_frames_text(page)):
+                    task.update("error", _maintenance_msg(doc_name), await take_screenshot(page))
                     return
                 # 주소 불일치 안내 모달 → 닫고, 사용자가 시도·시군구를 고칠 때까지 대기 후 재시도
                 if ("해당 시군구에 존재하지 않" in txt) or ("정보가 해당" in txt and "존재하지 않" in txt):
@@ -609,6 +648,22 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None, session=Non
                 if any(k in txt for k in ["문서출력", "처리완료", "발급완료", "발급 완료"]) or "mbrAplySrvcList" in page.url:
                     submitted = True
                     break
+                # 진행 신호가 없음 = 자동 입력만으론 다음 단계로 못 넘어감(서류별 필수항목이 등본과 다를 때).
+                #   두 번 이상 헛돌면 사용자에게 폼을 직접 고칠 유예(대기)를 주고, 그 뒤 루프 상단에서
+                #   자동으로 다시 '신청하기'를 눌러 재시도한다(실사용 요청: "약간 대기 → 알아서 다음 시도").
+                stuck += 1
+                if stuck >= 2:
+                    if not fix_hinted:
+                        task.update(
+                            "waiting_login",
+                            "⚠️ 자동 입력만으로는 다음 단계로 넘어가지 못했어요.\n"
+                            "화면 폼에서 필요한 항목(대상자·발급목적·유형 등)을 직접 확인/선택해 주세요.\n"
+                            "고치면 잠시 후 자동으로 다시 신청합니다. (기다리는 중…)",
+                            await take_screenshot(page),
+                        )
+                        fix_hinted = True
+                    await asyncio.sleep(6)  # 사용자 수정 시간 — 그 사이 편집하면 다음 루프가 자동 재신청
+                    continue
                 await asyncio.sleep(2)
 
             # ⑤ 전자서명(간편인증 재요구)이 뜨면 자동입력+인증요청, 폰 승인은 본인

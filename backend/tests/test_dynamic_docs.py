@@ -76,8 +76,47 @@ def test_maintenance_notice_detection():
     assert _is_maintenance_notice("안내\n서비스 점검 중입니다.\n닫기")
     assert _is_maintenance_notice("점검중입니다")
     assert _is_maintenance_notice("현재 서비스 점검 중 이니 잠시 후 이용하세요")
+    # 연계기관(대법원 시스템 등) 점검 문구 변형도 감지
+    assert _is_maintenance_notice("전자가족관계등록시스템 시스템 점검 중")
+    assert _is_maintenance_notice("점검으로 인해 서비스를 이용할 수 없습니다")
     # 정상 발급 화면·빈 문자열은 오탐 없음(정상 흐름을 끊지 않음)
     assert not _is_maintenance_notice("발급 폼 로드 — 신청하기 진행")
     assert not _is_maintenance_notice("문서출력 처리완료")
+    # ⚠️ '점검' 단독(정기 점검 안내문 등)은 오탐하지 않아야 한다 — 상태 못박는 구절만 매칭
+    assert not _is_maintenance_notice("정기 점검 시간은 매일 새벽 3시입니다")
+    assert not _is_maintenance_notice("서류를 점검하세요")
     assert not _is_maintenance_notice("")
     assert not _is_maintenance_notice(None)  # 방어적: None 안전
+
+
+def test_maintenance_msg_names_service():
+    """점검 안내 문구는 서류명을 넣고 '앱 오류 아님'을 명시한다(사용자 오해 방지)."""
+    from rpa.gov24_rpa import _maintenance_msg
+    m = _maintenance_msg("가족관계증명서")
+    assert "가족관계증명서" in m and "앱 오류 아님" in m and "전자발급" in m
+
+
+def test_all_frames_text_gathers_and_skips_broken_frames():
+    """_all_frames_text: 메인+iframe 텍스트를 합치고, 접근 불가(cross-origin) 프레임은 건너뛴다.
+    → 점검 팝업이 연계기관 iframe 안에 떠도 감지되도록 한 프레임 인지 텍스트 수집을 고정."""
+    import asyncio
+    from rpa.gov24_rpa import _all_frames_text, _is_maintenance_notice
+
+    class _Frame:
+        def __init__(self, text=None, boom=False):
+            self._text, self._boom = text, boom
+        async def evaluate(self, _script):
+            if self._boom:
+                raise RuntimeError("cross-origin")  # 접근 불가 프레임
+            return self._text
+
+    class _Page:
+        frames = [_Frame("메인 본문"), _Frame(boom=True), _Frame("안내\n서비스 점검 중입니다.")]
+
+    loop = asyncio.new_event_loop()
+    try:
+        txt = loop.run_until_complete(_all_frames_text(_Page()))
+    finally:
+        loop.close()
+    assert "메인 본문" in txt and "서비스 점검 중입니다" in txt   # 두 정상 프레임 모두 수집
+    assert _is_maintenance_notice(txt)                          # iframe 팝업이 합쳐져 감지됨
