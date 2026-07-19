@@ -732,7 +732,8 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None, session=Non
             if sign_frame is not None:
                 _prov = str((user_info or {}).get("auth_provider", "kakao") or "kakao")
                 await click_provider_in_anyid(sign_frame, _prov)
-                await asyncio.sleep(1)
+                # 첫 로그인과 동일하게 — 제공자 선택 후 폼이 렌더될 때까지 기다린 뒤 자동입력(전체동의 리셋 방지).
+                await _wait_auth_form_ready(sign_frame)
                 if await _autofill_auth_form(sign_frame, user_info) and re.sub(r"[^0-9]", "", str((user_info or {}).get("birth_date", ""))):
                     await _request_auth(sign_frame)
                 task.update("waiting_login", f"📱 전자서명 인증이에요 — {provider_display(_prov)} [인증 허용]을 눌러주세요.", await take_screenshot(page))
