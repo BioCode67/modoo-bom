@@ -154,17 +154,18 @@ export function RpaInfoForm() {
             <option value="모">모</option>
           </select>
           <input
+            type="password"
             value={rpaInfo.parent_name ?? ''}
             onChange={(e) => setRpaInfo({ parent_name: e.target.value })}
             placeholder="부/모 성명 (가족관계용·선택)"
             autoComplete="off"
             className="min-w-0 flex-1 rounded-lg border border-sprout-100 px-2.5 py-1.5 text-xs focus-ring"
-            aria-label="부 또는 모 성명 (가족관계증명서용)"
+            aria-label="부 또는 모 성명 (가족관계증명서용, 화면에 가려져 표시)"
           />
         </div>
       </div>
       <p className="text-[11px] text-muted-foreground leading-relaxed">
-        🔒 뒷 7자리·부모 성명은 <b>가족관계증명서(대법원) 발급 자동입력에만</b> 쓰여요 — 화면엔 ●로 가려지고,
+        🔒 뒷 7자리·부모 성명은 <b>가족관계증명서(대법원) 발급 자동입력에만</b> 쓰여요 — 둘 다 화면엔 ●로 가려지고,
         디스크·탭 기억에도 <b>저장되지 않아요</b>. 넣어두면 인증 요청까지 전부 자동이 돼요.
       </p>
       <div className="flex flex-wrap gap-1">
