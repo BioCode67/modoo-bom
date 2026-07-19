@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Bot, CheckCircle2, Loader2, AlertCircle, Stethoscope, ClipboardCopy, X, Volume2 } from 'lucide-react'
 import { getRpaBase } from '@/lib/backend'
 import { isAuthVoice, setAuthVoice } from '@/lib/authCue'
@@ -17,6 +17,32 @@ export function AgentStatusStrip() {
   const [pf, setPf] = useState<'idle' | 'running' | 'error' | PfResult>('idle')
   const [diagDone, setDiagDone] = useState(false) // 진단 복사 완료 표시(훅은 조기 return 앞에)
   const [voice, setVoice] = useState(() => isAuthVoice()) // 🔊 인증 음성 안내(기기 기억, 옵트인)
+  const [autoOk, setAutoOk] = useState(false) // 조용한 자가점검이 '통과'했음(무소음 ✓ 표기용)
+
+  // 🩺 조용한 자가점검 — 스트립이 처음 보일 때 1회(탭 세션당), 문제를 '발급 시작 전에' 발견한다.
+  //   통과면 작은 ✓만(패널 안 엶 — 무소음), 실패면 수동 점검과 같은 결과 패널을 자동 표시.
+  //   본인 PC 전용(공유/원격은 서버 403과 동일 기준으로 건너뜀) · F5 재실행 없음(sessionStorage).
+  useEffect(() => {
+    if (ready !== true || !caps?.rpa || caps.rpaRemote || caps.shared) return
+    try {
+      if (sessionStorage.getItem('modoobom-auto-pf')) return
+      sessionStorage.setItem('modoobom-auto-pf', '1')
+    } catch { return } // 저장 불가 환경(시크릿 등)이면 반복 실행 위험 — 자동 점검 생략(수동 버튼은 그대로)
+    let alive = true
+    const timer = setTimeout(async () => {
+      try {
+        const ctrl = new AbortController()
+        const kill = setTimeout(() => ctrl.abort(), 45000)
+        const r = await fetch(`${getRpaBase()}/api/_preflight`, { signal: ctrl.signal })
+        clearTimeout(kill)
+        const j = await r.json()
+        if (!alive || !Array.isArray(j?.checks)) return
+        if (j.ok) setAutoOk(true)          // 전부 정상 — 조용히 ✓만
+        else setPf(j as PfResult)          // 문제 발견 — 결과 패널 자동 표시(원인·조치 안내)
+      } catch { /* 자동 점검 실패는 조용히 — 수동 [발급 전 점검]이 항상 남아 있다 */ }
+    }, 2500) // 첫 화면 렌더·상태 연결이 끝난 뒤(초기 로딩과 브라우저 프로브 경합 방지)
+    return () => { alive = false; clearTimeout(timer) }
+  }, [ready, caps])
 
   if (ready !== true || !caps?.rpa) return null
   const cap = caps.rpaCapacity
@@ -62,6 +88,12 @@ export function AgentStatusStrip() {
           {caps.version && <span className="font-semibold text-muted-foreground">v{caps.version}</span>}
         </span>
         {slots && <span className={busy ? 'font-semibold text-amber-700' : 'text-muted-foreground'}>{busy ? `혼잡 — ${slots}` : slots}</span>}
+        {autoOk && !result && (
+          <span className="inline-flex items-center gap-1 font-semibold text-success-600"
+            title="앱이 켜질 때 브라우저·정부24/복지로 연결·발급 폴더·디스크·서류함을 스스로 점검했어요 — 전부 정상">
+            <CheckCircle2 className="h-3 w-3" /> 자가점검 통과
+          </span>
+        )}
         <span className="ml-auto inline-flex items-center gap-1.5">
           {running && (
             <span className="inline-flex items-center gap-1 font-semibold text-muted-foreground">
