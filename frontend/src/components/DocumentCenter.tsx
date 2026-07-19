@@ -343,10 +343,9 @@ export function DocumentCenter() {
   // 📨 자동신청만 진행 경로의 안내 메시지 — 훅은 조기 return 앞(rules-of-hooks)
   const [applyOnlyMsg, setApplyOnlyMsg] = useState('')
 
-  // 담은 복지 0 + 에이전트 연결(슬림 모드) — 자유 선택 패널을 처음부터 펼쳐 보여준다(첫 진입 발견성)
-  useEffect(() => {
-    if (localAgent && docNeeds.length === 0) setPickOpen(true)
-  }, [localAgent, docNeeds.length])
+  // ⚠️ 사용자 요청(실사용): '나의 복지'는 '담은 혜택에 필요한 서류'만 정리해서 보여준다.
+  //   지원 15종 자유 선택 그리드는 '필요 없는 서류'라 기본으로 펼치지 않는다(과거 슬림모드 자동펼침 제거).
+  //   자유 선택은 아래 '다른 서류도 필요하세요?' 버튼으로 opt-in — 패널은 접힌 상태로 시작한다.
 
   // 담은 복지가 없고 에이전트도 없으면(웹) 표시할 것이 없다. 에이전트가 있으면 아래 '슬림 모드'로 계속 —
   // 심사·첫 사용처럼 아무것도 안 담고 들어와도 15종 자유 발급·서류함은 동작해야 한다(데스크탑 1순위).
@@ -782,7 +781,8 @@ export function DocumentCenter() {
         <button
           onClick={() => { setPickOpen(true); setPicked(Object.fromEntries(chainDocs.map((d) => [d, true]))) }}
           className="btn-secondary w-full !py-2 text-xs">
-          🗂 다른 서류도 필요하세요? 지원 {localDocs.length}종에서 골라 한번에 발급 →
+          {/* 담은 혜택 서류가 있으면 '다른 서류도', 없으면(슬림) '서류를 골라' — 필요 서류만 보여주는 기본 뷰에 맞춘 opt-in */}
+          {docs.length > 0 ? '🗂 다른 서류도 필요하세요?' : '🗂 서류를 골라 발급하기'} 지원 {localDocs.length}종에서 골라 한번에 발급 →
         </button>
       ) : (
         <div className="rounded-2xl border-2 border-sky2-100 bg-sky2-50/40 p-3.5">

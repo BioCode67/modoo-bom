@@ -253,6 +253,9 @@ async def _autofill_auth_form(ctx, user_info: dict) -> bool:
                         await ctx.fill(sel, tail); filled = True; break
                 except Exception:
                     continue
+        # '전체동의'는 이름·생년월일·휴대폰을 다 채운 뒤 '가장 마지막'에 체크한다 — 필드 입력에 따른
+        #   재렌더가 동의 체크를 지우지 않도록(실사용 제보: 순서/타이밍에 따라 동의가 풀림). 짧은 안정화 후 체크.
+        await asyncio.sleep(0.3)
         for sel in ["#totalAgree", "input#totalAgree", "label:has-text('전체동의')"]:
             try:
                 if await ctx.locator(sel).count() > 0:
@@ -300,8 +303,10 @@ async def _login_on_www_gov(page, task, user_info: dict = None) -> bool:
     # ③ 인증수단 선택 (iframe 내부, 뱅크류 오클릭 제외)
     await asyncio.sleep(0.5)
     kakaotalk_clicked = await click_provider_in_anyid(auth_ctx, provider)
-    # 폼 등장은 아래 detect_auth_form/자동입력이 감지 — 잔여 안정화만
-    await asyncio.sleep(0.5)
+    # ⚠️ 제공자(카카오톡) 선택 후 본인인증 폼이 '완전히' 렌더될 때까지 기다린다(실사용 제보):
+    #   너무 빨리 자동입력하면 폼 재렌더가 '전체동의' 체크를 지운다(제공자 선택이 동의를 리셋).
+    #   → 카카오톡 먼저 클릭 → 폼 안정 → 이름/생년월일/휴대폰 + 전체동의 순으로 채운다.
+    await _wait_auth_form_ready(auth_ctx)
     ss = await take_screenshot(page)
 
     # ④ 본인인증 정보 입력 폼 감지 및 안내 (iframe 컨텍스트에서 감지)
@@ -417,20 +422,76 @@ def _maintenance_msg(doc_name: str) -> str:
     )
 
 
-async def _all_frames_text(page) -> str:
-    """메인 문서 + 모든 iframe의 보이는 텍스트를 합쳐 반환 — '서비스 점검 중' 팝업이 연계기관
-    iframe(대법원 가족관계·국세청 홈택스) 안에 떠도 메인 body만 보고 놓치지 않게(실사용 제보:
-    가족관계·소득이 '지연'으로만 보이고 점검 감지가 안 되던 원인). cross-origin·소멸 프레임은
-    접근 시 예외라 조용히 건너뛴다(무해)."""
+async def _maintenance_popup_text(page) -> str:
+    """'보이는 모달/팝업/알림' 컨테이너의 텍스트만 전체 프레임에서 모은다.
+    ⚠️ 실사용 제보: 사이트는 정상 발급되는데 앱이 '점검 중'으로 오판하면 안 된다(직접 하면 됨).
+       페이지 본문 전체를 훑으면 안내 보일러플레이트('…점검 중에는 이용 불가')까지 잡혀 오탐 →
+       실제 점검 팝업은 '모달/레이어'로 뜨므로, 그 컨테이너만 골라 검사해 오탐을 막는다.
+       연계기관 iframe(대법원 가족관계·국세청 홈택스)에 떠도 잡히도록 전체 프레임을 순회한다.
+    cross-origin·소멸 프레임은 접근 시 예외라 조용히 건너뛴다(무해)."""
+    js = (
+        "() => {"
+        "  const sels = '[role=\"dialog\"],[role=\"alertdialog\"],.modal,.popup,.layer,.layerPopup,"
+        ".dialog,.alert,[class*=\"popup\"],[class*=\"modal\"],[class*=\"layer\"]';"
+        "  const vis = el => { const r = el.getBoundingClientRect(); const s = getComputedStyle(el);"
+        "    return r.width > 40 && r.height > 20 && s.display !== 'none' && s.visibility !== 'hidden' && s.opacity !== '0'; };"
+        "  return [...document.querySelectorAll(sels)].filter(vis).map(el => el.innerText || '').join('\\n');"
+        "}"
+    )
     parts = []
     for fr in page.frames:
         try:
-            t = await fr.evaluate("() => document.body ? document.body.innerText : ''")
+            t = await fr.evaluate(js)
             if t:
                 parts.append(t)
         except Exception:
             continue
     return "\n".join(parts)
+
+
+async def _wait_auth_form_ready(ctx, timeout_sec: int = 5) -> None:
+    """제공자(카카오톡) 선택 후 본인인증 입력 폼(이름/생년월일 필드)이 실제로 렌더될 때까지 대기.
+    ⚠️ 실사용 제보: 제공자 클릭 직후 너무 빨리 자동입력하면, 폼 재렌더가 '전체동의' 체크를 지운다
+       (제공자 선택이 동의를 리셋). 필드가 나타난 뒤 + 렌더 여유를 두고 진행해 동의 체크가 유지되게 한다."""
+    for _ in range(max(1, timeout_sec * 2)):
+        try:
+            for sel in ("#oacx_name", "#oacx_birth", "input[placeholder*='이름']", "input[placeholder*='생년월일']"):
+                if await ctx.locator(sel).count() > 0:
+                    await asyncio.sleep(0.7)  # 렌더 완료 여유 — 이후 자동입력·동의 체크가 안정적으로 남는다
+                    return
+        except Exception:
+            pass
+        await asyncio.sleep(0.5)
+
+
+async def _wait_document_rendered(page, timeout_sec: int = 12) -> None:
+    """문서출력 뷰어의 '본문'이 실제로 렌더될 때까지 대기 — 빈 PDF 저장 방지.
+    ⚠️ 실사용 제보: 발급은 되는데 너무 빨리 캡처해 '헤더만 있고 본문 빈' PDF가 저장됐다.
+       네트워크 안정화 후, 문서 뷰어가 그린 캔버스/이미지/embed 또는 충분한 본문 텍스트가
+       나타날 때까지 폴링한다. 못 찾아도 최대 대기 후 진행(어떤 경우든 캡처는 한다)."""
+    try:
+        await page.wait_for_load_state("networkidle", timeout=timeout_sec * 1000)
+    except Exception:
+        pass
+    js = (
+        "() => {"
+        "  const big = el => el && el.getBoundingClientRect().width > 120 && el.getBoundingClientRect().height > 120;"
+        "  const hasCanvas = [...document.querySelectorAll('canvas')].some(c => c.width > 120 && c.height > 120);"
+        "  const hasImg = [...document.querySelectorAll('img')].some(i => i.naturalWidth > 120 && i.naturalHeight > 120);"
+        "  const hasEmbed = big(document.querySelector('embed, object, iframe'));"
+        "  const textLen = (document.body ? document.body.innerText : '').replace(/\\s/g,'').length;"
+        "  return hasCanvas || hasImg || hasEmbed || textLen > 300;"
+        "}"
+    )
+    for _ in range(max(1, timeout_sec * 2)):
+        try:
+            if await page.evaluate(js):
+                await asyncio.sleep(2.0)  # 렌더/페인트 완료 여유 — 캡처가 본문을 담게
+                return
+        except Exception:
+            pass
+        await asyncio.sleep(0.5)
+    await asyncio.sleep(2.0)  # 신호 못 잡아도 최소 여유 후 캡처(빈 화면보다 늦더라도 담기게)
 
 
 def _pick_result_page(context, fallback):
@@ -590,7 +651,7 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None, session=Non
             stuck = 0            # 진행 신호 없이 헛돈 횟수 — 일정 이상이면 사용자 수정 유예 부여
             task.update("running", "신청 버튼을 눌러 발급을 진행하고 있어요…", await take_screenshot(page))
             # 폼 진입 직후 '서비스 점검 중' 팝업(연계기관 야간 점검)부터 확인 — 헛돌지 않고 즉시 정직 안내.
-            if _is_maintenance_notice(await _all_frames_text(page)):
+            if _is_maintenance_notice(await _maintenance_popup_text(page)):
                 task.update("error", _maintenance_msg(doc_name), await take_screenshot(page))
                 return
             for _hb in range(24):  # 최대 ~4분(주소·폼 정정 대기 포함)
@@ -624,7 +685,7 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None, session=Non
                 #   소득금액증명(국세청 홈택스 08~22시) 등 외부기관 연계 서류는 야간·새벽 점검이 잦다.
                 #   ⚠️ 팝업은 연계기관 iframe 안에 뜰 수 있어 메인 body만 보면 놓친다(실사용: '지연'으로만 보임)
                 #      → 메인+전체 프레임 텍스트를 함께 확인. 4분 헛돌지 않고 즉시 정직 안내.
-                if _is_maintenance_notice(txt) or _is_maintenance_notice(await _all_frames_text(page)):
+                if _is_maintenance_notice(await _maintenance_popup_text(page)):
                     task.update("error", _maintenance_msg(doc_name), await take_screenshot(page))
                     return
                 # 주소 불일치 안내 모달 → 닫고, 사용자가 시도·시군구를 고칠 때까지 대기 후 재시도
@@ -693,6 +754,9 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None, session=Non
                 await final_page.bring_to_front()
             except Exception:
                 pass
+            # 🖨 문서출력 뷰어는 본문 렌더가 늦다 — 너무 빨리 캡처하면 '헤더만 있고 본문 빈' PDF가 저장됨
+            #    (실사용 제보). 본문이 실제로 그려질 때까지 기다린 뒤 save_document 로 캡처한다.
+            await _wait_document_rendered(final_page)
             final_url = final_page.url
             body_now = await _txt()
             # ⚠️ 실제 발급 신호로만 성공 판정 — save_document 는 어떤 화면이든 항상 저장(headed에선 스샷 폴백)

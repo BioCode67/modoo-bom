@@ -96,27 +96,48 @@ def test_maintenance_msg_names_service():
     assert "가족관계증명서" in m and "앱 오류 아님" in m and "전자발급" in m
 
 
-def test_all_frames_text_gathers_and_skips_broken_frames():
-    """_all_frames_text: 메인+iframe 텍스트를 합치고, 접근 불가(cross-origin) 프레임은 건너뛴다.
-    → 점검 팝업이 연계기관 iframe 안에 떠도 감지되도록 한 프레임 인지 텍스트 수집을 고정."""
+def test_maintenance_popup_text_gathers_and_skips_broken_frames():
+    """_maintenance_popup_text: 보이는 팝업/모달 텍스트를 프레임 전체에서 합치고, 접근 불가
+    (cross-origin) 프레임은 건너뛴다. → 점검 팝업이 연계기관 iframe 안에 떠도 감지되도록,
+    동시에 '본문 보일러플레이트'가 아니라 팝업만 대상으로 해 오탐을 줄이는 수집을 고정."""
     import asyncio
-    from rpa.gov24_rpa import _all_frames_text, _is_maintenance_notice
+    from rpa.gov24_rpa import _maintenance_popup_text, _is_maintenance_notice
 
     class _Frame:
-        def __init__(self, text=None, boom=False):
-            self._text, self._boom = text, boom
+        # 이 프레임의 '보이는 팝업' 텍스트(_maintenance_popup_text 의 JS 결과)를 흉내낸다.
+        def __init__(self, popup=None, boom=False):
+            self._popup, self._boom = popup, boom
         async def evaluate(self, _script):
             if self._boom:
                 raise RuntimeError("cross-origin")  # 접근 불가 프레임
-            return self._text
+            return self._popup or ""
 
     class _Page:
-        frames = [_Frame("메인 본문"), _Frame(boom=True), _Frame("안내\n서비스 점검 중입니다.")]
+        frames = [_Frame(""), _Frame(boom=True), _Frame("안내\n서비스 점검 중입니다.\n닫기")]
 
     loop = asyncio.new_event_loop()
     try:
-        txt = loop.run_until_complete(_all_frames_text(_Page()))
+        txt = loop.run_until_complete(_maintenance_popup_text(_Page()))
     finally:
         loop.close()
-    assert "메인 본문" in txt and "서비스 점검 중입니다" in txt   # 두 정상 프레임 모두 수집
-    assert _is_maintenance_notice(txt)                          # iframe 팝업이 합쳐져 감지됨
+    assert "서비스 점검 중입니다" in txt          # iframe 팝업이 합쳐져 잡힘(깨진 프레임은 건너뜀)
+    assert _is_maintenance_notice(txt)            # 팝업 텍스트로 점검 감지 성립
+
+
+def test_wait_document_rendered_returns_when_content_present():
+    """_wait_document_rendered: 문서 본문(텍스트/캔버스 등)이 감지되면 대기를 마치고 진행한다
+    → 빈 PDF 저장 방지의 '본문 렌더 대기'가 실제로 콘텐츠를 기다리는지 고정(ready 경로)."""
+    import asyncio
+    from rpa.gov24_rpa import _wait_document_rendered
+
+    class _Page:
+        async def wait_for_load_state(self, _state, timeout=0):
+            return None
+        async def evaluate(self, _script):
+            return True  # 본문이 이미 렌더됨
+
+    loop = asyncio.new_event_loop()
+    try:
+        loop.run_until_complete(_wait_document_rendered(_Page(), timeout_sec=1))  # 예외 없이 반환하면 통과
+    finally:
+        loop.close()
