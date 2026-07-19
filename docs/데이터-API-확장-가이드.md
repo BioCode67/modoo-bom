@@ -26,10 +26,15 @@ python etl/ingest_gov24.py --probe
 # ③ 수집 + policies.json 병합
 python etl/ingest_gov24.py --run
 
-# ④ 반영
-cd ../frontend && npm run deploy        # 웹(gh-pages)
+# ④ AI 의미 검색 벡터 재생성 — 새 정책이 AI 검색에도 잡히게(모델 다운로드 필요, 로컬 1회)
+cd ../frontend && npm run embed
+
+# ⑤ 반영
+npm run deploy                          # 웹(gh-pages)
 #   또는 npm run build:app              # 데스크탑앱
 ```
+> 참고: 정책 '텍스트'(대상·혜택·자격)를 수정했을 때도 `npm run embed` 재생성이 필요하다
+> (임베딩은 빌드 시 사전계산 — 재생성 전까지 AI 의미 검색은 이전 텍스트 기준으로 랭킹).
 > ⚠️ 정직성 장치: 컨테이너(정부망 차단)에서 실제 응답을 못 봤기 때문에 필드 매핑은
 > '후보 키 관용 매핑'으로 두었고, `--probe`가 실측 키를 보여준다. 후보에 없는 키가 보이면
 > `ingest_gov24.py`의 `_CAND`에 한 줄 추가하면 된다(다른 코드 수정 불필요).

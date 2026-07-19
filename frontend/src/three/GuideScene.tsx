@@ -1,4 +1,5 @@
 import { Canvas } from '@react-three/fiber'
+import { FrameCap } from './FrameCap'
 import { SproutMascot } from './SproutMascot'
 
 export interface GuideSceneProps { onContextLost?: () => void }
@@ -10,6 +11,7 @@ export interface GuideSceneProps { onContextLost?: () => void }
 export default function GuideScene({ onContextLost }: GuideSceneProps) {
   return (
     <Canvas
+      frameloop="demand"
       dpr={[1, 1.5]}
       gl={{ antialias: true, alpha: true }}
       camera={{ position: [0, 0.35, 6.6], fov: 38 }}
@@ -19,6 +21,7 @@ export default function GuideScene({ onContextLost }: GuideSceneProps) {
         gl.domElement.addEventListener('webglcontextlost', (e) => { e.preventDefault(); onContextLost?.() }, { once: true })
       }}
     >
+      <FrameCap fps={24} />
       <hemisphereLight args={['#ffffff', '#d7f5e3', 0.9]} />
       <ambientLight intensity={0.5} />
       <directionalLight position={[4, 6, 5]} intensity={1.4} />
