@@ -168,10 +168,30 @@ function docIn(list: string[], doc: string): boolean {
   const d = doc.replace(/\s/g, '')
   return list.some((s) => d.includes(s.replace(/\s/g, '')) || s.replace(/\s/g, '').includes(d))
 }
-/** channel: 'ext'=크롬 확장(13종) · 'local'=로컬 백엔드(15종) · 미지정=둘 중 아무거나(최대 집합) */
+
+// ── 동적 커버리지 — 에이전트의 /api/documents/rpa-supported 응답으로 로컬 지원목록을 승격 ──
+// 사용자 PC에서 프로브 실측(--register)으로 확장된 서류가 코드 수정 없이 패널·게이트에 반영된다.
+// 기본값은 내장 15종(LOCAL_RPA_DOCS) — 서버 응답이 없거나 웹 배포면 그대로 유지(기능 무손실).
+let _localDocs: string[] = [...LOCAL_RPA_DOCS]
+let _localBeta = new Set<string>()
+export function setLocalRpaDocs(supported: string[], beta: string[] = []): void {
+  if (Array.isArray(supported) && supported.length > 0) {
+    _localDocs = [...supported]
+    _localBeta = new Set((beta || []).map((b) => b.replace(/\s/g, '')))
+  }
+}
+export function localRpaDocs(): string[] {
+  return _localDocs
+}
+/** β(동적 확장) 서류인가 — '첫 실발급이 최종 검증' 배지 표기용 */
+export function isLocalBetaDoc(doc: string): boolean {
+  return _localBeta.has(doc.replace(/\s/g, ''))
+}
+
+/** channel: 'ext'=크롬 확장(13종) · 'local'=로컬 백엔드(15종+동적 β) · 미지정=둘 중 아무거나(최대 집합) */
 export function isRpaSupported(doc: string, channel?: 'ext' | 'local'): boolean {
-  if (channel === 'local') return docIn(LOCAL_RPA_DOCS, doc)
-  return docIn(RPA_SUPPORTED_DOCS, doc)
+  if (channel === 'local') return docIn(_localDocs, doc)
+  return docIn(RPA_SUPPORTED_DOCS, doc) || docIn(_localDocs, doc)
 }
 
 /** 에이전트(RPA) 신청 자동화 지원 서비스 (백엔드 manager.py SUPPORTED_SERVICE_NAMES와 일치) */

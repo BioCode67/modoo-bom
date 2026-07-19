@@ -230,11 +230,16 @@ def main() -> int:
             pg.evaluate(notify)
             pg.wait_for_selector("text=3종 전부 자동발급", timeout=8000)  # 원복(상태 잔류 없음)
 
-            # 5.8) 🗂 자유 선택 일괄발급 — 지원 15종 그리드·부족분 기본 선택·미입력 가드(여정 미시작)
+            # 5.8) 🗂 자유 선택 일괄발급 — 지원 그리드(서버 지원목록과 동수: 동적 커버리지 배선 검증)·
+            #      부족분 기본 선택·미입력 가드(여정 미시작)
+            import urllib.request as _url
+            _sup = json.loads(_url.urlopen(f"{BASE.rstrip('/')}/api/documents/rpa-supported", timeout=5).read())
+            n_server = len(_sup.get("supported", []))
+            assert n_server >= 15, f"서버 지원 서류 수 비정상: {n_server}"
             pg.locator("button:has-text('골라 한번에 발급')").click()
             pg.wait_for_selector("text=원하는 서류 골라 일괄발급", timeout=6000)
             n_boxes = pg.locator("input.accent-sky2-600").count()
-            assert n_boxes == 15, f"자유 선택 지원 서류 수 불일치: {n_boxes}"
+            assert n_boxes == n_server, f"패널 서류 수({n_boxes}) ≠ 서버 지원목록({n_server}) — 동적 배선 회귀"
             pg.wait_for_selector("button:has-text('선택한 3종 한번에 발급')", timeout=4000)  # 부족 3종이 기본 선택
             pg.locator("label:has-text('병적증명서') input").check()
             pg.wait_for_selector("button:has-text('선택한 4종 한번에 발급')", timeout=4000)
@@ -254,7 +259,7 @@ def main() -> int:
             pg2.wait_for_selector("text=아직 담은 복지가 없어요", timeout=15000)
             pg2.wait_for_selector("text=서류 발급 도우미", timeout=10000)          # 슬림 모드 헤더
             pg2.wait_for_selector("text=원하는 서류 골라 일괄발급", timeout=8000)   # 패널 자동 펼침
-            assert pg2.locator("input.accent-sky2-600").count() == 15, "슬림 모드 15종 그리드 누락"
+            assert pg2.locator("input.accent-sky2-600").count() == n_server, "슬림 모드 지원 그리드 수 불일치(동적 배선)"
             pg2.wait_for_selector("text=내 서류함", timeout=8000)                  # 서류함도 동작
             pg2.close()
             print("[desktop] ✅ 5.9. 슬림 모드 — 담은 복지 0에서도 발급 도우미·15종 패널·서류함 동작")

@@ -3,7 +3,7 @@ import { motion } from 'framer-motion'
 import { FileText, ExternalLink, Bot, Loader2, CheckCircle2, AlertCircle, Check, Undo2 } from 'lucide-react'
 import { getPolicyMap } from '@/data/catalog'
 import { useAppStore } from '@/store/useAppStore'
-import { docLink, isRpaSupported, isCertIssuable, certKind, CERT_WALLET, isApplyAutomatable, LOCAL_RPA_DOCS } from '@/lib/officialLinks'
+import { docLink, isRpaSupported, isCertIssuable, certKind, CERT_WALLET, isApplyAutomatable, LOCAL_RPA_DOCS, setLocalRpaDocs, isLocalBetaDoc } from '@/lib/officialLinks'
 import { issuableCanonical, substituteIssuableDoc } from '@/lib/docAliases'
 import { isBokjiroApplyable } from '@/lib/quickApply'
 import { getRpaBase } from '@/lib/backend'
@@ -50,6 +50,22 @@ export function DocumentCenter() {
   const backend = localAgent || ext                  // 둘 중 하나면 자동발급 노출
   const [rpa, setRpa] = useState<Record<string, RpaState>>({})
   const [diagCopied, setDiagCopied] = useState(false)
+  // 🗂 동적 지원목록 — 에이전트의 rpa-supported로 승격(프로브 --register 확장분이 β로 즉시 반영).
+  //   실패·웹 배포면 내장 15종 유지(기능 무손실). officialLinks 게이트(isRpaSupported/자동첨부 별칭)도 함께 갱신.
+  const [localDocs, setLocalDocs] = useState<string[]>(LOCAL_RPA_DOCS)
+  useEffect(() => {
+    if (!localAgent) return
+    let alive = true
+    fetch(`${getRpaBase()}/api/documents/rpa-supported`)
+      .then((r) => r.json())
+      .then((d: { supported?: string[]; beta?: string[] }) => {
+        if (!alive || !Array.isArray(d.supported) || d.supported.length === 0) return
+        setLocalRpaDocs(d.supported, d.beta || [])
+        setLocalDocs(d.supported)
+      })
+      .catch(() => { /* 미응답이면 내장 목록 그대로 — 정직 폴백 */ })
+    return () => { alive = false }
+  }, [localAgent])
   // '서류가 어디 저장되는지 모르겠다'(실사용 피드백) — 로컬 에이전트(내 PC)일 때만 탐색기 열기 제공
   const rpaBase = getRpaBase()
   const isLocalAgentBase = /^https?:\/\/(localhost|127\.0\.0\.1)/.test(rpaBase)
@@ -669,7 +685,7 @@ export function DocumentCenter() {
 
   // 🗂 자유 선택 일괄발급 시작 — 검증·중복 가드는 원클릭 연쇄(startAll)와 동일 기준
   const startPicked = async () => {
-    const sel = LOCAL_RPA_DOCS.filter((d) => picked[d])
+    const sel = localDocs.filter((d) => picked[d])
     if (!sel.length) { setPickMsg('발급할 서류를 하나 이상 선택해 주세요.'); return }
     if (!rpaInfoReady) { setPickMsg('아래 "자동입력 추가정보"에 실명·생년월일·휴대폰을 먼저 입력해 주세요.'); focusRpaForm(); return }
     // 이미 진행 중인 서류는 제외 — 같은 서류가 브라우저 2개로 중복 발급되는 것 방지(startAll과 동일)
@@ -693,31 +709,32 @@ export function DocumentCenter() {
         <button
           onClick={() => { setPickOpen(true); setPicked(Object.fromEntries(chainDocs.map((d) => [d, true]))) }}
           className="btn-secondary w-full !py-2 text-xs">
-          🗂 다른 서류도 필요하세요? 지원 {LOCAL_RPA_DOCS.length}종에서 골라 한번에 발급 →
+          🗂 다른 서류도 필요하세요? 지원 {localDocs.length}종에서 골라 한번에 발급 →
         </button>
       ) : (
         <div className="rounded-2xl border-2 border-sky2-100 bg-sky2-50/40 p-3.5">
           <div className="flex items-center justify-between gap-2 flex-wrap">
-            <p className="text-sm font-bold">🗂 원하는 서류 골라 일괄발급 <span className="text-xs font-semibold text-muted-foreground">지원 {LOCAL_RPA_DOCS.length}종 · 한 번 인증으로 이어서</span></p>
+            <p className="text-sm font-bold">🗂 원하는 서류 골라 일괄발급 <span className="text-xs font-semibold text-muted-foreground">지원 {localDocs.length}종 · 한 번 인증으로 이어서</span></p>
             <button onClick={() => setPickOpen(false)} aria-label="일괄발급 선택 닫기" className="text-xs font-semibold text-muted-foreground hover:underline">닫기</button>
           </div>
           <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1.5">
-            {LOCAL_RPA_DOCS.map((d) => (
+            {localDocs.map((d) => (
               <label key={d} className="flex items-start gap-1.5 text-xs font-medium cursor-pointer select-none">
                 <input type="checkbox" checked={!!picked[d]} onChange={(e) => setPicked((s) => ({ ...s, [d]: e.target.checked }))} className="mt-0.5 accent-sky2-600" />
                 <span className="break-keep">{d}
                   {vaultOk(d) && <span className="ml-1 rounded-md bg-sky2-100 px-1 py-0.5 text-[10px] font-bold text-sky2-700" title="서류함에 유효한 파일이 이미 있어요 — 다시 발급하지 않아도 돼요">🗂 있음</span>}
+                  {isLocalBetaDoc(d) && <span className="ml-1 rounded-md bg-amber-100 px-1 py-0.5 text-[10px] font-bold text-amber-700" title="내 PC에서 실측 등록한 확장 서류예요 — 코드·발급버튼은 확인됐고, 첫 발급 완주가 최종 검증이에요">β</span>}
                 </span>
               </label>
             ))}
           </div>
           <button onClick={startPicked} className="btn-primary w-full mt-2.5 !py-2 text-sm">
-            🚀 선택한 {LOCAL_RPA_DOCS.filter((d) => picked[d]).length}종 한번에 발급 (한 번 인증으로 이어서)
+            🚀 선택한 {localDocs.filter((d) => picked[d]).length}종 한번에 발급 (한 번 인증으로 이어서)
           </button>
           {pickMsg && <p className="mt-1 text-[11px] font-semibold text-rose-600">{pickMsg}</p>}
           <p className="mt-1 text-[11px] text-muted-foreground">📱 각 서류 차례에 인증 요청이 오면 승인만 해주세요 · 발급물은 🗂 서류함에 모여요</p>
           {/* 담은 정책 카드 밖 서류의 진행 상태 — 카드가 없으므로 여기서 그대로 보여준다(침묵 금지) */}
-          {LOCAL_RPA_DOCS.filter((d) => rpa[d] && !docs.includes(d)).map((d) => {
+          {localDocs.filter((d) => rpa[d] && !docs.includes(d)).map((d) => {
             const st = rpa[d]!
             const done = ['done', 'completed'].includes(st.status)
             return (
