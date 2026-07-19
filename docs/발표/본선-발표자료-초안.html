@@ -12,6 +12,8 @@
 <style>
   @font-face { font-family: 'Pretendard Variable'; font-weight: 100 900; font-style: normal;
     font-display: block; src: url('fonts/PretendardVariable.woff2') format('woff2'); }
+  @font-face { font-family: 'Jua'; font-weight: 400 900; font-style: normal;
+    font-display: block; src: url('fonts/Jua-Regular.ttf') format('truetype'); }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { background: #e8ede6; }
   body { font-family: 'Pretendard Variable', Pretendard, 'Noto Sans CJK KR', sans-serif; color: #16281c; word-break: keep-all;
@@ -36,25 +38,25 @@
   }
   .eyebrow {
     display: inline-block; background: #e7f6e6; color: #15803d; font-weight: 800; font-size: 14px;
-    padding: 6px 14px; border-radius: 8px; margin-bottom: 16px; width: fit-content; letter-spacing: .3px;
+    padding: 6px 15px; border-radius: 999px; margin-bottom: 16px; width: fit-content; letter-spacing: .3px;
   }
-  h1 { font-size: 64px; font-weight: 900; letter-spacing: -0.03em; }
-  h2 { font-size: 40px; font-weight: 800; letter-spacing: -0.025em; margin-bottom: 8px; line-height: 1.22; }
+  h1 { font-family: 'Jua', 'Pretendard Variable', sans-serif; font-size: 62px; font-weight: 400; letter-spacing: -0.01em; }
+  h2 { font-family: 'Jua', 'Pretendard Variable', sans-serif; font-size: 39px; font-weight: 400; letter-spacing: -0.005em; margin-bottom: 8px; line-height: 1.25; }
   .grad { background: linear-gradient(90deg, #16a34a, #65a30d); -webkit-background-clip: text; background-clip: text; color: transparent; }
   .muted { color: #55705c; }
   .row { display: flex; gap: 28px; }
   .col { display: flex; flex-direction: column; gap: 16px; }
   .card {
-    background: #ffffff; border: 1px solid #e4efe2; border-radius: 20px; padding: 22px 26px;
-    box-shadow: 0 8px 24px rgba(20, 83, 45, 0.06), 0 1px 3px rgba(20, 83, 45, 0.04);
+    background: #ffffff; border: 1px solid #e4efe2; border-radius: 26px; padding: 22px 26px;
+    box-shadow: 0 10px 26px rgba(20, 83, 45, 0.07), 0 1px 3px rgba(20, 83, 45, 0.04);
   }
   .stat-n { font-size: 44px; font-weight: 900; line-height: 1.05; background: linear-gradient(92deg,#15803d,#22c55e); -webkit-background-clip: text; background-clip: text; color: transparent; }
   .stat-l { font-size: 16px; font-weight: 700; color: #446b4d; margin-top: 4px; }
   .band {
-    background: linear-gradient(100deg,#14532d,#1c6b3c); color: #eafbea; border-radius: 18px; padding: 16px 24px;
+    background: linear-gradient(100deg,#14532d,#1c6b3c); color: #eafbea; border-radius: 22px; padding: 16px 26px;
     font-size: 19px; font-weight: 700; box-shadow: 0 10px 26px rgba(20,60,30,.20); /* flex 금지 — <b> 조각이 플렉스 아이템으로 흩어져 어색한 간격 발생 */
   }
-  .shot { border: 2px solid #cfe8cf; border-radius: 16px; box-shadow: 0 10px 26px rgba(20, 60, 30, .12); }
+  .shot { border: 2px solid #cfe8cf; border-radius: 20px; box-shadow: 0 10px 26px rgba(20, 60, 30, .12); }
   .pill { display: inline-block; background: #fff; border: 1.5px solid #c3e6c1; color: #166534; border-radius: 999px; padding: 8px 18px; font-weight: 700; box-shadow: 0 3px 10px rgba(20,83,45,.08); }
   ul.pts { list-style: none; display: flex; flex-direction: column; gap: 14px; }
   /* li를 flex로 두면 <b> 조각들이 플렉스 아이템으로 흩어져 문장이 조각난다 — 불릿은 absolute로 */
@@ -67,7 +69,7 @@
   .node b { font-size: 22px; }
   .node p { font-size: 15px; color: #55705c; margin-top: 4px; line-height: 1.4; }
   .arrow { font-size: 30px; color: #86b992; font-weight: 900; margin-top: -46px; }
-  .step { flex: 1; background: #ffffff; border: 1px solid #e4efe2; border-radius: 16px; padding: 18px; text-align: center; box-shadow: 0 6px 18px rgba(20,83,45,.05); }
+  .step { flex: 1; background: #ffffff; border: 1px solid #e4efe2; border-radius: 20px; padding: 18px; text-align: center; box-shadow: 0 6px 18px rgba(20,83,45,.05); }
   .step .n { display: inline-flex; width: 34px; height: 34px; border-radius: 999px; background: #16a34a; color: #fff;
     align-items: center; justify-content: center; font-weight: 900; margin-bottom: 8px; }
   .step b { display: block; font-size: 19px; }
@@ -180,7 +182,7 @@
       <div class="col" style="flex:1;">
         <div class="card"><div class="stat-n">5,300<span style="font-size:24px;">여 건</span></div><div class="stat-l">흩어져 있는 복지 — 민간재단은 어떤 정부 포털에도 없음</div></div>
         <div class="card"><div class="stat-n">신청주의</div><div class="stat-l">자격이 있어도 신청하지 않으면 한 푼도 지급되지 않는 구조</div></div>
-        <div class="card"><div class="stat-n">전 과정의 부담</div><div class="stat-l">문제는 검색이 아니라 "찾고 → 이해하고 → 신청하고 → 관리하는" 부담 전체</div></div>
+        <div class="card"><div class="stat-n">전 과정의 부담</div><div class="stat-l">문제는 검색이 아니라 찾고 → 이해하고 → 신청하고 → 관리하는 부담 전체</div></div>
       </div>
     </div>
   </div>
@@ -193,7 +195,7 @@
     <span class="eyebrow">해결</span>
     <h2>챗봇이 아니라, <span class="grad">루프 전체가 에이전트</span>입니다</h2>
     <div class="loop">
-      <div class="node"><div class="ic">1</div><b>인지</b><p>"72세 혼자 사는데<br/>소득이 적어요" — 말 한마디(음성)</p></div>
+      <div class="node"><div class="ic">1</div><b>인지</b><p>72세 혼자 사는데<br/>소득이 적어요 — 말 한마디(음성)</p></div>
       <div class="arrow">→</div>
       <div class="node"><div class="ic">2</div><b>판단</b><p>5,300여 건에서 자격판정<br/>(2026 공식 선정기준)</p></div>
       <div class="arrow">→</div>
@@ -203,7 +205,7 @@
       <div class="arrow">→</div>
       <div class="node"><div class="ic">5</div><b>관찰</b><p>마감 D-day · 갱신 임박<br/>먼저 브리핑</p></div>
     </div>
-    <p class="muted" style="text-align:center; font-weight:700; font-size:16px; margin-bottom:18px;"> 관찰 결과가 다시 '인지'로 — 앱을 열면 에이전트가 먼저 보고합니다</p>
+    <p class="muted" style="text-align:center; font-weight:700; font-size:16px; margin-bottom:18px;"> 관찰 결과가 다시 인지로 — 앱을 열면 에이전트가 먼저 보고합니다</p>
     <div class="band"> 개인정보 서버 전송 0 — 자격판정·의미검색(신경망 임베딩)·모니터링 전부 <b>내 브라우저 안(온디바이스)</b>에서 동작</div>
   </div>
   <div class="foot"><span>모두봄 — 개인 복지 AI 에이전트</span><span>4 / 16</span></div>
@@ -268,7 +270,7 @@
         </tr>
       </tbody>
     </table>
-    <div class="band" style="margin-top:16px; font-size:18px;"> 추천에서 끝나지 않고 <b>'행동'까지</b> — 개인정보는 <b>기기 밖으로 나가지 않게</b>. 기존 서비스와 구분되는 지점입니다.</div>
+    <div class="band" style="margin-top:16px; font-size:18px;"> 추천에서 끝나지 않고 <b>행동까지</b> — 개인정보는 <b>기기 밖으로 나가지 않게</b>. 기존 서비스와 구분되는 지점입니다.</div>
   </div>
   <div class="foot"><span>모두봄 — 개인 복지 AI 에이전트</span><span>5 / 16</span></div>
 </section>
@@ -301,7 +303,7 @@
       <ul class="pts" style="flex:1.15; font-size:20px;">
         <li>신경망 임베딩(<b>multilingual-e5</b>)이 <b>브라우저에서 직접</b> 실행 — 서버 전송 0</li>
         <li>한국어·English·Tiếng Việt·中文·日本語 <b>교차 언어</b> 검색 (외국인·다문화 사각지대)</li>
-        <li>키워드가 아니라 <b>의미</b>로 매칭 — "집이 없어 힘들어요" → 주거·긴급복지 연결</li>
+        <li>키워드가 아니라 <b>의미</b>로 매칭 — 집이 없어 힘들어요 → 주거·긴급복지 연결</li>
         <li>정책 벡터는 빌드 시 사전계산 → 런타임은 <b>질의만</b> 임베딩(즉시 응답)</li>
         <li>자국어로 <b>말하면 음성으로</b> 답 · 결과 온디바이스 번역</li>
       </ul>
@@ -423,7 +425,7 @@
       <div class="card" style="flex:1; text-align:center;"><div class="stat-n">환각 0</div><div class="stat-l">결과·금액은 전부 규칙·데이터 기반 — AI 답변도 검색결과로만 생성</div></div>
     </div>
     <div class="col" style="margin-top:22px; gap:12px;">
-      <div class="band" style="background:#fff; color:#14532d; border:2px solid #bbe3bb;"> 심사·선발형 민간지원을 "자격 있음"으로 표시하면 <b>테스트가 실패하도록</b> 만들었습니다</div>
+      <div class="band" style="background:#fff; color:#14532d; border:2px solid #bbe3bb;"> 심사·선발형 민간지원을 자격 있음으로 표시하면 <b>테스트가 실패하도록</b> 만들었습니다</div>
       <div class="band" style="background:#fff; color:#14532d; border:2px solid #bbe3bb;"> 기초연금·부모급여·생계급여 등 헤드라인 금액 9종 — <b>2026 보건복지부 공식 출처로 전건 재검증</b></div>
       <div class="band" style="background:#fff; color:#14532d; border:2px solid #bbe3bb;"> CI 품질 게이트 — lint · 타입검사 · 테스트를 통과해야만 배포되는 파이프라인 (매 배포 자동 증명)</div>
     </div>
@@ -475,7 +477,7 @@
         <ul class="pts" style="font-size:19px;">
           <li>지자체·복지관 보급 — 무운영비 구조라 <b>즉시 확산 가능</b></li>
           <li>민간재단 제휴로 사각지대 커버리지 확대</li>
-          <li><b>공공 마이데이터 연동</b> — "인증 한 번이면 완전 자동" 준비 중</li>
+          <li><b>공공 마이데이터 연동</b> — 인증 한 번이면 완전 자동 준비 중</li>
           <li>같은 에이전트 루프를 세금·행정 등 생활영역으로 전이</li>
           <li>ETL 재수집 파이프라인 — 데이터 최신성 운영 프로세스 확립</li>
         </ul>
@@ -497,7 +499,7 @@
       </figure>
       <figure class="col" style="flex:1; gap:10px;">
         <img class="shot" src="현장/노인복지센터-홈화면.jpg" alt="어르신이 직접 모두봄 홈 화면을 보는 모습" style="width:100%; height:285px; object-fit:cover; object-position:center; border-radius:16px;" />
-        <figcaption class="muted" style="font-size:14px; font-weight:700; text-align:center;">직접 보고 — "받을 수 있는 복지, 모두"</figcaption>
+        <figcaption class="muted" style="font-size:14px; font-weight:700; text-align:center;">직접 보고 — 받을 수 있는 복지, 모두</figcaption>
       </figure>
       <figure class="col" style="flex:1; gap:10px;">
         <img class="shot" src="현장/노인복지센터-사용.jpg" alt="어르신이 직접 복지 검색 결과를 확인하는 모습" style="width:100%; height:285px; object-fit:cover; object-position:center; border-radius:16px;" />
@@ -516,7 +518,7 @@
     <h2>평가 항목별 <span class="grad">대응 근거</span></h2>
     <div class="col" style="margin-top:18px; gap:11px; flex:1;">
       <div class="card" style="padding:15px 26px;">
-        <div style="display:inline-block; width:216px; vertical-align:middle;"><div><span style="font-weight:800; color:#16281c; font-size:18px;">창의성</span><span style="font-weight:900; color:#15803d; font-size:23px; margin-left:9px;">30</span></div><div style="height:7px; border-radius:99px; background:#e9f3e7; margin-top:8px;"><div style="height:100%; width:100%; border-radius:99px; background:linear-gradient(90deg,#16a34a,#22c55e);"></div></div></div><span style="display:inline-block; width:calc(100% - 244px); vertical-align:middle; font-size:16px; font-weight:600; padding-left:22px;">추천을 넘어 <b>'행동'</b>(실제 정부24 자동조작) · <b>민간재단 21건</b> · 온디바이스 — 기존에 없는 조합</span>
+        <div style="display:inline-block; width:216px; vertical-align:middle;"><div><span style="font-weight:800; color:#16281c; font-size:18px;">창의성</span><span style="font-weight:900; color:#15803d; font-size:23px; margin-left:9px;">30</span></div><div style="height:7px; border-radius:99px; background:#e9f3e7; margin-top:8px;"><div style="height:100%; width:100%; border-radius:99px; background:linear-gradient(90deg,#16a34a,#22c55e);"></div></div></div><span style="display:inline-block; width:calc(100% - 244px); vertical-align:middle; font-size:16px; font-weight:600; padding-left:22px;">추천을 넘어 <b>행동</b>(실제 정부24 자동조작) · <b>민간재단 21건</b> · 온디바이스 — 기존에 없는 조합</span>
       </div>
       <div class="card" style="padding:15px 26px;">
         <div style="display:inline-block; width:216px; vertical-align:middle;"><div><span style="font-weight:800; color:#16281c; font-size:18px;">구현 완성도</span><span style="font-weight:900; color:#15803d; font-size:23px; margin-left:9px;">25</span></div><div style="height:7px; border-radius:99px; background:#e9f3e7; margin-top:8px;"><div style="height:100%; width:83%; border-radius:99px; background:linear-gradient(90deg,#16a34a,#22c55e);"></div></div></div><span style="display:inline-block; width:calc(100% - 244px); vertical-align:middle; font-size:16px; font-weight:600; padding-left:22px;">자동테스트 <b>1,029</b>(프론트 775·백엔드 254) · 실브라우저 E2E <b>12스위트</b> · 실데이터 약 <b>5,300건</b> · 환각 0 설계</span>
