@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { MessageCircleHeart, X, Send, Mic, Compass, Sparkles, ArrowRight, Plus, Check } from 'lucide-react'
+import { MessageCircleHeart, X, Send, Mic, Compass, Sparkles, ArrowRight, Plus, Check, Phone } from 'lucide-react'
 import type { Policy } from '@/data/policies'
 import { useSpeech } from '@/lib/useSpeech'
 import { GUIDE_STEPS, recommend, type GuideAnswers } from '@/lib/guidedChat'
@@ -10,6 +10,7 @@ import { useBackend } from '@/lib/useBackend'
 import { getCatalog } from '@/data/catalog'
 import { useAppStore } from '@/store/useAppStore'
 import { SproutLogo } from '@/ui/SproutLogo'
+import { VoiceCall } from '@/components/VoiceCall'
 import { cn } from '@/lib/utils'
 
 interface Msg { role: 'user' | 'bot'; text: string; policies?: Policy[]; cta?: AgentReply['cta']; ai?: boolean; pending?: boolean; pendingId?: string }
@@ -18,6 +19,13 @@ const SUGGESTIONS = ['내가 받을 수 있는 거', '기초연금', '출산·�
 
 export function ChatWidget() {
   const [open, setOpen] = useState(false)
+  // 📞 통화형 상담 — 다른 화면(분석 등)의 CTA가 커스텀 이벤트로 열 수 있게(docs-changed와 동일 패턴)
+  const [callOpen, setCallOpen] = useState(false)
+  useEffect(() => {
+    const onCall = () => { setCallOpen(true); setOpen(false) }
+    window.addEventListener('modoobom:voice-call', onCall)
+    return () => window.removeEventListener('modoobom:voice-call', onCall)
+  }, [])
   const [msgs, setMsgs] = useState<Msg[]>([])
   const [input, setInput] = useState('')
   const [step, setStep] = useState(-1) // -1: 가이드 비활성
@@ -209,6 +217,7 @@ export function ChatWidget() {
 
   return (
     <>
+      <VoiceCall open={callOpen} onClose={() => setCallOpen(false)} />
       <button
         onClick={() => setOpen((o) => !o)}
         aria-label={open ? '복지 도우미 챗봇 닫기' : '복지 도우미 챗봇 열기'}
@@ -235,10 +244,18 @@ export function ChatWidget() {
           >
             <div className="flex items-center gap-2.5 bg-gradient-to-r from-sprout-700 to-emerald-700 px-4 py-3 text-white">
               <SproutLogo withFace className="h-8 w-8 bg-white/20 rounded-full p-0.5" />
-              <div>
+              <div className="flex-1 min-w-0">
                 <p className="font-bold leading-tight">새싹이 · 복지 에이전트</p>
                 <p className="text-[11px] text-white/80">{aiChat ? '물어보면 바로 찾아드려요 · 내 정보는 기기 안에서' : profile ? `${profile.name || '회원'}님 맞춤 · 담기까지 도와드려요` : '무엇이든 물어보세요'}</p>
               </div>
+              <button
+                onClick={() => { setCallOpen(true); setOpen(false) }}
+                className="rounded-full p-2 bg-white/15 hover:bg-white/25"
+                aria-label="음성 통화 상담으로 전환"
+                title="📞 새싹이와 통화하기 — 말로만 상담"
+              >
+                <Phone className="h-[18px] w-[18px]" />
+              </button>
             </div>
 
             <div className="flex-1 overflow-y-auto nice-scroll p-3 space-y-2.5 bg-sprout-50/30" role="log" aria-live="polite" aria-label="대화 내용">

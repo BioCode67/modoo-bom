@@ -76,6 +76,14 @@ export function Analyze() {
       {mode === 'chat' && <MascotChat onSubmit={handleSubmit} />}
       {mode === 'quick' && <QuickAsk onSubmit={handleSubmit} />}
       {mode === 'form' && <ProfileWizard onSubmit={handleSubmit} />}
+
+      {/* 📞 통화형 상담 — 화면 읽기·타이핑이 어려운 분을 위한 말로만 완주 경로(어르신 최우선) */}
+      <button
+        onClick={() => window.dispatchEvent(new Event('modoobom:voice-call'))}
+        className="mt-4 w-full rounded-3xl border-2 border-sprout-200 bg-white py-4 font-extrabold text-lg text-sprout-800 hover:bg-sprout-50 flex items-center justify-center gap-2.5"
+      >
+        📞 새싹이와 통화하기 <span className="text-sm font-semibold text-muted-foreground">— 말로 묻고 소리로 듣는 상담</span>
+      </button>
     </div>
   )
 }

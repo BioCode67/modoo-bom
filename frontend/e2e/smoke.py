@@ -182,6 +182,20 @@ def main() -> int:
             print("[e2e] ✅ 3.5 챗 행동 스토리(담기→서류 요약)")
             page.keyboard.press("Escape")
 
+            # 3.7) 📞 통화형 상담 — 어르신 말로만 완주 경로. 헤드리스에서도 '말 대신 입력' 이중 경로로
+            #      인사→질문→정책 답변까지 검증(음성 인식 자체는 브라우저 기능이라 실기기에서 확인).
+            #      진입은 챗 헤더의 📞 버튼(분석 완료 상태와 무관하게 항상 존재하는 경로).
+            page.click('[aria-label="복지 도우미 챗봇 열기"]')
+            page.click('[aria-label="음성 통화 상담으로 전환"]')
+            page.wait_for_selector('[role="dialog"][aria-label="새싹이와 통화 상담"]', timeout=8000)
+            page.fill('[aria-label="말 대신 입력하기"]', "기초연금 알려줘")
+            page.click('[aria-label="입력 보내기"]')
+            page.wait_for_selector("text=기초연금", timeout=8000)
+            page.keyboard.press("Escape")
+            page.wait_for_timeout(300)
+            assert page.locator('[aria-label="새싹이와 통화 상담"]').count() == 0, "통화 ESC 종료 실패"
+            print("[e2e] ✅ 3.7 📞 통화형 상담(인사→질문→답변→ESC 종료)")
+
             # 4) 탐색: 민간재단 필터 → 큐레이션 노출
             page.click("text=정책 탐색")
             page.click("text=민간재단")
