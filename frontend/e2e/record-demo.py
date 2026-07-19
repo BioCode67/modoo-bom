@@ -66,7 +66,17 @@ def main():
 
             # 분석 연출 + 결과
             pg.wait_for_selector("text=맞춤 추천 복지", timeout=40000)
-            pg.wait_for_timeout(2200)  # 헤더(37개·64만원) 감상
+            pg.wait_for_timeout(2200)  # 헤더(개수·핵심 현금지원) 감상
+
+            # 📞 결과를 전화로 — 브리핑 통화 컷(새싹이가 결과를 조목조목 설명)
+            try:
+                pg.click('[aria-label="결과를 전화로 설명 듣기"]', timeout=4000)
+                pg.wait_for_selector("text=전화로 짚어드릴게요", timeout=6000)
+                pg.wait_for_timeout(3200)  # 브리핑 자막 감상
+                pg.keyboard.press("Escape")
+                pg.wait_for_timeout(600)
+            except Exception:
+                pass  # 버튼 미노출(레이아웃 변경 등)이어도 나머지 여정은 계속
             pg.mouse.wheel(0, 500); pg.wait_for_timeout(1500)   # 에이전트 요약
             pg.mouse.wheel(0, 900); pg.wait_for_timeout(1800)   # 카드들
             pg.evaluate("window.scrollTo({top:0,behavior:'smooth'})"); pg.wait_for_timeout(1000)
