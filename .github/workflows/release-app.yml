@@ -1,0 +1,67 @@
+name: 앱 릴리스 관리
+
+# 데스크탑 앱 릴리스(app-v0.3.2)의 초안 생성 / 공개 전환을 수동 트리거로 수행한다.
+# - draft:   초안 릴리스를 만들어 둔다 — 자산(exe) 없는 릴리스가 Latest 가 되어
+#            홈 [Windows 앱 바로 받기](releases/latest/download/...)가 404 되는 것을 방지.
+# - publish: 자산(ModooBom-Setup.exe) 업로드 확인 후 초안을 공개 + Latest 로 전환한다.
+#            자산이 없으면 정직하게 실패한다(빈 릴리스 공개 방지).
+# publish-release.bat(gh CLI) 경로와 공존: bat 이 초안을 찾으면 자산만 업로드하므로
+# 이 워크플로의 publish 로 마무리하고, bat 이 새 공개 릴리스를 만들었으면 초안만 지우면 된다.
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "draft(초안 생성) 또는 publish(공개+Latest 전환)"
+        required: true
+        default: draft
+        type: choice
+        options: [draft, publish]
+      tag:
+        description: "릴리스 태그"
+        required: true
+        default: app-v0.3.2
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 초안 생성 / 공개 전환
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+          MODE: ${{ inputs.mode }}
+        run: |
+          set -euo pipefail
+          # 초안 포함 전체 릴리스에서 태그 존재 확인 — gh release view 는 초안을 못 찾는 버전이 있어 API 로 조회
+          rid=$(gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" \
+                  --jq ".[] | select(.tag_name == \"${TAG}\") | .id" | head -1)
+          if [ "$MODE" = "draft" ]; then
+            if [ -n "$rid" ]; then
+              echo "이미 ${TAG} 릴리스(id=${rid})가 있어 생성을 건너뜁니다."
+              exit 0
+            fi
+            gh release create "$TAG" --draft --target main \
+              --title "모두봄 데스크탑 앱 (Windows) ${TAG#app-}" \
+              --notes-file "docs/앱-릴리스-노트.md"
+            echo "✅ ${TAG} 초안 생성 완료 — 자산 업로드 전까지 비공개, Latest 불변"
+          else
+            if [ -z "$rid" ]; then
+              echo "::error::${TAG} 릴리스가 없습니다 — draft 모드로 먼저 생성하세요."
+              exit 1
+            fi
+            assets=$(gh api "repos/${GITHUB_REPOSITORY}/releases/${rid}" --jq '[.assets[].name] | join(",")')
+            case "$assets" in
+              *ModooBom-Setup.exe*) : ;;
+              *)
+                echo "::error::자산에 ModooBom-Setup.exe 가 없습니다(현재: ${assets:-없음}) — 업로드 후 다시 실행하세요."
+                exit 1
+                ;;
+            esac
+            gh api -X PATCH "repos/${GITHUB_REPOSITORY}/releases/${rid}" \
+              -F draft=false -f make_latest=true >/dev/null
+            echo "✅ ${TAG} 공개 + Latest 전환 완료 (자산: ${assets})"
+          fi
