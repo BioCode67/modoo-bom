@@ -203,6 +203,14 @@ def main() -> int:
             assert page.locator('[aria-label="새싹이와 통화 상담"]').count() == 0, "통화 ESC 종료 실패"
             print("[e2e] ✅ 3.7 📞 통화형 상담(인사→질문→답변→ESC 종료)")
 
+            # 3.75) 📞→💬 통화 기록 연속성 — 통화를 끊어도 대화가 챗에 이어진다("아까 뭐랬지?" 해결)
+            page.click('[aria-label="복지 도우미 챗봇 열기"]')
+            page.wait_for_selector("text=방금 통화하신 내용이에요", timeout=5000)
+            page.wait_for_selector("text=기초연금 알려줘", timeout=4000)  # 통화의 사용자 발화가 챗 기록에
+            page.keyboard.press("Escape")
+            page.wait_for_timeout(300)
+            print("[e2e] ✅ 3.75 📞→💬 통화 기록 연속성(끊어도 챗에 남음)")
+
             # 3.8) 📞 다국어 통화 — 영어 입력 → 자국어 안내 + UI 언어 자동 추종 + AI 의미 검색 핸드오프.
             #      (음성 인식·TTS 보이스는 실기기 확인 영역 — 여기선 라우팅·핸드오프 배선을 검증)
             page.click('[aria-label="복지 도우미 챗봇 열기"]')

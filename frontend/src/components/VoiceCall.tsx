@@ -14,7 +14,7 @@ import { formatWon, sumCashMonthly } from '@/lib/format'
 import { speakableText } from '@/lib/speakable'
 import { cn } from '@/lib/utils'
 
-interface Turn {
+export interface Turn {
   role: 'user' | 'bot'
   text: string
   policies?: AgentReply['policies']
@@ -33,7 +33,13 @@ interface Turn {
  * - 음성 인식은 브라우저 기능(Web Speech)을 쓴다 — 온디바이스 임베딩 검색과 달리
  *   브라우저에 따라 음성이 외부로 전송될 수 있어 '온디바이스'라고 과장하지 않는다.
  */
-export function VoiceCall({ open, onClose, presetLang }: { open: boolean; onClose: () => void; presetLang?: string }) {
+export function VoiceCall({ open, onClose, presetLang, onTranscript }: {
+  open: boolean
+  onClose: () => void
+  presetLang?: string
+  /** 통화 종료 시 대화 기록 전달 — 챗 위젯이 이어받아 '끊겨도 기록이 남는 전화'를 만든다 */
+  onTranscript?: (turns: Turn[]) => void
+}) {
   const profile = useAppStore((s) => s.profile)
   const result = useAppStore((s) => s.result)
   const tracked = useAppStore((s) => s.tracked)
@@ -59,6 +65,14 @@ export function VoiceCall({ open, onClose, presetLang }: { open: boolean; onClos
   const turnsRef = useRef<Turn[]>([]) // setTimeout 클로저의 stale turns 방지(담기 맥락은 최신 bot 턴 기준)
   turnsRef.current = turns
   const listRef = useRef<HTMLDivElement>(null)
+
+  // 종료 단일 통로 — 어떤 경로(ESC·⛔버튼·CTA)로 끊어도 대화 기록을 챗에 넘기고 닫는다(기록 증발 방지).
+  // ref로 감싸 ESC 리스너가 매 렌더 재등록되지 않게 한다.
+  const closeRef = useRef(() => {})
+  closeRef.current = () => {
+    onTranscript?.(turnsRef.current)
+    onClose()
+  }
 
   const say = (r: AgentReply, speakLang?: string, act?: () => void) => {
     setTurns((t) => [...t, { role: 'bot', text: r.text, policies: r.policies, cta: r.cta, act }])
@@ -161,10 +175,10 @@ export function VoiceCall({ open, onClose, presetLang }: { open: boolean; onClos
   // ESC로 종료(프로젝트 공통 패턴) + 새 턴마다 맨 아래로
   useEffect(() => {
     if (!open) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeRef.current() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [open, onClose])
+  }, [open])
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' })
   }, [turns, thinking])
@@ -192,7 +206,7 @@ export function VoiceCall({ open, onClose, presetLang }: { open: boolean; onClos
         >
           {muted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
         </button>
-        <button onClick={onClose} className="rounded-full p-3 bg-rose-100 text-rose-700 hover:bg-rose-200" aria-label="통화 종료">
+        <button onClick={() => closeRef.current()} className="rounded-full p-3 bg-rose-100 text-rose-700 hover:bg-rose-200" aria-label="통화 종료">
           <PhoneOff className="h-5 w-5" />
         </button>
       </div>
@@ -206,7 +220,7 @@ export function VoiceCall({ open, onClose, presetLang }: { open: boolean; onClos
               {t.text}
               {t.role === 'bot' && t.cta && (
                 <button
-                  onClick={() => { t.act?.(); setView(t.cta!.view); onClose() }}
+                  onClick={() => { t.act?.(); setView(t.cta!.view); closeRef.current() }}
                   className="btn-primary mt-3 w-full !py-3 text-base"
                 >
                   {t.cta.label} →

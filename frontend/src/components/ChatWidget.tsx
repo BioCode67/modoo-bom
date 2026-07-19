@@ -10,7 +10,7 @@ import { useBackend } from '@/lib/useBackend'
 import { getCatalog } from '@/data/catalog'
 import { useAppStore } from '@/store/useAppStore'
 import { SproutLogo } from '@/ui/SproutLogo'
-import { VoiceCall } from '@/components/VoiceCall'
+import { VoiceCall, type Turn } from '@/components/VoiceCall'
 import { cn } from '@/lib/utils'
 
 interface Msg { role: 'user' | 'bot'; text: string; policies?: Policy[]; cta?: AgentReply['cta']; ai?: boolean; pending?: boolean; pendingId?: string }
@@ -109,6 +109,19 @@ export function ChatWidget() {
   }, [open])
 
   const botSay = (text: string, extra?: Partial<Msg>) => setMsgs((m) => [...m, { role: 'bot', text, ...extra }])
+
+  // 📞 통화 기록 연속성 — 통화를 끊어도 대화가 증발하지 않고 챗에 이어진다("아까 뭐랬지?" 해결).
+  // 정책 칩(policies)은 유지해 챗에서 '담기/상세'를 이어서 할 수 있게 하고, CTA·act(프리필 부수효과)는
+  // 기록 목적에 맞지 않아 버린다. 인사만 하고 끊은 통화는 기록하지 않는다(노이즈 방지).
+  // 대화 삭제('다음 분 상담 시작')는 챗과 같은 resetNonce로 함께 지워진다(개인정보 일관성).
+  const absorbCall = (turns: Turn[]) => {
+    if (!turns.some((t) => t.role === 'user')) return
+    setMsgs((m) => [
+      ...m,
+      { role: 'bot', text: '📞 방금 통화하신 내용이에요 — 이어서 챗으로 물어보셔도 돼요.' },
+      ...turns.map((t): Msg => ({ role: t.role, text: t.text, policies: t.policies })),
+    ])
+  }
 
   const send = (text: string) => {
     const q = text.trim()
@@ -223,7 +236,7 @@ export function ChatWidget() {
 
   return (
     <>
-      <VoiceCall open={callOpen} presetLang={callLang} onClose={() => { setCallOpen(false); setCallLang(undefined) }} />
+      <VoiceCall open={callOpen} presetLang={callLang} onTranscript={absorbCall} onClose={() => { setCallOpen(false); setCallLang(undefined) }} />
       <button
         onClick={() => setOpen((o) => !o)}
         aria-label={open ? '복지 도우미 챗봇 닫기' : '복지 도우미 챗봇 열기'}
