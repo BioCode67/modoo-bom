@@ -63,7 +63,14 @@ def check_frontend() -> bool:
                 page.keyboard.press("Escape")
                 page.wait_for_timeout(500)
 
-        page.goto(SITE, wait_until="networkidle", timeout=60000)
+        try:
+            page.goto(SITE, wait_until="networkidle", timeout=60000)
+        except Exception as e:  # 프록시/망 차단 환경 — 코드 결함이 아님을 명확히
+            if "ERR_TUNNEL" in str(e) or "ERR_PROXY" in str(e) or "ERR_NAME" in str(e):
+                print(f"[prod] ⚠️ 라이브 사이트 접근 불가(네트워크/프록시 차단): {SITE}")
+                print("[prod] ⚠️ 이 스위트는 라이브 배포 검증용 — 인터넷 연결 환경에서 재실행하세요.")
+                return 2
+            raise
         print(f"홈 로드 OK — {page.title()}")
 
         for q in QUERIES:

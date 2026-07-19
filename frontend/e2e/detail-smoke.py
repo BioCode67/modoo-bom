@@ -22,7 +22,14 @@ def run() -> bool:
         b = pw.chromium.launch(executable_path=(__import__("glob").glob("/opt/pw-browsers/chromium-*/chrome-linux/chrome") or [None])[0])
         pg = b.new_context().new_page()
         pg.on("pageerror", lambda e: perrs.append(str(e)))
-        pg.goto(SITE, wait_until="networkidle", timeout=60000)
+        try:
+            pg.goto(SITE, wait_until="networkidle", timeout=60000)
+        except Exception as e:  # 프록시/망 차단 환경 — 코드 결함이 아님을 명확히
+            if "ERR_TUNNEL" in str(e) or "ERR_PROXY" in str(e) or "ERR_NAME" in str(e):
+                print(f"[detail] ⚠️ 라이브 사이트 접근 불가(네트워크/프록시 차단): {SITE}")
+                print("[detail] ⚠️ 이 스위트는 라이브 배포 검증용 — 인터넷 연결 환경에서 재실행하세요.")
+                sys.exit(2)  # run()이 bool 반환 구조라 여기서 직접 환경코드로 종료(거짓 OK 방지)
+            raise
         if pg.get_by_role("dialog").count():
             pg.keyboard.press("Escape"); pg.wait_for_timeout(400)
 

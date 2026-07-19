@@ -17,7 +17,14 @@ def main():
         pg = b.new_page(viewport={"width": 1280, "height": 900})
         errs = []
         pg.on("pageerror", lambda e: errs.append(str(e)))
-        resp = pg.goto(LIVE, wait_until="networkidle", timeout=60000)
+        try:
+            resp = pg.goto(LIVE, wait_until="networkidle", timeout=60000)
+        except Exception as e:  # 프록시/망 차단 환경 — 코드 결함이 아님을 명확히
+            if "ERR_TUNNEL" in str(e) or "ERR_PROXY" in str(e) or "ERR_NAME" in str(e):
+                print(f"[live] ⚠️ 라이브 사이트 접근 불가(네트워크/프록시 차단): {LIVE}")
+                print("[live] ⚠️ 이 스위트는 라이브 배포 검증용 — 인터넷 연결 환경에서 재실행하세요.")
+                return 2
+            raise
         if not resp or resp.status >= 400:
             print(f"❌ 홈 로드 실패: {resp and resp.status}"); return 1
         pg.wait_for_timeout(2500)
