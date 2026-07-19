@@ -420,7 +420,13 @@ export function Explore() {
                   </div>
                 </div>
               )}
-              {aiError && <p className="mt-2 font-medium text-rose-600">{aiError}</p>}
+              {aiError && (
+                <p className="mt-2 font-medium text-rose-600">
+                  {aiError}
+                  {/* 외국어 질의 사용자용 영어 브리지 — 7개 감지 언어 전부 번역하는 대신 정직한 영어 고정 안내 */}
+                  {answerLang !== 'ko' && <span className="block mt-0.5">Couldn't load the AI model — check your network, or use the regular keyword search.</span>}
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -551,7 +557,10 @@ export function Explore() {
           {aiMode && q.trim() && aiProgress ? (
             <><p className="text-4xl mb-2">🧠</p>AI가 뜻을 이해하는 중이에요… 잠시만요.</>
           ) : aiMode && q.trim() && aiError ? (
-            <><p className="text-4xl mb-2">🔌</p>AI 검색을 불러오지 못했어요. AI 토글을 끄고 <b>일반 검색</b>으로 찾아보세요.</>
+            <>
+              <p className="text-4xl mb-2">🔌</p>AI 검색을 불러오지 못했어요. AI 토글을 끄고 <b>일반 검색</b>으로 찾아보세요.
+              {answerLang !== 'ko' && <p className="mt-1 text-sm">Couldn't load AI search — please check your network and try again.</p>}
+            </>
           ) : (
             /* 막다른 길 금지 — 0건이어도 바로 눌러볼 다음 행동을 준다 */
             <>
