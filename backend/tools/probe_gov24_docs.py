@@ -10,13 +10,20 @@
 검토한 뒤 수동으로(마지막엔 실발급 1회 확인).
 
 사용법 (인터넷 되는 PC에서 — 개발 컨테이너는 정부망 차단):
-    cd backend && python tools/probe_gov24_docs.py            # 기본 후보 7종
-    python tools/probe_gov24_docs.py 혼인관계증명서 기본증명서   # 지정 서류만
+    cd backend && python tools/probe_gov24_docs.py                       # 기본 후보 7종 조사(보고서만)
+    python tools/probe_gov24_docs.py 혼인관계증명서 기본증명서              # 지정 서류만 조사
+    python tools/probe_gov24_docs.py --register 혼인관계증명서 기본증명서   # ✅ 통과분을 바로 등록(β)
+    python tools/probe_gov24_docs.py --list                              # 등록된 동적 서류 확인
+    python tools/probe_gov24_docs.py --remove 혼인관계증명서               # 등록 해제(첫 발급 실패 시)
 
-결과: 화면 출력 + tools/probe-report.md
-검증 통과 후 등재 위치(3곳 + 실발급 1회):
-    rpa/gov24_rpa.py DOC_CAPP · rpa/manager.py _SUPPORTED_DOCS · frontend officialLinks.LOCAL_RPA_DOCS
+--register 는 실측 통과(✅) 항목만 rpa/docs_extra.json 에 기록한다 → 앱 재시작하면
+발급 패널·여정·자동첨부에 β 배지로 즉시 나타난다(코드 수정 불필요).
+β의 의미(정직성): 코드·발급버튼은 실측 확인됐고, '첫 실발급 완주'가 최종 검증이다 —
+실패하면 앱이 정직한 오류를 보여주니 --remove 로 내리면 된다. 완주 확인 후 영구 등재(내장)를
+원하면 기존 절차(DOC_CAPP·_SUPPORTED_DOCS·LOCAL_RPA_DOCS 3곳)로 승격한다.
 """
+import json
+import os
 import re
 import sys
 import glob
@@ -114,9 +121,70 @@ def probe(names):
     return rows, None
 
 
+# 동적 등록 파일 — gov24_rpa._EXTRA_DOCS_PATH 와 동일 규칙(env 우선, 기본 rpa/docs_extra.json)
+EXTRA_PATH = pathlib.Path(os.getenv("MODOOBOM_EXTRA_DOCS", "") or (HERE.parent / "rpa" / "docs_extra.json"))
+
+
+def _read_extra():
+    try:
+        return json.loads(EXTRA_PATH.read_text(encoding="utf-8")) if EXTRA_PATH.exists() else []
+    except Exception:
+        return []
+
+
+def _write_extra(entries):
+    EXTRA_PATH.write_text(json.dumps(entries, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def cmd_list():
+    entries = _read_extra()
+    if not entries:
+        print(f"[probe] 등록된 동적 서류 없음 ({EXTRA_PATH})")
+        return 0
+    print(f"[probe] 등록된 동적 서류 {len(entries)}건 ({EXTRA_PATH}):")
+    for e in entries:
+        print(f"  {'β' if e.get('enabled') else '(꺼짐)'}  {e.get('name')}  code={e.get('code')}  {e.get('title', '')[:40]}")
+    return 0
+
+
+def cmd_remove(names):
+    entries = _read_extra()
+    keep = [e for e in entries if e.get("name") not in names]
+    removed = len(entries) - len(keep)
+    _write_extra(keep)
+    print(f"[probe] {removed}건 등록 해제 → 앱을 재시작하면 목록에서 사라져요.")
+    return 0
+
+
+def register_rows(rows):
+    """✅ 판정 행만 docs_extra.json 에 병합(이름 기준 갱신). 내장 서류와 겹치면 앱이 내장을 우선한다."""
+    ok_rows = [r for r in rows if r["verdict"].startswith("✅") and r["code"]]
+    if not ok_rows:
+        print("[probe] 등록할 ✅ 통과 항목이 없어요 — 보고서를 확인하세요.")
+        return
+    entries = {e.get("name"): e for e in _read_extra()}
+    for r in ok_rows:
+        entries[r["name"]] = {
+            "name": r["name"], "code": r["code"], "title": r["title"],
+            "enabled": True, "source": "probe", "note": "β — 첫 실발급 완주가 최종 검증",
+        }
+    _write_extra(list(entries.values()))
+    print(f"[probe] ✅ {len(ok_rows)}건 등록 → {EXTRA_PATH}")
+    print("[probe] 앱(run-local-app.bat)을 재시작하면 발급 패널·여정에 β 배지로 나타나요.")
+    print("[probe] β = 코드·발급버튼 실측 확인됨. 첫 실발급 1회가 최종 검증 — 실패하면 --remove 로 내리세요.")
+
+
 def main():
-    names = sys.argv[1:] or DEFAULT_CANDIDATES
-    print(f"[probe] 정부24 코드 발굴·검증 — 대상 {len(names)}종")
+    args = sys.argv[1:]
+    if args and args[0] == "--list":
+        return cmd_list()
+    if args and args[0] == "--remove":
+        return cmd_remove(args[1:]) if args[1:] else print("[probe] --remove 서류명") or 2
+    do_register = bool(args) and args[0] == "--register"
+    if do_register:
+        args = args[1:]
+    names = args or DEFAULT_CANDIDATES
+    print(f"[probe] 정부24 코드 발굴·검증 — 대상 {len(names)}종{' (통과분 자동 등록)' if do_register else ''}")
     rows, err = probe(names)
     if err:
         print(f"[probe] ❌ {err}")
@@ -132,6 +200,8 @@ def main():
               "4. 데스크탑앱에서 **실발급 1회 완주 확인**(카카오 인증 포함) 후 커밋 — 미완주 등재 금지"]
     REPORT.write_text("\n".join(lines), encoding="utf-8")
     print(f"[probe] 보고서: {REPORT}")
+    if do_register:
+        register_rows(rows)
     return 0
 
 

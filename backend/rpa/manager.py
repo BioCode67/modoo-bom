@@ -351,6 +351,13 @@ _SUPPORTED_DOCS = {
     "고용보험 피보험자격 이력내역서": ("work24", "고용24"),
 }
 
+# 동적 커버리지 — 사용자 PC에서 프로브 실측(--register)으로 확장된 gov24 서류를 병합.
+# 발급 흐름은 CappBizCD 단일소스의 일반 gov24 경로를 그대로 타므로 코드 추가 없이 동작한다.
+# (gov24_rpa 톱레벨은 경량 — playwright 등 무거운 의존은 함수 지역이라 부팅 비용 없음)
+from rpa.gov24_rpa import EXTRA_DOC_NAMES as _EXTRA_GOV24_DOCS  # noqa: E402
+for _n in _EXTRA_GOV24_DOCS:
+    _SUPPORTED_DOCS.setdefault(_n, ("gov24", "정부24"))
+
 SUPPORTED_DOC_NAMES = list(_SUPPORTED_DOCS.keys())
 
 _SUPPORTED_SERVICES = [

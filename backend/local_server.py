@@ -354,8 +354,10 @@ async def session_reset():
 
 @app.get("/api/documents/rpa-supported")
 async def rpa_supported_docs():
+    # beta = 프로브 실측(--register)으로 확장된 동적 서류 — 첫 실발급이 최종 검증(β 배지, routes 파리티)
     from rpa.manager import SUPPORTED_DOC_NAMES
-    return {"supported": SUPPORTED_DOC_NAMES}
+    from rpa.gov24_rpa import EXTRA_DOC_NAMES
+    return {"supported": SUPPORTED_DOC_NAMES, "beta": EXTRA_DOC_NAMES}
 
 
 @app.post("/api/documents/rpa-issue")

@@ -1,4 +1,4 @@
-import { LOCAL_RPA_DOCS, RPA_SUPPORTED_DOCS } from '@/lib/officialLinks'
+import { RPA_SUPPORTED_DOCS, localRpaDocs } from '@/lib/officialLinks'
 
 /**
  * 발급 서류 표기 정규화 — 정책 데이터의 표기 변형을 '자동발급 정식 문서명'으로 해석한다.
@@ -44,8 +44,9 @@ const SUBSTITUTES: [string, string][] = [
 export function issuableCanonical(name: string, channel?: 'ext' | 'local'): string | null {
   const n = norm(name)
   if (!n) return null
-  const list = channel === 'local' ? LOCAL_RPA_DOCS : channel === 'ext' ? RPA_SUPPORTED_DOCS
-    : [...new Set([...LOCAL_RPA_DOCS, ...RPA_SUPPORTED_DOCS])]
+  // 'local'은 동적 목록(localRpaDocs) — 프로브 실측으로 확장(β)된 서류도 정식명 해석·자동첨부 대상이 된다
+  const list = channel === 'local' ? localRpaDocs() : channel === 'ext' ? RPA_SUPPORTED_DOCS
+    : [...new Set([...localRpaDocs(), ...RPA_SUPPORTED_DOCS])]
   // 포함관계 변형('자녀 주민등록등본') — 가장 긴 정식명 우선(초본⊂등본 같은 중첩 오매칭 방지)
   const contained = list.filter((s) => n.includes(norm(s)) || norm(s).includes(n))
     .sort((a, b) => norm(b).length - norm(a).length)

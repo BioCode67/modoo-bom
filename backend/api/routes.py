@@ -223,9 +223,11 @@ async def session_reset():
 
 @router.get("/documents/rpa-supported")
 async def rpa_supported_docs():
-    """RPA 지원 서류 목록 반환"""
+    """RPA 지원 서류 목록 반환. beta = 사용자 PC 프로브 실측으로 확장된 동적 서류
+    (첫 실발급 완주가 최종 검증 — UI가 β 배지로 정직 표기)."""
     from rpa.manager import SUPPORTED_DOC_NAMES
-    return {"supported": SUPPORTED_DOC_NAMES}
+    from rpa.gov24_rpa import EXTRA_DOC_NAMES
+    return {"supported": SUPPORTED_DOC_NAMES, "beta": EXTRA_DOC_NAMES}
 
 
 @router.post("/documents/rpa-issue")

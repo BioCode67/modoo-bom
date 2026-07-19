@@ -14,7 +14,9 @@
   간편인증 제공자 선택·정보입력은 페이지가 아니라 iframe(simpleCert.html) 내부에 있다.
 """
 import asyncio
+import os
 import re
+from pathlib import Path as _Path
 from rpa.base import (
     take_screenshot, wait_for_login,
     click_first_matching, click_by_text, make_browser_context_args,
@@ -51,6 +53,48 @@ DOC_CAPP = {
     "병적증명서": "13000000016",
     "건강보험료 납부확인서": "SG4CADM2017",
 }
+
+# ── 동적 커버리지(사용자 PC 실측 확장) ─────────────────────────────────────
+# tools/probe_gov24_docs.py --register 가 만드는 로컬 파일(docs_extra.json)을 병합한다.
+# 정직 게이트(날조 금지):
+#   1) 파일에 기록되는 항목은 프로브가 '정부24 실측'(검색→코드 발굴→AA020 제목·발급버튼 확인)을
+#      통과한 것만이다 — 코드 추측 등재 불가.
+#   2) 병합돼도 '첫 실발급 완주'가 최종 검증 — 지원목록 API가 beta 로 표기해 UI가
+#      'β 첫 발급으로 최종 확인' 배지를 붙인다(실패 시 정직한 오류 + --remove 안내).
+#   3) 내장(검증 완료) 서류가 항상 우선 — 같은 이름은 덮어쓰지 않는다.
+#   4) 이 파일은 개인 PC 로컬 확장이며 저장소에 커밋하지 않는다(.gitignore).
+_EXTRA_DOCS_PATH = _Path(os.getenv("MODOOBOM_EXTRA_DOCS", "") or (_Path(__file__).resolve().parent / "docs_extra.json"))
+EXTRA_DOC_NAMES: list = []
+
+
+def _load_extra_docs() -> dict:
+    """docs_extra.json → {서류명: CappBizCD}. 손상·비정형 파일은 조용히 무시(부팅 불가침)."""
+    try:
+        if not _EXTRA_DOCS_PATH.exists():
+            return {}
+        import json as _json
+        raw = _json.loads(_EXTRA_DOCS_PATH.read_text(encoding="utf-8"))
+        out = {}
+        for e in raw if isinstance(raw, list) else []:
+            if not isinstance(e, dict) or not e.get("enabled", False):
+                continue
+            name = str(e.get("name", "")).strip()
+            code = str(e.get("code", "")).strip()
+            # 코드 형식 검증(정부24 CappBizCD: 영숫자 6~20자) — 이상값이 URL에 실려나가지 않게
+            if not name or not re.fullmatch(r"[0-9A-Za-z]{6,20}", code):
+                continue
+            if name in DOC_CAPP:  # 내장 우선(검증 완료분 보호)
+                continue
+            out[name] = code
+        return out
+    except Exception:
+        return {}
+
+
+_extra = _load_extra_docs()
+if _extra:
+    DOC_CAPP.update(_extra)
+    EXTRA_DOC_NAMES = list(_extra.keys())
 
 
 # 서비스 안내 페이지(AA020) — 로그인 후 접속. 발급폼(applyMinwonForm)이 안 뜰 때의 폴백 진입점.
