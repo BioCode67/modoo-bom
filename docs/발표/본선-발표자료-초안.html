@@ -2,9 +2,9 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8" />
-<title>모두봄 — 본선 발표자료 초안 (13장 · 16:9 · PDF 내보내기용)</title>
+<title>모두봄 — 본선 발표자료 초안 (16장 · 16:9 · PDF 내보내기용)</title>
 <!--
-  본선 발표자료(PDF만 허용) 초안 — 발표 대본(docs/기획서자료/발표-대본.md)의 3분 구조와 1:1.
+  본선 발표자료(PDF만 허용) — 7/20 제출용 10분 덱(16장). 3분 라이브 피치는 docs/기획서자료/발표-대본.md 참조.
   · 텍스트는 이 파일에서 바로 수정 → docs/발표/render-deck.py 실행하면 PDF 재생성.
   · 팀 정보 기입 완료: 영남대학교 · 팀 모두봄 · 김주형·류다영·신주현·이준영·장지웅.
   · 수치는 CLAUDE.md v0.3.2 기준(테스트 775+254=1,029·데이터 5,300여·E2E 12스위트) — 제출 직전 재확인.
@@ -16,20 +16,26 @@
   body { font-family: Pretendard, 'Noto Sans CJK KR', 'Malgun Gothic', sans-serif; color: #1a2e1d; word-break: keep-all; }
   .slide {
     width: 1280px; height: 720px; position: relative; overflow: hidden;
-    background: linear-gradient(160deg, #ffffff 0%, #f3faf1 70%, #e9f7ea 100%);
+    background: linear-gradient(90deg,#16a34a,#84cc16,#f59e0b) top/100% 6px no-repeat,
+                linear-gradient(160deg, #ffffff 0%, #f3faf1 68%, #e8f6e9 100%);
     page-break-after: always; margin: 0 auto 24px; display: flex; flex-direction: column;
   }
+  .slide::before { content:''; position:absolute; top:-170px; right:-150px; width:520px; height:520px;
+    border-radius:50%; background:radial-gradient(circle,rgba(34,197,94,.14),transparent 66%); pointer-events:none; }
+  .slide::after { content:''; position:absolute; bottom:-190px; left:-160px; width:480px; height:480px;
+    border-radius:50%; background:radial-gradient(circle,rgba(132,204,22,.12),transparent 68%); pointer-events:none; }
   @page { size: 1280px 720px; margin: 0; }
   @media print { body { background: #fff; } .slide { margin: 0; } }
 
-  .pad { padding: 56px 72px 64px; display: flex; flex-direction: column; flex: 1; }
+  .pad { padding: 56px 72px 64px; display: flex; flex-direction: column; flex: 1; position: relative; z-index: 1; }
   .foot {
-    position: absolute; left: 72px; right: 72px; bottom: 22px;
+    position: absolute; left: 72px; right: 72px; bottom: 22px; z-index: 2;
     display: flex; justify-content: space-between; font-size: 13px; color: #6b8570; font-weight: 600;
   }
   .eyebrow {
-    display: inline-block; background: #dcf3dc; color: #166534; font-weight: 800; font-size: 16px;
-    padding: 6px 16px; border-radius: 999px; margin-bottom: 14px; width: fit-content;
+    display: inline-block; background: linear-gradient(90deg,#dcf3dc,#d0eecb); color: #166534; font-weight: 800; font-size: 16px;
+    padding: 6px 16px; border-radius: 999px; margin-bottom: 14px; width: fit-content; letter-spacing: .2px;
+    box-shadow: 0 3px 10px rgba(22,101,52,.10);
   }
   h1 { font-size: 64px; font-weight: 900; letter-spacing: -1px; }
   h2 { font-size: 40px; font-weight: 900; letter-spacing: -0.5px; margin-bottom: 8px; }
@@ -38,17 +44,17 @@
   .row { display: flex; gap: 28px; }
   .col { display: flex; flex-direction: column; gap: 16px; }
   .card {
-    background: #fff; border: 2px solid #d7ecd7; border-radius: 22px; padding: 22px 26px;
-    box-shadow: 0 6px 18px rgba(22, 101, 52, 0.06);
+    background: linear-gradient(180deg,#ffffff,#f6fdf5); border: 1.5px solid #d9edd9; border-radius: 22px; padding: 22px 26px;
+    box-shadow: 0 12px 30px rgba(22, 101, 52, 0.08), 0 2px 6px rgba(22, 101, 52, 0.04);
   }
-  .stat-n { font-size: 40px; font-weight: 900; color: #15803d; line-height: 1.1; }
+  .stat-n { font-size: 44px; font-weight: 900; line-height: 1.05; background: linear-gradient(92deg,#15803d,#22c55e); -webkit-background-clip: text; background-clip: text; color: transparent; }
   .stat-l { font-size: 16px; font-weight: 700; color: #446b4d; margin-top: 4px; }
   .band {
-    background: #14532d; color: #eafbea; border-radius: 18px; padding: 16px 24px;
-    font-size: 19px; font-weight: 700; /* flex 금지 — <b> 조각이 플렉스 아이템으로 흩어져 어색한 간격 발생 */
+    background: linear-gradient(100deg,#14532d,#1c6b3c); color: #eafbea; border-radius: 18px; padding: 16px 24px;
+    font-size: 19px; font-weight: 700; box-shadow: 0 10px 26px rgba(20,60,30,.20); /* flex 금지 — <b> 조각이 플렉스 아이템으로 흩어져 어색한 간격 발생 */
   }
   .shot { border: 2px solid #cfe8cf; border-radius: 16px; box-shadow: 0 10px 26px rgba(20, 60, 30, .12); }
-  .pill { display: inline-block; background: #fff; border: 2px solid #bbe3bb; color: #166534; border-radius: 999px; padding: 8px 20px; font-weight: 800; }
+  .pill { display: inline-block; background: #fff; border: 2px solid #bbe3bb; color: #166534; border-radius: 999px; padding: 8px 20px; font-weight: 800; box-shadow: 0 4px 14px rgba(22,101,52,.12); }
   ul.pts { list-style: none; display: flex; flex-direction: column; gap: 14px; }
   /* li를 flex로 두면 <b> 조각들이 플렉스 아이템으로 흩어져 문장이 조각난다 — 불릿은 absolute로 */
   ul.pts li { position: relative; padding-left: 26px; font-size: 21px; font-weight: 600; line-height: 1.45; }
@@ -60,11 +66,16 @@
   .node b { font-size: 22px; }
   .node p { font-size: 15px; color: #55705c; margin-top: 4px; line-height: 1.4; }
   .arrow { font-size: 30px; color: #86b992; font-weight: 900; margin-top: -46px; }
-  .step { flex: 1; background: #fff; border: 2px solid #d7ecd7; border-radius: 18px; padding: 18px; text-align: center; }
+  .step { flex: 1; background: linear-gradient(180deg,#ffffff,#f6fdf5); border: 1.5px solid #d9edd9; border-radius: 18px; padding: 18px; text-align: center; box-shadow: 0 8px 20px rgba(22,101,52,.06); }
   .step .n { display: inline-flex; width: 34px; height: 34px; border-radius: 999px; background: #16a34a; color: #fff;
     align-items: center; justify-content: center; font-weight: 900; margin-bottom: 8px; }
   .step b { display: block; font-size: 19px; }
   .step p { font-size: 14px; color: #55705c; margin-top: 4px; line-height: 1.4; }
+  .chip { display:inline-flex; align-items:center; justify-content:center; width:46px; height:46px; border-radius:14px;
+    background:#dcf6dc; border:2px solid #a7e3b4; font-size:23px; flex-shrink:0; box-shadow:0 4px 12px rgba(22,101,52,.10); }
+  .kpi { font-size:46px; font-weight:900; line-height:1; background:linear-gradient(92deg,#15803d,#22c55e);
+    -webkit-background-clip:text; background-clip:text; color:transparent; }
+  table { word-break: keep-all; }
 </style>
 </head>
 <body>
@@ -72,17 +83,69 @@
 <!-- S1 표지 -->
 <section class="slide">
   <div class="pad" style="justify-content:center; align-items:center; text-align:center;">
-    <div style="font-size:88px; margin-bottom:6px;">🌱</div>
-    <h1><span class="grad">모두봄</span></h1>
-    <p style="font-size:30px; font-weight:800; margin-top:14px;">몰라서 못 받는 복지를 찾아주는<br/>개인 복지 AI 에이전트</p>
-    <p class="muted" style="font-size:19px; margin-top:22px; font-weight:600;">찾기 → 이해 → 서류·신청 실행 → 사후관리까지, 개인정보는 내 기기 안에서만</p>
-    <div style="display:flex; gap:14px; margin-top:34px;">
-      <span class="pill">라이브 서비스 운영 중 · biocode67.github.io/modoo-bom</span>
+    <div style="width:120px; height:120px; border-radius:38px; margin-bottom:16px; display:flex; align-items:center; justify-content:center; font-size:68px; background:radial-gradient(circle at 50% 38%, #eafce9, #d6f5d6); border:3px solid #a7e3b4; box-shadow:0 18px 44px rgba(22,101,52,.20);">🌱</div>
+    <h1 style="font-size:92px;"><span class="grad">모두봄</span></h1>
+    <p style="font-size:29px; font-weight:800; margin-top:8px;">몰라서 못 받는 복지를 찾아주는<br/><span class="grad">개인 복지 AI 에이전트</span></p>
+    <p class="muted" style="font-size:18px; margin-top:18px; font-weight:600;">찾기 → 이해 → 서류·신청 실행 → 사후관리까지 · 개인정보는 내 기기 안에서만</p>
+    <div style="display:flex; gap:10px; margin-top:24px; flex-wrap:wrap; justify-content:center;">
+      <span class="pill">🧠 온디바이스 AI</span>
+      <span class="pill">🌏 7개 언어</span>
+      <span class="pill">🤖 실제 신청 자동화</span>
+      <span class="pill">🔒 서버 전송 0</span>
     </div>
-    <p class="muted" style="font-size:17px; margin-top:40px; font-weight:700;">2026 AI·SW 중심대학 디지털 경진대회 SW부문 본선 · 영남대학교 팀 모두봄</p>
-    <p class="muted" style="font-size:16px; margin-top:8px; font-weight:600;">김주형 · 류다영 · 신주현 · 이준영 · 장지웅</p>
+    <div style="margin-top:22px;">
+      <span class="pill" style="background:linear-gradient(90deg,#14532d,#1c6b3c); color:#eafbea; border-color:transparent;">● 라이브 운영 중 · biocode67.github.io/modoo-bom</span>
+    </div>
+    <p class="muted" style="font-size:17px; margin-top:28px; font-weight:700;">2026 AI·SW 중심대학 디지털 경진대회 SW부문 본선 · 영남대학교 팀 모두봄</p>
+    <p class="muted" style="font-size:16px; margin-top:6px; font-weight:600;">김주형 · 류다영 · 신주현 · 이준영 · 장지웅</p>
   </div>
-  <div class="foot"><span>모두봄 — 개인 복지 AI 에이전트</span><span>1 / 13</span></div>
+  <div class="foot"><span>모두봄 — 개인 복지 AI 에이전트</span><span>1 / 16</span></div>
+</section>
+
+<!-- [신규] 한눈에 보는 모두봄 (요약) -->
+<section class="slide">
+  <div class="pad">
+    <span class="eyebrow">요약</span>
+    <h2>한눈에 보는 <span class="grad">모두봄</span></h2>
+    <p class="muted" style="font-size:18px; font-weight:600; margin-top:2px;">몰라서 못 받는 복지 — 설치 없이, 어떤 언어로 물어도, 개인정보는 기기 밖으로 안 나가게.</p>
+    <div class="col" style="margin-top:20px; gap:16px; flex:1;">
+      <div class="row" style="gap:16px; flex:1;">
+        <div class="card" style="flex:1; background:linear-gradient(180deg,#f2fbf2,#e7f6e7); border-color:#c7e9c7;">
+          <div style="font-size:42px; font-weight:900; color:#15803d; line-height:1;">5,300<span style="font-size:20px;"> 여 건</span></div>
+          <div style="font-size:18px; font-weight:800; margin-top:8px;">전국 복지 실데이터</div>
+          <div class="muted" style="font-size:14px; font-weight:600; margin-top:2px;">큐레이션 190 + 공공데이터 5,143</div>
+        </div>
+        <div class="card" style="flex:1; background:linear-gradient(180deg,#eff7ff,#e3f0fe); border-color:#c3ddf5;">
+          <div style="font-size:42px; font-weight:900; color:#0284c7; line-height:1;">7<span style="font-size:20px;"> 개 언어</span></div>
+          <div style="font-size:18px; font-weight:800; margin-top:8px;">온디바이스 다국어 검색</div>
+          <div class="muted" style="font-size:14px; font-weight:600; margin-top:2px;">외국인·다문화 사각지대까지</div>
+        </div>
+        <div class="card" style="flex:1; background:linear-gradient(180deg,#f6f3ff,#ece5fe); border-color:#d6cbf5;">
+          <div style="font-size:42px; font-weight:900; color:#7c3aed; line-height:1;">0</div>
+          <div style="font-size:18px; font-weight:800; margin-top:8px;">서버로 나가는 개인정보</div>
+          <div class="muted" style="font-size:14px; font-weight:600; margin-top:2px;">전부 내 기기 안에서 계산</div>
+        </div>
+      </div>
+      <div class="row" style="gap:16px; flex:1;">
+        <div class="card" style="flex:1; background:linear-gradient(180deg,#fffaeb,#fdf1cf); border-color:#f6e2a8;">
+          <div style="font-size:42px; font-weight:900; color:#d97706; line-height:1;">0<span style="font-size:20px;"> 원</span></div>
+          <div style="font-size:18px; font-weight:800; margin-top:8px;">서버비 · 회원가입</div>
+          <div class="muted" style="font-size:14px; font-weight:600; margin-top:2px;">정적 배포 + 온디바이스 AI</div>
+        </div>
+        <div class="card" style="flex:1; background:linear-gradient(180deg,#fff4ee,#fde4d5); border-color:#f6cbb0;">
+          <div style="font-size:42px; font-weight:900; color:#ea580c; line-height:1;">1,029</div>
+          <div style="font-size:18px; font-weight:800; margin-top:8px;">자동화 품질 테스트</div>
+          <div class="muted" style="font-size:14px; font-weight:600; margin-top:2px;">프론트 775 + 백엔드 254</div>
+        </div>
+        <div class="card" style="flex:1; background:linear-gradient(180deg,#f2fbf2,#e7f6e7); border-color:#c7e9c7;">
+          <div style="font-size:42px; font-weight:900; color:#15803d; line-height:1;">15<span style="font-size:20px;"> 종</span></div>
+          <div style="font-size:18px; font-weight:800; margin-top:8px;">정부24 서류 자동발급</div>
+          <div class="muted" style="font-size:14px; font-weight:600; margin-top:2px;">복지로 신청까지 자동작성</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><span>모두봄 — 개인 복지 AI 에이전트</span><span>2 / 16</span></div>
 </section>
 
 <!-- S2 문제 -->
@@ -107,7 +170,7 @@
       </div>
     </div>
   </div>
-  <div class="foot"><span>모두봄 — 개인 복지 AI 에이전트</span><span>2 / 13</span></div>
+  <div class="foot"><span>모두봄 — 개인 복지 AI 에이전트</span><span>3 / 16</span></div>
 </section>
 
 <!-- S3 해결: 에이전트 루프 -->
@@ -129,7 +192,7 @@
     <p class="muted" style="text-align:center; font-weight:700; font-size:16px; margin-bottom:18px;">🔁 관찰 결과가 다시 '인지'로 — 앱을 열면 에이전트가 먼저 보고합니다</p>
     <div class="band">🔒 개인정보 서버 전송 0 — 자격판정·의미검색(신경망 임베딩)·모니터링 전부 <b>내 브라우저 안(온디바이스)</b>에서 동작</div>
   </div>
-  <div class="foot"><span>모두봄 — 개인 복지 AI 에이전트</span><span>3 / 13</span></div>
+  <div class="foot"><span>모두봄 — 개인 복지 AI 에이전트</span><span>4 / 16</span></div>
 </section>
 
 <!-- [신규] 차별성 비교표 (창의성) -->
@@ -193,7 +256,7 @@
     </table>
     <div class="band" style="margin-top:16px; font-size:18px;">🌱 추천에서 끝나지 않고 <b>'행동'까지</b> — 개인정보는 <b>기기 밖으로 나가지 않게</b>. 이 조합은 기존 서비스에 없습니다.</div>
   </div>
-  <div class="foot"><span>모두봄 — 개인 복지 AI 에이전트</span><span>4 / 13</span></div>
+  <div class="foot"><span>모두봄 — 개인 복지 AI 에이전트</span><span>5 / 16</span></div>
 </section>
 
 <!-- S4 시연 1: 찾기 -->
@@ -212,7 +275,35 @@
       </ul>
     </div>
   </div>
-  <div class="foot"><span>모두봄 — 개인 복지 AI 에이전트</span><span>5 / 13</span></div>
+  <div class="foot"><span>모두봄 — 개인 복지 AI 에이전트</span><span>6 / 16</span></div>
+</section>
+
+<!-- [신규] 온디바이스 다국어 AI 의미검색 (헤드라인) -->
+<section class="slide">
+  <div class="pad">
+    <span class="eyebrow">창의성 · 헤드라인 기술</span>
+    <h2>브라우저에서 도는 <span class="grad">다국어 신경망 검색</span></h2>
+    <div class="row" style="margin-top:20px; flex:1; align-items:center;">
+      <ul class="pts" style="flex:1.15; font-size:20px;">
+        <li>신경망 임베딩(<b>multilingual-e5</b>)이 <b>브라우저에서 직접</b> 실행 — 서버 전송 0</li>
+        <li>한국어·English·Tiếng Việt·中文·日本語 <b>교차 언어</b> 검색 (외국인·다문화 사각지대)</li>
+        <li>키워드가 아니라 <b>의미</b>로 매칭 — "집이 없어 힘들어요" → 주거·긴급복지 연결</li>
+        <li>정책 벡터는 빌드 시 사전계산 → 런타임은 <b>질의만</b> 임베딩(즉시 응답)</li>
+        <li>자국어로 <b>말하면 음성으로</b> 답 · 결과 온디바이스 번역</li>
+      </ul>
+      <div class="col" style="flex:1; gap:14px;">
+        <div class="card" style="text-align:center;">
+          <div style="font-size:30px; letter-spacing:5px;">🇰🇷 🇬🇧 🇻🇳 🇨🇳 🇯🇵</div>
+          <div class="muted" style="font-size:15px; font-weight:700; margin-top:8px;">한 검색창, 여러 언어</div>
+        </div>
+        <div class="card" style="font-size:16px; font-weight:700; line-height:1.75; text-align:center;">
+          자연어 질의 (말 · 글)<br/><span style="color:#22c55e; font-size:20px;">↓</span><br/><b>브라우저 내 신경망 임베딩</b><br/><span style="color:#22c55e; font-size:20px;">↓</span><br/>의미 유사도 매칭<br/><span style="color:#22c55e; font-size:20px;">↓</span><br/><b>내 복지 추천</b>
+        </div>
+      </div>
+    </div>
+    <div class="band" style="margin-top:16px;">🔒 질의도 정책 원문도 <b>서버로 전송 0</b> — 프라이버시가 곧 접근성입니다(외국인·민감정보 계층).</div>
+  </div>
+  <div class="foot"><span>모두봄 — 개인 복지 AI 에이전트</span><span>7 / 16</span></div>
 </section>
 
 <!-- S5 시연 2: 신청 -->
@@ -235,7 +326,7 @@
       </div>
     </div>
   </div>
-  <div class="foot"><span>모두봄 — 개인 복지 AI 에이전트</span><span>6 / 13</span></div>
+  <div class="foot"><span>모두봄 — 개인 복지 AI 에이전트</span><span>8 / 16</span></div>
 </section>
 
 <!-- [신규] 아키텍처 (구현 완성도) -->
@@ -262,7 +353,48 @@
     </div>
     <div class="band" style="margin-top:18px;">🛡️ 폴백은 결함이 아니라 <b>신뢰성 설계</b> — 백엔드가 없어도, LLM 키가 없어도 전 기능이 동작합니다(결정론적 다단계 RPA).</div>
   </div>
-  <div class="foot"><span>모두봄 — 개인 복지 AI 에이전트</span><span>7 / 13</span></div>
+  <div class="foot"><span>모두봄 — 개인 복지 AI 에이전트</span><span>9 / 16</span></div>
+</section>
+
+<!-- [신규] 데이터 구성 (구현 완성도 · 실데이터) -->
+<section class="slide">
+  <div class="pad">
+    <span class="eyebrow">구현 완성도 · 실데이터</span>
+    <h2>약 <span class="grad">5,300건</span>, 전부 실데이터</h2>
+    <div class="row" style="margin-top:16px; flex:1; align-items:center; gap:44px;">
+      <div style="width:290px; height:290px; border-radius:50%; flex-shrink:0; position:relative;
+        background:conic-gradient(#22c55e 0 3.6%, #38bdf8 3.6% 12.2%, #f97316 12.2% 100%);
+        box-shadow:0 14px 34px rgba(20,60,30,.14);">
+        <div style="position:absolute; inset:56px; background:#fff; border-radius:50%; display:flex; flex-direction:column; align-items:center; justify-content:center; box-shadow:inset 0 2px 8px rgba(0,0,0,.04);">
+          <div class="muted" style="font-size:15px; font-weight:700;">총 수록</div>
+          <div style="font-size:44px; font-weight:900; color:#15803d; line-height:1.05;">5,333</div>
+          <div class="muted" style="font-size:15px; font-weight:700;">건</div>
+        </div>
+      </div>
+      <div class="col" style="flex:1; gap:13px;">
+        <div class="card" style="display:flex; align-items:center; gap:14px; padding:15px 22px;">
+          <span style="width:18px; height:18px; border-radius:5px; background:#22c55e; flex-shrink:0;"></span>
+          <span style="font-size:19px; font-weight:800; flex:1;">큐레이션 시드 <span class="muted" style="font-weight:600;">· 정밀 검증</span></span>
+          <span style="font-size:15px; color:#8aa; font-weight:700; margin-right:6px;">4%</span>
+          <span style="font-size:22px; font-weight:900; color:#15803d;">190</span>
+        </div>
+        <div class="card" style="display:flex; align-items:center; gap:14px; padding:15px 22px;">
+          <span style="width:18px; height:18px; border-radius:5px; background:#38bdf8; flex-shrink:0;"></span>
+          <span style="font-size:19px; font-weight:800; flex:1;">중앙부처 공공데이터</span>
+          <span style="font-size:15px; color:#8aa; font-weight:700; margin-right:6px;">9%</span>
+          <span style="font-size:22px; font-weight:900; color:#0284c7;">460</span>
+        </div>
+        <div class="card" style="display:flex; align-items:center; gap:14px; padding:15px 22px;">
+          <span style="width:18px; height:18px; border-radius:5px; background:#f97316; flex-shrink:0;"></span>
+          <span style="font-size:19px; font-weight:800; flex:1;">지자체 공공데이터</span>
+          <span style="font-size:15px; color:#8aa; font-weight:700; margin-right:6px;">88%</span>
+          <span style="font-size:22px; font-weight:900; color:#ea580c;">4,683</span>
+        </div>
+        <div class="band" style="font-size:16px; margin-top:4px;">📌 정부 공식 출처 대조 · 신청/발급 URL 70건 전수 생존검사 · <b>가짜 데이터 미생성 원칙</b></div>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><span>모두봄 — 개인 복지 AI 에이전트</span><span>10 / 16</span></div>
 </section>
 
 <!-- S6 신뢰 -->
@@ -282,7 +414,7 @@
       <div class="band" style="background:#fff; color:#14532d; border:2px solid #bbe3bb;">🚦 CI 품질 게이트 — lint · 타입검사 · 테스트를 통과해야만 배포되는 파이프라인 (매 배포 자동 증명)</div>
     </div>
   </div>
-  <div class="foot"><span>모두봄 — 개인 복지 AI 에이전트</span><span>8 / 13</span></div>
+  <div class="foot"><span>모두봄 — 개인 복지 AI 에이전트</span><span>11 / 16</span></div>
 </section>
 
 <!-- [신규] 사용자 편의성 (편의성 20점) -->
@@ -305,7 +437,7 @@
     </div>
     <div class="band" style="margin-top:18px;">📐 Lighthouse 접근성 <b>96</b> · 접근성 자동검사(axe) 위반 <b>0</b> — 편의성은 구호가 아니라 <b>측정된 점수</b>입니다.</div>
   </div>
-  <div class="foot"><span>모두봄 — 개인 복지 AI 에이전트</span><span>9 / 13</span></div>
+  <div class="foot"><span>모두봄 — 개인 복지 AI 에이전트</span><span>12 / 16</span></div>
 </section>
 
 <!-- S7 실용성·확장 -->
@@ -336,7 +468,7 @@
       </div>
     </div>
   </div>
-  <div class="foot"><span>모두봄 — 개인 복지 AI 에이전트</span><span>10 / 13</span></div>
+  <div class="foot"><span>모두봄 — 개인 복지 AI 에이전트</span><span>13 / 16</span></div>
 </section>
 
 <!-- S8 현장 검증 -->
@@ -360,7 +492,7 @@
     </div>
     <div class="band" style="margin-top:22px;">📍 경산시 <b>노인복지센터</b> · <b>노인종합복지관</b> 두 곳에서 현장 시연 — 큰글씨·음성·통화형 상담이 실제로 어르신께 가닿는지 확인했습니다 <span style="color:#9fd0a6; font-weight:600;">(노인종합복지관은 촬영 미실시)</span></div>
   </div>
-  <div class="foot"><span>모두봄 — 개인 복지 AI 에이전트</span><span>11 / 13</span></div>
+  <div class="foot"><span>모두봄 — 개인 복지 AI 에이전트</span><span>14 / 16</span></div>
 </section>
 
 <!-- [신규] 평가 항목 대응 요약 -->
@@ -386,7 +518,7 @@
       </div>
     </div>
   </div>
-  <div class="foot"><span>모두봄 — 개인 복지 AI 에이전트</span><span>12 / 13</span></div>
+  <div class="foot"><span>모두봄 — 개인 복지 AI 에이전트</span><span>15 / 16</span></div>
 </section>
 
 <!-- S9 마무리 -->
@@ -403,7 +535,7 @@
     </div>
     <p class="muted" style="font-size:16px; margin-top:42px; font-weight:700;">영남대학교 팀 모두봄 · 감사합니다 🌱</p>
   </div>
-  <div class="foot"><span>모두봄 — 개인 복지 AI 에이전트</span><span>13 / 13</span></div>
+  <div class="foot"><span>모두봄 — 개인 복지 AI 에이전트</span><span>16 / 16</span></div>
 </section>
 
 </body>
