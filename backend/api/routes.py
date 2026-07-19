@@ -38,6 +38,10 @@ class DocRequest(BaseModel):
     sido: str = ""         # 주민등록상 시도(예: 경상북도) — 회원정보 주소와 다를 때 자동 정정용
     sigungu: str = ""      # 주민등록상 시군구(예: 경산시)
     auth_provider: str = "kakao"  # 간편인증 수단: kakao|pass|naver|toss (어르신 다수 PASS)
+    # 🔒 가족관계증명서(efamily)용 선택 정보 — 자동입력 전용, 서버 저장·로그 금지(local_server와 파리티)
+    rrn_back: str = ""
+    parent_kind: str = "부"
+    parent_name: str = ""
 
 
 def _ws_limits() -> dict:
@@ -259,7 +263,8 @@ async def rpa_issue(req: DocRequest):
             detail=f"지원하지 않는 서류: {req.doc_name}\n지원 목록: {', '.join(SUPPORTED_DOC_NAMES)}",
         )
     user_info = {"user_name": req.user_name, "birth_date": req.birth_date, "phone": req.phone,
-                 "carrier": req.carrier, "sido": req.sido, "sigungu": req.sigungu, "auth_provider": req.auth_provider}
+                 "carrier": req.carrier, "sido": req.sido, "sigungu": req.sigungu, "auth_provider": req.auth_provider,
+                 "rrn_back": req.rrn_back, "parent_kind": req.parent_kind, "parent_name": req.parent_name}
     task_id = start_rpa_task(req.doc_name, req.user_name, user_info)
     # 다운로드 토큰은 '시작한 사람'에게만 여기서 반환(rpa-status엔 노출 안 함) → task_id 유출만으론 문서 못 받음
     from rpa.manager import get_task
@@ -506,6 +511,10 @@ class JourneyRunRequest(BaseModel):
     sido: str = ""
     sigungu: str = ""
     profile: dict = {}
+    # 🔒 가족관계증명서(efamily)용 — DocRequest와 동일(파리티)
+    rrn_back: str = ""
+    parent_kind: str = "부"
+    parent_name: str = ""
 
 
 @router.post("/journey/run")
@@ -534,7 +543,8 @@ async def journey_run(req: JourneyRunRequest):
         raise HTTPException(status_code=503, detail="지금 자동화 이용자가 많아요. 잠시 후 다시 시도하거나 공식 사이트에서 바로 진행하실 수 있어요.")
     user_info = {"user_name": req.user_name, "birth_date": req.birth_date,
                  "phone": req.phone, "carrier": req.carrier, "auth_provider": req.auth_provider,
-                 "sido": req.sido, "sigungu": req.sigungu}
+                 "sido": req.sido, "sigungu": req.sigungu,
+                 "rrn_back": req.rrn_back, "parent_kind": req.parent_kind, "parent_name": req.parent_name}
     jid, accepted_docs, accepted_svcs = start_journey(req.doc_names, req.service_names, req.user_name, user_info, req.profile)
     # accepted_*: 실제 여정에 들어간 항목(지원목록 밖은 제외) → 프론트가 이것만 추적(스피너 영구고정 방지)
     return {"journey_id": jid, "status": "started", "download_token": journey_token(jid),

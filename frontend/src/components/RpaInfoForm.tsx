@@ -130,7 +130,43 @@ export function RpaInfoForm() {
           className="rounded-lg border border-sprout-100 px-2.5 py-1.5 text-xs focus-ring"
           aria-label="주민등록상 시군구"
         />
+        {/* 🔒 가족관계증명서(대법원 efamily)용 — 뒷자리는 password 타입이라 화면에 ●●●●●●●로만 보인다.
+            rpaInfoKeep FIELDS에서 제외돼 '이 탭에서는 기억'을 켜도 보관되지 않는다(민감정보 무보관). */}
+        <input
+          type="password"
+          value={rpaInfo.rrn_back ?? ''}
+          onChange={(e) => setRpaInfo({ rrn_back: e.target.value.replace(/[^0-9]/g, '').slice(0, 7) })}
+          placeholder="주민번호 뒷 7자리 (가족관계용·선택)"
+          inputMode="numeric"
+          maxLength={7}
+          autoComplete="off"
+          className="rounded-lg border border-sprout-100 px-2.5 py-1.5 text-xs focus-ring"
+          aria-label="주민등록번호 뒷자리 (가족관계증명서용, 화면에 가려져 표시)"
+        />
+        <div className="flex gap-1">
+          <select
+            value={rpaInfo.parent_kind || '부'}
+            onChange={(e) => setRpaInfo({ parent_kind: e.target.value })}
+            className="rounded-lg border border-sprout-100 px-1.5 py-1.5 text-xs focus-ring shrink-0"
+            aria-label="추가정보확인 종류 (부 또는 모)"
+          >
+            <option value="부">부</option>
+            <option value="모">모</option>
+          </select>
+          <input
+            value={rpaInfo.parent_name ?? ''}
+            onChange={(e) => setRpaInfo({ parent_name: e.target.value })}
+            placeholder="부/모 성명 (가족관계용·선택)"
+            autoComplete="off"
+            className="min-w-0 flex-1 rounded-lg border border-sprout-100 px-2.5 py-1.5 text-xs focus-ring"
+            aria-label="부 또는 모 성명 (가족관계증명서용)"
+          />
+        </div>
       </div>
+      <p className="text-[11px] text-muted-foreground leading-relaxed">
+        🔒 뒷 7자리·부모 성명은 <b>가족관계증명서(대법원) 발급 자동입력에만</b> 쓰여요 — 화면엔 ●로 가려지고,
+        디스크·탭 기억에도 <b>저장되지 않아요</b>. 넣어두면 인증 요청까지 전부 자동이 돼요.
+      </p>
       <div className="flex flex-wrap gap-1">
         {CARRIERS.map((c) => (
           <button

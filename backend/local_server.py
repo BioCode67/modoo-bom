@@ -141,6 +141,10 @@ class DocRequest(BaseModel):
     sido: str = ""
     sigungu: str = ""
     auth_provider: str = "kakao"  # 간편인증 수단: kakao|pass|naver|toss (어르신 다수 PASS)
+    # 🔒 가족관계증명서(efamily)용 선택 정보 — 발급 자동입력에만 쓰고 서버는 저장·로그하지 않는다.
+    rrn_back: str = ""       # 주민등록번호 뒷 7자리(선택 — 있으면 efamily 인증 요청까지 자동)
+    parent_kind: str = "부"  # 추가정보확인 종류: 부|모
+    parent_name: str = ""    # 부 또는 모 성명(선택)
 
 
 class DemoRequest(BaseModel):
@@ -173,6 +177,10 @@ class JourneyRunRequest(BaseModel):
     sido: str = ""
     sigungu: str = ""
     profile: dict = {}
+    # 🔒 가족관계증명서(efamily)용 — DocRequest와 동일(저장·로그 금지, 자동입력 전용)
+    rrn_back: str = ""
+    parent_kind: str = "부"
+    parent_name: str = ""
 
 
 # ── 상태 ──
@@ -481,7 +489,8 @@ async def rpa_issue(req: DocRequest):
     if req.doc_name not in SUPPORTED_DOC_NAMES:
         raise HTTPException(status_code=400, detail=f"지원하지 않는 서류: {req.doc_name}\n지원 목록: {', '.join(SUPPORTED_DOC_NAMES)}")
     user_info = {"user_name": req.user_name, "birth_date": req.birth_date, "phone": req.phone,
-                 "carrier": req.carrier, "sido": req.sido, "sigungu": req.sigungu, "auth_provider": req.auth_provider}
+                 "carrier": req.carrier, "sido": req.sido, "sigungu": req.sigungu, "auth_provider": req.auth_provider,
+                 "rrn_back": req.rrn_back, "parent_kind": req.parent_kind, "parent_name": req.parent_name}
     task_id = start_rpa_task(req.doc_name, req.user_name, user_info)
     _t = get_task(task_id)
     token = getattr(_t, "download_token", "") if _t is not None and not isinstance(_t, dict) else (_t or {}).get("download_token", "")
@@ -886,7 +895,8 @@ async def journey_run(req: JourneyRunRequest):
     if not can_accept():
         raise HTTPException(status_code=503, detail="지금 자동화 이용자가 많아요. 잠시 후 다시 시도하거나 공식 사이트에서 바로 진행하실 수 있어요.")
     user_info = {"user_name": req.user_name, "birth_date": req.birth_date, "phone": req.phone, "carrier": req.carrier, "auth_provider": req.auth_provider,
-                 "sido": req.sido, "sigungu": req.sigungu}
+                 "sido": req.sido, "sigungu": req.sigungu,
+                 "rrn_back": req.rrn_back, "parent_kind": req.parent_kind, "parent_name": req.parent_name}
     jid, accepted_docs, accepted_svcs = start_journey(req.doc_names, req.service_names, req.user_name, user_info, req.profile)
     return {"journey_id": jid, "status": "started", "download_token": journey_token(jid),
             "docs": accepted_docs, "services": accepted_svcs}

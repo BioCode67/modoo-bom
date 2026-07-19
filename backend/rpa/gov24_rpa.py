@@ -625,6 +625,12 @@ async def _issue_family_cert_efamily(page, task, context, user_info: dict = None
     birth6 = _birth6(ui.get("birth_date"))
     phone = re.sub(r"[^0-9]", "", str(ui.get("phone", "")))
     provider = str(ui.get("auth_provider", "kakao") or "kakao")
+    # 🔒 주민번호 뒷 7자리·부/모 성명(앱 폼에서 마스킹 입력·미저장) — 있으면 인증 요청까지 자동.
+    #   메시지·로그에 rrn7 값은 절대 노출하지 않는다.
+    rrn7 = re.sub(r"[^0-9]", "", str(ui.get("rrn_back", "")))
+    rrn7 = rrn7 if len(rrn7) == 7 else ""
+    parent_name = str(ui.get("parent_name", "")).strip()
+    parent_kind = "모" if str(ui.get("parent_kind", "부")).strip().startswith("모") else "부"
 
     task.update("running", "📄 가족관계증명서(β) — 원 발급처인 대법원 전자가족관계등록시스템으로 이동해요...")
     # ① 신청 페이지 직행(실측 URL) → 실패 시 홈에서 타일 클릭 폴백
@@ -637,7 +643,8 @@ async def _issue_family_cert_efamily(page, task, context, user_info: dict = None
     check_cancel(task, context)
     await asyncio.sleep(1.5)
 
-    # ② 약관 동의 체크 + 성명·주민번호 앞 6자리 자동 입력(행 라벨 기반 — ID 미실측이라 텍스트로)
+    # ② 약관 동의 체크 + 신청인 정보 자동 입력(행 라벨 기반 — ID 미실측이라 텍스트로).
+    #    앱 폼에 뒷 7자리·부모성명까지 있으면 전부 자동, 없으면 있는 것만 채우고 나머지는 본인이.
     try:
         await page.evaluate(
             """(v) => {
@@ -648,26 +655,47 @@ async def _issue_family_cert_efamily(page, task, context, user_info: dict = None
                     if (t.includes('이용약관')) { if (!c.checked) c.click(); break; }
                 }
                 const fire = (el) => { el.dispatchEvent(new Event('input', {bubbles: true})); el.dispatchEvent(new Event('change', {bubbles: true})); };
+                const put = (el, val) => { if (el && val && !el.value) { el.value = val; fire(el); } };
                 for (const tr of document.querySelectorAll('tr')) {
                     const head = ((tr.querySelector('th, td') || {}).innerText || '').trim();
-                    const inputs = [...tr.querySelectorAll("input[type=text], input:not([type])")];
-                    if (/^성명/.test(head) && inputs[0] && v.name) { inputs[0].value = v.name; fire(inputs[0]); }
-                    // 주민등록번호 행: 앞 6자리만 채운다(뒷자리는 본인 직접 — 앱 미수집)
-                    if (/^주민등록번호/.test(head) && inputs[0] && v.birth6) { inputs[0].value = v.birth6; fire(inputs[0]); }
+                    // 뒷자리는 password 타입일 수 있어 함께 잡는다
+                    const inputs = [...tr.querySelectorAll("input[type=text], input[type=password], input[type=tel], input:not([type])")];
+                    if (/^성명/.test(head)) { put(inputs[0], v.name); }
+                    if (/^주민등록번호/.test(head)) { put(inputs[0], v.birth6); put(inputs[1], v.rrn7); }
+                    if (/^추가정보확인/.test(head)) {
+                        const sel = tr.querySelector('select');
+                        if (sel && v.parentKind) {
+                            const opt = [...sel.options].find(o => o.text.includes(v.parentKind + ' 성명'));
+                            if (opt) { sel.value = opt.value; sel.dispatchEvent(new Event('change', {bubbles: true})); }
+                        }
+                        put(inputs[inputs.length - 1], v.parentName);
+                    }
                 }
             }""",
-            {"name": name, "birth6": birth6},
+            {"name": name, "birth6": birth6, "rrn7": rrn7, "parentKind": parent_kind, "parentName": parent_name},
         )
     except Exception:
         pass
-    ss = await take_screenshot(page)
-    task.update(
-        "waiting_login",
-        "📋 신청인 정보를 채웠어요(성명·주민번호 앞자리).\n"
-        "🔒 화면에서 **주민등록번호 뒷자리**와 **부/모 성명**을 직접 입력해 주세요 — 앱은 이 정보를 저장하지 않아요.\n"
-        "입력 후 [간편인증]을 누르면, 인증창은 이어서 도와드릴게요.",
-        ss,
-    )
+    all_ready = bool(name and birth6 and rrn7 and parent_name)
+    if all_ready:
+        # 전부 채웠으면 [간편인증]까지 자동으로 연다 — 남는 건 인증창 확인·폰 승인뿐
+        await asyncio.sleep(0.5)
+        await click_by_text(page, ["간편인증"])
+        await asyncio.sleep(1.5)
+        task.update("running", "✅ 신청인 정보를 모두 채우고 간편인증 창을 열었어요 — 인증창도 이어서 채울게요...", await take_screenshot(page))
+    else:
+        _missing = []
+        if not rrn7:
+            _missing.append("주민등록번호 뒷자리")
+        if not parent_name:
+            _missing.append(f"{parent_kind} 성명")
+        task.update(
+            "waiting_login",
+            "📋 신청인 정보를 채울 수 있는 만큼 채웠어요.\n"
+            f"🔒 화면에서 **{'·'.join(_missing) or '남은 항목'}**을 직접 입력해 주세요 — 앱 폼(자동입력 추가정보)에 넣어두면 다음부턴 이것도 자동이에요.\n"
+            "입력 후 [간편인증]을 누르면, 인증창은 이어서 도와드릴게요.",
+            await take_screenshot(page),
+        )
 
     # ③ 간편인증 모달 등장 대기 → 카카오톡 선택 + 휴대폰 채움 + 전체동의(마지막). 인증요청은 본인(뒷자리 필요).
     modal_ready = False
@@ -685,30 +713,50 @@ async def _issue_family_cert_efamily(page, task, context, user_info: dict = None
             modal_ready = True
             await click_provider_in_anyid(page, provider)
             await asyncio.sleep(0.6)
-            if phone:
-                try:
-                    await page.evaluate(
-                        """(tail) => {
-                            const fire = (el) => { el.dispatchEvent(new Event('input', {bubbles: true})); el.dispatchEvent(new Event('change', {bubbles: true})); };
-                            for (const tr of document.querySelectorAll('tr, li, div')) {
-                                const t = (tr.innerText || '').trim();
-                                if (t.length < 80 && t.includes('휴대폰')) {
-                                    const inp = [...tr.querySelectorAll("input[type=text], input[type=tel], input:not([type])")].pop();
-                                    if (inp && !inp.value) { inp.value = tail; fire(inp); return; }
-                                }
+            try:
+                await page.evaluate(
+                    """(v) => {
+                        const fire = (el) => { el.dispatchEvent(new Event('input', {bubbles: true})); el.dispatchEvent(new Event('change', {bubbles: true})); };
+                        const put = (el, val) => { if (el && val && !el.value) { el.value = val; fire(el); } };
+                        for (const tr of document.querySelectorAll('tr, li, div')) {
+                            const t = (tr.innerText || '').trim();
+                            if (t.length > 80) continue;
+                            if (t.includes('휴대폰')) {
+                                put([...tr.querySelectorAll("input[type=text], input[type=tel], input:not([type])")].pop(), v.tail);
                             }
-                        }""",
-                        phone[3:] if phone.startswith("010") and len(phone) >= 10 else phone,
-                    )
-                except Exception:
-                    pass
+                            if (t.includes('주민등록번호')) {
+                                // 인증창의 뒷자리(placeholder '뒷자리'·password 가능) — 빈 칸에만 채운다
+                                const ins = [...tr.querySelectorAll("input[type=text], input[type=password], input[type=tel], input:not([type])")];
+                                put(ins[0], v.birth6);
+                                put(ins[ins.length - 1], v.rrn7);
+                            }
+                        }
+                    }""",
+                    {
+                        "tail": phone[3:] if phone.startswith("010") and len(phone) >= 10 else phone,
+                        "birth6": birth6,
+                        "rrn7": rrn7,
+                    },
+                )
+            except Exception:
+                pass
             await _check_agree_all(page)  # 전체동의는 제공자 선택 뒤 '마지막에'(동의 리셋 방지 — 정부24와 동일 순서)
-            task.update(
-                "waiting_login",
-                "📱 인증창을 채웠어요(카카오톡·휴대폰·전체동의).\n"
-                "🔒 **주민등록번호 뒷자리**만 직접 입력하고 [인증 요청]을 누른 뒤, 폰에서 [인증 허용]을 해주세요.",
-                await take_screenshot(page),
-            )
+            if rrn7:
+                # 전부 채웠으니 [인증 요청]까지 자동 — 본인은 폰에서 [인증 허용]만(HITL 유지)
+                await asyncio.sleep(0.5)
+                await _request_auth(page)
+                task.update(
+                    "waiting_login",
+                    "📱 인증창을 모두 채우고 '인증 요청'까지 눌렀어요.\n폰에서 [인증 허용]만 누르시면 다음 단계로 자동 진행돼요.",
+                    await take_screenshot(page),
+                )
+            else:
+                task.update(
+                    "waiting_login",
+                    "📱 인증창을 채웠어요(카카오톡·휴대폰·전체동의).\n"
+                    "🔒 **주민등록번호 뒷자리**만 직접 입력하고 [인증 요청]을 누른 뒤, 폰에서 [인증 허용]을 해주세요.",
+                    await take_screenshot(page),
+                )
         if _w and _w % 15 == 0:
             task.update("waiting_login", f"진행을 기다리는 중이에요… ({_w * 2}초) 화면 안내대로 입력·인증해 주세요.", await take_screenshot(page))
         await asyncio.sleep(2)

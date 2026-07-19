@@ -71,7 +71,7 @@ describe('resetForNextUser — 복지관 공용PC 상담 전환 시 이전 어�
       result: { profile_summary: 'x' } as never,
       tracked: [{ policyId: 'POL-001', name: '기초연금', status: 'interested', checkedDocs: [] }] as never,
       docDone: { 주민등록등본: Date.now() },
-      rpaInfo: { name: '김복순', birth_date: '19540101', phone: '01000000000', carrier: 'SKT', sido: '서울', sigungu: '중구', auth_provider: 'pass' },
+      rpaInfo: { name: '김복순', birth_date: '19540101', phone: '01000000000', carrier: 'SKT', sido: '서울', sigungu: '중구', auth_provider: 'pass', rrn_back: '1234567', parent_kind: '부', parent_name: '김상식' },
     })
     const before = useAppStore.getState().resetNonce
     s.resetForNextUser()

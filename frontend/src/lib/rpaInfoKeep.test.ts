@@ -70,4 +70,17 @@ describe('rpaInfoKeep — 인증정보 탭-기억 옵트인', () => {
     expect(sessionStorage.getItem(FLAG_KEY)).toBeNull()
     expect(sessionStorage.getItem(DATA_KEY)).toBeNull()
   })
+
+  it('🔒 주민번호 뒷자리·부모 성명은 탭-기억을 켜도 절대 보관되지 않는다(FIELDS 제외 계약)', () => {
+    // 가족관계증명서용 민감정보 — 옵트인 보관(sessionStorage)에도 남기지 않는다는 프라이버시 약속을 고정.
+    // (뒷자리 예시는 INFO.phone 과 겹치지 않는 수열로 — 오탐 방지)
+    setKeepOn(true, { ...INFO, rrn_back: '9876543', parent_kind: '부', parent_name: '김상식' } as never)
+    saveKept({ ...INFO, rrn_back: '9876543', parent_name: '김상식' } as never)
+    const raw = sessionStorage.getItem(DATA_KEY) || ''
+    expect(raw).not.toContain('9876543')
+    expect(raw).not.toContain('김상식')
+    const kept = loadKept() as Record<string, unknown>
+    expect(kept.rrn_back).toBeUndefined()
+    expect(kept.parent_name).toBeUndefined()
+  })
 })

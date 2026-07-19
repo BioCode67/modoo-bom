@@ -56,8 +56,8 @@ interface AppState {
   // RPA 자동입력용 추가정보(선택) — 본인인증 폼 자동 작성에만 사용, 내 기기에만 저장
   // sido/sigungu: 주민등록상 주소(회원정보 주소와 다를 때 발급 폼에서 자동 정정용)
   // auth_provider: 간편인증 수단(kakao|pass|naver|toss) — 카카오 없는 어르신은 통신사 PASS
-  rpaInfo: { name: string; birth_date: string; phone: string; carrier: string; sido: string; sigungu: string; auth_provider: string }
-  setRpaInfo: (patch: Partial<{ name: string; birth_date: string; phone: string; carrier: string; sido: string; sigungu: string; auth_provider: string }>) => void
+  rpaInfo: { name: string; birth_date: string; phone: string; carrier: string; sido: string; sigungu: string; auth_provider: string; rrn_back: string; parent_kind: string; parent_name: string }
+  setRpaInfo: (patch: Partial<{ name: string; birth_date: string; phone: string; carrier: string; sido: string; sigungu: string; auth_provider: string; rrn_back: string; parent_kind: string; parent_name: string }>) => void
 
   // 서류 발급 완료 기억(정규화된 서류명 → 완료 시각) — 새 탭에서 발급하고 돌아와도 진행상황 유지(persist, PII 아님)
   docDone: Record<string, number>
@@ -154,7 +154,7 @@ export const useAppStore = create<AppState>()(
       onboarded: false,
       setOnboarded: () => set({ onboarded: true }),
 
-      rpaInfo: { name: '', birth_date: '', phone: '', carrier: '', sido: '', sigungu: '', auth_provider: 'kakao' },
+      rpaInfo: { name: '', birth_date: '', phone: '', carrier: '', sido: '', sigungu: '', auth_provider: 'kakao', rrn_back: '', parent_kind: '부', parent_name: '' },
       setRpaInfo: (patch) => set((s) => ({ rpaInfo: { ...s.rpaInfo, ...patch } })),
 
       docDone: {},
@@ -184,7 +184,7 @@ export const useAppStore = create<AppState>()(
         try { localStorage.removeItem('modoo:profileHistory') } catch { /* noop */ }
         set((s) => ({
           profile: null, result: null, pendingProfile: null, tracked: [], docDone: {},
-          rpaInfo: { name: '', birth_date: '', phone: '', carrier: '', sido: '', sigungu: '', auth_provider: 'kakao' },
+          rpaInfo: { name: '', birth_date: '', phone: '', carrier: '', sido: '', sigungu: '', auth_provider: 'kakao', rrn_back: '', parent_kind: '부', parent_name: '' },
           resetNonce: s.resetNonce + 1,
         }))
       },

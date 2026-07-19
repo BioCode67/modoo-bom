@@ -397,6 +397,8 @@ export function DocumentCenter() {
           birth_date: rpaInfo.birth_date, phone: rpaInfo.phone, carrier: rpaInfo.carrier,
           sido: rpaInfo.sido, sigungu: rpaInfo.sigungu,
           auth_provider: rpaInfo.auth_provider || 'kakao', // 어르신은 통신사 PASS가 많음
+          // 🔒 가족관계(efamily)용 — 서버는 자동입력에만 쓰고 저장하지 않음(다른 서류에선 무시됨)
+          rrn_back: rpaInfo.rrn_back || '', parent_kind: rpaInfo.parent_kind || '부', parent_name: rpaInfo.parent_name || '',
         }),
       })
       if (!res.ok) {
@@ -525,6 +527,8 @@ export function DocumentCenter() {
         birth_date: rpaInfo.birth_date, phone: rpaInfo.phone, carrier: rpaInfo.carrier,
         auth_provider: rpaInfo.auth_provider || 'kakao',
         sido: rpaInfo.sido, sigungu: rpaInfo.sigungu, // 연쇄발급에서도 주민등록 주소 자동정정
+        // 🔒 가족관계(efamily)용 — 여정에 가족관계가 포함되면 인증 요청까지 자동(서버 미저장)
+        rrn_back: rpaInfo.rrn_back || '', parent_kind: rpaInfo.parent_kind || '부', parent_name: rpaInfo.parent_name || '',
         profile: { ...(profile || {}) }, // 신청 단계 자동입력·일반화 딥링크 판단에 사용
       }),
     })
