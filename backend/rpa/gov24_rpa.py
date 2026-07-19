@@ -312,8 +312,13 @@ async def _login_on_www_gov(page, task, user_info: dict = None) -> bool:
     requested = False
     _has_birth = bool(re.sub(r"[^0-9]", "", str((user_info or {}).get("birth_date", ""))))
     if autofilled:
-        # 생년월일이 없으면 인증요청을 자동으로 누르지 않는다(불완전 정보로 요청하면 오류)
-        if _has_birth:
+        # ⚠️ '인증 요청'은 **제공자(카카오톡) 선택이 확인됐을 때만** 자동 클릭한다(실사용 확정 버그):
+        #   선택이 안 된 채 요청하면 정부24가 "인증서비스를 선택하여 주십시오" 오류를 띄운다.
+        #   (폼 자동입력은 제공자 선택과 무관하게 성공하므로, autofilled 만으로 요청하면 안 됨.)
+        #   생년월일이 없어도 요청 안 함(불완전 정보 요청도 오류).
+        #   ⚠️ 'trusted'(Playwright 신뢰 클릭)일 때만 자동 요청 — 'js' 폴백 클릭은 위젯이
+        #      무시할 수 있어(선택 미확정) 요청 시 같은 오류가 난다. 그땐 사용자가 직접 고른다.
+        if _has_birth and kakaotalk_clicked == "trusted":
             await asyncio.sleep(0.6)
             requested = await _request_auth(auth_ctx)
         await asyncio.sleep(0.5)
@@ -322,6 +327,10 @@ async def _login_on_www_gov(page, task, user_info: dict = None) -> bool:
     if autofilled:
         if requested:
             _msg = f"✅ 정보 자동입력 + '인증 요청'까지 완료했어요.\n📱 휴대폰 {pv} 알림에서 [인증 허용]만 누르시면 됩니다."
+        elif kakaotalk_clicked != "trusted":
+            # 제공자 자동 선택이 확인되지 않음(미클릭 또는 js 폴백) — 정보는 채웠으니
+            #   사용자가 '카카오톡'만 고르면 이어짐(가장 흔한 실패 경로).
+            _msg = f"✅ 이름·생년월일·휴대폰을 자동 입력했어요.\n화면에서 '{pv}'을 선택한 뒤 '인증 요청'을 누르면, 📱 알림에서 [인증 허용]만 하시면 됩니다."
         elif not _has_birth:
             _msg = f"✅ 이름·휴대폰을 자동 입력했어요.\n화면에서 '생년월일'을 입력하고 '인증 요청'을 누른 뒤, 📱 {pv} [인증 허용]을 해주세요."
         else:

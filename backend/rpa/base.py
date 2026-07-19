@@ -416,21 +416,26 @@ def provider_display(provider: str) -> str:
     return AUTH_PROVIDERS.get(str(provider or "").lower(), AUTH_PROVIDERS["kakao"])["display"]
 
 
-async def click_provider_in_anyid(page, provider: str = "kakao", attempts: int = 4) -> bool:
+async def click_provider_in_anyid(page, provider: str = "kakao", attempts: int = 4):
     """간편인증 위젯에서 선택 제공자를 클릭 — 위젯 내부가 늦게 렌더돼도 되도록 재시도(감사 확정).
 
     위젯 iframe 이 'URL 등장 즉시' 반환된 뒤 내부 버튼이 아직 안 그려졌을 때 1회 클릭은 불발한다.
-    → 짧은 간격으로 여러 번 시도해 버튼이 나타나는 순간 클릭한다. (기본 4회 × ~1.2초)"""
+    → 짧은 간격으로 여러 번 시도해 버튼이 나타나는 순간 클릭한다. (기본 4회 × ~1.2초)
+
+    반환: "trusted"(Playwright 신뢰 클릭·위젯에 실제 등록됨) | "js"(JS 클릭·위젯이 무시 가능·미확정)
+          | False(실패). 호출부는 truthy 로 '클릭 시도됨'을 보고, **선택이 확실해야 하는** 자동 인증요청은
+          == "trusted" 로 게이트한다(미선택 상태 요청 시 '인증서비스를 선택하여 주십시오' 오류 방지)."""
     if str(provider or "").lower() not in AUTH_PROVIDERS:
         provider = "kakao"  # 비표준/오타 값은 카카오로(프론트는 유효값만 보내나 방어)
     for i in range(max(1, attempts)):
-        if await _click_provider_once(page, provider):
-            return True
+        r = await _click_provider_once(page, provider)
+        if r:
+            return r  # "trusted" | "js"
         await asyncio.sleep(1.0)  # 위젯 내부 렌더 대기 후 재시도
     return False
 
 
-async def _click_provider_once(page, provider: str = "kakao") -> bool:
+async def _click_provider_once(page, provider: str = "kakao"):
     """제공자 클릭 1회 시도 — 정확 셀렉터 → JS 토큰 매칭 → 느슨한 폴백(뱅크/페이 오클릭은 exclude로 차단)."""
     p = AUTH_PROVIDERS.get(str(provider or "").lower(), AUTH_PROVIDERS["kakao"])
 
@@ -452,7 +457,7 @@ async def _click_provider_once(page, provider: str = "kakao") -> bool:
                 await el.scroll_into_view_if_needed()
                 await el.click()
                 await asyncio.sleep(1.2)
-                return True
+                return "trusted"  # Playwright 신뢰 클릭 — 정부24 위젯이 실제 선택으로 등록
         except Exception:
             continue
 
@@ -486,7 +491,7 @@ async def _click_provider_once(page, provider: str = "kakao") -> bool:
         """, {"tokens": [t.lower() for t in p["tokens"]], "exclude": [x.lower() for x in p["exclude"]]})
         if result:
             await asyncio.sleep(1.2)
-            return True
+            return "js"  # JS 클릭 — 위젯이 무시할 수 있어 '미확정'(자동 인증요청 게이트에서 제외)
     except Exception:
         pass
 
@@ -508,7 +513,7 @@ async def _click_provider_once(page, provider: str = "kakao") -> bool:
         """, {"loose": [k.lower() for k in p["loose"]], "exclude": [x.lower() for x in p["exclude"]]})
         if result:
             await asyncio.sleep(1.2)
-            return True
+            return "js"  # JS 클릭 — 위젯이 무시할 수 있어 '미확정'(자동 인증요청 게이트에서 제외)
     except Exception:
         pass
 

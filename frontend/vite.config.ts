@@ -107,7 +107,12 @@ export default defineConfig(({ command, mode }) => {
   // 빌드타임 상수(선언은 src/vite-env.d.ts) — 런타임 fetch 없이 번들 자체가 자기 버전을 안다
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
-    __BUILD_DATE__: JSON.stringify(new Date().toISOString().slice(0, 10)),
+    // 빌드일 → 빌드 '일시(분 단위)'로 상세화 — 같은 날 여러 번 재빌드해도 어느 빌드인지 구분되게(사용자 혼동 해소).
+    //   빌드 기계의 로컬시각(데스크탑=KST) 기준이라, build-installer.bat 돌린 시각과 그대로 일치한다.
+    __BUILD_DATE__: JSON.stringify((() => {
+      const d = new Date(); const p = (n: number) => String(n).padStart(2, '0')
+      return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
+    })()),
     __BUILD_SHA__: JSON.stringify(__sha),
   },
   // transformers.js는 dev 사전번들에서 제외(무거운 ONNX 런타임) — 지연 동적 import로만 로드.

@@ -172,6 +172,51 @@ def test_provider_loose_match_excludes_sns_links():
     assert loose_hit("naver", "네이버 인증서")
 
 
+class _FakeEl:
+    """click_provider_in_anyid 의 Playwright locator 최소 흉내(반환 계약 검증용)."""
+    def __init__(self, count):
+        self._count = count
+    async def count(self):
+        return self._count
+    async def scroll_into_view_if_needed(self):
+        return None
+    async def click(self):
+        return None
+
+
+def _fake_page(stage1_count, evaluate_result):
+    """stage1(Playwright) 매칭 수 + stage2/3(JS evaluate) 반환을 주입하는 가짜 page."""
+    class _Loc:
+        first = _FakeEl(stage1_count)
+    class _Page:
+        def locator(self, sel):
+            return _Loc()
+        async def evaluate(self, script, arg=None):
+            return evaluate_result
+    return _Page()
+
+
+def test_click_provider_returns_trusted_on_playwright_click():
+    """Playwright 신뢰 클릭 성공 → 'trusted' — 자동 '인증 요청' 게이트를 통과하는 유일한 값(회귀 고정).
+
+    gov24_rpa 는 kakaotalk_clicked == 'trusted' 일 때만 인증요청을 자동 클릭한다. 이 계약이 깨지면
+    '인증서비스를 선택하여 주십시오' 오류(실사용 확정 버그)가 재발하므로 여기서 못박는다."""
+    r = _run(base.click_provider_in_anyid(_fake_page(1, False), "kakao", attempts=1))
+    assert r == "trusted"
+
+
+def test_click_provider_returns_js_on_evaluate_fallback():
+    """stage1 미스 + JS 폴백 클릭 성공 → 'js'(미확정) — 자동 인증요청 게이트에서 제외돼야 한다."""
+    r = _run(base.click_provider_in_anyid(_fake_page(0, True), "kakao", attempts=1))
+    assert r == "js"
+
+
+def test_click_provider_returns_false_when_nothing_matches():
+    """아무것도 못 찾으면 False — 게이트에서 '요청 안 함'으로 이어져 오류를 피한다."""
+    r = _run(base.click_provider_in_anyid(_fake_page(0, False), "kakao", attempts=1))
+    assert r is False
+
+
 def test_open_app_ui_non_win32_uses_default_browser(monkeypatch):
     """맥·리눅스: 앱 UI는 기본 브라우저(webbrowser.open)로 연다(기존 동작 불변)."""
     import local_server

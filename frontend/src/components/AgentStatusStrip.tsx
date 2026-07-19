@@ -91,10 +91,12 @@ export function AgentStatusStrip() {
           <Bot className="h-3.5 w-3.5" /> {caps.rpaRemote ? '원격 에이전트' : caps.shared ? '공유 에이전트' : '내 PC 에이전트'} 연결됨
           {caps.version && (
             /* 버전·빌드일·커밋을 함께 — '이 exe가 최신 코드인지'를 한눈에(구버전이면 날짜/커밋이 다름).
-               버전은 백엔드(로컬 에이전트), 빌드일·커밋은 지금 보는 프론트 번들 — 데스크탑앱은 함께 빌드된다. */
-            <span className="font-semibold text-muted-foreground"
+               버전은 백엔드(로컬 에이전트), 빌드일·커밋은 지금 보는 프론트 번들 — 데스크탑앱은 함께 빌드된다.
+               ⚠️ 사용자가 '어느 버전인지 헷갈린다' 제보 → 은은한 muted 텍스트를 '테두리 알약'으로 승격해 눈에 띄게. */
+            <span className="inline-flex items-center gap-1 rounded-full border border-sprout-300 bg-white px-2 py-0.5 font-mono text-[10.5px] leading-none"
               title={`앱 버전 v${caps.version} · 프론트 빌드 ${__BUILD_DATE__}${__BUILD_SHA__ ? ` (${__BUILD_SHA__})` : ''} — 최신 배포와 커밋/날짜가 같으면 최신본입니다`}>
-              v{caps.version} · 빌드 {__BUILD_DATE__}{__BUILD_SHA__ ? ` · ${__BUILD_SHA__}` : ''}
+              <span className="font-extrabold text-sprout-700">모두봄 v{caps.version}</span>
+              <span className="font-normal text-muted-foreground">· 빌드 {__BUILD_DATE__}{__BUILD_SHA__ ? ` · ${__BUILD_SHA__}` : ''}</span>
             </span>
           )}
         </span>
