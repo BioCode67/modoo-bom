@@ -158,7 +158,7 @@ export function DocVault({ onReissue }: { onReissue?: (docType: string) => void 
   )
 
   return (
-    <div className="mt-4 rounded-2xl border-2 border-sky2-100 bg-sky2-50/40 p-4">
+    <div id="doc-vault" className="mt-4 rounded-2xl border-2 border-sky2-100 bg-sky2-50/40 p-4">
       <div className="flex items-center gap-2 flex-wrap">
         <p className="text-sm font-bold flex items-center gap-1.5">🗂 내 서류함 <span className="text-xs font-semibold text-muted-foreground">({groups.length}종 {docs.length}건 · 이 PC에만 저장)</span></p>
         <div className="ml-auto flex gap-1.5">

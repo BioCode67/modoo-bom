@@ -77,6 +77,18 @@ def _launch_sync(p):
     raise RuntimeError(f"브라우저를 실행할 수 없어요(시도: {', '.join(tried)}) — Chrome/Edge 설치 또는 playwright install chromium ({str(last)[:80]})")
 
 
+def _net_reason(e: Exception) -> str:
+    """브라우저 네트워크 오류를 사람이 조치할 수 있는 한국어로(기술 원문은 오류 계열만 남김 — 어르신 UI 직결)."""
+    s = str(e)
+    if "ERR_TUNNEL_CONNECTION_FAILED" in s or "ERR_PROXY" in s:
+        return "지금 네트워크가 정부 사이트 연결을 막고 있어요(사내망·프록시 차단일 수 있어요) — 다른 회선(핫스팟 등)으로 시도해 보세요"
+    if "ERR_INTERNET_DISCONNECTED" in s or "ERR_NAME_NOT_RESOLVED" in s:
+        return "인터넷 연결이 없어요 — 연결 상태를 확인해 주세요"
+    if "Timeout" in s:
+        return "사이트 응답이 너무 늦어요 — 회선 상태를 확인하고 다시 시도해 주세요"
+    return s[:80]
+
+
 def probe_names(names: list):
     """정부24에서 서류명별 CappBizCD 발굴 + AA020 검증. → (rows, None) 또는 (None, 오류문구).
 
@@ -94,7 +106,7 @@ def probe_names(names: list):
             pg.goto("https://www.gov.kr/", wait_until="domcontentloaded", timeout=20000)
         except Exception as e:
             browser.close()
-            return None, f"정부24 접속 실패: {str(e)[:120]} — 인터넷 되는 PC에서 실행하세요(개발 컨테이너는 정부망 차단)."
+            return None, f"정부24 접속 실패 — {_net_reason(e)}"
         for name in names:
             row = {"name": name, "code": "", "title": "", "issue_btn": False, "verdict": "❌ 미발견", "note": ""}
             try:
@@ -223,7 +235,7 @@ def probe_apply_names(names: list):
             pg.goto("https://www.bokjiro.go.kr/", wait_until="domcontentloaded", timeout=20000)
         except Exception as e:
             browser.close()
-            return None, f"복지로 접속 실패: {str(e)[:120]} — 인터넷 되는 PC에서 실행하세요(개발 컨테이너는 정부망 차단)."
+            return None, f"복지로 접속 실패 — {_net_reason(e)}"
         for name in names:
             row = {"name": name, "id": "", "url": "", "title": "", "verdict": "❌ 미발견", "note": ""}
             try:

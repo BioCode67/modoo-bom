@@ -149,6 +149,14 @@ export function AgentStatusStrip() {
                 <span className={c.ok ? '' : 'font-semibold text-rose-700'}>
                   {c.name}{c.detail ? <span className="text-muted-foreground"> · {c.detail}</span> : null}
                 </span>
+                {/* 발견에서 조치까지 원탭 — 서류함 손상은 바로 그 자리(⚠️ 배지·재발급 버튼)로 데려간다 */}
+                {c.id === 'vault' && !c.ok && (
+                  <button
+                    onClick={() => document.getElementById('doc-vault')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                    className="shrink-0 rounded-md border border-rose-200 bg-rose-50 px-1.5 py-0.5 text-[10px] font-bold text-rose-600 hover:bg-rose-100">
+                    서류함 보기 ↓
+                  </button>
+                )}
               </li>
             ))}
           </ul>
