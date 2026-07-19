@@ -169,7 +169,7 @@ async def test_timeout_does_not_overwrite_done(monkeypatch):
 # ── 7) 여정 종결/중단/퇴거/중복인지 ─────────────────────────────────────────
 @pytest.mark.asyncio
 async def test_journey_reaches_terminal_and_collects_saved(monkeypatch):
-    async def fake_doc(task, name, info):
+    async def fake_doc(task, name, info, gov_session=None):  # 여정 공유 세션 시그니처(한 번 인증 연쇄) 반영
         task.update("done", "발급 완료")
         task.result = {"success": True, "saved_path": f"/docs/{name}.pdf"}
     monkeypatch.setattr(orchestrator, "_run_step_doc", fake_doc)
@@ -187,7 +187,7 @@ async def test_journey_reaches_terminal_and_collects_saved(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_journey_cancel_stops_remaining_steps(monkeypatch):
-    async def slow_doc(task, name, info):
+    async def slow_doc(task, name, info, gov_session=None):  # 여정 공유 세션 시그니처(한 번 인증 연쇄) 반영
         task.update("running", "진행 중")
         for _ in range(2000):
             check_cancel(task, None)
@@ -274,7 +274,7 @@ async def test_journey_skip_current_step_continues_next(monkeypatch):
     성공하면 여정 최종 상태는 completed(중단 아님)여야 한다. 스킵 플래그는 소모된다."""
     ran = []
 
-    async def doc_runner(task, name, info):
+    async def doc_runner(task, name, info, gov_session=None):  # 여정 공유 세션 시그니처 반영
         task.update("running", "진행 중")
         ran.append(name)
         if name == "주민등록등본":

@@ -336,8 +336,15 @@ def _pick_result_page(context, fallback):
         return fallback
 
 
-async def run_gov24_rpa(task, doc_name: str, user_info: dict = None) -> None:
-    """정부24에서 주민등록등본 또는 초본 발급. user_info(이름·생년월일·휴대폰) 있으면 본인인증 폼 자동입력."""
+async def run_gov24_rpa(task, doc_name: str, user_info: dict = None, session=None) -> None:
+    """정부24에서 서류 발급. user_info(이름·생년월일·휴대폰) 있으면 본인인증 폼 자동입력.
+
+    session(GovSession)이 오면 '여정 공유 세션' 모드 — 브라우저·로그인을 여정의 서류들이 공유해
+    카카오 로그인 인증이 서류 수만큼이 아니라 **1회**가 된다(진짜 한 번 인증 연쇄).
+    서류별 폼 흐름·성공판정은 단독 실행과 완전히 동일하고, 브라우저 수명·로그인 여부만 다르다:
+    · 첫 서류: 세션에 브라우저 생성 + 로그인(성공 시 session.logged_in) · 이후 서류: 폼 직행
+    · 로그인 만료·창 닫힘: 기존 재로그인 감지·session.ensure() 재생성이 자연 복구
+    · 브라우저 종료는 여정(orchestrator finally)이 담당 — 여기선 세션 브라우저를 닫지 않는다."""
     try:
         from playwright.async_api import async_playwright
     except ImportError:
@@ -349,36 +356,51 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None) -> None:
         task.update("error", f"지원하지 않는 문서: {doc_name}")
         return
 
+    import contextlib as _ctxlib
     try:
-        async with async_playwright() as pw:
-            browser = await launch_browser(pw)
-            context = await browser.new_context(**make_browser_context_args())
-            await context.add_init_script(
-                "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
-            )
-            # 네이티브 인쇄 다이얼로그가 렌더러를 블록해 이후 evaluate/count 가 무한 동결되던 것 차단(감사 CRITICAL)
-            await context.add_init_script(NO_PRINT_SCRIPT)
-            page = await context.new_page()
+        async with _ctxlib.AsyncExitStack() as _stack:
+            if session is None:
+                pw = await _stack.enter_async_context(async_playwright())
+                browser = await launch_browser(pw)
+                context = await browser.new_context(**make_browser_context_args())
+                await context.add_init_script(
+                    "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
+                )
+                # 네이티브 인쇄 다이얼로그가 렌더러를 블록해 이후 evaluate/count 가 무한 동결되던 것 차단(감사 CRITICAL)
+                await context.add_init_script(NO_PRINT_SCRIPT)
+                page = await context.new_page()
+            else:
+                # 여정 공유 세션 — 죽었으면 재생성(logged_in 리셋), 살아있으면 그대로 재사용
+                await session.ensure()
+                browser, context, page = session.browser, session.context, session.page
 
-            # ① www.gov.kr 로그인 페이지 직접 접속 (세션 수립용)
-            task.update("running", f"📄 {doc_name} 발급 준비 — 정부24 로그인/간편인증으로 이동 중...")
-            try:
-                await page.goto(WWW_GOV_LOGIN_URL, wait_until="domcontentloaded", timeout=30000)
-            except Exception:
-                await page.goto(WWW_GOV_LOGIN_URL, wait_until="load", timeout=40000)
-            # 간편인증 버튼이 뜨면 즉시 진행(상한 3초 = 기존 고정 sleep과 동일) — 서류당 수 초 단축
-            await wait_any_visible(page, SIMPLE_AUTH_SELECTORS, 3)
+            if session is not None and session.logged_in:
+                # 🔑 같은 로그인으로 이어서 — 로그인 페이지를 건너뛰고 발급 폼 직행(추가 인증 없음).
+                #    만료됐다면 아래 발급 폼의 재로그인 감지가 그때 정직하게 재인증을 안내한다.
+                task.update("running", f"📄 {doc_name} — 같은 로그인으로 이어서 발급해요(추가 로그인 없이 폼 직행)...")
+            else:
+                # ① www.gov.kr 로그인 페이지 직접 접속 (세션 수립용)
+                task.update("running", f"📄 {doc_name} 발급 준비 — 정부24 로그인/간편인증으로 이동 중...")
+                try:
+                    await page.goto(WWW_GOV_LOGIN_URL, wait_until="domcontentloaded", timeout=30000)
+                except Exception:
+                    await page.goto(WWW_GOV_LOGIN_URL, wait_until="load", timeout=40000)
+                # 간편인증 버튼이 뜨면 즉시 진행(상한 3초 = 기존 고정 sleep과 동일) — 서류당 수 초 단축
+                await wait_any_visible(page, SIMPLE_AUTH_SELECTORS, 3)
 
-            ss = await take_screenshot(page)
-            task.update("running", f"로그인 페이지 로드 완료\n현재 URL: {page.url}", ss)
+                ss = await take_screenshot(page)
+                task.update("running", f"로그인 페이지 로드 완료\n현재 URL: {page.url}", ss)
 
-            # ② 간편인증(카카오톡) 로그인 수행
-            login_ok = await _login_on_www_gov(page, task, user_info)
-            if not login_ok:
-                await browser.close()
-                return
+                # ② 간편인증(카카오톡) 로그인 수행
+                login_ok = await _login_on_www_gov(page, task, user_info)
+                if not login_ok:
+                    if session is None:
+                        await browser.close()
+                    return
+                if session is not None:
+                    session.logged_in = True  # 다음 서류부터 폼 직행 — 이 여정의 로그인 인증은 이것으로 끝
 
-            await asyncio.sleep(2)
+                await asyncio.sleep(2)
 
             # ③ 새 발급 폼(plus.gov.kr) — 로그인과 같은 호스트라 세션 유지(옛 www.gov.kr/AA040 은 크로스호스트로 끊겼음)
             form_url = APPLY_FORM_URLS.get(doc_name) or ISSUE_URLS.get(doc_name, doc_url)
@@ -387,12 +409,15 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None) -> None:
             # 폼 요소가 뜨면 즉시 진행(상한 4초 = 기존과 동일) — 늦게 뜨는 페이지만 끝까지 기다린다
             await wait_any_visible(page, FORM_READY_SELECTORS, 4)
 
-            # 폼에서 재로그인 요구되면 한 번 더 인증
+            # 폼에서 재로그인 요구되면 한 번 더 인증(공유 세션의 로그인 만료도 이 경로가 복구)
             if any(k in page.url for k in LOGIN_PAGE_URL_KEYWORDS):
                 task.update("running", "재로그인이 필요해요 — 다시 인증합니다...")
                 if not await _login_on_www_gov(page, task, user_info):
-                    await browser.close()
+                    if session is None:
+                        await browser.close()
                     return
+                if session is not None:
+                    session.logged_in = True
                 await page.goto(form_url, wait_until="domcontentloaded", timeout=30000)
                 await wait_any_visible(page, FORM_READY_SELECTORS, 4)
 
@@ -549,8 +574,11 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None) -> None:
                 )
                 task.result = {"success": False, "doc_name": doc_name, "final_url": final_url}
 
-            await cancellable_sleep(60, task, context)  # 중단 가능한 유예(창 닫으면 즉시 반납, 감사 :586)
-            await browser.close()
+            if session is None:
+                await cancellable_sleep(60, task, context)  # 중단 가능한 유예(창 닫으면 즉시 반납, 감사 :586)
+                await browser.close()
+            # 공유 세션 모드: 브라우저는 여정 소유 — 다음 서류가 같은 로그인으로 즉시 이어받고,
+            # 종료는 orchestrator finally 가 담당(수동 저장이 필요해도 창이 여정 내내 열려 있다).
 
     except CancelledByUser:
         # 사용자 중단/창닫힘 — manager 가 'cancelled'로 정직히 종결하도록 재전파

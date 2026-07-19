@@ -300,7 +300,7 @@ modoo-bom/
 - **신청 서비스**: 하드코딩 6종(기초연금·아동수당·부모급여·청년내일저축·첫만남·생계급여) **+ 일반화** —
   `apply_rpa.resolve_apply_url`이 정책의 복지로 딥링크(`profile.apply_url`, wlfareInfoId)를 우선 사용해
   6종 밖 임의 복지로 정책도 신청(`_valid_bokjiro_url`로 복지로 https 호스트만 허용).
-- **연쇄 발급('전부 자동발급')**: `orchestrator` journey 엔진 → `/api/journey/run`·`/status`(local_server+routes,
+- **연쇄 발급('전부 자동발급')**: `orchestrator` journey 엔진(정부24 2종+ 여정은 GovSession 공유 브라우저로 **로그인 인증 1회** — rpa/session.py, 2026-07-19) → `/api/journey/run`·`/status`(local_server+routes,
   `journey_view`가 현재단계 라이브 카카오 안내 병합). 데스크탑앱·확장 양쪽에서 한 번 인증에 순차 발급.
 - **데스크탑앱**: PyInstaller onedir(`agent_entry.py`→`local_server`, 시스템 크롬, dist-app 동일출처 서빙, chromium 미번들)
   빌드·기동 검증됨(78MB ZIP). **Releases app-v0.3.0 게시됨**(2026-07-11 자산 업로드: ModooBom-Setup.exe 45MB·

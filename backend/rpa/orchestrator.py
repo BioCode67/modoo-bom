@@ -179,12 +179,13 @@ def start_journey(doc_names, service_names, user_name, user_info, profile):
     return jid, docs, svcs
 
 
-async def _run_step_doc(task, doc_name, user_info):
+async def _run_step_doc(task, doc_name, user_info, gov_session=None):
     from rpa.manager import _SUPPORTED_DOCS
     rpa_type = _SUPPORTED_DOCS[doc_name][0]
     if rpa_type == "gov24":
         from rpa.gov24_rpa import run_gov24_rpa
-        await run_gov24_rpa(task, doc_name, user_info)  # 이름·생년월일·휴대폰 자동입력 + 주소(sido/sigungu) 자동정정에 필요
+        # gov_session: 여정 공유 브라우저 세션 — 정부24 서류들이 '한 번 로그인'으로 이어서 발급된다
+        await run_gov24_rpa(task, doc_name, user_info, session=gov_session)  # 이름·생년월일·휴대폰 자동입력 + 주소(sido/sigungu) 자동정정에 필요
     elif rpa_type == "nhis":
         from rpa.nhis_rpa import run_nhis_rpa
         await run_nhis_rpa(task, user_info)
@@ -202,7 +203,14 @@ async def _run_journey(jid, user_info, profile):
     user_name = j["user_name"]
     cancelled = False
 
-    from rpa.manager import queued_slot, _TASK_TIMEOUT
+    from rpa.manager import queued_slot, _TASK_TIMEOUT, _SUPPORTED_DOCS
+    # 🔑 '진짜 한 번 인증' — 정부24 서류가 2종 이상이면 여정 공유 브라우저 세션을 만든다.
+    #    첫 서류가 로그인하면 나머지는 같은 세션으로 폼 직행(카카오 로그인 인증 1회).
+    #    1종뿐이면 기존 단독 실행 그대로(발급 후 60초 수동저장 유예 유지 — 동작 불변).
+    from rpa.session import GovSession, close_quietly
+    _gov_doc_count = sum(1 for s in j["steps"]
+                         if s["kind"] == "doc" and _SUPPORTED_DOCS.get(s["name"], ("",))[0] == "gov24")
+    gov_session = GovSession() if _gov_doc_count >= 2 else None
     try:
         for step in j["steps"]:
             # 여정 중단 요청 시 남은 단계는 시작하지 않는다(다음 단계 브라우저가 안 뜨게 — 감사 :123)
@@ -238,7 +246,7 @@ async def _run_journey(jid, user_info, profile):
                             j["cancel_requested"] = True
                             task.update("cancelled", "여정을 중단했어요.")
                     else:
-                        coro = (_run_step_doc(task, step["name"], user_info) if step["kind"] == "doc"
+                        coro = (_run_step_doc(task, step["name"], user_info, gov_session) if step["kind"] == "doc"
                                 else run_apply_rpa(task, step["name"], {**profile, **user_info}))
                         # ⚠️ wait_for 대신 asyncio.wait — 타임아웃 시 내부 취소 정리를 '무한' 기다리다 슬롯을
                         #   영구 누수하던 결함(감사 :190, _guarded_run 과 동일 패턴) 회피. inner 를 _run_handle
@@ -308,6 +316,8 @@ async def _run_journey(jid, user_info, profile):
                 _rpa_tasks[task.task_id] = task.to_dict()  # 항상 종결 스냅샷(비종결 좀비 레코드 방지)
                 j["done_count"] += 1
     finally:
+        # 공유 세션 정리 — 어떤 종결 경로든(정상·취소·예외) 브라우저를 반드시 닫는다(창 잔류·누수 방지)
+        await close_quietly(gov_session)
         # 코루틴이 어떻게 끝나든(정상·취소·예외) 여정은 반드시 종결 상태로 — 영구 'running' 좀비 방지(감사 :119)
         j["current"] = None
         j["current_task_id"] = None
