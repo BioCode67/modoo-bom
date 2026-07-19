@@ -89,7 +89,7 @@ async def _lifespan(_app):
     yield
 
 
-_VERSION = "0.3.1"  # 데스크탑 신뢰성 런 — 헬스/스트립/진단이 함께 표시(한 곳만 수정)
+_VERSION = "0.3.2"  # 데스크탑 신뢰성 런 — 헬스/스트립/진단이 함께 표시(한 곳만 수정)
 app = FastAPI(title="ModooBom Local Agent", version=_VERSION, lifespan=_lifespan)
 
 # 동일 출처가 기본이지만, 배포 웹(github.io)→로컬 에이전트 '브릿지'도 허용(사용자가 LNA 허용 시).

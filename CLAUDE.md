@@ -1,7 +1,7 @@
 # CLAUDE.md — 모두봄 (ModooBom)
 
 > 개인 복지 자산 관리 AI Agent · 2026 AI·SW 중심대학 디지털 경진대회 SW부문
-> 3주차 프로토타입 (version 0.3.1)
+> 3주차 프로토타입 (version 0.3.2)
 
 이 파일은 Claude Code가 이 저장소에서 작업할 때 참고하는 프로젝트 컨텍스트입니다.
 
