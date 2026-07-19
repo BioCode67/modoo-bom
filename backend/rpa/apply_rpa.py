@@ -22,7 +22,7 @@ from rpa.base import (
     click_provider_in_anyid, provider_display, detect_auth_form, AUTH_FORM_USER_GUIDE,
     LOGIN_PAGE_URL_KEYWORDS, get_launch_options, launch_browser,
     click_eform_button, get_frame_by_url,
-    check_cancel, CancelledByUser, NO_PRINT_SCRIPT,
+    check_cancel, CancelledByUser, NO_PRINT_SCRIPT, wait_any_visible,
 )
 
 # 복지로 로그인 — 2026 개편으로 옛 moveTWAT52012M.do 는 빈 셸(깨짐).
@@ -249,7 +249,8 @@ async def run_apply_rpa(task, service_name: str, profile: dict) -> None:
             # ③ 서비스 페이지 이동
             task.update("running", f"'{service_name}' 서비스 페이지로 이동 중...")
             await page.goto(service_url, wait_until="domcontentloaded", timeout=30000)
-            await asyncio.sleep(3)
+            # '신청하기' 요소가 뜨면 즉시 진행(상한 3초 = 기존 고정 sleep) — 못 찾아도 기존 흐름 그대로(eForm 폴백)
+            await wait_any_visible(page, APPLY_BUTTON_SELECTORS, 3)
             ss = await take_screenshot(page)
             task.update("running", f"'{service_name}' 서비스 정보 페이지 접속 완료", ss)
 
@@ -261,7 +262,7 @@ async def run_apply_rpa(task, service_name: str, profile: dict) -> None:
                     return
                 await asyncio.sleep(2)
                 await page.goto(service_url, wait_until="domcontentloaded", timeout=30000)
-                await asyncio.sleep(3)
+                await wait_any_visible(page, APPLY_BUTTON_SELECTORS, 3)
 
             # ④ 신청하기 버튼 클릭
             ss = await take_screenshot(page)

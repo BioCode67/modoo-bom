@@ -483,8 +483,10 @@ export function DocumentCenter() {
   // 연쇄발급(여정) 폴링 — 시작과 복원이 공유. resumed=true면 404를 조용한 정리로(앱 재시작 등).
   const pollJourney = async (journey_id: string, jtok: string, accepted: string[], resumed = false) => {
     const tq = jtok ? `?t=${encodeURIComponent(jtok)}` : ''
-    // 폴링 상한을 백엔드 대기창 이상으로 — 각 서류 인증이 느려도 UI가 완료 전에 멈추지 않게(스텝당 최대 30분/여정)
-    const MAX_POLL = 1400 // 최대 ~35분(다서류 순차 발급 + 각 인증 대기)
+    // 폴링 상한을 백엔드 대기창 이상으로 — 각 서류 인증이 느려도 UI가 완료 전에 멈추지 않게.
+    // ⚠️ 서류 수에 비례해야 한다: 고정 1400(~35분)은 '자유 선택 15종' 여정에서 백엔드가 아직 도는데
+    //    UI만 멈춘 것으로 오보할 수 있다. 스텝당 백엔드 하드타임아웃(30분=1200폴)+버퍼로 계산(종결은 상태로 감지).
+    const MAX_POLL = Math.max(1400, accepted.length * 1250 + 400)
     let failStreak = 0
     let finished = false
     let prevBody = '' // 직전 응답 원문 — 같으면 집계·setState 생략(장시간 여정의 불필요 리렌더 제거)

@@ -703,6 +703,26 @@ async def get_frame_by_url(page, keyword: str, timeout_sec: int = 12):
     return None
 
 
+async def wait_any_visible(page, selectors: list, timeout_s: float, poll: float = 0.3) -> bool:
+    """선택자 중 하나라도 나타날 때까지 '조기 탈출' 폴링 — 고정 sleep 대체용 속도 최적화.
+
+    ⚠️ 계약: 상한(timeout_s)은 기존 고정 sleep과 동일하게 두고, 준비가 끝났으면 즉시 진행한다.
+    → 오늘보다 느려질 수는 없고(최악 = 기존과 동일), 빠른 회선에선 단계당 수 초를 아낀다.
+    셀렉터는 '이미 검증된 기존 목록'을 그대로 받는다(새 DOM 가정 금지). 찾으면 True, 상한 도달 False.
+    """
+    end = asyncio.get_event_loop().time() + max(0.0, timeout_s)
+    while True:
+        for sel in selectors:
+            try:
+                if await asyncio.wait_for(page.locator(sel).first.count(), timeout=3) > 0:
+                    return True
+            except Exception:
+                continue
+        if asyncio.get_event_loop().time() >= end:
+            return False
+        await asyncio.sleep(poll)
+
+
 async def click_first_matching(page, selectors: list) -> bool:
     """선택자 목록 중 첫 번째로 찾은 요소 클릭. 성공 여부 반환."""
     for sel in selectors:

@@ -256,3 +256,40 @@ def test_journey_accepts_verified_deeplink_services(monkeypatch):
     # 딥링크 없는 미지 서비스는 거절
     jid3, _, svcs3 = orchestrator.start_journey([], ["희귀서비스"], "테스트", {}, {})
     assert svcs3 == []
+
+
+def test_wait_any_visible_early_exit_and_ceiling():
+    """wait_any_visible: 요소가 나타나면 즉시 True(조기 탈출), 끝내 없으면 상한에서 False.
+    속도 최적화의 계약 고정 — '상한은 기존 고정 sleep과 동일, 준비되면 일찍'이 코드로 보장돼야 한다."""
+    import asyncio
+    import time
+    from rpa.base import wait_any_visible
+
+    class _Loc:
+        def __init__(self, answers):
+            self._answers = answers
+        @property
+        def first(self):
+            return self
+        async def count(self):
+            return self._answers.pop(0) if self._answers else self._last
+    class _Page:
+        def __init__(self, answers, last=1):
+            self._loc = _Loc(list(answers))
+            self._loc._last = last
+        def locator(self, sel):
+            return self._loc
+
+    async def run():
+        # ① 세 번째 폴에서 등장 → True, 상한(3초)보다 훨씬 일찍 끝난다
+        t0 = time.monotonic()
+        ok = await wait_any_visible(_Page([0, 0, 1]), ["a"], timeout_s=3, poll=0.01)
+        assert ok is True
+        assert time.monotonic() - t0 < 1.0
+        # ② 끝내 안 나타남 → 상한에서 False(무한 대기 금지)
+        t0 = time.monotonic()
+        ok = await wait_any_visible(_Page([], last=0), ["a"], timeout_s=0.05, poll=0.01)
+        assert ok is False
+        assert time.monotonic() - t0 < 1.0
+
+    asyncio.get_event_loop_policy().new_event_loop().run_until_complete(run())

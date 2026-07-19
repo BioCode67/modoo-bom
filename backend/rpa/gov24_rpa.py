@@ -20,7 +20,7 @@ from rpa.base import (
     click_first_matching, click_by_text, make_browser_context_args,
     click_provider_in_anyid, provider_display, detect_auth_form, AUTH_FORM_USER_GUIDE,
     LOGIN_PAGE_URL_KEYWORDS, get_launch_options, launch_browser, save_document,
-    check_cancel, cancellable_sleep, CancelledByUser, NO_PRINT_SCRIPT,
+    check_cancel, cancellable_sleep, CancelledByUser, NO_PRINT_SCRIPT, wait_any_visible,
 )
 
 # 정부24 로그인 페이지 — 2026년 plus.gov.kr로 이전(옛 www.gov.kr/portal/login/memberLogin 은 soft-404).
@@ -109,6 +109,15 @@ APPLY_SELECTORS = [
     ".btn-apply",
     "#btnApply",
     "#btn_apply",
+]
+
+# 발급 폼 '준비 완료' 신호 — 아래 폼 처리 코드가 이미 쓰는 셀렉터만 재사용(새 DOM 가정 금지).
+# 고정 sleep(4초)을 '준비되면 즉시 진행'으로 바꾸는 조기 탈출 폴링에 사용(상한은 동일).
+FORM_READY_SELECTORS = [
+    "button:has-text('신청하기')",
+    "#btnMinwonApply",
+    "a:has-text('발급하기')",
+    "select",
 ]
 
 PRINT_SELECTORS = [
@@ -357,7 +366,8 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None) -> None:
                 await page.goto(WWW_GOV_LOGIN_URL, wait_until="domcontentloaded", timeout=30000)
             except Exception:
                 await page.goto(WWW_GOV_LOGIN_URL, wait_until="load", timeout=40000)
-            await asyncio.sleep(3)
+            # 간편인증 버튼이 뜨면 즉시 진행(상한 3초 = 기존 고정 sleep과 동일) — 서류당 수 초 단축
+            await wait_any_visible(page, SIMPLE_AUTH_SELECTORS, 3)
 
             ss = await take_screenshot(page)
             task.update("running", f"로그인 페이지 로드 완료\n현재 URL: {page.url}", ss)
@@ -374,7 +384,8 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None) -> None:
             form_url = APPLY_FORM_URLS.get(doc_name) or ISSUE_URLS.get(doc_name, doc_url)
             task.update("running", f"{doc_name} 발급 폼으로 이동 중...")
             await page.goto(form_url, wait_until="domcontentloaded", timeout=30000)
-            await asyncio.sleep(4)
+            # 폼 요소가 뜨면 즉시 진행(상한 4초 = 기존과 동일) — 늦게 뜨는 페이지만 끝까지 기다린다
+            await wait_any_visible(page, FORM_READY_SELECTORS, 4)
 
             # 폼에서 재로그인 요구되면 한 번 더 인증
             if any(k in page.url for k in LOGIN_PAGE_URL_KEYWORDS):
@@ -383,7 +394,7 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None) -> None:
                     await browser.close()
                     return
                 await page.goto(form_url, wait_until="domcontentloaded", timeout=30000)
-                await asyncio.sleep(4)
+                await wait_any_visible(page, FORM_READY_SELECTORS, 4)
 
             # 초본이면 서비스 선택에서 '초본'을 고른다(기본은 등본)
             if doc_name == "주민등록초본":
