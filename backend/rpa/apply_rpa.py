@@ -76,6 +76,67 @@ SUBMIT_BUTTON_SELECTORS = [
 ]
 
 
+async def _pass_service_select_page(page, task, service_name: str, wait_sec: int = 10) -> bool:
+    """(추가형 브리지) 로그인 후 '복지급여 신청 — 서비스 선택' 화면(selectServChs, 실측 2026-07-20) 자동 통과.
+
+    실측 흐름: 신청하기 → 서비스 선택 그리드(카드별 '신청하기' 체크박스) → [저장 후 다음단계] →
+    확인 다이얼로그('선택한 서비스명: … 진행하시겠습니까?') → [확인] → 신청 양식.
+    ⚠️ 화면 시그니처('저장 후 다음단계')가 없으면 **아무것도 하지 않는다**(기존 골든패스 무영향 계약).
+    체크·다음단계·확인까지 자동 — 최종 제출은 여전히 본인(기존 '제출 직전 정지' 원칙 불변)."""
+    key = re.sub(r"\s+", "", service_name or "")
+    attempts = max(1, wait_sec // 2)
+    for _ in range(attempts):
+        try:
+            body = await page.evaluate("() => document.body ? document.body.innerText : ''")
+        except Exception:
+            body = ""
+        if "저장 후 다음단계" not in (body or ""):
+            return False  # 선택 화면 아님 — 관여하지 않음
+        checked = False
+        try:
+            checked = await page.evaluate(
+                """(key) => {
+                    const norm = (s) => (s || '').replace(/\\s+/g, '');
+                    const cards = [...document.querySelectorAll('div, li, td')]
+                        .filter(c => { const t = norm(c.innerText); return t.length < 300 && t.includes(key) && t.includes('신청하기'); });
+                    cards.sort((a, b) => (a.innerText || '').length - (b.innerText || '').length); // 가장 안쪽 카드 우선
+                    for (const card of cards) {
+                        const cb = card.querySelector('input[type=checkbox]');
+                        if (cb) { if (!cb.checked) cb.click(); return true; }
+                        const lab = [...card.querySelectorAll('label, span')].find(e => norm(e.innerText).includes('신청하기'));
+                        if (lab) { lab.click(); return true; }
+                    }
+                    return false;
+                }""",
+                key,
+            )
+        except Exception:
+            checked = False
+        if checked:
+            task.update("running", f"📋 서비스 선택 화면 — '{service_name}' 체크 후 [저장 후 다음단계]로 진행해요...",
+                        await take_screenshot(page))
+            await asyncio.sleep(0.6)
+            if not await click_by_text(page, ["저장 후 다음단계"]):
+                await click_eform_button(page, "저장 후 다음단계")
+            # 확인 다이얼로그('진행하시겠습니까?') — [확인]으로 신청 양식 진입(작성은 자동, 제출은 본인)
+            await asyncio.sleep(1.2)
+            try:
+                t2 = await page.evaluate("() => document.body ? document.body.innerText : ''")
+                if ("진행하시겠습니까" in t2) or ("선택한 서비스명" in t2):
+                    await click_by_text(page, ["확인"])
+            except Exception:
+                pass
+            await asyncio.sleep(2)
+            return True
+        # 선택 화면인데 카드를 못 찾음 — 사람이 체크하면 다음 루프가 [저장 후 다음단계]부터 이어받는다
+        task.update("waiting_login",
+                    f"📋 서비스 선택 화면이에요 — 목록에서 '{service_name}'의 '신청하기'를 체크해 주세요.\n"
+                    "체크만 하시면 [저장 후 다음단계]와 확인창은 자동으로 진행해 드려요.",
+                    await take_screenshot(page))
+        await asyncio.sleep(2)
+    return False
+
+
 async def _login_bokjiro(page, task, provider: str = "kakao") -> bool:
     """복지로 로그인 (eForm 간편인증 → yeskey fincert → 카카오톡).
 
@@ -519,6 +580,12 @@ async def run_apply_rpa(task, service_name: str, profile: dict) -> None:
             form_contexts = before_contexts
             form_state = before_state
             if apply_clicked:
+                # ④.5 (추가형) '서비스 선택' 화면이 끼면 체크→[저장 후 다음단계]→확인창까지 통과(실측 브리지).
+                #     시그니처 없으면 no-op — 기존 흐름 무영향.
+                try:
+                    await _pass_service_select_page(page, task, service_name)
+                except Exception:
+                    pass
                 task.update("running", "신청 양식이 실제로 열렸는지 확인 중...")
                 form_detected, form_contexts, form_state = await _wait_for_apply_form(
                     task, context, page, before_state, 12
