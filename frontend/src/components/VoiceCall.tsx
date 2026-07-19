@@ -172,17 +172,6 @@ export function VoiceCall({ open, onClose, presetLang }: { open: boolean; onClos
             {speech.listening ? L.statusListening : thinking ? L.statusThinking : tts.speaking ? L.statusSpeaking : L.statusIdle}
           </p>
         </div>
-        {/* 🌍 상담 언어 — 음성 인식 언어이자 안내 언어(외국인·다문화 무장벽 상담) */}
-        <select
-          value={lang}
-          onChange={(e) => changeLang(e.target.value)}
-          aria-label="상담 언어 선택 (Language)"
-          className="rounded-full border border-sprout-200 bg-white px-2 py-2 text-sm font-semibold"
-        >
-          {Object.entries(VOICE_LANGS).map(([code, s]) => (
-            <option key={code} value={code}>{s.flag} {s.label}</option>
-          ))}
-        </select>
         <button
           onClick={() => { setMuted((m) => !m); if (!muted) window.speechSynthesis?.cancel?.() }}
           className="rounded-full p-3 bg-slate-100 hover:bg-slate-200"
@@ -217,22 +206,34 @@ export function VoiceCall({ open, onClose, presetLang }: { open: boolean; onClos
         {thinking && <p className="text-center text-muted-foreground text-lg">🌱 …</p>}
       </div>
 
-      {/* 조작부 — 크게 하나 */}
+      {/* 조작부 — 크게 하나 (+ 🌍 언어: 말하기 직전에 고르는 자리 — 헤더에 두면 모바일 제목이 깨진다) */}
       <div className="border-t border-sprout-100 bg-white px-4 py-4">
         <div className="max-w-3xl mx-auto space-y-3">
-          {speech.supported ? (
-            <button
-              onClick={speech.toggle}
-              className={cn('w-full rounded-3xl py-5 font-extrabold text-xl flex items-center justify-center gap-3 transition-colors',
-                speech.listening ? 'bg-rose-500 text-white animate-pulse' : 'bg-sprout-600 text-white hover:bg-sprout-700')}
+          <div className="flex gap-2 items-stretch">
+            <select
+              value={lang}
+              onChange={(e) => changeLang(e.target.value)}
+              aria-label="상담 언어 선택 (Language)"
+              className="rounded-2xl border-2 border-sprout-200 bg-white px-2 text-sm font-semibold shrink-0"
             >
-              <Mic className="h-7 w-7" /> {speech.listening ? L.micListening : L.micIdle}
-            </button>
-          ) : (
-            <p className="text-base text-amber-800 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3">
-              이 브라우저는 음성 인식을 지원하지 않아요 — 아래 칸에 입력하시면 똑같이 답해드려요.
-            </p>
-          )}
+              {Object.entries(VOICE_LANGS).map(([code, s]) => (
+                <option key={code} value={code}>{s.flag} {s.label}</option>
+              ))}
+            </select>
+            {speech.supported ? (
+              <button
+                onClick={speech.toggle}
+                className={cn('flex-1 min-w-0 rounded-3xl py-5 font-extrabold text-xl flex items-center justify-center gap-3 transition-colors',
+                  speech.listening ? 'bg-rose-500 text-white animate-pulse' : 'bg-sprout-600 text-white hover:bg-sprout-700')}
+              >
+                <Mic className="h-7 w-7 shrink-0" /> <span className="truncate">{speech.listening ? L.micListening : L.micIdle}</span>
+              </button>
+            ) : (
+              <p className="flex-1 min-w-0 text-base text-amber-800 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3">
+                이 브라우저는 음성 인식을 지원하지 않아요 — 아래 칸에 입력하시면 똑같이 답해드려요.
+              </p>
+            )}
+          </div>
           {speech.error && (
             <p role="alert" className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-2.5">🎤 {speech.error}</p>
           )}

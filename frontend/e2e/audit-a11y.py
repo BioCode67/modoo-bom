@@ -84,6 +84,7 @@ def main() -> int:
                 ("explore", "?go=explore", False),
                 ("my", "?go=my", False),
                 ("home·고대비", "", True),
+                ("통화", "", False),  # 📞 통화 다이얼로그 오픈 상태 — 대화 표면도 axe 커버(셀렉트·마이크·이중 경로)
             ]
             for name, q, hc in cases:
                 pg = ctx.new_page()
@@ -99,6 +100,11 @@ def main() -> int:
                     failed += 1
                     pg.close()
                     continue
+                if name == "통화":  # 다이얼로그를 실제 사용 경로(챗 헤더 📞)로 연다
+                    pg.click('[aria-label="복지 도우미 챗봇 열기"]')
+                    pg.click('[aria-label="음성 통화 상담으로 전환"]')
+                    pg.wait_for_selector('[role="dialog"][aria-label="새싹이와 통화 상담"]', timeout=8000)
+                    pg.wait_for_timeout(600)
                 pg.evaluate(axe_js)
                 res = pg.evaluate("async () => await axe.run(document, {resultTypes:['violations']})")
                 vio = res["violations"]
