@@ -246,23 +246,34 @@ async def _run_journey(jid, user_info, profile):
                             j["cancel_requested"] = True
                             task.update("cancelled", "여정을 중단했어요.")
                     else:
-                        coro = (_run_step_doc(task, step["name"], user_info, gov_session) if step["kind"] == "doc"
-                                else run_apply_rpa(task, step["name"], {**profile, **user_info}))
-                        # ⚠️ wait_for 대신 asyncio.wait — 타임아웃 시 내부 취소 정리를 '무한' 기다리다 슬롯을
-                        #   영구 누수하던 결함(감사 :190, _guarded_run 과 동일 패턴) 회피. inner 를 _run_handle
-                        #   로 노출해 request_cancel 하드취소가 이 단계를 직접 취소할 수 있게 한다.
-                        inner = asyncio.ensure_future(coro)
-                        task._run_handle = inner
-                        done, pending = await asyncio.wait({inner}, timeout=_TASK_TIMEOUT)
-                        if pending:
-                            inner.cancel()
-                            await asyncio.wait({inner}, timeout=20)  # 정리는 최대 20초만 기다리고 슬롯 반납
-                            raise asyncio.TimeoutError
-                        if inner.cancelled():
-                            raise asyncio.CancelledError
-                        exc = inner.exception()
-                        if exc is not None:
-                            raise exc
+                        # 🔁 문서 단계 1회 자동 재시도 — 일시 오류(페이지 로드 실패 등)가 여정을 끊지 않게.
+                        #   공유 세션 덕에 재시도 비용이 작다(재로그인 없이 폼 재진입). 예외·타임아웃·취소·스킵은
+                        #   재시도하지 않고(각자의 정직한 처리 경로 유지), '오류로 종결'된 문서 단계만 한 번 더.
+                        for _attempt in (1, 2):
+                            coro = (_run_step_doc(task, step["name"], user_info, gov_session) if step["kind"] == "doc"
+                                    else run_apply_rpa(task, step["name"], {**profile, **user_info}))
+                            # ⚠️ wait_for 대신 asyncio.wait — 타임아웃 시 내부 취소 정리를 '무한' 기다리다 슬롯을
+                            #   영구 누수하던 결함(감사 :190, _guarded_run 과 동일 패턴) 회피. inner 를 _run_handle
+                            #   로 노출해 request_cancel 하드취소가 이 단계를 직접 취소할 수 있게 한다.
+                            inner = asyncio.ensure_future(coro)
+                            task._run_handle = inner
+                            done, pending = await asyncio.wait({inner}, timeout=_TASK_TIMEOUT)
+                            if pending:
+                                inner.cancel()
+                                await asyncio.wait({inner}, timeout=20)  # 정리는 최대 20초만 기다리고 슬롯 반납
+                                raise asyncio.TimeoutError
+                            if inner.cancelled():
+                                raise asyncio.CancelledError
+                            exc = inner.exception()
+                            if exc is not None:
+                                raise exc
+                            if (_attempt == 1 and step["kind"] == "doc"
+                                    and getattr(task, "status", "") == "error"
+                                    and not getattr(task, "cancel_requested", False)
+                                    and not j.get("cancel_requested")):
+                                task.update("running", "⚠️ 일시 오류가 있었어요 — 같은 로그인으로 한 번 더 시도해요…")
+                                continue
+                            break
             except asyncio.TimeoutError:
                 # 이미 발급 완료(done)를 타임아웃이 error 로 덮지 않도록 finally 에서 실제 결과로 재조정(감사 :142)
                 if task.status not in ("done", "completed") and not (task.result or {}).get("saved_path"):

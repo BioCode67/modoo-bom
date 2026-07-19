@@ -106,3 +106,39 @@ def test_journey_creates_and_cleans_shared_session():
     assert "await close_quietly(gov_session)" in src
     # 단계 실행에 세션이 실제로 전달돼야 한다(만들고 안 쓰는 죽은 배선 방지)
     assert '_run_step_doc(task, step["name"], user_info, gov_session)' in src
+
+
+def test_journey_retries_failed_doc_once(monkeypatch):
+    """🔁 문서 단계 자동 재시도 — '오류 종결'된 문서는 같은 여정에서 1회 더 시도하고,
+    두 번째도 실패하면 그대로 정직하게 오류로 남는다(무한 재시도 금지)."""
+    from rpa import orchestrator
+
+    async def run():
+        calls = {"등본": 0, "가족": 0}
+
+        async def flaky(task, name, info, gov_session=None):
+            key = "등본" if "등본" in name else "가족"
+            calls[key] += 1
+            if key == "등본" and calls[key] == 1:
+                task.update("error", "일시 오류(첫 시도)")
+            elif key == "가족":
+                task.update("error", f"계속 실패({calls[key]}차)")  # 재시도해도 실패 — 2회에서 멈춰야 함
+            else:
+                task.update("done", "발급 완료")
+                task.result = {"success": True, "saved_path": f"/docs/{name}.pdf"}
+
+        monkeypatch.setattr(orchestrator, "_run_step_doc", flaky)
+        jid, _, _ = orchestrator.start_journey(["주민등록등본", "가족관계증명서"], [], "홍", {}, {})
+        for _ in range(400):
+            await asyncio.sleep(0.02)
+            if orchestrator._journeys[jid]["status"] in ("completed", "error", "cancelled"):
+                break
+        j = orchestrator._journeys.pop(jid)
+        assert calls["등본"] == 2, "오류 1회 후 재시도가 없었음"
+        assert calls["가족"] == 2, "재시도는 1회까지만이어야 함"
+        steps = {s["name"]: s for s in j["steps"]}
+        assert steps["주민등록등본"]["success"] is True      # 재시도로 살아난 발급
+        assert steps["가족관계증명서"]["status"] == "error"   # 2회 실패는 정직하게 오류
+        assert j["status"] == "completed"                    # 성공 1건 이상 → 여정은 완료로 종결
+
+    _run(run())
