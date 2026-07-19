@@ -44,7 +44,10 @@ export function docLink(doc: string): OfficialLink {
   // 병원 발급: 진단서·소견서·임신확인서·출생증명서 등은 진료한 병원에서만 발급된다
   if (/진단서|소견서|임신확인서|임신\s*확인|출생증명/.test(d))
     return { label: '진료받은 병원에서 발급', url: `https://www.gov.kr/search?srhQuery=${encodeURIComponent(doc)}` }
-  // 은행 발급: 통장사본·계좌 확인은 거래 은행 앱(모바일)이나 영업점에서
+  // 은행 발급: 통장사본·계좌 확인·이체확인증은 거래 은행 앱(모바일)이나 영업점에서
+  // (월세 이체확인증은 현금 납부 등 이체내역이 없으면 복지로 '월차임 납부확인서' 양식으로 대체 — 공식 안내)
+  if (/이체확인|이체\s*내역|송금확인/.test(d))
+    return { label: '거래 은행 앱에서 이체확인증 발급 (이체내역 없으면 복지로 월차임 납부확인서)', url: 'https://www.bokjiro.go.kr' }
   if (/통장|계좌/.test(d))
     return { label: '거래 은행 앱·영업점에서 발급', url: `https://www.gov.kr/search?srhQuery=${encodeURIComponent(doc)}` }
   // 회사 발급: 재직·경력·급여 관련은 재직(했던) 회사에서
