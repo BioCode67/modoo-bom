@@ -89,6 +89,26 @@ def test_maintenance_notice_detection():
     assert not _is_maintenance_notice(None)  # 방어적: None 안전
 
 
+def test_birth6_conversion():
+    """efamily 주민번호 앞 6자리 변환 — 생년월일 8자리('20010601')→'010601', 6자리 그대로, 불량 입력은 ''."""
+    from rpa.gov24_rpa import _birth6
+    assert _birth6("20010601") == "010601"
+    assert _birth6("2001-06-01") == "010601"
+    assert _birth6("010601") == "010601"
+    assert _birth6("") == ""
+    assert _birth6(None) == ""
+    assert _birth6("19") == ""  # 자릿수 부족 — 엉뚱한 값 넣지 않음
+
+
+def test_efamily_route_constants_and_valve():
+    """가족관계증명서 efamily 직행(β) — 실측 URL 상수와 흐름 함수 존재 + RPA_FAMILY_EFAMILY 밸브 계약.
+    (실 사이트 검증은 사용자 PC에서 — 컨테이너는 정부망 차단. 여기선 배선 회귀만 고정)"""
+    from rpa import gov24_rpa as g
+    assert g.EFAMILY_HOME.startswith("https://efamily.scourt.go.kr")
+    assert "PtFrrpApplrInfoInqW" in g.EFAMILY_APPLY  # 실측 신청인 정보조회 URL
+    assert callable(g._issue_family_cert_efamily)
+
+
 def test_privacy_masking_env_valve_and_result():
     """🔒 주민번호 뒷자리 비공개 선택 — RPA_PRIVACY_MASK=0 안전밸브로 끌 수 있고,
     폼에 옵션이 있으면 True(안내 노출)·없거나 실패면 False(무해 침묵)를 고정."""

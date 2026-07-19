@@ -593,6 +593,160 @@ def _pick_result_page(context, fallback):
         return fallback
 
 
+# ── 가족관계증명서: 원 발급처(대법원 전자가족관계등록시스템) 직행 자동화(β) ──
+# 실측(2026-07-20, 사용자 스크린샷 5장): 정부24 경로는 '전자문서지갑' 선행+연계 차단으로 실사용 불가,
+# efamily 는 24시간 무료 발급 확인. URL·화면 구성(신청인 정보조회→간편인증→신청하기)은 스크린샷 실측,
+# 요소는 텍스트·라벨 기반 셀렉터(개편에 강함 — 컨테이너는 정부망 차단이라 DOM ID 실측 불가).
+EFAMILY_HOME = "https://efamily.scourt.go.kr/index.jsp"
+EFAMILY_APPLY = "https://efamily.scourt.go.kr/pt/PtFrrpApplrInfoInqW.do?menuFg=02"
+
+
+def _birth6(birth_date) -> str:
+    """생년월일 → 주민등록번호 앞 6자리(YYMMDD). '20010601'→'010601', '010601' 그대로, 그 외 ''."""
+    d = re.sub(r"[^0-9]", "", str(birth_date or ""))
+    if len(d) >= 8:
+        return d[2:8]
+    if len(d) == 6:
+        return d
+    return ""
+
+
+async def _issue_family_cert_efamily(page, task, context, user_info: dict = None) -> None:
+    """가족관계증명서 — efamily 직행 발급(β).
+
+    흐름(실측): ① 신청인 정보조회 페이지 → 약관 동의 + 성명·주민번호 앞자리 자동 입력
+    ② 🔒 주민등록번호 뒷자리·부/모 성명은 **본인이 정부 화면에 직접 입력**(앱은 이 정보를 수집·저장하지
+       않는다 — 프라이버시 설계) → [간편인증] 클릭도 본인
+    ③ 간편인증 모달이 뜨면 카카오톡 선택·휴대폰·전체동의를 채워주고, 뒷자리 입력+[인증 요청]은 본인
+    ④ 폰 승인 후 증명서 화면 도달 → '일반증명서' 선택·[신청하기] 자동 → 문서 렌더 대기 → PDF 저장.
+    각 단계 실패 시 정직 안내 + 화면을 그대로 남겨 사람이 이어서 할 수 있게 한다(β — 무언 실패 금지)."""
+    ui = user_info or {}
+    name = str(ui.get("user_name") or ui.get("name") or "").strip()
+    birth6 = _birth6(ui.get("birth_date"))
+    phone = re.sub(r"[^0-9]", "", str(ui.get("phone", "")))
+    provider = str(ui.get("auth_provider", "kakao") or "kakao")
+
+    task.update("running", "📄 가족관계증명서(β) — 원 발급처인 대법원 전자가족관계등록시스템으로 이동해요...")
+    # ① 신청 페이지 직행(실측 URL) → 실패 시 홈에서 타일 클릭 폴백
+    try:
+        await page.goto(EFAMILY_APPLY, wait_until="domcontentloaded", timeout=30000)
+    except Exception:
+        await page.goto(EFAMILY_HOME, wait_until="domcontentloaded", timeout=40000)
+        await click_by_text(page, ["가족관계증명서"])
+        await asyncio.sleep(2)
+    check_cancel(task, context)
+    await asyncio.sleep(1.5)
+
+    # ② 약관 동의 체크 + 성명·주민번호 앞 6자리 자동 입력(행 라벨 기반 — ID 미실측이라 텍스트로)
+    try:
+        await page.evaluate(
+            """(v) => {
+                // 약관 동의: '이용약관에 동의' 문구 주변의 체크박스
+                for (const c of document.querySelectorAll('input[type=checkbox]')) {
+                    const t = ((c.closest('label') || c.parentElement || {}).innerText || '') +
+                              ((c.parentElement && c.parentElement.parentElement) ? c.parentElement.parentElement.innerText : '');
+                    if (t.includes('이용약관')) { if (!c.checked) c.click(); break; }
+                }
+                const fire = (el) => { el.dispatchEvent(new Event('input', {bubbles: true})); el.dispatchEvent(new Event('change', {bubbles: true})); };
+                for (const tr of document.querySelectorAll('tr')) {
+                    const head = ((tr.querySelector('th, td') || {}).innerText || '').trim();
+                    const inputs = [...tr.querySelectorAll("input[type=text], input:not([type])")];
+                    if (/^성명/.test(head) && inputs[0] && v.name) { inputs[0].value = v.name; fire(inputs[0]); }
+                    // 주민등록번호 행: 앞 6자리만 채운다(뒷자리는 본인 직접 — 앱 미수집)
+                    if (/^주민등록번호/.test(head) && inputs[0] && v.birth6) { inputs[0].value = v.birth6; fire(inputs[0]); }
+                }
+            }""",
+            {"name": name, "birth6": birth6},
+        )
+    except Exception:
+        pass
+    ss = await take_screenshot(page)
+    task.update(
+        "waiting_login",
+        "📋 신청인 정보를 채웠어요(성명·주민번호 앞자리).\n"
+        "🔒 화면에서 **주민등록번호 뒷자리**와 **부/모 성명**을 직접 입력해 주세요 — 앱은 이 정보를 저장하지 않아요.\n"
+        "입력 후 [간편인증]을 누르면, 인증창은 이어서 도와드릴게요.",
+        ss,
+    )
+
+    # ③ 간편인증 모달 등장 대기 → 카카오톡 선택 + 휴대폰 채움 + 전체동의(마지막). 인증요청은 본인(뒷자리 필요).
+    modal_ready = False
+    for _w in range(240):  # 최대 ~8분(약관·정보 입력 + 인증까지 사람 속도)
+        check_cancel(task, context)
+        try:
+            body = await page.evaluate("() => document.body ? document.body.innerText : ''")
+        except Exception:
+            body = ""
+        # 인증 완료 후 화면(신청 폼)으로 이미 넘어갔으면 ④로
+        if ("신청하기" in body or "일반증명서" in body) and "인증 요청" not in body:
+            modal_ready = False
+            break
+        if (not modal_ready) and ("인증 요청" in body and "전체동의" in body):
+            modal_ready = True
+            await click_provider_in_anyid(page, provider)
+            await asyncio.sleep(0.6)
+            if phone:
+                try:
+                    await page.evaluate(
+                        """(tail) => {
+                            const fire = (el) => { el.dispatchEvent(new Event('input', {bubbles: true})); el.dispatchEvent(new Event('change', {bubbles: true})); };
+                            for (const tr of document.querySelectorAll('tr, li, div')) {
+                                const t = (tr.innerText || '').trim();
+                                if (t.length < 80 && t.includes('휴대폰')) {
+                                    const inp = [...tr.querySelectorAll("input[type=text], input[type=tel], input:not([type])")].pop();
+                                    if (inp && !inp.value) { inp.value = tail; fire(inp); return; }
+                                }
+                            }
+                        }""",
+                        phone[3:] if phone.startswith("010") and len(phone) >= 10 else phone,
+                    )
+                except Exception:
+                    pass
+            await _check_agree_all(page)  # 전체동의는 제공자 선택 뒤 '마지막에'(동의 리셋 방지 — 정부24와 동일 순서)
+            task.update(
+                "waiting_login",
+                "📱 인증창을 채웠어요(카카오톡·휴대폰·전체동의).\n"
+                "🔒 **주민등록번호 뒷자리**만 직접 입력하고 [인증 요청]을 누른 뒤, 폰에서 [인증 허용]을 해주세요.",
+                await take_screenshot(page),
+            )
+        if _w and _w % 15 == 0:
+            task.update("waiting_login", f"진행을 기다리는 중이에요… ({_w * 2}초) 화면 안내대로 입력·인증해 주세요.", await take_screenshot(page))
+        await asyncio.sleep(2)
+
+    # ④ 인증 후 증명서 신청 화면 — '일반증명서' 선택(있으면) + [신청하기] → 문서 렌더 대기 → 저장
+    check_cancel(task, context)
+    await click_by_text(page, ["일반증명서"])
+    await asyncio.sleep(0.8)
+    if not await click_by_text(page, ["신청하기", "발급하기", "발급 신청"]):
+        await click_first_matching(page, ["button:has-text('신청')", "a:has-text('신청')", "input[value*='신청']"])
+    await asyncio.sleep(3)
+    final_page = _pick_result_page(context, page)
+    await _wait_document_rendered(final_page)
+    body_now = ""
+    try:
+        body_now = await final_page.evaluate("() => document.body ? document.body.innerText : ''")
+    except Exception:
+        pass
+    saved = await save_document(final_page, "가족관계증명서", name)
+    if saved:
+        task.update(
+            "done",
+            f"✅ 가족관계증명서 발급 완료(β · 대법원 efamily)!\n📄 자동 저장됨: {saved}\n브라우저는 60초 후 자동 종료됩니다.",
+            await take_screenshot(final_page),
+        )
+        task.result = {"success": True, "doc_name": "가족관계증명서", "saved_path": saved}
+    else:
+        # 저장까지 확인 못 함 — 화면은 그대로 두고 사람이 마무리(β 정직성: 성공 날조 금지)
+        task.update(
+            "done",
+            "⚠️ 가족관계증명서(β) — 자동 저장까지는 확인하지 못했어요.\n"
+            + ("화면에 증명서가 떠 있으면 [출력/저장]으로 마무리해 주세요.\n" if ("증명서" in body_now or "출력" in body_now) else "화면 안내대로 남은 단계를 마무리해 주세요.\n")
+            + "브라우저는 60초 후 자동 종료됩니다.",
+            await take_screenshot(final_page),
+        )
+        task.result = {"success": False, "doc_name": "가족관계증명서"}
+
+
 async def run_gov24_rpa(task, doc_name: str, user_info: dict = None, session=None) -> None:
     """정부24에서 서류 발급. user_info(이름·생년월일·휴대폰) 있으면 본인인증 폼 자동입력.
 
@@ -630,6 +784,17 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None, session=Non
                 # 여정 공유 세션 — 죽었으면 재생성(logged_in 리셋), 살아있으면 그대로 재사용
                 await session.ensure()
                 browser, context, page = session.browser, session.context, session.page
+
+            # 🆕 가족관계증명서는 원 발급처(대법원 efamily) 직행(β) — 정부24 경로는 전자문서지갑
+            #    선행+연계 차단으로 실사용 불가 확정(2026-07-20 실측). RPA_FAMILY_EFAMILY=0 이면 기존 경로.
+            #    efamily 는 자체 인증이라 여정 공유 로그인과 무관 — 발급 후 다음 서류는 plus.gov.kr 로
+            #    복귀하며 쿠키 세션이 유지된다(같은 컨텍스트 내 탐색).
+            if "가족관계" in doc_name and os.environ.get("RPA_FAMILY_EFAMILY", "1") != "0":
+                await _issue_family_cert_efamily(page, task, context, user_info)
+                if session is None:
+                    await cancellable_sleep(60, task, context)
+                    await browser.close()
+                return
 
             if session is not None and session.logged_in:
                 # 🔑 같은 로그인으로 이어서 — 로그인 페이지를 건너뛰고 발급 폼 직행(추가 인증 없음).
