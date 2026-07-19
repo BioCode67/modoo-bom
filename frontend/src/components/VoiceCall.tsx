@@ -12,6 +12,7 @@ import { VOICE_LANGS, voiceStrings, voiceRouteLang, routeReplyFor } from '@/lib/
 import { runAnalysis } from '@/lib/welfare-engine'
 import { formatWon, sumCashMonthly } from '@/lib/format'
 import { speakableText } from '@/lib/speakable'
+import { buildResultBriefing } from '@/lib/voiceBriefing'
 import { cn } from '@/lib/utils'
 
 export interface Turn {
@@ -33,12 +34,14 @@ export interface Turn {
  * - 음성 인식은 브라우저 기능(Web Speech)을 쓴다 — 온디바이스 임베딩 검색과 달리
  *   브라우저에 따라 음성이 외부로 전송될 수 있어 '온디바이스'라고 과장하지 않는다.
  */
-export function VoiceCall({ open, onClose, presetLang, onTranscript }: {
+export function VoiceCall({ open, onClose, presetLang, onTranscript, briefing }: {
   open: boolean
   onClose: () => void
   presetLang?: string
   /** 통화 종료 시 대화 기록 전달 — 챗 위젯이 이어받아 '끊겨도 기록이 남는 전화'를 만든다 */
   onTranscript?: (turns: Turn[]) => void
+  /** true면 인사 대신 '분석 결과 음성 브리핑'으로 시작(결과 화면의 📞 전화로 설명 듣기) */
+  briefing?: boolean
 }) {
   const profile = useAppStore((s) => s.profile)
   const result = useAppStore((s) => s.result)
@@ -145,6 +148,21 @@ export function VoiceCall({ open, onClose, presetLang, onTranscript }: {
 
   const speech = useSpeech((t) => handle(t), L.sttTag)
 
+  // 🎙️ 연속 대화(실험적, 통화마다 기본 꺼짐): 답 낭독이 끝나면 자동으로 다시 듣는다 —
+  // 버튼을 매번 누르지 않는 '진짜 전화' 감각. 안전장치: 인식 오류(무음·권한 등)가 나면
+  // 자동 모드를 스스로 꺼서 스피커 에코·오인식으로 도는 무한루프를 차단한다.
+  const [handsFree, setHandsFree] = useState(false)
+  useEffect(() => { if (open) setHandsFree(false) }, [open])
+  useEffect(() => {
+    if (!handsFree || !open) return
+    if (speech.error) { setHandsFree(false); return }
+    if (tts.speaking || speech.listening || thinking) return
+    const last = turns[turns.length - 1]
+    if (!last || last.role !== 'bot') return
+    const t = setTimeout(() => speech.toggle(), 600) // 낭독 종료 후 잠깐 쉬고 청취(에코 완화)
+    return () => clearTimeout(t)
+  }, [handsFree, open, tts.speaking, speech, thinking, turns])
+
   // 🌍 수동 언어 전환: 그 언어 인사를 보여주고 들려줘 '이 언어로 말해도 된다'를 즉시 확인시킨다
   const changeLang = (code: string) => {
     setLang(code)
@@ -154,9 +172,18 @@ export function VoiceCall({ open, onClose, presetLang, onTranscript }: {
 
   // 열릴 때: 인사 브리핑을 큰 글씨 + 음성으로 시작.
   // 진입로가 언어를 지정하면(외국인 섹션 '자국어 통화' 직행) 그 언어로, 아니면 마지막 선택 언어로.
+  // briefing이면 인사 대신 '분석 결과 설명 전화'로 시작(결과 화면 📞 — top3 정책을 턴에 실어 "첫번째 담아줘" 성립).
   useEffect(() => {
     if (!open) return
     setTurns([])
+    if (briefing && result) {
+      const b = buildResultBriefing(result)
+      if (b) {
+        setTurns([{ role: 'bot', text: b.text, policies: b.policies as Policy[] }])
+        if (!mutedRef.current) tts.speak(speakableText(b.text))
+        return () => { window.speechSynthesis?.cancel?.() }
+      }
+    }
     const eff = presetLang && VOICE_LANGS[presetLang] ? presetLang : lang
     if (eff !== lang) setLang(eff)
     if (eff !== 'ko') {
@@ -235,6 +262,18 @@ export function VoiceCall({ open, onClose, presetLang, onTranscript }: {
       {/* 조작부 — 크게 하나 (+ 🌍 언어: 말하기 직전에 고르는 자리 — 헤더에 두면 모바일 제목이 깨진다) */}
       <div className="border-t border-sprout-100 bg-white px-4 py-4">
         <div className="max-w-3xl mx-auto space-y-3">
+          {speech.supported && (
+            <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer w-fit">
+              <input
+                type="checkbox"
+                checked={handsFree}
+                onChange={(e) => setHandsFree(e.target.checked)}
+                className="h-4 w-4 accent-sprout-600"
+                aria-label="연속 대화 모드(실험적)"
+              />
+              🎙️ 연속 대화(실험적) — 답이 끝나면 자동으로 다시 들어요
+            </label>
+          )}
           <div className="flex gap-2 items-stretch">
             <select
               value={lang}

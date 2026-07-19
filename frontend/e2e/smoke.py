@@ -105,6 +105,10 @@ def main() -> int:
                     return  # 폰트 CDN(프리텐다드) — 차단망/CI에선 실패해도 시스템 폰트 폴백으로 무해
                 if "huggingface.co" in loc or "huggingface.co" in m.text:
                     return  # AI 임베딩 모델 CDN — 차단망/CI에선 실패해도 앱이 키워드 검색으로 정직 폴백(제품 검증은 별도 단계)
+                if "[AI검색]" in m.text and "Failed to fetch" in m.text:
+                    # 같은 차단망 실패의 '앱 정직 로깅' 경로(위치가 로컬 번들이라 위 huggingface 필터를 비껴감).
+                    # 3.8 핸드오프 후 비동기로 늦게 도착해 그린/레드가 갈리던 플레이크 — 오류 UI(영어 브리지) 검증은 별도 수행됨.
+                    return
                 # /ws/analyze WS 403: 프리뷰는 임의 포트(localhost:PORT) origin이라 백엔드 허용목록 밖 → 정상 거절.
                 # 실제 배포 origin(biocode67.github.io)은 허용돼 스트리밍됨(라이브 실측 확인). 프론트도 WS 실패 시
                 # 클라이언트 에이전트 연출로 폴백하므로 사용자 영향 없음 → E2E 실패 게이트에서 제외.
@@ -163,6 +167,16 @@ def main() -> int:
             page.keyboard.press("Escape")
             page.wait_for_selector("text=복지 용어 쉬운 사전", state="hidden", timeout=5000)
             print("[e2e] ✅ 2.5 용어사전 열기 + ESC 닫기(키보드 접근성)")
+
+            # 2.7) 📞 결과를 전화로 — 통화가 열리며 결과를 조목조목 브리핑(보수 합산·top3·후속 안내)
+            page.click('[aria-label="결과를 전화로 설명 듣기"]')
+            page.wait_for_selector('[role="dialog"][aria-label="새싹이와 통화 상담"]', timeout=8000)
+            page.wait_for_selector("text=전화로 짚어드릴게요", timeout=5000)
+            page.wait_for_selector("text=기초연금", timeout=4000)  # 독거 어르신 top3에 반드시 포함
+            page.keyboard.press("Escape")
+            page.wait_for_timeout(300)
+            assert page.locator('[aria-label="새싹이와 통화 상담"]').count() == 0, "브리핑 통화 ESC 종료 실패"
+            print("[e2e] ✅ 2.7 📞 결과 음성 브리핑 통화(열림→브리핑→ESC)")
 
             # 3) 챗 에이전트: 개인화 인사(분석한 프로필 이름)
             page.click('[aria-label="복지 도우미 챗봇 열기"]')

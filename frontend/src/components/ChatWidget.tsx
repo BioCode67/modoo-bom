@@ -23,9 +23,12 @@ export function ChatWidget() {
   // detail.lang(en·vi·zh)이 오면 그 언어로 통화 시작(외국인 진입로의 '자국어 통화' 직행)
   const [callOpen, setCallOpen] = useState(false)
   const [callLang, setCallLang] = useState<string | undefined>(undefined)
+  const [callBriefing, setCallBriefing] = useState(false) // 결과 화면 '📞 전화로 설명 듣기' — 인사 대신 결과 브리핑으로 시작
   useEffect(() => {
     const onCall = (e: Event) => {
-      setCallLang((e as CustomEvent).detail?.lang)
+      const d = (e as CustomEvent).detail
+      setCallLang(d?.lang)
+      setCallBriefing(!!d?.briefing)
       setCallOpen(true)
       setOpen(false)
     }
@@ -236,7 +239,7 @@ export function ChatWidget() {
 
   return (
     <>
-      <VoiceCall open={callOpen} presetLang={callLang} onTranscript={absorbCall} onClose={() => { setCallOpen(false); setCallLang(undefined) }} />
+      <VoiceCall open={callOpen} presetLang={callLang} briefing={callBriefing} onTranscript={absorbCall} onClose={() => { setCallOpen(false); setCallLang(undefined); setCallBriefing(false) }} />
       <button
         onClick={() => setOpen((o) => !o)}
         aria-label={open ? '복지 도우미 챗봇 닫기' : '복지 도우미 챗봇 열기'}

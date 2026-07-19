@@ -154,6 +154,16 @@ export function ResultsView({ result, profile, onReset, helperMode = false }: { 
                 {tts.speaking ? <Square className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />} {tts.speaking ? '중지' : '읽어주기'}
               </button>
             )}
+            {/* 📞 결과를 '전화'로 — 통화가 열리며 결과를 조목조목 읽어주고, 이어서 말로 묻고 담을 수 있다(도우미 모드 제외 — 남의 결과를 내 통화 기록에 섞지 않음) */}
+            {!helperMode && (
+              <button
+                onClick={() => window.dispatchEvent(new CustomEvent('modoobom:voice-call', { detail: { briefing: true } }))}
+                className="btn-secondary !py-2.5"
+                aria-label="결과를 전화로 설명 듣기"
+              >
+                📞 전화로 설명 듣기
+              </button>
+            )}
             <ShareButton count={primary.length} monthlyText={monthly > 0 ? formatWon(monthly) : ''} />
             {/* 도우미 모드에선 재공유 버튼 숨김 — 남의 프로필에 내 관심목록이 섞여 나가는 것을 원천 차단 */}
             {!helperMode && (
