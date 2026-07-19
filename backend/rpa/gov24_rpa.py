@@ -805,8 +805,20 @@ async def _issue_family_cert_efamily(page, task, context, user_info: dict = None
                     "🔒 **주민등록번호 뒷자리**만 직접 입력하고 [인증 요청]을 누른 뒤, 폰에서 [인증 허용]을 해주세요.",
                     await take_screenshot(page),
                 )
+        # 🔵 인증 요청 후 '인증 완료' 자동 클릭(사용자 요청) — 폰 승인만 하면 앱이 완료 버튼을 눌러
+        #    다음 단계로 넘어간다. 승인 전 클릭은 '미완료' 안내만 뜨므로 그 확인만 닫고 12초 간격 재시도.
+        if modal_ready and rrn7 and _w % 6 == 0:
+            try:
+                ctx2 = await _modal_ctx(page)
+                if await click_by_text(ctx2, ["인증 완료", "인증완료"]):
+                    await asyncio.sleep(1.0)
+                    t2 = await _all_text(page)
+                    if any(k in t2 for k in ("완료되지 않", "완료되지않", "미완료")):
+                        await click_by_text(ctx2, ["확인"])
+            except Exception:
+                pass
         if _w and _w % 15 == 0:
-            task.update("waiting_login", f"진행을 기다리는 중이에요… ({_w * 2}초) 화면 안내대로 입력·인증해 주세요.", await take_screenshot(page))
+            task.update("waiting_login", f"진행을 기다리는 중이에요… ({_w * 2}초) 폰에서 [인증 허용]만 누르면 나머진 자동이에요.", await take_screenshot(page))
         await asyncio.sleep(2)
 
     # ④ 인증 후 '가족관계등록부 열람/발급 신청' 화면(실측: PtFrrpReadIssTrgtInfoW.do, 사용자 스크린샷).
@@ -851,7 +863,27 @@ async def _issue_family_cert_efamily(page, task, context, user_info: dict = None
     # 증명서 실화면 신호로만 저장·성공 판정 — 신청 폼 화면을 발급물로 오인 저장하면 자동첨부에
     #   '폼 캡처'가 붙는다(정직성). '등록기준지'는 가족관계증명서 서식의 고정 항목, 새 창 열람도 성공 신호.
     really = ("등록기준지" in body_now) or (final_page is not page)
-    saved = await save_document(final_page, "가족관계증명서", name) if really else ""
+    saved = ""
+    if really:
+        # 🖨 열람 팝업은 크롬 PDF 뷰어(주소가 원본 PDF, 실측 ptDyna/…) — 뷰어 화면을 재인쇄하면
+        #   좌우가 잘린다(실사용 제보). 세션 쿠키로 '원본 PDF 바이트'를 그대로 내려받아 저장한다.
+        try:
+            final_url = final_page.url
+            resp = await context.request.get(final_url)
+            data = await resp.body() if resp.ok else b""
+            if data[:5] == b"%PDF-":
+                from datetime import datetime as _dt
+                from rpa.base import DOCS_DIR, doc_basename
+                DOCS_DIR.mkdir(parents=True, exist_ok=True)
+                out = DOCS_DIR / f"{doc_basename('가족관계증명서', name)}.pdf"
+                if out.exists():
+                    out = DOCS_DIR / f"{doc_basename('가족관계증명서', name)}_{_dt.now().strftime('%S')}.pdf"
+                out.write_bytes(data)
+                saved = str(out)
+        except Exception:
+            saved = ""
+        if not saved:  # 원본 다운로드가 안 되는 화면(HTML 열람 등)만 기존 캡처 폴백
+            saved = await save_document(final_page, "가족관계증명서", name)
     if saved:
         task.update(
             "done",
