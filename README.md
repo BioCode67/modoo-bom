@@ -9,7 +9,7 @@
 > 실시간 AI 백엔드도 라이브입니다 — 클라우드(Render)에 LangGraph 10노드 에이전트와 챗이 배포돼
 > 배포 사이트에서 실제 LLM 답변이 동작합니다. LLM은 Gemini 2.5 Flash이며, 실패 시 Groq·Claude로 자동 폴백하고 키가 없으면 규칙 기반으로 동작합니다.
 
-![tests](https://img.shields.io/badge/frontend_tests-743_passed-brightgreen) ![pytest](https://img.shields.io/badge/backend_pytest-197_passed-brightgreen) ![e2e](https://img.shields.io/badge/E2E_실브라우저-12스위트·에러0-brightgreen) ![data](https://img.shields.io/badge/실데이터-5,300여건_검증-blue) ![lighthouse](https://img.shields.io/badge/Lighthouse-A11y100·BP100·SEO100-blue)
+![tests](https://img.shields.io/badge/frontend_tests-743_passed-brightgreen) ![pytest](https://img.shields.io/badge/backend_pytest-213_passed-brightgreen) ![e2e](https://img.shields.io/badge/E2E_실브라우저-12스위트·에러0-brightgreen) ![data](https://img.shields.io/badge/실데이터-5,300여건_검증-blue) ![lighthouse](https://img.shields.io/badge/Lighthouse-A11y100·BP100·SEO100-blue)
 
 회원가입·백엔드 없이 바로 동작합니다. 프론트엔드는 **전국 약 5,300건 복지**(보건복지부 검증 큐레이션 124 + 정부지원사업·청년주택·서민금융 45
 + 민간재단 큐레이션 21 + 한국사회보장정보원 공공데이터 5,143(중앙460·지자체4,683) — 현대차 정몽구 스칼러십·심장재단 수술비 등
@@ -38,7 +38,7 @@
 - **접근성** — 음성 입력·음성 안내(TTS), 큰글씨, 인쇄/PDF("내 복지 안내서"), reduced-motion
 - **3D 카툰 UI / PWA** — 새싹 마스코트(React Three Fiber, 지연 로딩) + framer-motion, 반응형, 설치형·오프라인 PWA
 
-품질: ESLint(0) · 단위 테스트(vitest 743 + pytest 197) · 실브라우저 E2E 12스위트(웹·데스크탑·모바일·촬영·흐름·접근성) · TypeScript · ErrorBoundary · 주요 복지 금액 2026년 공식 출처 검증
+품질: ESLint(0) · 단위 테스트(vitest 743 + pytest 213) · 실브라우저 E2E 12스위트(웹·데스크탑·모바일·촬영·흐름·접근성) · TypeScript · ErrorBoundary · 주요 복지 금액 2026년 공식 출처 검증
 팀원용 기획서 자료실: [`기획서자료실/`](기획서자료실/) — 인포그래픽·다이어그램 8종·통계차트 6종·스크린샷 14장·경쟁비교표·PPT 55페이지 구성안까지 전부 (아래 [프로젝트 상세 문서](#프로젝트-상세-기획서용-전체-문서)와 함께 사용).
 기획서 자료: `docs/기획서자료/`에 아키텍처·AI흐름·RPA·데이터 다이어그램 + 차트 + 한 장 요약 포스터 제공.
 
@@ -298,7 +298,7 @@ modoo-bom/
 │   ├── local_server.py              # 데스크탑앱 경량 서버(dist-app 동일출처 서빙 + RPA) — run-local-app.bat/EXE 진입
 │   ├── agent_entry.py               # PyInstaller EXE 진입점
 │   ├── etl/ingest_welfare.py        # 공공데이터 → policies.json (중앙 --api / 지자체 --local / CSV)
-│   └── tests/                       # pytest 197 (Mock·RPA 취소/정직성/패리티·서류함·세션·프리플라이트)
+│   └── tests/                       # pytest 213 (Mock·RPA 취소/정직성/패리티·서류함·세션·프리플라이트)
 └── frontend/                        # 메인 — 백엔드 없이 동작 (정적 배포)
     ├── src/
     │   ├── App.tsx                  # 셸 + 상태기반 뷰(home/analyze/explore/my) + 챗봇/공유/인쇄
@@ -400,7 +400,7 @@ modoo-bom/
 
 - **정직성 코드화**: 민간재단·서민금융은 심사·상환형이라 `priority high/신뢰도 0.68↑` 표시가 테스트에서 거부됨.
   현금성 합산은 보수적(바우처·대출 제외). 모집종료 정책은 추천 제외(`isClosedForNew`).
-- **품질 게이트**(차트 4): 프론트 vitest 743 · 백엔드 pytest 197 · 실브라우저 E2E 12스위트(웹 10여정·데스크탑 23종·모바일·촬영·흐름·접근성 axe 0
+- **품질 게이트**(차트 4): 프론트 vitest 743 · 백엔드 pytest 213 · 실브라우저 E2E 12스위트(웹 10여정·데스크탑 23종·모바일·촬영·흐름·접근성 axe 0
   +대화온보딩·저장흐름·확장연동·라이브체크 전용 게이트) · lint 0 · tsc 0 — 매 변경마다 실행.
 - **멀티에이전트 상호감사**: 29개 AI 에이전트가 데이터·URL·코드·문구·보안 5차원을 감사하고 발견마다 별도 검증자가 반박 시도 —
   확정 23건 전부 즉시 정정(오탐 1건은 반박으로 기각). "AI가 만들고 AI가 감사하는" 개발 프로세스 자체가 차별점.
