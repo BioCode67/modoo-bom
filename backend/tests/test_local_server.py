@@ -314,8 +314,9 @@ def test_documents_list_shows_docs_with_attach_flag(monkeypatch, tmp_path):
     import os, time
     from rpa import base
     d = tmp_path / "docs"; d.mkdir()
-    (d / "주민등록등본_홍길동_2026-07-16_1010.pdf").write_bytes(b"%PDF new")
-    old = d / "임대차계약서_홍길동_2026-07-01_0900.jpg"; old.write_bytes(b"\xff\xd8\xff")
+    # 무결성 게이트(intact: 헤더+1KB) 통과하는 실사이즈 픽스처 — 게이트 자체는 test_doc_integrity에서 검증
+    (d / "주민등록등본_홍길동_2026-07-16_1010.pdf").write_bytes(b"%PDF-1.7\n" + b"x" * 2048)
+    old = d / "임대차계약서_홍길동_2026-07-01_0900.jpg"; old.write_bytes(b"\xff\xd8\xff\xe0" + b"x" * 2048)
     os.utime(old, (time.time() - 999999, time.time() - 999999))  # 오래됨 → 첨부창 밖
     (d / "무관한파일.txt").write_text("x")  # 관리 대상 아님 → 제외
     monkeypatch.setattr(base, "DOCS_DIR", d)
@@ -399,8 +400,8 @@ def test_preflight_all_green(monkeypatch, tmp_path):
     j = r.json()
     assert j["ok"] is True
     ids = [c["id"] for c in j["checks"]]
-    assert ids == ["browser", "gov24", "bokjiro", "docs_dir", "disk"]
-    assert all(c["ok"] for c in j["checks"])
+    assert ids == ["browser", "gov24", "bokjiro", "docs_dir", "disk", "vault"]
+    assert all(c["ok"] for c in j["checks"])  # 빈 서류함은 '비어 있음'으로 정상
     # 발급 폴더는 '이름만'(홈 경로 사용자명 미노출) — PII 무포함 원칙
     assert str(tmp_path.parent) not in r.text
 

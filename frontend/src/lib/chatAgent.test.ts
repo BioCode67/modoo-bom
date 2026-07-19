@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { agentReply, greetingReply, matchSaveIntent, docsReply, isLocalIntent } from './chatAgent'
+import { agentReply, greetingReply, matchSaveIntent, matchIssueIntent, matchIssueAllIntent, matchAutopilotIntent, issueReply, docsReply, isLocalIntent } from './chatAgent'
 import type { UserProfile, AnalysisResult, EligiblePolicy } from './welfare-engine'
 import type { Policy } from '@/data/policies'
 import type { TrackedItem } from '@/store/useAppStore'
@@ -180,5 +180,72 @@ describe('searchReply 정직성 — 비현금(재가급여 한도)을 월 현금
     expect(line).toContain('재가급여')                 // POL-057이 결과에 노출됨
     expect(/\(월 .*까지\)/.test(line)).toBe(false)     // 한도액을 월 현금처럼 표기 금지
     expect(r.text).not.toMatch(/251만원까지|2,510,000/) // 서비스 한도 금액을 현금으로 오표기 금지
+  })
+})
+
+describe('matchIssueIntent — 💬→🖨 "등본 발급해줘" 실행 의도(데스크탑 다리)', () => {
+  const DOCS = ['주민등록등본', '주민등록초본', '가족관계증명서', '소득금액증명']
+  it('정식 발급명 + 발급 동사 → 그 서류', () => {
+    expect(matchIssueIntent('주민등록등본 발급해줘', DOCS)).toBe('주민등록등본')
+    expect(matchIssueIntent('가족관계증명서 떼줘', DOCS)).toBe('가족관계증명서')
+  })
+  it('생활어 축약(등본·초본·소득증명)도 정식명으로 해석', () => {
+    expect(matchIssueIntent('등본 좀 떼줘', DOCS)).toBe('주민등록등본')
+    expect(matchIssueIntent('초본 발급해주세요', DOCS)).toBe('주민등록초본')
+    expect(matchIssueIntent('소득증명 뽑아줘', DOCS)).toBe('소득금액증명')
+  })
+  it('방법 질문·서류 미지목·미지원 서류는 null(오발동 방지)', () => {
+    expect(matchIssueIntent('서류 발급 어떻게 해?', DOCS)).toBeNull()
+    expect(matchIssueIntent('등본이 뭐예요?', DOCS)).toBeNull()
+    expect(matchIssueIntent('운전면허증 발급해줘', DOCS)).toBeNull()
+    expect(matchIssueIntent('한부모증명 떼줘', DOCS)).toBeNull() // 축약이지만 지원 목록 밖이면 안내하지 않음
+  })
+  it('issueReply — CTA가 나의 복지 + issueDoc(실행 지시)을 함께 담는다', () => {
+    const r = issueReply('주민등록등본')
+    expect(r.cta?.view).toBe('my')
+    expect(r.issueDoc).toBe('주민등록등본')
+    expect(r.text).toContain('인증 승인')  // 본인인증은 직접(정직성 문구)
+  })
+})
+
+describe('matchIssueAllIntent — 💬→🚀 "전부 발급해줘" 연쇄 실행 의도', () => {
+  it('전부/다/모두/몽땅 + 발급 요청 동사', () => {
+    expect(matchIssueAllIntent('서류 전부 발급해줘')).toBe(true)
+    expect(matchIssueAllIntent('다 발급해줘')).toBe(true)
+    expect(matchIssueAllIntent('전부 자동발급 해줘')).toBe(true)
+    expect(matchIssueAllIntent('몽땅 떼줘')).toBe(true)
+  })
+  it('상태 질문·단건 지목·방법 질문은 아님(오발동 방지)', () => {
+    expect(matchIssueAllIntent('발급 다 됐어?')).toBe(false)
+    expect(matchIssueAllIntent('등본 발급해줘')).toBe(false)
+    expect(matchIssueAllIntent('서류 발급 어떻게 해?')).toBe(false)
+  })
+})
+
+describe('matchAutopilotIntent — 🚀 "알아서 다 해줘" 오토파일럿 위임 의도', () => {
+  it('위임 표현 + 실행 요청', () => {
+    expect(matchAutopilotIntent('알아서 다 해줘')).toBe(true)
+    expect(matchAutopilotIntent('끝까지 해줘')).toBe(true)
+    expect(matchAutopilotIntent('신청까지 해주나요?')).toBe(true) // 질문이어도 오토파일럿 안내가 정답
+    expect(matchAutopilotIntent('오토파일럿 시작')).toBe(true)
+    expect(matchAutopilotIntent('전부 알아서 진행해')).toBe(true)
+  })
+  it('발급 지목·일반 질문은 아님(연쇄/지식 경로와 분리)', () => {
+    expect(matchAutopilotIntent('서류 전부 발급해줘')).toBe(false) // 연쇄(issueAll) 경로
+    expect(matchAutopilotIntent('등본 발급해줘')).toBe(false)
+    expect(matchAutopilotIntent('기초연금 알려줘')).toBe(false)
+  })
+  it('agentReply: 결과 있으면 run CTA, 없으면 분석 안내(analyze)', () => {
+    const withResult = agentReply('알아서 다 해줘', {
+      profile, result, tracked: [], agentOn: true,
+    })
+    expect(withResult.autopilot).toBe('run')
+    expect(withResult.cta?.view).toBe('my')
+    const noResult = agentReply('알아서 다 해줘', { profile: null, result: null, tracked: [], agentOn: true })
+    expect(noResult.autopilot).toBe('analyze')
+    expect(noResult.cta?.view).toBe('analyze')
+    // 웹(에이전트 미연결)에선 오토파일럿 약속을 하지 않는다(정직성)
+    const web = agentReply('알아서 다 해줘', { profile: null, result: null, tracked: [], agentOn: false })
+    expect(web.autopilot).toBeUndefined()
   })
 })

@@ -147,6 +147,15 @@ class DemoRequest(BaseModel):
     doc_name: str = "주민등록등본"  # 체험할 서류(안내페이지 없으면 정부24 홈 폴백)
 
 
+class ProbeRequest(BaseModel):
+    doc_name: str = ""          # 자동발급 지원을 실측 확인할 서류 이름(정부24 검색어)
+    doc_names: list[str] = []   # 일괄 실측(후보 칩 '전부 확인') — 최대 12종, 한 브라우저로 순회
+
+
+class ApplyProbeRequest(BaseModel):
+    service_name: str  # 자동신청 후보를 실측 확인할 복지 서비스 이름(복지로 검색어)
+
+
 class ApplyRequest(BaseModel):
     service_name: str
     user_name: str = "홍길동"
@@ -282,8 +291,24 @@ async def preflight():
     checks = [{"id": "browser", "name": "자동화 브라우저", "ok": b_ok, "detail": b_detail}]
     for (sid, name, _url), (ok, detail) in zip(sites, results[1:]):
         checks.append({"id": sid, "name": name, "ok": ok, "detail": detail})
+    def vault_check() -> dict:
+        """⑥ 서류함 무결성 — 손상(잘림·헤더 불일치) 파일 수를 발급 전에 알려 조치 유도.
+        손상이 발급 자체를 막진 않지만 '점검'의 목적상 조치 필요 신호이므로 ok=False로 정직 표기."""
+        try:
+            items = _scan_documents()
+            if not items:
+                return {"id": "vault", "name": "서류함 무결성", "ok": True, "detail": "비어 있음"}
+            bad = sum(1 for i in items if not i.get("intact", True))
+            if bad:
+                return {"id": "vault", "name": "서류함 무결성", "ok": False,
+                        "detail": f"{len(items)}건 중 손상 {bad}건 — 서류함의 ⚠️ 표시분을 삭제 후 다시 발급하세요"}
+            return {"id": "vault", "name": "서류함 무결성", "ok": True, "detail": f"{len(items)}건 전부 정상"}
+        except Exception:  # noqa: BLE001
+            return {"id": "vault", "name": "서류함 무결성", "ok": True, "detail": "확인 불가"}
+
     checks.append(docs_check())
     checks.append(disk_check())
+    checks.append(vault_check())
     return {"ok": all(c["ok"] for c in checks), "checks": checks}
 
 
@@ -297,6 +322,7 @@ async def diagnostics():
     from rpa.manager import _rpa_tasks, _MAX_CONCURRENT, _active, _waiting
     from rpa.base import DOCS_DIR
     from rpa.config import rpa_enabled
+    from rpa.gov24_rpa import EXTRA_DOC_NAMES
     counts: dict = {}
     last_error = ""
     try:
@@ -333,6 +359,10 @@ async def diagnostics():
         "last_error": last_error,
         "docs_dir_exists": DOCS_DIR.is_dir(),
         "docs_file_count": docs_count,
+        # 동적 확장·무결성 현황(개수만 — PII 무포함 원칙 유지): 원격 지원 시 '확장이 붙었는지/손상물이
+        # 있는지'를 진단 한 번으로 파악. corrupt는 서류함 관리 대상 확장자만 계산.
+        "extra_docs_count": len(EXTRA_DOC_NAMES),
+        "docs_corrupt_count": sum(1 for i in _scan_documents() if not i.get("intact", True)),
     }
 
 
@@ -358,6 +388,86 @@ async def rpa_supported_docs():
     from rpa.manager import SUPPORTED_DOC_NAMES
     from rpa.gov24_rpa import EXTRA_DOC_NAMES
     return {"supported": SUPPORTED_DOC_NAMES, "beta": EXTRA_DOC_NAMES}
+
+
+# 앱 내 커버리지 실측 확인은 한 번에 하나만(브라우저 1개, 정부24 예의) — 동시 클릭 방지 락
+_probe_busy = {"on": False}
+
+
+@app.post("/api/docs/probe")
+async def docs_probe(req: ProbeRequest):
+    """🔎 자동발급 지원 실측 확인 — 서류명 하나로 정부24를 실제 조사해(검색→코드 발굴→발급버튼 확인)
+    통과분만 β 등록하고 **재시작 없이** 발급 목록에 반영한다(모든 서류 자동발급의 정직한 확장 경로).
+
+    날조 금지: 실측 실패·비대상은 그대로 보고(추측 등재 없음). 결과가 ok여도 β — 첫 실발급이 최종 검증.
+    🔒 본인 PC 전용(공유 배포 403) · 프로브는 검색·안내 페이지만 열람(로그인·개인정보 불필요)."""
+    _shared_mode_guard()
+    from rpa.config import rpa_enabled, rpa_disabled_reason
+    if not rpa_enabled():
+        raise HTTPException(status_code=503, detail=rpa_disabled_reason())
+    raw = req.doc_names if req.doc_names else [req.doc_name]
+    names = [str(n or "").strip() for n in raw]
+    names = [n for n in names if n]
+    if not names or any(len(n) > 40 for n in names) or len(names) > 12:
+        raise HTTPException(status_code=400, detail="서류 이름을 1~40자, 최대 12종까지 입력해 주세요.")
+    from rpa.manager import SUPPORTED_DOC_NAMES
+    todo = [n for n in names if n not in SUPPORTED_DOC_NAMES]  # 기지원분은 브라우저를 띄우지 않음
+    if not todo:
+        return {"status": "already", "message": f"「{names[0]}」{' 등은' if len(names) > 1 else '는'} 이미 자동발급을 지원해요."}
+    if _probe_busy["on"]:
+        raise HTTPException(status_code=409, detail="이미 다른 실측 확인이 진행 중이에요 — 잠시 후 다시 시도해 주세요.")
+    _probe_busy["on"] = True
+    try:
+        import asyncio as _aio
+        from rpa.probe import probe_and_register
+        # 브라우저 조사 ~30초/종 — 스레드로 옮겨 이벤트 루프(발급 폴링 등)를 막지 않는다
+        return await _aio.to_thread(probe_and_register, todo)
+    finally:
+        _probe_busy["on"] = False
+
+
+@app.get("/api/docs/probe-candidates")
+async def docs_probe_candidates():
+    """실측 후보 칩 — 기본 후보 중 '아직 미지원'인 것만(카탈로그 빈도 기반, 추측 등재 아님 — 실측 대상일 뿐)."""
+    from rpa.probe import DEFAULT_DOC_CANDIDATES
+    from rpa.manager import SUPPORTED_DOC_NAMES
+    return {"candidates": [n for n in DEFAULT_DOC_CANDIDATES if n not in SUPPORTED_DOC_NAMES]}
+
+
+@app.post("/api/apply/probe")
+async def apply_probe(req: ApplyProbeRequest):
+    """🔎 자동신청 후보 실측 확인 — 복지로에서 서비스명→wlfareInfoId를 실측 발굴하고 상세 일치까지 확인.
+
+    정직성(중요): 복지로는 비로그인 시 방문형에도 '신청하기'를 렌더하므로 여기선 '후보(candidate)'까지만 —
+    온라인 신청형인지는 첫 자동신청 실행이 판별한다(버튼 없으면 apply_rpa가 정직한 실패 + 공식 링크 폴백).
+    매핑은 클라이언트(이 PC 브라우저)에만 기억되고, 서버 신청 경로는 기존 복지로 URL 검증 게이트를 그대로 탄다.
+    🔒 본인 PC 전용(공유 배포 403) · 조사에는 로그인·개인정보 불필요."""
+    _shared_mode_guard()
+    from rpa.config import rpa_enabled, rpa_disabled_reason
+    if not rpa_enabled():
+        raise HTTPException(status_code=503, detail=rpa_disabled_reason())
+    name = (req.service_name or "").strip()
+    if not name or len(name) > 60:
+        raise HTTPException(status_code=400, detail="서비스 이름을 1~60자로 입력해 주세요.")
+    if _probe_busy["on"]:
+        raise HTTPException(status_code=409, detail="이미 다른 실측 확인이 진행 중이에요 — 잠시 후 다시 시도해 주세요.")
+    _probe_busy["on"] = True
+    try:
+        import asyncio as _aio
+        from rpa.probe import probe_apply_names
+        rows, err = await _aio.to_thread(probe_apply_names, [name])
+        if err:
+            return {"status": "error", "message": err}
+        r = rows[0] if rows else {}
+        if str(r.get("verdict", "")).startswith("🟡"):
+            return {"status": "candidate", "name": name, "wlfareInfoId": r.get("id", ""),
+                    "url": r.get("url", ""), "title": r.get("title", ""),
+                    "message": "복지로 등재·서비스 일치를 확인했어요(β) — 온라인 신청형인지는 첫 자동신청에서 확인돼요."}
+        return {"status": "not_found", "name": name,
+                "note": r.get("note", "") or r.get("verdict", ""),
+                "message": f"복지로에서 「{name}」의 신청 상세를 확정하지 못했어요 — 공식 링크로 신청을 안내해 드려요."}
+    finally:
+        _probe_busy["on"] = False
 
 
 @app.post("/api/documents/rpa-issue")
@@ -576,6 +686,10 @@ def _scan_documents():
                     validity = "fresh" if age_days <= 60 else ("aging" if age_days <= 90 else "stale")
                 else:
                     validity = None
+                # 무결성 — 헤더·최소크기 게이트(발급 성공 게이트와 동일 기준). 깨진 파일은
+                # ⚠️ 표시 대상이며 '자동첨부 후보'에서도 제외한다(손상물이 조용히 제출되는 것 방지).
+                from rpa.base import _looks_valid_doc
+                intact = _looks_valid_doc(p)
                 items.append({
                     "filename": p.name,
                     "display": display,
@@ -585,7 +699,8 @@ def _scan_documents():
                     "mtime": int(st.st_mtime),
                     "age_days": age_days,
                     "validity": validity,
-                    "attach_candidate": (now - st.st_mtime) <= attach_age,
+                    "intact": intact,
+                    "attach_candidate": intact and (now - st.st_mtime) <= attach_age,
                 })
     except Exception:
         pass  # 폴더 접근 실패 시 빈 목록(정직한 폴백 — 프론트는 '폴더 열기'로 유도)
@@ -848,8 +963,42 @@ def _port_in_use(host: str, port: int) -> bool:
             return False
 
 
+def _open_app_ui(url: str) -> None:
+    """앱 UI를 연다 — **크롬/엣지를 먼저** 시도하고, 없으면 기본 브라우저로 폴백.
+
+    자동발급 RPA와 달리 앱 UI는 어떤 최신 브라우저에서도 동작하지만, 3D 히어로·온디바이스
+    AI(번역 API 등)는 크롬/엣지에서 가장 잘 보인다. 그래서 사용자의 '기본 브라우저'가 크롬이
+    아니어도(엣지·파폭·웨일 등) 우선 크롬→엣지로 열어 최상의 데모 경험을 보장하고, 둘 다 없거나
+    실행 실패면 반드시 기본 브라우저로 폴백한다(어떤 경우든 창은 열린다).
+    """
+    if sys.platform == "win32":
+        import subprocess
+        pf = os.environ.get("ProgramFiles", r"C:\Program Files")
+        pfx86 = os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")
+        local = os.environ.get("LocalAppData", "")
+        candidates = [
+            os.path.join(pf, "Google", "Chrome", "Application", "chrome.exe"),
+            os.path.join(pfx86, "Google", "Chrome", "Application", "chrome.exe"),
+            os.path.join(local, "Google", "Chrome", "Application", "chrome.exe") if local else "",
+            os.path.join(pfx86, "Microsoft", "Edge", "Application", "msedge.exe"),
+            os.path.join(pf, "Microsoft", "Edge", "Application", "msedge.exe"),
+        ]
+        for exe in candidates:
+            if exe and os.path.exists(exe):
+                try:
+                    subprocess.Popen([exe, url])
+                    return
+                except Exception:
+                    pass  # 실행 실패 → 다음 후보/기본 브라우저
+    # 폴백: OS 기본 브라우저(맥·리눅스 포함) — 무슨 일이 있어도 앱은 열린다.
+    try:
+        webbrowser.open(url)
+    except Exception:
+        pass
+
+
 def _open_browser_when_ready(url: str):
-    """서버 health가 실제로 뜨면 기본 브라우저로 앱을 연다(최대 ~15초, 안 뜨면 안 엶)."""
+    """서버 health가 실제로 뜨면 크롬/엣지 우선으로 앱을 연다(최대 ~15초, 안 뜨면 안 엶)."""
     import threading
     import time
     import urllib.request
@@ -858,7 +1007,7 @@ def _open_browser_when_ready(url: str):
         for _ in range(30):
             try:
                 urllib.request.urlopen(url + "api/health", timeout=1)
-                webbrowser.open(url)
+                _open_app_ui(url)
                 return
             except Exception:
                 time.sleep(0.5)
@@ -875,10 +1024,7 @@ def main(open_browser: bool = True):
     # 이미 실행 중이면(더블클릭 두 번 등) 새로 띄우지 않고 기존 창을 브라우저로 연다 → 포트 충돌 스택트레이스 방지.
     if _port_in_use(host, port):
         print(f"[모두봄] 이미 실행 중이에요. 브라우저에서 {url} 을 여세요.")
-        try:
-            webbrowser.open(url)
-        except Exception:
-            pass
+        _open_app_ui(url)  # 크롬/엣지 우선 오픈(기본 브라우저 폴백)
         return
 
     # 서버가 뜨면 브라우저 자동 오픈(중복 오픈 방지 위해 여기 한 곳에서만 — agent_entry/bat는 위임).

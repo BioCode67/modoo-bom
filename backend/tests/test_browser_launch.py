@@ -149,6 +149,47 @@ def test_bogus_channel_still_falls_back(monkeypatch):
     assert order[1:] == ["chrome", "msedge", ""]  # 실제 후보로 폴백 경로 확보
 
 
+def test_open_app_ui_non_win32_uses_default_browser(monkeypatch):
+    """맥·리눅스: 앱 UI는 기본 브라우저(webbrowser.open)로 연다(기존 동작 불변)."""
+    import local_server
+    monkeypatch.setattr(local_server.sys, "platform", "darwin")
+    opened = []
+    monkeypatch.setattr(local_server.webbrowser, "open", lambda u: opened.append(u) or True)
+    local_server._open_app_ui("http://localhost:8000/")
+    assert opened == ["http://localhost:8000/"]
+
+
+def test_open_app_ui_win32_prefers_chrome(monkeypatch):
+    """윈도우: 기본 브라우저가 크롬이 아니어도 크롬을 '먼저' 띄운다(webbrowser.open 미사용)."""
+    import subprocess
+
+    import local_server
+    monkeypatch.setattr(local_server.sys, "platform", "win32")
+    # 크롬 실행파일만 '존재'하는 것으로 위장
+    monkeypatch.setattr(local_server.os.path, "exists", lambda p: p.endswith("chrome.exe"))
+    launched, fell_back = [], []
+    monkeypatch.setattr(subprocess, "Popen", lambda args, **k: launched.append(args) or None)
+    monkeypatch.setattr(local_server.webbrowser, "open", lambda u: fell_back.append(u) or True)
+    local_server._open_app_ui("http://localhost:8000/")
+    assert launched and launched[0][0].endswith("chrome.exe")  # 크롬으로 열림
+    assert launched[0][1] == "http://localhost:8000/"
+    assert fell_back == []  # 기본 브라우저 폴백 안 함
+
+
+def test_open_app_ui_win32_falls_back_when_no_chrome_edge(monkeypatch):
+    """윈도우에서 크롬·엣지 실행파일이 모두 없으면 기본 브라우저로 폴백(무슨 일이 있어도 창은 열림)."""
+    import subprocess
+
+    import local_server
+    monkeypatch.setattr(local_server.sys, "platform", "win32")
+    monkeypatch.setattr(local_server.os.path, "exists", lambda p: False)  # 크롬·엣지 없음
+    fell_back = []
+    monkeypatch.setattr(subprocess, "Popen", lambda *a, **k: (_ for _ in ()).throw(AssertionError("Popen 호출 금지")))
+    monkeypatch.setattr(local_server.webbrowser, "open", lambda u: fell_back.append(u) or True)
+    local_server._open_app_ui("http://localhost:8000/")
+    assert fell_back == ["http://localhost:8000/"]
+
+
 def test_no_sandbox_only_for_bundled_chromium(monkeypatch):
     """--no-sandbox 는 번들 Chromium에만 — 정부 로그인을 하는 실사용 Chrome/Edge의 샌드박스(보안 계층)는 유지."""
     monkeypatch.setattr(base.sys, "platform", "win32")

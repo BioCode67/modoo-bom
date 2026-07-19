@@ -3,7 +3,7 @@
 
 왜 스위트로 두나: 편의성(접근성)은 본 서비스의 핵심 약속(큰글씨·고대비·음성·TTS)인데,
 마크업 변경 한 번에 조용히 깨진다(예: 헤딩 레벨 점프 — 실제로 h1→h3 점프를 이 감사로 발견).
-axe-core 기본 룰셋(WCAG 2 A/AA + best-practice)을 4개 화면 × 기본/고대비에 돌려
+axe-core 기본 룰셋(WCAG 2 A/AA + best-practice)을 4개 화면 + 고대비·큰글씨 모드 + 통화에 돌려
 위반이 하나라도 나오면 실패한다.
 
 ⚠️ 측정 유효성 게이트: 각 화면에서 '앱이 실제로 마운트됐는지'를 먼저 확인한다 —
@@ -79,19 +79,20 @@ def main() -> int:
             ctx = b.new_context(viewport={"width": 1280, "height": 800})
             ctx.add_init_script(SEED)
             cases = [
-                ("home", "", False),
-                ("analyze", "?go=analyze", False),
-                ("explore", "?go=explore", False),
-                ("my", "?go=my", False),
-                ("home·고대비", "", True),
-                ("통화", "", False),  # 📞 통화 다이얼로그 오픈 상태 — 대화 표면도 axe 커버(셀렉트·마이크·이중 경로)
+                ("home", "", None),
+                ("analyze", "?go=analyze", None),
+                ("explore", "?go=explore", None),
+                ("my", "?go=my", None),
+                ("home·고대비", "", "고대비(저시력용) 모드"),
+                ("home·큰글씨", "", "큰 글씨(어르신용) 모드"),  # 어르신 확대 규칙(.text-xs 오버라이드 등) 적용 상태의 대비·구조 룰
+                ("통화", "", None),  # 📞 통화 다이얼로그 오픈 상태 — 대화 표면도 axe 커버(셀렉트·마이크·이중 경로)
             ]
-            for name, q, hc in cases:
+            for name, q, toggle in cases:
                 pg = ctx.new_page()
                 pg.goto(f"http://localhost:{port}/{q}", wait_until="domcontentloaded")
                 pg.wait_for_timeout(2200)
-                if hc:  # 고대비 팔레트에서의 대비 룰까지 — 토글 버튼으로 실제 사용 경로 그대로
-                    pg.get_by_role("button", name="고대비(저시력용) 모드").click()
+                if toggle:  # 접근성 모드 팔레트에서의 룰까지 — 토글 버튼으로 실제 사용 경로 그대로
+                    pg.get_by_role("button", name=toggle).click()
                     pg.wait_for_timeout(500)
                 mounted = pg.evaluate(
                     "() => (document.getElementById('root')?.childElementCount ?? 0) > 0 && document.body.innerText.length > 200")
@@ -124,7 +125,7 @@ def main() -> int:
     if failed:
         print(f"❌ {failed}개 화면에서 위반/무효 — 위 로그 확인")
         return 1
-    print("🎉 전 화면(기본 4 + 고대비 1) axe 위반 0 — 접근성 회귀 없음")
+    print("🎉 전 화면(기본 4 + 고대비·큰글씨 + 통화) axe 위반 0 — 접근성 회귀 없음")
     return 0
 
 

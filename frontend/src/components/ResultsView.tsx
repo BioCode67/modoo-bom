@@ -28,11 +28,17 @@ import { profileSignals } from '@/lib/profileSignals'
 import { JourneyStepper } from '@/components/JourneyStepper'
 import { useAppStore } from '@/store/useAppStore'
 import { encodeHelperLink, decodeHelperPayload } from '@/lib/helperLink'
+import { useBackend } from '@/lib/useBackend'
+import { requestIssueAll } from '@/lib/issueBridge'
 
 export function ResultsView({ result, profile, onReset, helperMode = false }: { result: AnalysisResult; profile: UserProfile; onReset: () => void; helperMode?: boolean }) {
   const [selected, setSelected] = useState<Policy | EligiblePolicy | null>(null)
   const [showRelated, setShowRelated] = useState(false)
   const [savedAll, setSavedAll] = useState(false) // '추천 전부 담기'를 눌렀는지(버튼 피드백)
+  const [autoPilot, setAutoPilot] = useState(false) // '오토파일럿'을 눌렀는지(버튼 피드백)
+  const { ready, caps } = useBackend()
+  // 오토파일럿은 에이전트(데스크탑앱) 연결 시에만 — 담기→서류 발급→신청 준비를 실제로 이어갈 수 있을 때만 약속한다.
+  const agentOn = ready === true && !!caps?.rpa && !helperMode
   const setView = useAppStore((s) => s.setView)
   const tracked = useAppStore((s) => s.tracked)
   const toggleSaved = useAppStore((s) => s.toggleSaved)
@@ -201,6 +207,23 @@ export function ResultsView({ result, profile, onReset, helperMode = false }: { 
             {/* 에이전트가 대신 해줄 다음 행동을 앞세운다 — '목록을 준' 게 아니라 '함께 진행하는' 느낌.
                 하나씩 담을 필요 없이 '한 번에 담고, 원치 않는 건 빼는' 흐름을 기본으로. */}
             <div className="mt-3 flex flex-wrap gap-2">
+              {/* 🚀 오토파일럿(에이전트 연결 시) — 담기→'나의 복지' 이동→서류 연쇄 발급→자동신청 준비까지 한 번에.
+                  발급 시작은 issueBridge 보류 패턴으로 DocumentCenter가 마운트 후 이어받는다.
+                  본인인증·최종 제출은 항상 사용자가 직접(제출 직전 정지) — 기존 안전장치 그대로. */}
+              {agentOn && (
+                <button
+                  data-testid="autopilot-cta"
+                  onClick={() => {
+                    primary.forEach((p) => { if (!isSaved(p.id)) toggleSaved({ id: p.id, name: p.name, category: p.category }) })
+                    setAutoPilot(true)
+                    requestIssueAll()
+                    setTimeout(() => setView('my'), 500)
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-sprout-600 to-sky2-600 px-3.5 py-2 text-xs font-bold text-white shadow-md hover:opacity-90 transition-opacity"
+                >
+                  {autoPilot ? <><Check className="h-3.5 w-3.5" /> 오토파일럿 시작 — 나의 복지에서 이어져요…</> : <>🚀 오토파일럿 — 담고 서류 발급·신청 준비까지</>}
+                </button>
+              )}
               <button
                 onClick={() => {
                   // 추천(정밀 POL-)을 한 번에 전부 담고 바로 '나의 복지'로 — 거기서 원치 않는 건 빼고 신청 준비
@@ -208,7 +231,12 @@ export function ResultsView({ result, profile, onReset, helperMode = false }: { 
                   setSavedAll(true)
                   setTimeout(() => setView('my'), 500)
                 }}
-                className="inline-flex items-center gap-1.5 rounded-full bg-sprout-700 px-3.5 py-2 text-xs font-bold text-white hover:bg-sprout-800 transition-colors"
+                className={cn(
+                  'inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-bold transition-colors',
+                  agentOn
+                    ? 'border-2 border-sprout-200 bg-white text-sprout-700 hover:border-sprout-300'
+                    : 'bg-sprout-700 text-white hover:bg-sprout-800',
+                )}
               >
                 {savedAll ? <><Check className="h-3.5 w-3.5" /> 담았어요 — 나의 복지로 이동 중…</> : <><Heart className="h-3.5 w-3.5" /> 추천 {primary.length}개 한 번에 담고 신청 준비</>}
               </button>
@@ -219,7 +247,11 @@ export function ResultsView({ result, profile, onReset, helperMode = false }: { 
                 <FileText className="h-3.5 w-3.5" /> 나의 복지 열기 <ArrowRight className="h-3.5 w-3.5" />
               </button>
             </div>
-            <p className="mt-1.5 text-[11px] text-muted-foreground">💡 하나씩 담을 필요 없어요 — 한 번에 담고, 원치 않는 복지는 ‘나의 복지’에서 빼시면 돼요.</p>
+            <p className="mt-1.5 text-[11px] text-muted-foreground">
+              {agentOn
+                ? '🚀 오토파일럿: 담기 → 서류 자동발급 → 신청 준비까지 이어가요. 본인인증과 최종 제출은 언제나 직접 확인 후 진행돼요.'
+                : '💡 하나씩 담을 필요 없어요 — 한 번에 담고, 원치 않는 복지는 ‘나의 복지’에서 빼시면 돼요.'}
+            </p>
           </div>
         </motion.div>
       )}

@@ -2,11 +2,11 @@
 """데스크탑앱 스모크 — local_server(:8000)가 dist-app을 서빙하는 '진짜 배포 셋업'에서
 데스크탑 전용 기능을 실브라우저로 회귀 검증한다(웹 프리뷰 스모크로는 localAgent 기능이 안 보임).
 
-검증 23종(번호는 추가 순서 — 실행 순서는 코드 순):
-  1 상태 스트립 · 2 진단 복사(PII 0) · 2.5 발급 전 점검(5항목) · 3 서류함 등록+첨부 후보 배지 · 3.5 🖍 가리기
-  4 자동첨부 미리보기 · 5 개별 삭제(2탭) · 5.5 유효기간 배지+📦 ZIP · 5.55 👁 파일 열람 · 5.6 종류별 그룹핑(최신본 대표) · 5.65 🧹 이전 버전 정리 · 5.7 부족분만 발급→📨 자동신청만 · 5.8 자유 선택 일괄발급 · 5.9 빈 상태 슬림 모드
+검증 30종(번호는 추가 순서 — 실행 순서는 코드 순):
+  1 상태 스트립 · 2 진단 복사(PII 0) · 2.5 발급 전 점검(6항목·서류함 무결성) · 3 서류함 등록+첨부 후보 배지 · 3.5 🖍 가리기
+  4 자동첨부 미리보기 · 4.7 💬→🚀 챗 전부발급 연쇄 · 5 개별 삭제(2탭) · 5.5 유효기간 배지+📦 ZIP · 5.55 👁 파일 열람 · 5.6 종류별 그룹핑(최신본 대표) · 5.65 🧹 이전 버전 정리 · 5.7 부족분만 발급→📨 자동신청만 · 5.8 자유 선택 일괄발급 · 5.85 🔁 손상 원탭 재발급 · 5.87 🔎 앱 내 실측 확인 · 5.88 후보 칩·자동신청 실측 정직 실패 · 5.9 빈 상태 슬림 모드 · 5.95 🩺 조용한 자가점검
   6 새로고침 복원+실태스크 정리 · 6.5 인증 알림음+🔊 음성(옵트인)+발급 자동 기억
-  6.8 챗 에이전트 인지 · 6.9 여정 이어보기 · 6.95 인증정보 탭-기억 옵트인
+  6.8 챗 에이전트 인지 · 6.85 💬→🖨 대화→발급 다리 · 6.9 여정 이어보기 · 6.95 인증정보 탭-기억 옵트인 · 6.97 🚀 오토파일럿
   7.5 원클릭 연쇄+⏭ 스킵+📨 기록 CTA · 7.6 여정 오류 경로(정직 요약) · 7 검증형 리셋 · 8 🌱 새싹이 가이드
   + 전 구간 pageerror 0
 
@@ -52,6 +52,23 @@ def main() -> int:
     if not server_up():
         print("[desktop] ❌ local_server(:8000)가 떠 있지 않아요 — 파일 상단 실행법 참고")
         return 2
+    # 0) 서빙-디스크 일치 가드 — :8000이 디스크 dist-app과 다른 빌드를 서빙하면(번들 프로세스·스테일
+    #    서버가 포트 점유) 이후 전 검증이 '옛 코드' 상대의 무효 측정이 된다(실제 오진 사례) → 즉시 실패.
+    import re as _re0
+    import urllib.request as _u0
+    try:
+        served = _u0.urlopen(BASE, timeout=5).read().decode("utf-8", "replace")
+        disk = (FRONTEND / "dist-app" / "index.html").read_text(encoding="utf-8")
+        s_js = _re0.search(r"assets/index-[\w-]+\.js", served)
+        d_js = _re0.search(r"assets/index-[\w-]+\.js", disk)
+        if not s_js or not d_js or s_js.group() != d_js.group():
+            print(f"[desktop] ❌ :8000이 디스크 dist-app과 다른 빌드를 서빙 중"
+                  f"(서빙={s_js.group() if s_js else '?'} · 디스크={d_js.group() if d_js else '?'}) — "
+                  f"번들(모두봄-에이전트)이나 스테일 서버가 포트를 잡고 있는지 확인하세요")
+            return 2
+    except OSError as e:
+        print(f"[desktop] ❌ 서빙-디스크 일치 확인 실패: {e}")
+        return 2
     from playwright.sync_api import sync_playwright
     exe = glob.glob("/opt/pw-browsers/chromium-*/chrome-linux/chrome")
     issues: list[str] = []
@@ -93,16 +110,16 @@ def main() -> int:
             assert all(x not in clip for x in ("user_name", "doc_name", "screenshot")), "진단에 PII 필드"
             print("[desktop] ✅ 2. 진단 복사(PII 무포함)")
 
-            # 2.5) 발급 전 점검(프리플라이트) — 실서버 5항목 체크리스트 렌더
+            # 2.5) 발급 전 점검(프리플라이트) — 실서버 6항목 체크리스트 렌더
             #      (정부망은 컨테이너에서 막힐 수 있으므로 성패는 단정하지 않고, 항목 표시만 검증)
             pg.locator("button:has-text('발급 전 점검')").click()
             pg.wait_for_selector("text=자동화 브라우저", timeout=60000)
             body = pg.inner_text("body")
-            for item in ("자동화 브라우저", "정부24 연결", "복지로 연결", "발급 폴더 쓰기", "디스크 여유"):
+            for item in ("자동화 브라우저", "정부24 연결", "복지로 연결", "발급 폴더 쓰기", "디스크 여유", "서류함 무결성"):
                 assert item in body, f"프리플라이트 항목 누락: {item}"
             assert ("발급 준비 완료" in body) or ("점검 필요" in body)
             pg.locator("button[aria-label='점검 결과 닫기']").click()
-            print("[desktop] ✅ 2.5. 발급 전 점검 — 5항목 체크리스트 렌더")
+            print("[desktop] ✅ 2.5. 발급 전 점검 — 6항목 체크리스트 렌더(서류함 무결성 포함)")
 
             # 3) 서류함: 촬영 등록 → 목록+배지
             pg.wait_for_selector("text=내 서류함", timeout=8000)
@@ -143,6 +160,17 @@ def main() -> int:
             print("[desktop] ✅ 4. 신청 전 자동첨부 미리보기")
             pg.keyboard.press("Escape")
             pg.wait_for_timeout(500)
+
+            # 4.7) 💬→🚀 "서류 전부 발급해줘" — 원클릭 연쇄가 챗 CTA 한 번으로 시작(여기선 인증정보
+            #      미입력 시점이라 연쇄 대신 '정직한 가드 + 입력칸 포커스'가 떠야 한다 — 실행·가드 동시 검증)
+            pg.locator("button[aria-label='복지 도우미 챗봇 열기']").click()
+            pg.wait_for_selector("div[role='dialog'][aria-label='복지 도우미 챗봇']", timeout=8000)
+            pg.fill("input[aria-label='질문 입력']", "서류 전부 발급해줘")
+            pg.keyboard.press("Enter")
+            pg.wait_for_selector("button:has-text('전부 자동발급 시작')", timeout=10000)
+            pg.locator("button:has-text('전부 자동발급 시작')").click()
+            pg.wait_for_selector("text=실명·생년월일·휴대폰을 먼저 입력해 주세요", timeout=10000)
+            print("[desktop] ✅ 4.7. 💬→🚀 챗 '전부 발급해줘' → 원클릭 연쇄 시작(미입력 가드)")
 
             # 5) 서류함 개별 삭제(2탭)
             pg.locator("button[aria-label*='삭제'][aria-label*='임대차']").first.click()
@@ -248,6 +276,63 @@ def main() -> int:
             pg.locator("button[aria-label='일괄발급 선택 닫기']").click()
             print("[desktop] ✅ 5.8. 자유 선택 일괄발급 — 15종 그리드·부족분 기본 선택·미입력 가드")
 
+            # 5.85) 🔁 손상 파일 원탭 재발급 — ⚠️ 배지→[지우고 다시 발급]: 손상본 삭제 + 같은 서류 자동발급 시작
+            #       (인증정보 미입력 상태라 발급은 카드 밖 상태줄의 정직한 안내로 멈춘다 — 가드까지 한 번에 검증)
+            broken = Path(folder) / "지방세 납세증명서_스모크_2026-07-19_1200.pdf"
+            broken.write_bytes(b"broken")  # 1KB 미만 — 무결성 게이트 위반(잘린 저장 재현)
+            try:
+                pg.locator("button[aria-label='서류함 새로고침']").click()
+                pg.wait_for_selector("span:has-text('⚠️ 손상')", timeout=8000)
+                pg.once("dialog", lambda d: d.accept())
+                pg.locator("button:has-text('지우고 다시 발급')").click()
+                pg.wait_for_selector("text=지방세 납세증명서 — 실명·생년월일·휴대폰", timeout=8000)
+                for _ in range(20):
+                    if not broken.exists():
+                        break
+                    time.sleep(0.3)
+                assert not broken.exists(), "손상 파일이 삭제되지 않음"
+            finally:
+                broken.unlink(missing_ok=True)
+            print("[desktop] ✅ 5.85. 🔁 손상 원탭 재발급 — 손상본 삭제 + 발급 시작(미입력 가드)")
+
+            # 5.87) 🔎 앱 내 커버리지 실측 확인 — 서류명 하나로 정부24 실측→β 등록(재시작 불필요).
+            #       ⚠️ 이식성: 대상은 '실존하지 않는 서류명' — 정부망이 뚫린 실PC에선 not_supported(미발견),
+            #       막힌 컨테이너에선 error(접속 실패). 둘 다 '정직한 음성 + 미등록'이라 어느 환경에서도
+            #       부작용(β 등록) 없이 같은 계약을 검증한다(성공 등록 경로는 pytest 스텁으로 고정).
+            if pg.locator("input[aria-label='실측 확인할 서류 이름']").count() == 0:
+                pg.locator("button:has-text('골라 한번에 발급')").click()
+            pg.wait_for_selector("input[aria-label='실측 확인할 서류 이름']", timeout=6000)
+            pg.fill("input[aria-label='실측 확인할 서류 이름']", "가나다시험용증명서")
+            pg.locator("button:has-text('실측 확인')").click()
+            pg.wait_for_selector("text=실측 확인 중", timeout=8000)      # 진행 상태(개인정보 미사용 명시)
+            # ⚠️ 범용 'text=실패' 대기는 다른 카드 오류 문구에 조기 매칭된 실사례 — 프로브 고유 문구 2종만.
+            pg.locator("p:has-text('정부24 접속 실패'), p:has-text('확인하지 못했어요')").first.wait_for(timeout=90000)
+            _sup2 = json.loads(_url.urlopen(f"{BASE.rstrip('/')}/api/documents/rpa-supported", timeout=5).read())
+            assert "가나다시험용증명서" not in _sup2.get("supported", []), "실측 음성인데 등록됨 — 날조 게이트 붕괴"
+            print("[desktop] ✅ 5.87. 🔎 앱 내 실측 확인 — 진행 표시 + 정직한 음성 보고(미등록)")
+
+            # 5.88) 🔎 실측 후보 칩 + 일괄 버튼 렌더 + 자동신청 실측 API의 정직 실패
+            #       (복지로도 컨테이너에선 차단 — 후보 발굴 실패가 'error'로 그대로 보고돼야 한다)
+            pg.wait_for_selector("button:has-text('한번에 실측')", timeout=8000)   # 후보 칩 로드
+            assert pg.locator("button:has-text('혼인관계증명서')").count() >= 1, "후보 칩 미렌더"
+            import urllib.error as _uerr
+            _req = _url.Request(f"{BASE.rstrip('/')}/api/apply/probe",
+                                data=json.dumps({"service_name": "가나다시험용수당"}).encode(),
+                                headers={"Content-Type": "application/json"})
+            _aj = None
+            for _ in range(24):  # 프로브는 동시 1건(409) — 직전 단계 브라우저 조사가 막 끝났을 수 있어 대기 재시도
+                try:
+                    _aj = json.loads(_url.urlopen(_req, timeout=90).read())
+                    break
+                except _uerr.HTTPError as e:
+                    if e.code != 409:
+                        raise
+                    time.sleep(5)
+            # 실존하지 않는 서비스명 — 실PC(정부망 정상)는 not_found, 컨테이너(차단)는 error: 둘 다 정직한 음성
+            assert _aj and _aj.get("status") in ("error", "not_found"), \
+                f"실측 음성이어야 하는데 status={_aj and _aj.get('status')} — 날조 게이트 붕괴"
+            print("[desktop] ✅ 5.88. 🔎 후보 칩·일괄 버튼 + 자동신청 실측 정직 음성(error/not_found)")
+
             # 5.9) 담은 복지 0 슬림 모드 — 심사·첫 사용이 빈 화면에서 끝나지 않는다(발급 도우미+15종 패널+서류함)
             pg2 = ctx.new_page()
             pg2.add_init_script(
@@ -261,7 +346,15 @@ def main() -> int:
             pg2.wait_for_selector("text=원하는 서류 골라 일괄발급", timeout=8000)   # 패널 자동 펼침
             assert pg2.locator("input.accent-sky2-600").count() == n_server, "슬림 모드 지원 그리드 수 불일치(동적 배선)"
             pg2.wait_for_selector("text=내 서류함", timeout=8000)                  # 서류함도 동작
+
+            # 5.95) 🩺 조용한 자가점검 — 새 탭(새 세션)에서 클릭 없이 스스로 점검이 돌아야 한다.
+            #       이식성: 문제가 있으면(컨테이너: 정부망 차단) 결과 패널 자동 표시, 전부 정상(실PC)이면
+            #       무소음 '✓ 자가점검 통과' — 두 결말 모두 '자동으로 돌았다'는 같은 계약의 증거다.
+            pg2.locator("text=일부 항목 점검 필요").or_(pg2.locator("text=자가점검 통과")).first.wait_for(timeout=60000)
+            if pg2.locator("text=일부 항목 점검 필요").count():
+                assert "서류함 무결성" in pg2.inner_text("body"), "자가점검 결과에 점검 항목 미표시"
             pg2.close()
+            print("[desktop] ✅ 5.95. 🩺 조용한 자가점검 — 무클릭 자동 실행(문제=패널·정상=✓)")
             print("[desktop] ✅ 5.9. 슬림 모드 — 담은 복지 0에서도 발급 도우미·15종 패널·서류함 동작")
 
             # 6) 세션 연속성 — 실태스크(곧 종결) 기억 → 새로고침 → 자동 재연결
@@ -414,9 +507,28 @@ def main() -> int:
             pg.fill("input[aria-label='질문 입력']", "서류 어떻게 발급해?")
             pg.keyboard.press("Enter")
             pg.wait_for_selector("text=전부 자동발급", timeout=10000)  # agentOn 분기 응답
+            # 🚀 "알아서 다 해줘" — 아직 분석 결과가 없는 시점이라 '분석 먼저' 정직 안내 + 이동 CTA가 정답
+            pg.fill("input[aria-label='질문 입력']", "알아서 다 해줘")
+            pg.keyboard.press("Enter")
+            pg.wait_for_selector("button:has-text('복지 찾기로 이동')", timeout=10000)
             pg.locator("button[aria-label='복지 도우미 챗봇 닫기']").click()
             pg.wait_for_timeout(400)
-            print("[desktop] ✅ 6.8. 챗 에이전트 데스크탑 인지(자동화 경로 안내)")
+            print("[desktop] ✅ 6.8. 챗 에이전트 데스크탑 인지(자동화 경로 + 오토파일럿 안내)")
+
+            # 6.85) 💬→🖨 대화→발급 다리 — "초본 발급해줘" 한마디 → CTA 한 번 → 나의 복지에서 발급이 '실제로' 시작.
+            #       (인증정보는 6.5에서 입력됨 → 실발급 태스크가 뜨고 컨테이너에선 곧 정직한 오류/진행 표시 —
+            #        어느 쪽이든 '초본' 상태줄이 나타나는 것이 다리 성립의 증거. 시작된 태스크는 [중단]으로 정리)
+            pg.locator("button[aria-label='복지 도우미 챗봇 열기']").click()
+            pg.fill("input[aria-label='질문 입력']", "초본 발급해줘")
+            pg.keyboard.press("Enter")
+            pg.wait_for_selector("button:has-text('주민등록초본 자동발급 시작')", timeout=10000)  # 실행 CTA
+            pg.locator("button:has-text('주민등록초본 자동발급 시작')").click()
+            pg.wait_for_selector("text=서류 준비 도우미", timeout=10000)   # 나의 복지로 자동 이동
+            pg.wait_for_selector("text=주민등록초본 —", timeout=15000)     # 카드 밖 상태줄에 발급 시작 표시
+            if pg.locator("button:has-text('⏹ 중단')").count():           # 시작된 실태스크 정리(후속 단계 오염 방지)
+                pg.locator("button:has-text('⏹ 중단')").first.click()
+                pg.wait_for_timeout(1500)
+            print("[desktop] ✅ 6.85. 💬→🖨 대화→발급 다리 — 한마디+CTA로 실제 발급 시작")
 
             # 6.9) 🔁 여정(연쇄) 이어보기 — 새로고침 후 무클릭 재연결(플래그십 복원, 인터셉트 결정적)
             pg.route("**/api/journey/status/**", lambda r: r.fulfill(
@@ -457,6 +569,26 @@ def main() -> int:
             pg.locator("label:has-text('이 탭에서는 기억하기') input").uncheck()
             assert pg.evaluate("()=>sessionStorage.getItem('modoobom-rpainfo-session')") is None, "옵트아웃 후 보관분 잔류"
             print("[desktop] ✅ 6.95. 인증정보 탭-기억 옵트인 — F5 복원 + 옵트아웃 흔적 삭제")
+
+            # 6.97) 🚀 오토파일럿 — 결과 화면 원버튼: 추천 전부 담기 → '나의 복지' 자동 이동 → 원클릭 연쇄
+            #       이어받기(issueBridge). 이 시점 rpaInfo는 생년월일·휴대폰이 빈 상태(미persist+6.9 reload)라
+            #       연쇄는 시작 대신 '먼저 입력' 가드+폼 포커스가 정답 — 실태스크가 안 떠 정리 불필요(결정적).
+            pg.click("text=복지 찾기")
+            pg.click("text=한 문장으로")
+            pg.fill("textarea[aria-label='상황을 한 문장으로 입력']", "72세 혼자 사는데 소득이 적어요")
+            pg.locator("button:has-text('이 내용으로 바로 분석')").click()
+            # 분석 연출(백엔드 스트림 폴백 포함) 뒤 결과 화면 — 에이전트 연결 시에만 뜨는 CTA가 증거
+            pg.wait_for_selector("[data-testid='autopilot-cta']", timeout=45000)
+            before = pg.evaluate("()=>JSON.parse(localStorage.getItem('modoobom-store')).state.tracked.length")
+            pg.locator("[data-testid='autopilot-cta']").click()
+            pg.wait_for_selector("text=서류 준비 도우미", timeout=15000)          # 나의 복지로 자동 이동
+            # 연쇄 이어받기 성립 증거 — 부족 서류가 있으면 '먼저 입력' 가드, 서류함이 이미 다 채웠으면
+            # 자유 선택 패널 자동 오픈(둘 다 설계된 정직한 경로 — 실PC 서류함 상태와 무관하게 통과)
+            pg.locator("text=실명·생년월일·휴대폰을 먼저 입력해 주세요").or_(
+                pg.locator("text=원하는 서류 골라 일괄발급")).first.wait_for(timeout=15000)
+            after = pg.evaluate("()=>JSON.parse(localStorage.getItem('modoobom-store')).state.tracked.length")
+            assert after > before, f"오토파일럿 자동 담기 미동작(before={before}, after={after})"
+            print("[desktop] ✅ 6.97. 🚀 오토파일럿 — 담기+이동+연쇄 이어받기(인증정보 가드)")
 
             # 7.6) 여정 '오류' 경로 — 정부 사이트 불통 시에도 정직한 오류 요약 + 재시도 CTA가 남는지
             #      (실사용자가 실제로 만나는 경로 — 가짜 성공·무언 종료·막다른 UI가 없어야 한다)
@@ -503,7 +635,7 @@ def main() -> int:
         for i in issues[:10]:
             print("  ", i)
         return 1
-    print("✅ 데스크탑 기능 23종 + pageerror 0 — 전부 통과")
+    print("✅ 데스크탑 기능 30종 + pageerror 0 — 전부 통과")
     return 0
 
 

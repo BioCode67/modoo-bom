@@ -14,10 +14,8 @@
 등재 위치(육안 확인 후): frontend/src/lib/quickApply.ts KNOWN_APPLY_URLS
     (등재하면 `npm run check:links`가 상시 재검증 목록에 자동 포함)
 """
-import re
-import sys
-import glob
 import pathlib
+import sys
 
 try:
     sys.stdout.reconfigure(encoding="utf-8")
@@ -25,69 +23,13 @@ except Exception:
     pass
 
 HERE = pathlib.Path(__file__).resolve().parent
+if str(HERE.parent) not in sys.path:  # `python tools/…` 직접 실행 시에도 rpa 패키지 임포트 보장
+    sys.path.insert(0, str(HERE.parent))
+
 REPORT = HERE / "probe-bokjiro-report.md"
-SEARCH_INPUTS = ["input[type='search']", "input[name*='search' i]", "input[placeholder*='검색']"]
 
-
-def probe(names):
-    from playwright.sync_api import sync_playwright
-    rows = []
-    with sync_playwright() as p:
-        exe = glob.glob("/opt/pw-browsers/chromium-*/chrome-linux/chrome")
-        browser = p.chromium.launch(executable_path=(exe[0] if exe else None), headless=True)
-        pg = browser.new_page()
-        try:
-            pg.goto("https://www.bokjiro.go.kr/", wait_until="domcontentloaded", timeout=20000)
-        except Exception as e:
-            browser.close()
-            return None, f"복지로 접속 실패: {str(e)[:120]} — 인터넷 되는 PC에서 실행하세요."
-        for name in names:
-            row = {"name": name, "id": "", "title": "", "verdict": "❌ 미발견", "note": ""}
-            try:
-                box = None
-                for sel in SEARCH_INPUTS:
-                    loc = pg.locator(sel).first
-                    if loc.count() and loc.is_visible():
-                        box = loc
-                        break
-                if box is None:
-                    row["note"] = "검색창을 못 찾음(사이트 개편?) — SEARCH_INPUTS 보강 필요"
-                    rows.append(row)
-                    continue
-                box.fill(name)
-                box.press("Enter")
-                pg.wait_for_timeout(2500)
-                hrefs = pg.eval_on_selector_all(
-                    "a[href*='wlfareInfoId']",
-                    "els => els.map(a => ({href: a.href, text: (a.textContent||'').trim()}))")
-                cands = []
-                for a in hrefs:
-                    m = re.search(r"wlfareInfoId=(WLF\w+)", a["href"])
-                    if m:
-                        cands.append((m.group(1), a["text"]))
-                if not cands:
-                    row["note"] = "검색 결과에 wlfareInfoId 링크 없음(서비스명이 다르거나 복지로 미등재)"
-                    rows.append(row)
-                    continue
-                nn = name.replace(" ", "")
-                cands.sort(key=lambda c: (nn not in c[1].replace(" ", ""), len(c[1])))
-                wid = cands[0][0]
-                row["id"] = wid
-                detail = f"https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId={wid}"
-                pg.goto(detail, wait_until="domcontentloaded", timeout=20000)
-                pg.wait_for_timeout(1500)
-                row["title"] = (pg.title() or "").strip()[:60]
-                hit = nn in pg.inner_text("body").replace(" ", "")[:3000]
-                row["verdict"] = ("🟡 ID 확인 — 온라인신청 여부는 로그인 후 육안 1회 확인 필요" if hit
-                                  else "⚠️ 상세 페이지 불일치(다른 서비스일 수 있음)")
-                pg.goto("https://www.bokjiro.go.kr/", wait_until="domcontentloaded", timeout=20000)
-            except Exception as e:
-                row["note"] = f"오류: {str(e)[:100]}"
-                rows.append(row)
-                continue
-            rows.append(row)
-        browser.close()
-    return rows, None
+# 코어(rpa/probe.py probe_apply_names)와 단일 소스 — 앱 내 [🔎 자동신청 가능 확인]과 같은 로직.
+from rpa.probe import probe_apply_names as probe  # noqa: E402
 
 
 def main():

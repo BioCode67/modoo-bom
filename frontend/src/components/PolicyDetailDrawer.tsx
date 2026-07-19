@@ -13,6 +13,8 @@ import { docLink, isApplyAutomatable } from '@/lib/officialLinks'
 import { trustInfo } from '@/lib/trust'
 import { useBackend } from '@/lib/useBackend'
 import { AgentSubmitButton } from '@/components/AgentSubmitButton'
+import { ApplyProbeButton } from '@/components/ApplyProbeButton'
+import { APPLY_EXTRA_EVENT } from '@/lib/applyExtra'
 import { ApplyFlow } from '@/components/ApplyFlow'
 import { TermText } from '@/components/TermText'
 import { VisitKit } from '@/components/VisitKit'
@@ -171,6 +173,13 @@ function DrawerBody({
   const [visitKit, setVisitKit] = useState(false)
   const [applied, setApplied] = useState<false | 'copied' | 'opened' | 'blocked'>(false)
   const [blockedUrl, setBlockedUrl] = useState('')
+  // 🔎 β 신청 딥링크 등록/해제 시 재렌더 — AgentSubmitButton(불변)이 새 오버레이를 즉시 반영하게
+  const [, setApplyExtraTick] = useState(0)
+  useEffect(() => {
+    const bump = () => setApplyExtraTick((t) => t + 1)
+    window.addEventListener(APPLY_EXTRA_EVENT, bump)
+    return () => window.removeEventListener(APPLY_EXTRA_EVENT, bump)
+  }, [])
   const related = onOpen
     ? getCatalog().filter((p) => p.category === policy.category && p.id !== policy.id)
         .sort((a, b) => cashMonthly(b) - cashMonthly(a)).slice(0, 3)
@@ -355,6 +364,8 @@ function DrawerBody({
 
         {/* 에이전트 자동 신청 (지원 서비스 + 백엔드 있을 때) */}
         <AgentSubmitButton policy={policy} />
+        {/* 🔎 자동신청 미지원 정책의 실측 확장(β) — 통과 시 위 버튼이 재렌더로 즉시 나타난다 */}
+        <ApplyProbeButton policy={policy} />
 
         {/* 필요 서류 — 체크 가능한 준비 체크리스트(전역 기억: 등본 등 공통 서류는 여러 복지에서 준비완료 공유) */}
         {policy.required_docs?.length > 0 && (() => {
