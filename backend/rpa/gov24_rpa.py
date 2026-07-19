@@ -761,10 +761,35 @@ async def _issue_family_cert_efamily(page, task, context, user_info: dict = None
             task.update("waiting_login", f"진행을 기다리는 중이에요… ({_w * 2}초) 화면 안내대로 입력·인증해 주세요.", await take_screenshot(page))
         await asyncio.sleep(2)
 
-    # ④ 인증 후 증명서 신청 화면 — '일반증명서' 선택(있으면) + [신청하기] → 문서 렌더 대기 → 저장
+    # ④ 인증 후 '가족관계등록부 열람/발급 신청' 화면(실측: PtFrrpReadIssTrgtInfoW.do, 사용자 스크린샷).
+    #    1~4번은 기본 선택이 이미 올바름: 본인·가족관계증명서·일반증명서·주민번호 뒷부분 '전부 비공개'
+    #    (🔒 비공개 기본 유지 — 개인정보 최소화 요청과 일치). 5 수령방법 '화면 열람'과
+    #    6 신청사유 '국내 기관 제출'(복지 신청 제출용)만 선택하고 [신청하기] → 열람 화면을 PDF 저장.
     check_cancel(task, context)
-    await click_by_text(page, ["일반증명서"])
-    await asyncio.sleep(0.8)
+    try:
+        await page.evaluate(
+            """() => {
+                const want = ['화면 열람', '국내 기관 제출'];
+                const radios = [...document.querySelectorAll('input[type=radio]')];
+                for (const w of want) {
+                    for (const r of radios) {
+                        const lab = ((r.closest('label') || {}).innerText ||
+                                     (r.labels && r.labels[0] ? r.labels[0].innerText : '') ||
+                                     (r.parentElement ? r.parentElement.innerText : '') || '').replace(/\\s+/g, ' ');
+                        if (lab.includes(w)) { if (!r.checked) r.click(); break; }
+                    }
+                }
+            }"""
+        )
+    except Exception:
+        pass
+    await asyncio.sleep(0.6)
+    task.update(
+        "running",
+        "🖨 수령방법 '화면 열람'·신청사유를 선택하고 [신청하기]를 눌러요…\n"
+        "🔒 주민등록번호 뒷자리는 '전부 비공개' 기본을 그대로 뒀어요(필요하면 화면에서 변경).",
+        await take_screenshot(page),
+    )
     if not await click_by_text(page, ["신청하기", "발급하기", "발급 신청"]):
         await click_first_matching(page, ["button:has-text('신청')", "a:has-text('신청')", "input[value*='신청']"])
     await asyncio.sleep(3)
@@ -775,7 +800,10 @@ async def _issue_family_cert_efamily(page, task, context, user_info: dict = None
         body_now = await final_page.evaluate("() => document.body ? document.body.innerText : ''")
     except Exception:
         pass
-    saved = await save_document(final_page, "가족관계증명서", name)
+    # 증명서 실화면 신호로만 저장·성공 판정 — 신청 폼 화면을 발급물로 오인 저장하면 자동첨부에
+    #   '폼 캡처'가 붙는다(정직성). '등록기준지'는 가족관계증명서 서식의 고정 항목, 새 창 열람도 성공 신호.
+    really = ("등록기준지" in body_now) or (final_page is not page)
+    saved = await save_document(final_page, "가족관계증명서", name) if really else ""
     if saved:
         task.update(
             "done",
