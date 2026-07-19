@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { agentReply, greetingReply, matchSaveIntent, matchIssueIntent, issueReply, docsReply, isLocalIntent } from './chatAgent'
+import { agentReply, greetingReply, matchSaveIntent, matchIssueIntent, matchIssueAllIntent, issueReply, docsReply, isLocalIntent } from './chatAgent'
 import type { UserProfile, AnalysisResult, EligiblePolicy } from './welfare-engine'
 import type { Policy } from '@/data/policies'
 import type { TrackedItem } from '@/store/useAppStore'
@@ -205,5 +205,19 @@ describe('matchIssueIntent — 💬→🖨 "등본 발급해줘" 실행 의도(�
     expect(r.cta?.view).toBe('my')
     expect(r.issueDoc).toBe('주민등록등본')
     expect(r.text).toContain('인증 승인')  // 본인인증은 직접(정직성 문구)
+  })
+})
+
+describe('matchIssueAllIntent — 💬→🚀 "전부 발급해줘" 연쇄 실행 의도', () => {
+  it('전부/다/모두/몽땅 + 발급 요청 동사', () => {
+    expect(matchIssueAllIntent('서류 전부 발급해줘')).toBe(true)
+    expect(matchIssueAllIntent('다 발급해줘')).toBe(true)
+    expect(matchIssueAllIntent('전부 자동발급 해줘')).toBe(true)
+    expect(matchIssueAllIntent('몽땅 떼줘')).toBe(true)
+  })
+  it('상태 질문·단건 지목·방법 질문은 아님(오발동 방지)', () => {
+    expect(matchIssueAllIntent('발급 다 됐어?')).toBe(false)
+    expect(matchIssueAllIntent('등본 발급해줘')).toBe(false)
+    expect(matchIssueAllIntent('서류 발급 어떻게 해?')).toBe(false)
   })
 })

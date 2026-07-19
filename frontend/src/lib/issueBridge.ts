@@ -19,3 +19,19 @@ export function takePendingIssue(): string {
   _pending = ''
   return p
 }
+
+// "서류 전부 발급해줘" — 원클릭 연쇄(부족분만·한 번 인증) 전체 시작 채널(단건과 동일한 보류+이벤트 설계)
+export const ISSUE_ALL_EVENT = 'modoobom:issue-all'
+
+let _pendingAll = false
+
+export function requestIssueAll(): void {
+  _pendingAll = true
+  try { window.dispatchEvent(new Event(ISSUE_ALL_EVENT)) } catch { /* SSR 등 무시 */ }
+}
+
+export function takePendingIssueAll(): boolean {
+  const p = _pendingAll
+  _pendingAll = false
+  return p
+}

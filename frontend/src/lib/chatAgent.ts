@@ -21,6 +21,8 @@ export interface AgentReply {
   cta?: { view: 'analyze' | 'explore' | 'my'; label: string }
   /** 💬→🖨 CTA가 뷰 이동에 더해 이 서류의 자동발급을 시작해야 함(데스크탑 에이전트 연결 시에만 설정) */
   issueDoc?: string
+  /** 💬→🚀 CTA가 원클릭 연쇄(전부 자동발급)를 시작해야 함(데스크탑 에이전트 연결 시에만 설정) */
+  issueAll?: boolean
 }
 
 const HH = (p: UserProfile) => [p.age > 0 ? `${p.age}세` : '', p.household_type].filter(Boolean).join('·')
@@ -209,6 +211,26 @@ export function matchIssueIntent(raw: string, supportedDocs: string[]): string |
   return null
 }
 
+/**
+ * "서류 전부 발급해줘" — 원클릭 연쇄(부족분만·한 번 인증) 전체를 시작하는 실행 의도.
+ * 발급 '요청 동사'가 함께 있을 때만 true — "발급 다 됐어?"(상태 질문)는 잡지 않는다.
+ */
+export function matchIssueAllIntent(raw: string): boolean {
+  const t = raw.replace(/\s/g, '')
+  return /(서류|필요한거|필요서류)?(전부|다|모두|몽땅|한꺼번에|한번에)(자동)?발급(해|시작|좀|부탁|고|해줘|해주)/.test(t)
+    || /(전부|다|모두|몽땅)(떼|뽑)(아|어)?(줘|주세요|주라)/.test(t)
+    || /발급(전부|다|모두)(해|해줘|해주|시작)/.test(t)
+}
+
+/** "전부 발급해줘" 응답 — CTA 한 번이면 원클릭 연쇄([🚀 전부 자동발급])가 그대로 시작된다. */
+export function issueAllReply(): AgentReply {
+  return {
+    text: `담아두신 복지의 필요 서류를 **한 번 인증으로 연쇄 자동발급**할게요 — 서류함에 있는 유효한 서류는 건너뛰고 부족한 것만 발급해요. 아래 버튼으로 시작하세요(실명·생년월일·휴대폰이 비어 있으면 입력칸으로 안내 · 📱 인증 승인만 직접). 담은 복지가 없으면 지원 서류 목록에서 골라 시작할 수 있게 열어드려요.`,
+    cta: { view: 'my', label: '🚀 전부 자동발급 시작' },
+    issueAll: true,
+  }
+}
+
 /** "등본 발급해줘" 응답 — CTA 한 번이면 나의 복지로 이동해 그 서류의 자동발급이 바로 시작된다. */
 export function issueReply(doc: string): AgentReply {
   return {
@@ -262,6 +284,7 @@ export function agentReply(raw: string, ctx: { profile: UserProfile | null; resu
   // 💬→🖨 실행 의도("등본 발급해줘")는 방법 질문(DOCS_RE)보다 먼저 — 서류가 지목된 경우에만 발동.
   //   데스크탑 에이전트가 연결됐을 때만(웹은 기존 전자증명서 경로 안내 유지).
   if (ctx.agentOn && ctx.issueDocs?.length) {
+    if (matchIssueAllIntent(q)) return issueAllReply() // '전부'가 단건 지목보다 우선(둘 다 있으면 연쇄)
     const doc = matchIssueIntent(q, ctx.issueDocs)
     if (doc) return issueReply(doc)
   }

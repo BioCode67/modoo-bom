@@ -15,7 +15,7 @@ import { RemoteRpaSetup } from '@/components/RemoteRpaSetup'
 import { DocCameraModal } from '@/components/DocCameraModal'
 import { DocVault, notifyDocsChanged, DOCS_CHANGED_EVENT } from '@/components/DocVault'
 import { ProbeCoverage, requestProbe } from '@/components/ProbeCoverage'
-import { ISSUE_DOC_EVENT, takePendingIssue } from '@/lib/issueBridge'
+import { ISSUE_DOC_EVENT, ISSUE_ALL_EVENT, takePendingIssue, takePendingIssueAll } from '@/lib/issueBridge'
 import { AgentStatusStrip } from '@/components/AgentStatusStrip'
 import { rememberLive, forgetLive, listLive } from '@/lib/liveTasks'
 import { downloadDocsBundle } from '@/lib/bundleDocs'
@@ -68,21 +68,29 @@ export function DocumentCenter() {
       .catch(() => { /* 미응답이면 내장 목록 그대로 — 정직 폴백 */ })
     return () => { alive = false }
   }, [localAgent])
-  // 💬→🖨 챗 "등본 발급해줘" 이어받기 — 뷰 전환 직후(마운트)의 보류분 + 이미 떠 있을 때의 이벤트 모두.
-  //   실행 함수(reissueFromVault)는 훅 구역보다 뒤에 정의되므로 ref로 최신 참조를 넘긴다(TDZ·의존성 회피).
+  // 💬→🖨 챗 "등본 발급해줘"(단건)/"전부 발급해줘"(연쇄) 이어받기 — 뷰 전환 직후(마운트)의 보류분 +
+  //   이미 떠 있을 때의 이벤트 모두. 실행 함수는 훅 구역보다 뒤에 정의되므로 ref로 최신 참조(TDZ·의존성 회피).
   const issueFnRef = useRef<(doc: string) => void>(() => {})
+  const issueAllFnRef = useRef<() => void>(() => {})
   useEffect(() => {
     if (!localAgent) return // 에이전트 없이 보류분을 소모하면 발급 기회가 증발 — 남겨서 다음 마운트가 처리
     const onIssue = (e: Event) => {
       const doc = takePendingIssue() || String((e as CustomEvent).detail || '')
       if (doc) issueFnRef.current(doc)
     }
+    const onIssueAll = () => { if (takePendingIssueAll()) issueAllFnRef.current() }
     window.addEventListener(ISSUE_DOC_EVENT, onIssue)
+    window.addEventListener(ISSUE_ALL_EVENT, onIssueAll)
     const t = setTimeout(() => { // 마운트 직후 보류분 — 첫 렌더가 끝나 실행 함수 ref가 채워진 뒤에
       const pend = takePendingIssue()
       if (pend) issueFnRef.current(pend)
+      if (takePendingIssueAll()) issueAllFnRef.current()
     }, 120)
-    return () => { clearTimeout(t); window.removeEventListener(ISSUE_DOC_EVENT, onIssue) }
+    return () => {
+      clearTimeout(t)
+      window.removeEventListener(ISSUE_DOC_EVENT, onIssue)
+      window.removeEventListener(ISSUE_ALL_EVENT, onIssueAll)
+    }
   }, [localAgent])
 
   // '서류가 어디 저장되는지 모르겠다'(실사용 피드백) — 로컬 에이전트(내 PC)일 때만 탐색기 열기 제공
@@ -707,6 +715,12 @@ export function DocumentCenter() {
         return next
       })
     }
+  }
+  // 💬→🚀 챗 "전부 발급해줘" 실행 함수 — 연쇄 대상이 있으면 원클릭 연쇄 그대로, 담은 복지가 없어
+  //   대상이 비면 자유 선택 패널을 전부 선택 상태로 열어 한 번에 시작할 수 있게(막다른 응답 방지)
+  issueAllFnRef.current = () => {
+    if (chainDocs.length) { void startAll() }
+    else { setPickOpen(true); setPicked(Object.fromEntries(localDocs.map((d) => [d, true]))) }
   }
 
   // 🗂 자유 선택 일괄발급 시작 — 검증·중복 가드는 원클릭 연쇄(startAll)와 동일 기준

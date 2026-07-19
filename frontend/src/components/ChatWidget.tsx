@@ -4,9 +4,9 @@ import { MessageCircleHeart, X, Send, Mic, Compass, Sparkles, ArrowRight, Plus, 
 import type { Policy } from '@/data/policies'
 import { useSpeech } from '@/lib/useSpeech'
 import { GUIDE_STEPS, recommend, type GuideAnswers } from '@/lib/guidedChat'
-import { agentReply, greetingReply, matchSaveIntent, matchIssueIntent, issueReply, isLocalIntent, type AgentReply } from '@/lib/chatAgent'
+import { agentReply, greetingReply, matchSaveIntent, matchIssueIntent, matchIssueAllIntent, issueReply, issueAllReply, isLocalIntent, type AgentReply } from '@/lib/chatAgent'
 import { localRpaDocs } from '@/lib/officialLinks'
-import { requestIssueDoc } from '@/lib/issueBridge'
+import { requestIssueDoc, requestIssueAll } from '@/lib/issueBridge'
 import { API_BASE, checkBackend, getCapabilities } from '@/lib/backend'
 import { useBackend } from '@/lib/useBackend'
 import { getCatalog } from '@/data/catalog'
@@ -15,7 +15,7 @@ import { SproutLogo } from '@/ui/SproutLogo'
 import { VoiceCall, type Turn } from '@/components/VoiceCall'
 import { cn } from '@/lib/utils'
 
-interface Msg { role: 'user' | 'bot'; text: string; policies?: Policy[]; cta?: AgentReply['cta']; issueDoc?: string; ai?: boolean; pending?: boolean; pendingId?: string }
+interface Msg { role: 'user' | 'bot'; text: string; policies?: Policy[]; cta?: AgentReply['cta']; issueDoc?: string; issueAll?: boolean; ai?: boolean; pending?: boolean; pendingId?: string }
 
 const SUGGESTIONS = ['내가 받을 수 있는 거', '기초연금', '출산·육아', '청년', '실업급여']
 
@@ -152,8 +152,13 @@ export function ChatWidget() {
       setTimeout(() => botSay(msg, { cta: { view: 'my', label: '나의 복지 보기' } }), 300)
       return
     }
-    // 💬→🖨 "등본 발급해줘" 실행 의도 — 데스크탑 에이전트 연결 시, CTA 한 번으로 실제 자동발급까지 연결.
-    //   클라우드 LLM보다 먼저 판정(행동 의도는 로컬이 정확·즉시 — 담기와 동일 원칙).
+    // 💬→🖨 "등본 발급해줘"/"전부 발급해줘" 실행 의도 — 데스크탑 에이전트 연결 시, CTA 한 번으로
+    //   실제 자동발급(단건)·원클릭 연쇄(전부)까지 연결. 클라우드 LLM보다 먼저 판정(담기와 동일 원칙).
+    if (agentOn && matchIssueAllIntent(q)) {
+      const r = issueAllReply()
+      setTimeout(() => botSay(r.text, { cta: r.cta, issueAll: true }), 300)
+      return
+    }
     const issueDoc = agentOn ? matchIssueIntent(q, localRpaDocs()) : null
     if (issueDoc) {
       const r = issueReply(issueDoc)
@@ -318,8 +323,9 @@ export function ChatWidget() {
                       {m.cta && (
                         <button
                           onClick={() => {
-                            // 💬→🖨 발급 지목 응답이면 뷰 이동 전에 보류 등록 — 서류 도우미가 마운트 시 이어받아 바로 시작
-                            if (m.issueDoc) requestIssueDoc(m.issueDoc)
+                            // 💬→🖨 발급 지목/전부 응답이면 뷰 이동 전에 보류 등록 — 서류 도우미가 이어받아 바로 시작
+                            if (m.issueAll) requestIssueAll()
+                            else if (m.issueDoc) requestIssueDoc(m.issueDoc)
                             setView(m.cta!.view); setOpen(false)
                           }}
                           className="chip text-xs bg-sprout-600 text-white font-bold hover:bg-sprout-700">
