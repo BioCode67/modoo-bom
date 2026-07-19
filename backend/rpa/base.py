@@ -359,6 +359,18 @@ AUTH_FORM_SELECTORS = [
     "input[type='checkbox']",
 ]
 
+# 간편인증 '인증 완료' 버튼 — 폰에서 승인한 뒤 이 버튼을 눌러야 로그인이 완료된다.
+#   (사용자 요청) 폰 승인만 하면 앱이 이 버튼을 자동으로 눌러준다 — 승인 전 클릭은 gov24가 '미완료'
+#   안내만 띄우고 무해하므로, 간격을 두고 재시도해 승인되는 순간 완료된다. 실제 본인인증(폰)은 사용자 몫.
+AUTH_CONFIRM_SELECTORS = [
+    "button:has-text('인증 완료')",
+    "button:has-text('인증완료')",
+    "a:has-text('인증 완료')",
+    "a:has-text('인증완료')",
+    "input[value*='인증 완료']",
+    "input[value*='인증완료']",
+]
+
 AUTH_FORM_USER_GUIDE = (
     "📋 카카오톡 본인인증 정보 입력 폼이 열렸습니다.\n\n"
     "1️⃣  이름 입력\n"
@@ -576,6 +588,10 @@ async def wait_for_login(
     """
     report_interval = 15  # 15초마다 진행상황 스크린샷
     last_report = 0
+    # '인증 완료' 자동 클릭(사용자 요청) — 폰 승인 뒤 앱이 완료 버튼을 눌러준다. 승인 전 클릭은 무해
+    #   ('미완료' 안내만 뜸)하므로 간격을 두고 재시도. 폰 승인 시간을 먼저 주려 20초부터 시작.
+    confirm_start, confirm_interval = 20, 12
+    last_confirm = 0
 
     for elapsed in range(timeout_sec):
         # 취소·창닫힘 즉시 탈출(닫힌 창 상대로 최대 timeout_sec 유령 대기하던 것 차단, 감사 확정)
@@ -591,6 +607,27 @@ async def wait_for_login(
         if elapsed < min_wait_sec:
             await asyncio.sleep(1)
             continue
+
+        # 🔵 '인증 완료' 자동 클릭 — 사용자가 폰에서 승인만 하면 앱이 완료 버튼을 눌러 로그인을 마무리한다.
+        #   ⚠️ 실제 본인인증(폰 [인증 허용])은 여전히 사용자 몫(HITL 유지). 이 클릭은 승인 후의 기계적 마무리.
+        #   승인 전이면 gov24가 '완료되지 않았습니다' 안내만 띄우므로, 그 안내의 확인만 닫고(메인 팝업 '닫기'는
+        #   절대 건드리지 않음) 다음 주기에 재시도한다. 승인되면 다음 URL 체크에서 완료로 잡힌다.
+        if elapsed >= confirm_start and (elapsed - last_confirm) >= confirm_interval:
+            last_confirm = elapsed
+            try:
+                for sel in AUTH_CONFIRM_SELECTORS:
+                    el = page.locator(sel).first
+                    if await el.count() > 0 and await el.is_visible():
+                        await el.click()
+                        await asyncio.sleep(1.2)
+                        # 승인 전 클릭이면 '완료되지 않았습니다' 안내 → 그 확인만 닫는다(메인 '닫기' 제외)
+                        body = await page.evaluate("() => document.body ? document.body.innerText : ''")
+                        if any(k in (body or "") for k in ("완료되지 않", "완료되지않", "미완료")):
+                            await click_by_text(page, ["확인"])
+                        break
+            except Exception:
+                pass
+
         try:
             current_url = page.url
 
