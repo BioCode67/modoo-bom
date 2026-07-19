@@ -66,3 +66,18 @@ def test_reload_merges_into_supported_and_urls(tmp_path, monkeypatch):
                 setattr(_pkg, k.split(".")[1], v)
             else:
                 sys.modules.pop(k, None)
+
+
+def test_maintenance_notice_detection():
+    """정부24 '서비스 점검 중' 팝업을 특정 감지 — 외부기관 연계 서류(가족관계=대법원, 소득=홈택스)의
+    야간·점검 시간 실패를 4분 헛돌지 않고 '앱 오류 아님·낮에 재시도'로 정직하게 전환(실사용 데모 제보)."""
+    from rpa.gov24_rpa import _is_maintenance_notice
+    # 실제 팝업 문구(사용자 스크린샷) + 공백 변형
+    assert _is_maintenance_notice("안내\n서비스 점검 중입니다.\n닫기")
+    assert _is_maintenance_notice("점검중입니다")
+    assert _is_maintenance_notice("현재 서비스 점검 중 이니 잠시 후 이용하세요")
+    # 정상 발급 화면·빈 문자열은 오탐 없음(정상 흐름을 끊지 않음)
+    assert not _is_maintenance_notice("발급 폼 로드 — 신청하기 진행")
+    assert not _is_maintenance_notice("문서출력 처리완료")
+    assert not _is_maintenance_notice("")
+    assert not _is_maintenance_notice(None)  # 방어적: None 안전

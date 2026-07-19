@@ -387,6 +387,13 @@ async def _select_doc_form_options(page, doc_name: str) -> None:
         pass
 
 
+def _is_maintenance_notice(txt: str) -> bool:
+    """정부 사이트 '서비스 점검 중' 팝업 감지 — 외부기관 연계 서류(가족관계=대법원, 소득=국세청 홈택스)는
+    야간·새벽 점검이 잦아 이 팝업이 뜨면 '앱 오류'가 아니라 정부 사이트 상태다(정직 안내로 전환)."""
+    t = txt or ""
+    return ("서비스 점검 중" in t) or ("점검 중입니다" in t) or ("점검중입니다" in t)
+
+
 def _pick_result_page(context, fallback):
     """발급 결과 페이지를 고른다 — 무관한 팝업/탭이 최신(pages[-1])이면 엉뚱한 화면을 저장하던 것 방지(감사 :555).
     URL 만 검사(evaluate 없음 → 렌더러 블록 위험 없음): 발급 결과 경로를 담은 살아있는 페이지 우선, 없으면 최신."""
@@ -560,6 +567,18 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None, session=Non
                     await click_first_matching(page, ["button:has-text('신청하기')", "a:has-text('발급하기')", "button:has-text('발급하기')", "#btnMinwonApply", "#btnApply", "input[value*='신청']"])
                 await asyncio.sleep(3)
                 txt = await _txt()
+                # 🛠 정부 사이트 '서비스 점검 중' 팝업 — 등본(행안부·24h)과 달리 가족관계(대법원 전자가족관계등록)·
+                #   소득금액증명(국세청 홈택스 08~22시) 등 외부기관 연계 서류는 야간·새벽 점검이 잦다.
+                #   4분 헛돌지 않고 즉시 '앱 오류 아님 + 낮에 재시도'를 정직하게 알린다(실사용 데모 제보).
+                if _is_maintenance_notice(txt):
+                    task.update(
+                        "error",
+                        f"정부24에서 ‘{doc_name}’ 서비스가 점검 중이에요(정부 사이트 상태 · 앱 오류 아님). "
+                        f"이 서류는 외부기관 연계(가족관계=대법원, 소득=국세청 홈택스)라 야간·새벽(01~06시)엔 점검이 잦아요. "
+                        f"낮 시간(특히 08~22시)에 다시 시도하거나, 옆 [전자발급]으로 공식 사이트에서 직접 발급해 주세요.",
+                        await take_screenshot(page),
+                    )
+                    return
                 # 주소 불일치 안내 모달 → 닫고, 사용자가 시도·시군구를 고칠 때까지 대기 후 재시도
                 if ("해당 시군구에 존재하지 않" in txt) or ("정보가 해당" in txt and "존재하지 않" in txt):
                     await click_by_text(page, ["닫기", "확인"])
