@@ -6,6 +6,9 @@ import { useBackend } from '@/lib/useBackend'
 import { useSpeech } from '@/lib/useSpeech'
 import { useTTS } from '@/lib/useTTS'
 import { agentReply, greetingReply, type AgentReply } from '@/lib/chatAgent'
+import { parseProfileFromText, profileSignalCount } from '@/lib/parseQuery'
+import { runAnalysis } from '@/lib/welfare-engine'
+import { formatWon } from '@/lib/format'
 import { speakableText } from '@/lib/speakable'
 import { cn } from '@/lib/utils'
 
@@ -27,6 +30,7 @@ export function VoiceCall({ open, onClose }: { open: boolean; onClose: () => voi
   const tracked = useAppStore((s) => s.tracked)
   const docDone = useAppStore((s) => s.docDone)
   const setView = useAppStore((s) => s.setView)
+  const setAnalysis = useAppStore((s) => s.setAnalysis)
   const { ready, caps } = useBackend()
   const agentOn = ready === true && !!caps?.rpa // 데스크탑 에이전트 연결 시 자동화 경로 안내(챗위젯과 동일 기준)
   const tts = useTTS()
@@ -50,7 +54,24 @@ export function VoiceCall({ open, onClose }: { open: boolean; onClose: () => voi
     setThinking(true)
     // 답변 생성은 동기·즉시지만, '생각 중' 상태가 눈에 보이게 다음 틱으로 넘긴다(통화 감각)
     setTimeout(() => {
-      say(agentReply(q, { profile, result, tracked, agentOn }))
+      // 📞→진단: "72세 혼자 사는데 소득이 적어요"처럼 프로필 신호가 2개 이상 담긴 '상황 문장'이면
+      // 질문 응대가 아니라 그 자리에서 분석까지 실행하고 결과를 말로 브리핑한다(전화 한 통 완주).
+      // "기초연금 알려줘"(신호 0~1)는 기존 지식·행동 답변 그대로.
+      if (profileSignalCount(q) >= 2) {
+        const prof = parseProfileFromText(q)
+        const res = runAnalysis(prof)
+        setAnalysis(prof, res)
+        const top = res.eligible_policies.slice(0, 3).map((p) => p.name)
+        const monthly = res.portfolio_summary?.total_monthly
+        const text =
+          `말씀하신 상황으로 바로 찾아봤어요. 지금 신청해볼 만한 복지가 ${res.eligible_policies.length}개 있어요.\n` +
+          `대표적으로 ${top.join(', ')} 이에요.` +
+          (monthly ? `\n현금성 지원만 더하면 다달이 최대 ${formatWon(monthly)}까지예요 — 실제 조건·중복수급에 따라 달라질 수 있어요.` : '') +
+          `\n자세한 자격과 신청 방법은 결과 화면에서 하나씩 짚어드릴게요.`
+        say({ text, cta: { view: 'analyze', label: '결과 화면에서 자세히 보기' } })
+      } else {
+        say(agentReply(q, { profile, result, tracked, agentOn }))
+      }
       setThinking(false)
     }, 150)
   }

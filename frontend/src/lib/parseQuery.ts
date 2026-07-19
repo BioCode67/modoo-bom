@@ -201,7 +201,7 @@ export function parseProfileFromText(text: string): UserProfile {
   const sido = sidoOf(t)
   if (sido) p.region = sido
 
-  // ── 성별 ── '명시적 자기 지칭'에서만 추정. 관계 명사(남편/아내/어머니/아들/딸 …)는 '다른 사람'을 가리켜
+  // ── 성별 ── '명시적 자기 지칭'에서만 추정. [signalCount는 파일 하단 profileSignalCount 참조] 관계 명사(남편/아내/어머니/아들/딸 …)는 '다른 사람'을 가리켜
   //   화자 성별을 오추정한다 — 특히 "남편이 때려요"(아내 신고)를 남성으로 오태깅하면 여성 전용 지원에서
   //   부당 배제된다(감사). 성별은 여성 전용 '배제' 게이트에만 쓰이므로 미설정('other')이 안전·포용적.
   // ⚠️ '남자/여자'가 제3자 합성어(남자친구·여자아이·남자애·여자형제…)에 박혀 화자 성별을 오추정하지 않게 한다 —
@@ -211,4 +211,24 @@ export function parseProfileFromText(text: string): UserProfile {
   else if (/남성|남자(?!친구|아이|애|사람|형제|조카|짝)/.test(t)) p.gender = 'male'
 
   return p
+}
+
+/**
+ * 문장에서 실제로 추출된 프로필 신호 수 — '상황 문장'(분석감) 판별 근거.
+ * 통화·챗이 "72세 혼자 소득 적어요"(신호≥2 → 즉시 분석)와 "기초연금 알려줘"(0 → 지식 답변)를
+ * 구분할 때 쓴다. 임계 판단은 호출부 몫(단정 아님) — 파서가 못 잡은 문장은 0으로 정직하게.
+ */
+export function profileSignalCount(text: string): number {
+  const p = parseProfileFromText(text)
+  let n = 0
+  if (p.age !== BASE.age) n++
+  if (p.household_type) n++
+  if (p.income_percentile !== BASE.income_percentile) n++
+  if (p.disability) n++
+  if (p.is_pregnant) n++
+  if (p.has_children) n++
+  if (p.employment_status) n++
+  if (p.region) n++
+  if ((p.life_events || []).length > 0) n++
+  return n
 }

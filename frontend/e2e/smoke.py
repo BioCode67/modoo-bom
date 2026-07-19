@@ -191,6 +191,11 @@ def main() -> int:
             page.fill('[aria-label="말 대신 입력하기"]', "기초연금 알려줘")
             page.click('[aria-label="입력 보내기"]')
             page.wait_for_selector("text=기초연금", timeout=8000)
+            # 상황 문장(신호≥2) → 통화 안에서 즉시 분석 + 결과 브리핑 + 결과 화면 CTA
+            page.fill('[aria-label="말 대신 입력하기"]', "72세 혼자 사는데 소득이 적어요")
+            page.click('[aria-label="입력 보내기"]')
+            page.wait_for_selector("text=바로 찾아봤어요", timeout=8000)
+            page.wait_for_selector("text=결과 화면에서 자세히 보기", timeout=4000)
             page.keyboard.press("Escape")
             page.wait_for_timeout(300)
             assert page.locator('[aria-label="새싹이와 통화 상담"]').count() == 0, "통화 ESC 종료 실패"

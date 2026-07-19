@@ -374,3 +374,13 @@ describe('감사 3라운드 회귀 — 자연어 오귀속 방지(2026-07)', () 
     expect(parseProfileFromText('저는 여자예요').gender).toBe('female')
   })
 })
+
+describe('profileSignalCount — 상황 문장 판별', () => {
+  it('상황 문장(신호≥2)과 지식 질문(0)을 구분한다', async () => {
+    const { profileSignalCount } = await import('./parseQuery')
+    expect(profileSignalCount('72세 혼자 사는데 소득이 적어요')).toBeGreaterThanOrEqual(2)
+    expect(profileSignalCount('서울 사는 한부모인데 5살 아이 키워요')).toBeGreaterThanOrEqual(2)
+    expect(profileSignalCount('기초연금 알려줘')).toBe(0)
+    expect(profileSignalCount('서류 뭐 필요해')).toBe(0)
+  })
+})
