@@ -24,22 +24,7 @@ import { cn } from '@/lib/utils'
 // 저장 경로를 사람이 읽게 축약 — '…/모두봄서류/주민등록등본_홍길동_2026-07-15_1430.pdf'
 const shortPath = (p: string) => { const seg = p.split(/[\\/]/).filter(Boolean); return seg.length > 2 ? `…/${seg.slice(-2).join('/')}` : p }
 
-type RpaState = {
-  status: string
-  step: string
-  at?: number
-  taskId?: string
-  saved?: boolean
-  downloadToken?: string
-  shot?: string
-  stepsTail?: string[]
-  savedPath?: string
-  success?: boolean
-  resultStatus?: string
-  filledFields?: string[]
-  attachedDocs?: string[]
-  manualApply?: boolean
-} | null
+type RpaState = { status: string; step: string; at?: number; taskId?: string; saved?: boolean; downloadToken?: string; shot?: string; stepsTail?: string[]; savedPath?: string } | null
 
 // 폴링이 끝났는데(상한 도달·404·연속실패) 아직 running/대기인 카드를 정직한 안내로 확정 —
 // '침묵 스피너 영구고정'(감사 :208/:247)을 막는다. 이미 완료/오류/취소된 카드는 그대로 둔다.
@@ -518,7 +503,7 @@ export function DocumentCenter() {
       for (let i = 0; i < MAX_POLL; i++) {
         await new Promise((r) => setTimeout(r, 1500))
         if (!mountedRef.current) return
-        let j: { status?: string; current?: string; current_message?: string; current_status?: string; current_screenshot?: string; steps?: { name: string; status: string; kind?: string; saved_path?: string; error?: string; task_id?: string; download_token?: string; success?: boolean; result_status?: string; filled_fields?: string[]; attached_docs?: string[]; manual_apply?: boolean }[] }
+        let j: { status?: string; current?: string; current_message?: string; current_status?: string; current_screenshot?: string; steps?: { name: string; status: string; kind?: string; saved_path?: string; error?: string; task_id?: string; download_token?: string }[] }
         let bodyTxt = ''
         try {
           const resp = await fetch(`${getRpaBase()}/api/journey/status/${journey_id}${tq}`)
@@ -568,57 +553,39 @@ export function DocumentCenter() {
           const next = { ...s }
           for (const step of (j.steps || [])) {
             const isCur = j.current === step.name
-            const applyFacts = step.kind === 'apply' && step.success === true
-              ? [step.filled_fields?.length ? `기본정보 ${step.filled_fields.length}개 입력` : '', step.attached_docs?.length ? `서류 ${step.attached_docs.length}건 첨부` : ''].filter(Boolean).join(' · ')
-              : ''
             const msg = isCur && j.current_message ? j.current_message
               : step.status === 'running' ? '진행 중…'
               // 실발급 신호(saved_path)가 있어야 '발급 완료' — 없으면 완료로 오보하지 않음(감사 확정 정직성, 아이콘 amber와 동일 기준)
               // 신청(apply) 단계는 애초에 saved_path 가 없다 — 서류용 '발급 미완료' 문구가 잘못 뜨지 않게 구분
               : (step.status === 'done' || step.status === 'completed')
-                ? (step.kind === 'apply' ? (step.success === true
-                  ? `신청 양식 준비 완료${applyFacts ? ` — ${applyFacts}` : ''} · 열린 창에서 확인 후 제출해 주세요`
-                  : '신청 페이지 도달 — 자동 양식 준비는 확인되지 않아 열린 창에서 직접 진행해 주세요')
+                ? (step.kind === 'apply' ? '신청 양식 준비 완료 — 열린 창에서 확인 후 제출해 주세요'
                   : step.saved_path ? '발급 완료' : '발급 미완료 — 화면에서 확인해 주세요')
               : step.status === 'error' ? (step.error || '실패')
               : step.status === 'cancelled' ? '중단했어요' : '대기 중…'
             // 발급 완료 단계는 taskId+토큰을 실어 '발급 문서 받기' 버튼이 뜨게(서버 RPA/원격에서 PDF 회수)
             // 현재 단계는 진행 실화면(current_screenshot, 시작자 토큰 인가 시)도 실어 단건 발급과 동일하게
             // '멈춘 것처럼 보임'을 해소한다 — 여정에서만 실화면이 빠져 있던 갭.
-            next[step.name] = {
-              status: step.status, step: msg, at: s[step.name]?.at,
-              saved: !!step.saved_path, savedPath: step.saved_path || undefined,
-              taskId: step.task_id, downloadToken: step.download_token,
-              shot: isCur ? j.current_screenshot || undefined : undefined,
-              success: step.success, resultStatus: step.result_status,
-              filledFields: step.filled_fields, attachedDocs: step.attached_docs,
-              manualApply: step.manual_apply,
-            }
+            next[step.name] = { status: step.status, step: msg, at: s[step.name]?.at, saved: !!step.saved_path, savedPath: step.saved_path || undefined, taskId: step.task_id, downloadToken: step.download_token, shot: isCur ? j.current_screenshot || undefined : undefined }
           }
           return next
         })
         if (j.status === 'completed' || j.status === 'error' || j.status === 'cancelled') {
           forgetLive('journey', 'current') // 종결 — 복원 대상에서 제거
           if (j.status === 'completed') notifyDocsChanged() // 발급물들이 서류함·자동첨부 후보에 바로 보이게
-          const manualApplications = (j.steps || []).filter((sp) => sp.kind === 'apply' && ['done', 'completed'].includes(sp.status) && sp.success !== true).length
-          titleBadge(j.status === 'completed' && manualApplications === 0 ? '✅ 연쇄 발급 완료 — 모두봄' : '⚠️ 연쇄 발급 확인 필요 — 모두봄')
+          titleBadge(j.status === 'completed' ? '✅ 연쇄 발급 완료 — 모두봄' : '⚠️ 연쇄 발급 확인 필요 — 모두봄')
           // 종결 요약 한 줄 — 실발급(saved_path)·건너뜀·신청 양식 준비만 정직하게 집계(0건 항목은 표기 생략)
           {
             const steps = j.steps || []
             const oneLogin = !!(j as { one_login?: boolean }).one_login // 백엔드 사실 플래그 — 공유 세션 여정만 true
             const issued = steps.filter((sp) => sp.kind !== 'apply' && sp.saved_path).length
             const skipped = steps.filter((sp) => sp.status === 'cancelled').length
-            const prepared = steps.filter((sp) => sp.kind === 'apply' && ['done', 'completed'].includes(sp.status) && sp.success === true).length
-            const manual = steps.filter((sp) => sp.kind === 'apply' && ['done', 'completed'].includes(sp.status) && sp.success !== true).length
+            const prepared = steps.filter((sp) => sp.kind === 'apply' && ['done', 'completed'].includes(sp.status)).length
             const parts = [
               issued > 0 ? `서류 ${issued}건 발급${oneLogin && issued > 1 ? ' (🔑 로그인 인증 1회)' : ''}` : '',
               skipped > 0 ? `${skipped}건 건너뜀` : '',
               prepared > 0 ? `신청 양식 ${prepared}건 준비(제출은 본인 확인 후)` : '',
-              manual > 0 ? `신청 ${manual}건 직접 진행 필요` : '',
             ].filter(Boolean)
-            const head = j.status === 'completed'
-              ? (manual > 0 ? '⚠️ 서류 발급 완료 · 신청 확인 필요' : '✅ 연쇄 자동발급 끝')
-              : j.status === 'cancelled' ? '⏹ 연쇄 중단됨' : '⚠️ 연쇄가 오류로 끝났어요'
+            const head = j.status === 'completed' ? '✅ 연쇄 자동발급 끝' : j.status === 'cancelled' ? '⏹ 연쇄 중단됨' : '⚠️ 연쇄가 오류로 끝났어요'
             setJourneySummary({ text: parts.length ? `${head} — ${parts.join(' · ')}` : head, issued })
           }
           finished = true; break
@@ -1173,21 +1140,17 @@ export function DocumentCenter() {
       {/* 📨 여정의 '자동신청' 단계 카드 — 서류 카드가 없는 apply 단계(청년월세지원 등)의 진행/결과 가시화.
           (pollJourney가 모든 단계를 rpa 맵에 쓰므로, 서류 목록에 없는 키 = 신청 단계) */}
       {Object.entries(rpa).filter(([k, v]) => v && !docs.includes(k)).map(([svc, st]) => (
-        <div key={svc} className={cn('mt-3 flex items-start gap-3 rounded-2xl border-2 p-3.5',
-          ['done', 'completed'].includes(st!.status) && st!.success !== true
-            ? 'border-amber-200 bg-amber-50/50'
-            : 'border-sky2-100 bg-sky2-50/40')}>
+        <div key={svc} className="mt-3 flex items-start gap-3 rounded-2xl border-2 border-sky2-100 bg-sky2-50/40 p-3.5">
           <span className="mt-0.5 shrink-0">
             {st!.status === 'error' ? <AlertCircle className="h-4 w-4 text-rose-500" />
-              : ['done', 'completed'].includes(st!.status) && st!.success === true ? <CheckCircle2 className="h-4 w-4 text-success-500" />
-              : ['done', 'completed'].includes(st!.status) ? <AlertCircle className="h-4 w-4 text-amber-600" />
+              : ['done', 'completed'].includes(st!.status) ? <CheckCircle2 className="h-4 w-4 text-success-500" />
               : st!.status === 'cancelled' ? <AlertCircle className="h-4 w-4 text-muted-foreground" />
               : <Loader2 className="h-4 w-4 animate-spin text-sky2-500" />}
           </span>
           <div className="min-w-0 flex-1">
             <p className="text-sm font-bold">📨 자동신청 — {svc}</p>
             <p className="mt-0.5 whitespace-pre-line text-xs text-muted-foreground">{st!.step || '진행 중…'}</p>
-            {['done', 'completed'].includes(st!.status) && st!.success === true && (() => {
+            {['done', 'completed'].includes(st!.status) && (() => {
               // 원클릭 연쇄로 연 신청도 드로어의 단건 신청과 같은 '제출 완료 기록' 경로를 가진다 —
               // 사용자가 직접 눌러야만 기록(자동 낙관처리 금지). 기록 여부는 스토어(tracked.status)가 진실.
               const item = tracked.find((t) => getPolicyMap()[t.policyId]?.name === svc)
@@ -1208,11 +1171,6 @@ export function DocumentCenter() {
                 </>
               )
             })()}
-            {['done', 'completed'].includes(st!.status) && st!.success !== true && (
-              <p className="mt-1.5 rounded-lg border border-amber-200 bg-white/70 px-2.5 py-2 text-[11px] font-semibold leading-relaxed text-amber-800">
-                자동 입력·첨부가 끝난 것으로 확인되지 않았어요. 열린 복지로 창에서 신청 양식을 직접 열고 내용을 확인해 주세요.
-              </p>
-            )}
           </div>
         </div>
       ))}

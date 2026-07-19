@@ -321,13 +321,6 @@ async def _run_journey(jid, user_info, profile):
                     j["saved_docs"].append(saved)
                 # 단계의 '진짜 성공' 여부 — status 는 미발급도 done(⚠️)일 수 있어 result.success 로 판정(감사 :226)
                 step["success"] = bool(r.get("success"))
-                if step["kind"] == "apply":
-                    # 프론트가 '태스크 종료'와 '신청 양식 준비 성공'을 혼동하지 않도록 실제 결과를 전달한다.
-                    step["result_status"] = r.get("status")
-                    step["form_detected"] = bool(r.get("form_detected"))
-                    step["manual_apply"] = bool(r.get("manual_apply"))
-                    step["filled_fields"] = list(r.get("filled_fields") or [])
-                    step["attached_docs"] = list(r.get("attached_docs") or [])
                 st = task.status
                 if st in ("done", "completed", "error", "cancelled"):
                     step["status"] = st

@@ -635,7 +635,7 @@ async def click_eform_button(page_or_frame, text: str) -> bool:
     복지로 등은 로그인·간편인증 버튼을 표준 a/button이 아니라 .cl-button / [role=button] /
     .cl-text-wrapper / .cl-output div 로 렌더한다. 게다가 eForm은 합성 JS click 에 반응하지
     않으므로(신뢰된 이벤트 필요), 요소의 화면 좌표를 구해 실제 마우스 클릭을 날린다.
-    iframe 내부는 프레임 요소의 화면 오프셋을 더해 Page 마우스로 신뢰 클릭한다. 성공 여부 반환."""
+    (메인 프레임에서만 좌표 클릭; iframe 내부는 JS click 폴백.) 성공 여부 반환."""
     # 1) 텍스트로 대상 요소를 찾아 중심 좌표(뷰포트 기준) 계산 + 스크롤
     try:
         box = await page_or_frame.evaluate(
@@ -663,7 +663,7 @@ async def click_eform_button(page_or_frame, text: str) -> bool:
         box = None
     if not box:
         return False
-    # 2) Page면 바로, Frame이면 iframe의 메인 뷰포트 좌표를 더해 신뢰된 마우스 클릭.
+    # 2) Page면 신뢰된 마우스 클릭(eForm 정답). Frame이면 좌표 오프셋이 달라 JS click 폴백.
     mouse = getattr(page_or_frame, "mouse", None)
     if mouse is not None:
         try:
@@ -671,17 +671,6 @@ async def click_eform_button(page_or_frame, text: str) -> bool:
             return True
         except Exception:
             pass
-    try:
-        frame_element = await page_or_frame.frame_element()
-        frame_box = await frame_element.bounding_box()
-        frame_page = page_or_frame.page
-        frame_mouse = getattr(frame_page, "mouse", None)
-        if frame_box and frame_mouse is not None:
-            await frame_mouse.click(frame_box["x"] + box["x"], frame_box["y"] + box["y"])
-            return True
-    except Exception:
-        pass
-    # 특수 프레임/교차 출처에서 좌표를 얻지 못할 때만 합성 클릭을 마지막 폴백으로 사용.
     try:
         return await page_or_frame.evaluate(
             """(t) => {
