@@ -214,9 +214,20 @@ async def db_status(_: bool = Depends(require_admin)):
         return {"error": str(e), "document_count": 0}
 
 
+def _shared_mode_guard():
+    """🔒 공유(터널/원격) 배포 가드 — local_server._shared_mode_guard 와 동일 동작(파리티).
+
+    무토큰 파괴적 호출을 공유 배포에서 차단한다. 여러 사람이 같은 서버를 쓰면
+    남이 방금 발급한 서류를 통째로 지울 수 있다."""
+    if os.getenv("RPA_SHARED", "").strip().lower() in ("1", "true", "yes"):
+        raise HTTPException(status_code=403, detail="공유 서버에서는 서류함 기능을 제공하지 않아요(개인정보 보호).")
+
+
 @router.post("/session/reset")
 async def session_reset():
-    """공용 PC '다음 분 상담' 전환 — 발급 서류 폴더의 이전 사용자 PII 문서를 서버에서 삭제(local_server 패리티)."""
+    """공용 PC '다음 분 상담' 전환 — 발급 서류 폴더의 이전 사용자 PII 문서를 서버에서 삭제(local_server 패리티).
+    🔒 공유(터널) 배포에선 차단 — 다른 이용자가 방금 발급한 서류를 통째로 지울 수 있는 파괴적 호출."""
+    _shared_mode_guard()
     from rpa.base import clear_docs_dir
     return {"cleared": clear_docs_dir()}
 
