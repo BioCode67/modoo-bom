@@ -5,7 +5,8 @@ import { useAppStore } from '@/store/useAppStore'
 import { useBackend } from '@/lib/useBackend'
 import { useSpeech } from '@/lib/useSpeech'
 import { useTTS } from '@/lib/useTTS'
-import { agentReply, greetingReply, type AgentReply } from '@/lib/chatAgent'
+import { agentReply, greetingReply, matchSaveIntent, type AgentReply } from '@/lib/chatAgent'
+import type { Policy } from '@/data/policies'
 import { parseProfileFromText, profileSignalCount } from '@/lib/parseQuery'
 import { runAnalysis } from '@/lib/welfare-engine'
 import { formatWon } from '@/lib/format'
@@ -31,6 +32,7 @@ export function VoiceCall({ open, onClose }: { open: boolean; onClose: () => voi
   const docDone = useAppStore((s) => s.docDone)
   const setView = useAppStore((s) => s.setView)
   const setAnalysis = useAppStore((s) => s.setAnalysis)
+  const toggleSaved = useAppStore((s) => s.toggleSaved)
   const { ready, caps } = useBackend()
   const agentOn = ready === true && !!caps?.rpa // 데스크탑 에이전트 연결 시 자동화 경로 안내(챗위젯과 동일 기준)
   const tts = useTTS()
@@ -40,6 +42,8 @@ export function VoiceCall({ open, onClose }: { open: boolean; onClose: () => voi
   const [typed, setTyped] = useState('')
   const mutedRef = useRef(muted)
   mutedRef.current = muted
+  const turnsRef = useRef<Turn[]>([]) // setTimeout 클로저의 stale turns 방지(담기 맥락은 최신 bot 턴 기준)
+  turnsRef.current = turns
   const listRef = useRef<HTMLDivElement>(null)
 
   const say = (r: AgentReply) => {
@@ -54,6 +58,22 @@ export function VoiceCall({ open, onClose }: { open: boolean; onClose: () => voi
     setThinking(true)
     // 답변 생성은 동기·즉시지만, '생각 중' 상태가 눈에 보이게 다음 틱으로 넘긴다(통화 감각)
     setTimeout(() => {
+      // 📞→담기: "다 담아줘/기초연금 담아줘"를 말하면 실제로 담는다(챗위젯과 동일 검증 로직 재사용).
+      // 맥락은 직전 답변에서 보여준 정책 → 없으면 분석 결과의 정밀추천(POL-, 명시 지시만) 폴백.
+      const shown = [...turnsRef.current].reverse().find((t) => t.role === 'bot' && t.policies?.length)?.policies ?? []
+      const fallback = (result?.eligible_policies?.filter((p) => /^POL-/.test(p.id)) ?? []) as Policy[]
+      const saveCtx = shown.length ? (shown as Policy[]) : fallback
+      const toSave = matchSaveIntent(q, saveCtx, shown.length === 0)
+      if (toSave) {
+        const added: string[] = []
+        toSave.forEach((p) => { if (!tracked.some((t) => t.policyId === p.id)) { toggleSaved(p); added.push(p.name) } })
+        const msg = added.length
+          ? `${added.join(', ')} 담았어요. 서류 준비와 마감은 나의 복지에서 제가 챙겨드릴게요.`
+          : `${toSave.map((p) => p.name).join(', ')}는 이미 담겨 있어요.`
+        say({ text: msg, cta: { view: 'my', label: '나의 복지 보기' } })
+        setThinking(false)
+        return
+      }
       // 📞→진단: "72세 혼자 사는데 소득이 적어요"처럼 프로필 신호가 2개 이상 담긴 '상황 문장'이면
       // 질문 응대가 아니라 그 자리에서 분석까지 실행하고 결과를 말로 브리핑한다(전화 한 통 완주).
       // "기초연금 알려줘"(신호 0~1)는 기존 지식·행동 답변 그대로.
