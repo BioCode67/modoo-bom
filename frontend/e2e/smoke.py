@@ -244,7 +244,15 @@ def main() -> int:
             page.click("text=홈")
             page.wait_for_selector("text=Ask in your language", timeout=8000)
             page.wait_for_selector("text=Tiếng Việt", timeout=5000)
-            print("[e2e] ✅ 4.8 외국인·다문화 다국어 진입로")
+            # 📞 자국어 통화 직행 — 베트남어 버튼 → 통화가 베트남어 인사·입력창으로 시작(언어 프리셋)
+            page.click('[aria-label="자국어 통화 상담 — Tiếng Việt"]')
+            page.wait_for_selector('[role="dialog"][aria-label="새싹이와 통화 상담"]', timeout=8000)
+            page.wait_for_selector("text=Xin chào", timeout=5000)
+            page.wait_for_selector('input[placeholder^="Hoặc gõ câu hỏi"]', timeout=4000)
+            page.keyboard.press("Escape")
+            page.wait_for_timeout(300)
+            assert page.locator('[aria-label="새싹이와 통화 상담"]').count() == 0, "자국어 통화 ESC 종료 실패"
+            print("[e2e] ✅ 4.8 외국인·다문화 다국어 진입로(+📞 자국어 통화 직행)")
 
             # 4.9) 데스크탑 앱 원클릭 다운로드 CTA — exe 직접 다운로드 링크(릴리스 latest 자산) 회귀 고정
             #      (Windows UA에서만 노출 — e2e 크로뮴은 Windows UA)

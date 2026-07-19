@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { Globe, ArrowRight } from 'lucide-react'
+import { Globe, ArrowRight, Phone } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
 
 /**
@@ -58,6 +58,21 @@ export function ForeignerWelcome() {
           ))}
         </div>
         <p className="mt-3 text-xs text-muted-foreground/80">+ 한국어·기타 언어도 지원 — 입력 언어를 자동으로 감지해요.</p>
+
+        {/* 📞 자국어 통화 상담 직행 — 글보다 말이 편한 사용자용(통화 언어 프리셋, VOICE_LANGS 지원 언어만 정직하게 노출) */}
+        <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-violet-100 pt-4">
+          <span className="text-sm font-bold text-violet-700 flex items-center gap-1.5"><Phone className="h-4 w-4" /> 말로 하는 통화 상담 · Voice call —</span>
+          {([['en', 'English', '🇬🇧'], ['vi', 'Tiếng Việt', '🇻🇳'], ['zh', '中文', '🇨🇳']] as const).map(([code, label, flag]) => (
+            <button
+              key={code}
+              onClick={() => window.dispatchEvent(new CustomEvent('modoobom:voice-call', { detail: { lang: code } }))}
+              aria-label={`자국어 통화 상담 — ${label}`}
+              className="rounded-full border border-violet-200 bg-white px-3.5 py-1.5 text-sm font-semibold hover:border-violet-400 hover:shadow-sm transition-all"
+            >
+              {flag} 📞 {label}
+            </button>
+          ))}
+        </div>
       </motion.div>
     </section>
   )

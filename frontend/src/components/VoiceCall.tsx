@@ -26,7 +26,7 @@ interface Turn { role: 'user' | 'bot'; text: string; policies?: AgentReply['poli
  * - 음성 인식은 브라우저 기능(Web Speech)을 쓴다 — 온디바이스 임베딩 검색과 달리
  *   브라우저에 따라 음성이 외부로 전송될 수 있어 '온디바이스'라고 과장하지 않는다.
  */
-export function VoiceCall({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function VoiceCall({ open, onClose, presetLang }: { open: boolean; onClose: () => void; presetLang?: string }) {
   const profile = useAppStore((s) => s.profile)
   const result = useAppStore((s) => s.result)
   const tracked = useAppStore((s) => s.tracked)
@@ -126,14 +126,17 @@ export function VoiceCall({ open, onClose }: { open: boolean; onClose: () => voi
     say({ text: s.greeting }, code === 'ko' ? undefined : code)
   }
 
-  // 열릴 때: 인사 브리핑을 큰 글씨 + 음성으로 시작(외국어 선택 상태면 그 언어 인사)
+  // 열릴 때: 인사 브리핑을 큰 글씨 + 음성으로 시작.
+  // 진입로가 언어를 지정하면(외국인 섹션 '자국어 통화' 직행) 그 언어로, 아니면 마지막 선택 언어로.
   useEffect(() => {
     if (!open) return
     setTurns([])
-    if (lang !== 'ko') {
-      const s = voiceStrings(lang)
+    const eff = presetLang && VOICE_LANGS[presetLang] ? presetLang : lang
+    if (eff !== lang) setLang(eff)
+    if (eff !== 'ko') {
+      const s = voiceStrings(eff)
       setTurns([{ role: 'bot', text: s.greeting }])
-      if (!mutedRef.current && tts.hasVoice(lang)) tts.speak(s.greeting, lang)
+      if (!mutedRef.current && tts.hasVoice(eff)) tts.speak(s.greeting, eff)
     } else {
       const g = greetingReply(profile, tracked, docDone)
       setTurns([{ role: 'bot', text: g.text, policies: g.policies, cta: g.cta }])

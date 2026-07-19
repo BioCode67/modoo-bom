@@ -20,9 +20,15 @@ const SUGGESTIONS = ['내가 받을 수 있는 거', '기초연금', '출산·�
 export function ChatWidget() {
   const [open, setOpen] = useState(false)
   // 📞 통화형 상담 — 다른 화면(분석 등)의 CTA가 커스텀 이벤트로 열 수 있게(docs-changed와 동일 패턴)
+  // detail.lang(en·vi·zh)이 오면 그 언어로 통화 시작(외국인 진입로의 '자국어 통화' 직행)
   const [callOpen, setCallOpen] = useState(false)
+  const [callLang, setCallLang] = useState<string | undefined>(undefined)
   useEffect(() => {
-    const onCall = () => { setCallOpen(true); setOpen(false) }
+    const onCall = (e: Event) => {
+      setCallLang((e as CustomEvent).detail?.lang)
+      setCallOpen(true)
+      setOpen(false)
+    }
     window.addEventListener('modoobom:voice-call', onCall)
     return () => window.removeEventListener('modoobom:voice-call', onCall)
   }, [])
@@ -217,7 +223,7 @@ export function ChatWidget() {
 
   return (
     <>
-      <VoiceCall open={callOpen} onClose={() => setCallOpen(false)} />
+      <VoiceCall open={callOpen} presetLang={callLang} onClose={() => { setCallOpen(false); setCallLang(undefined) }} />
       <button
         onClick={() => setOpen((o) => !o)}
         aria-label={open ? '복지 도우미 챗봇 닫기' : '복지 도우미 챗봇 열기'}
