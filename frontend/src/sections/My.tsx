@@ -70,6 +70,9 @@ export function My() {
         <div className="mx-auto mt-8 max-w-xl text-left">
           <InterestSubscribe onOpenPolicy={(id) => { const p = POLICY_MAP[id]; if (p) setSelected(p) }} />
         </div>
+        {/* 담은 복지가 없어도 데스크탑 에이전트가 있으면 '서류 발급 도우미'(슬림)는 동작 —
+            심사·첫 사용이 빈 화면에서 끝나지 않게(웹에선 DocumentCenter가 null 반환, 표시 변화 없음) */}
+        <div className="text-left"><DocumentCenter /></div>
         <PolicyDetailDrawer policy={selected} onClose={() => setSelected(null)} onOpen={setSelected} />
       </div>
     )

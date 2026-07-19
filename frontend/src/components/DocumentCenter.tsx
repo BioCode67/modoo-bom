@@ -228,7 +228,8 @@ export function DocumentCenter() {
   //   effect 실행 시점(마운트 후)엔 정의돼 있고, 카드가 하나도 없으면(docNeeds 0) 몸체가 참조 전에 빠져나간다.
   const resumedRef = useRef(false)
   useEffect(() => {
-    if (!localAgent || resumedRef.current || docNeeds.length === 0) return
+    // 담은 복지 0(슬림 모드)에서도 여정 복원은 해야 한다 — 자유 선택 발급 중 새로고침하면 패널 상태줄로 복귀
+    if (!localAgent || resumedRef.current) return
     resumedRef.current = true
     const docSet = new Set(docNeeds.map(([d]) => d))
     const liveDocs = listLive('doc')
@@ -284,7 +285,14 @@ export function DocumentCenter() {
   // 📨 자동신청만 진행 경로의 안내 메시지 — 훅은 조기 return 앞(rules-of-hooks)
   const [applyOnlyMsg, setApplyOnlyMsg] = useState('')
 
-  if (docNeeds.length === 0) return null
+  // 담은 복지 0 + 에이전트 연결(슬림 모드) — 자유 선택 패널을 처음부터 펼쳐 보여준다(첫 진입 발견성)
+  useEffect(() => {
+    if (localAgent && docNeeds.length === 0) setPickOpen(true)
+  }, [localAgent, docNeeds.length])
+
+  // 담은 복지가 없고 에이전트도 없으면(웹) 표시할 것이 없다. 에이전트가 있으면 아래 '슬림 모드'로 계속 —
+  // 심사·첫 사용처럼 아무것도 안 담고 들어와도 15종 자유 발급·서류함은 동작해야 한다(데스크탑 1순위).
+  if (docNeeds.length === 0 && !localAgent) return null
   // 발급 완료로 표시한 서류는 뒤로(진행 기억 — 남은 서류가 먼저 보이게, 정렬은 안정적으로 유지)
   const docs = [...docNeeds.map(([d]) => d)].sort((a, b) => Number(isDocDone(a)) - Number(isDocDone(b)))
   const needText = (doc: string) => {
@@ -676,6 +684,139 @@ export function DocumentCenter() {
     }
   }
 
+  // ── 메인·슬림 두 렌더가 공유하는 블록들 ──────────────────────────────────
+  // 🗂 자유 선택 일괄발급 — 담은 정책의 필요서류 밖이라도 지원 서류 전체에서 골라 한 번 인증 연쇄 발급
+  const freePickerBlock = (!ext && localAgent) ? (
+    <div className="mt-3">
+      {!pickOpen ? (
+        <button
+          onClick={() => { setPickOpen(true); setPicked(Object.fromEntries(chainDocs.map((d) => [d, true]))) }}
+          className="btn-secondary w-full !py-2 text-xs">
+          🗂 다른 서류도 필요하세요? 지원 {LOCAL_RPA_DOCS.length}종에서 골라 한번에 발급 →
+        </button>
+      ) : (
+        <div className="rounded-2xl border-2 border-sky2-100 bg-sky2-50/40 p-3.5">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <p className="text-sm font-bold">🗂 원하는 서류 골라 일괄발급 <span className="text-xs font-semibold text-muted-foreground">지원 {LOCAL_RPA_DOCS.length}종 · 한 번 인증으로 이어서</span></p>
+            <button onClick={() => setPickOpen(false)} aria-label="일괄발급 선택 닫기" className="text-xs font-semibold text-muted-foreground hover:underline">닫기</button>
+          </div>
+          <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1.5">
+            {LOCAL_RPA_DOCS.map((d) => (
+              <label key={d} className="flex items-start gap-1.5 text-xs font-medium cursor-pointer select-none">
+                <input type="checkbox" checked={!!picked[d]} onChange={(e) => setPicked((s) => ({ ...s, [d]: e.target.checked }))} className="mt-0.5 accent-sky2-600" />
+                <span className="break-keep">{d}
+                  {vaultOk(d) && <span className="ml-1 rounded-md bg-sky2-100 px-1 py-0.5 text-[10px] font-bold text-sky2-700" title="서류함에 유효한 파일이 이미 있어요 — 다시 발급하지 않아도 돼요">🗂 있음</span>}
+                </span>
+              </label>
+            ))}
+          </div>
+          <button onClick={startPicked} className="btn-primary w-full mt-2.5 !py-2 text-sm">
+            🚀 선택한 {LOCAL_RPA_DOCS.filter((d) => picked[d]).length}종 한번에 발급 (한 번 인증으로 이어서)
+          </button>
+          {pickMsg && <p className="mt-1 text-[11px] font-semibold text-rose-600">{pickMsg}</p>}
+          <p className="mt-1 text-[11px] text-muted-foreground">📱 각 서류 차례에 인증 요청이 오면 승인만 해주세요 · 발급물은 🗂 서류함에 모여요</p>
+          {/* 담은 정책 카드 밖 서류의 진행 상태 — 카드가 없으므로 여기서 그대로 보여준다(침묵 금지) */}
+          {LOCAL_RPA_DOCS.filter((d) => rpa[d] && !docs.includes(d)).map((d) => {
+            const st = rpa[d]!
+            const done = ['done', 'completed'].includes(st.status)
+            return (
+              <p key={d} className={`mt-1 text-[11px] font-semibold ${st.status === 'error' ? 'text-rose-600' : done ? 'text-sprout-700' : st.status === 'cancelled' ? 'text-muted-foreground' : 'text-sky2-700'}`}>
+                {done ? '✅' : st.status === 'error' ? '⚠️' : st.status === 'cancelled' ? '⏹' : '⏳'} {d} — {String(st.step || st.status).split('\n')[0]}
+              </p>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  ) : null
+
+  // 🚀 여정(연쇄발급) 진행률 헤더 — 전체 흐름 n/m + 현재 단계 + 전체 중단(확인 포함)
+  const journeyProgBlock = journeyProg ? (
+    <div className="mt-4 rounded-2xl border-2 border-sprout-200 bg-sprout-50/70 p-3.5" role="status" aria-live="polite">
+      <div className="flex items-center justify-between gap-2 flex-wrap text-xs font-bold">
+        <span>
+          🚀 연쇄 자동발급 진행 중 — {journeyProg.done}/{journeyProg.total} 완료{journeyProg.current ? ` · 지금: ${journeyProg.current}` : ''}
+          {journeyProg.authWait && (
+            <span className="ml-1.5 inline-block animate-pulse rounded-lg bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-800">
+              📱 휴대폰에서 인증 승인해 주세요
+            </span>
+          )}
+        </span>
+        <span className="inline-flex gap-1.5">
+          {journeyProg.current && (
+            <button onClick={skipCurrent}
+              title="지금 단계만 접고 다음 서류/신청으로 넘어가요(인증이 계속 실패할 때의 탈출구)"
+              className="rounded-lg border border-sprout-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-sprout-700 hover:bg-sprout-50">
+              ⏭ 이 단계 건너뛰기
+            </button>
+          )}
+          <button onClick={() => cancel(journeyProg.current || docs[0] || '')}
+            className="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-[11px] font-semibold text-rose-600 hover:bg-rose-100">
+            ⏹ 전체 중단
+          </button>
+        </span>
+      </div>
+      <div className="mt-2 h-2 overflow-hidden rounded-full border border-sprout-100 bg-white">
+        <div className="h-full rounded-full bg-sprout-500 transition-all duration-500"
+          style={{ width: `${journeyProg.total ? Math.max(4, Math.round((journeyProg.done / journeyProg.total) * 100)) : 4}%` }} />
+      </div>
+      <p className="mt-1.5 text-[11px] text-muted-foreground">한 번 인증으로 순서대로 발급돼요 — 📱 인증 요청이 오면 승인만 해주세요.</p>
+    </div>
+  ) : null
+
+  // 여정 종결 요약 — 진행률 헤더가 사라진 자리에서 '어떻게 끝났는지' 한 줄로 닫는다(무언 종료 방지)
+  const journeySummaryBlock = (!journeyProg && journeySummary) ? (
+    <div className="mt-4 flex items-center justify-between gap-2 flex-wrap rounded-2xl border-2 border-sprout-200 bg-white p-3.5 text-xs font-bold" role="status" aria-live="polite">
+      <span>{journeySummary.text}</span>
+      <span className="inline-flex items-center gap-1.5 shrink-0">
+        {/* 실발급 ≥1건 + 내 PC 에이전트일 때만 — 방금 만들어진 PDF를 1클릭으로 확인(데모·실사용 마무리).
+            원격/공유 서버의 폴더는 내 것이 아니므로 열지 않는다(실패 메시지는 folderMsg 자리에 뜸). */}
+        {journeySummary.issued > 0 && vaultOn && (
+          <>
+            <button onClick={() => { downloadDocsBundle().catch((e) => setFolderMsg(e instanceof Error ? e.message : '서류 묶음에 실패했어요.')) }}
+              title="서류 종류별 최신 1건씩 ZIP 한 파일로 — 복지로 수동 첨부·이메일 제출용"
+              className="rounded-lg border border-sprout-200 bg-sprout-50 px-2 py-1 text-[11px] font-semibold text-sprout-700 hover:bg-sprout-100">
+              📦 묶음 받기(ZIP)
+            </button>
+            <button onClick={openFolder}
+              title="방금 발급된 PDF가 저장된 폴더를 탐색기로 열어요"
+              className="rounded-lg border border-sprout-200 bg-sprout-50 px-2 py-1 text-[11px] font-semibold text-sprout-700 hover:bg-sprout-100">
+              🗂 발급물 폴더 열기
+            </button>
+          </>
+        )}
+        <button onClick={() => setJourneySummary(null)} aria-label="여정 요약 닫기"
+          className="rounded-lg px-1.5 py-0.5 text-muted-foreground hover:bg-sprout-50">✕</button>
+      </span>
+    </div>
+  ) : null
+
+  // ── 슬림 모드: 담은 복지 0 + 에이전트 연결 — 심사·첫 사용에서도 발급 도우미가 동작해야 한다 ──
+  if (docNeeds.length === 0) {
+    return (
+      <motion.section initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="mt-8">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <h2 className="text-lg font-extrabold flex items-center gap-2"><FileText className="h-5 w-5 text-sky2-500" /> 서류 발급 도우미</h2>
+          <span className="chip-sprout"><Bot className="h-3.5 w-3.5" /> 자동발급 가능</span>
+        </div>
+        <p className="text-sm text-muted-foreground mt-1">
+          아직 담은 복지가 없어도 괜찮아요 — 필요한 증명서를 골라 <b>한 번 인증으로 자동발급</b>해 두면, 나중에 복지 신청 때 자동첨부돼요.
+          <span className="block mt-0.5 text-xs">🔒 카카오 본인인증은 보안을 위해 본인이 직접 진행해요.</span>
+        </p>
+        <div className="mt-3"><AgentStatusStrip /></div>
+        {caps?.rpaRemote && (
+          <p className="mt-2 text-xs text-amber-700">🔒 내 서버로 자동발급 중 — 이름·생년월일·연락처가 지정 서버를 거쳐요(본인인증은 내 폰에서).</p>
+        )}
+        <div ref={rpaFormRef}><RpaInfoForm /></div>
+        {freePickerBlock}
+        {folderMsg && <p className="mt-2 text-xs text-amber-700">{folderMsg}</p>}
+        {journeyProgBlock}
+        {journeySummaryBlock}
+        {vaultOn && <DocVault />}
+      </motion.section>
+    )
+  }
+
   return (
     <motion.section initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="mt-8">
       {/* 📎 내 서류함 파일 선택(숨김) — '등록' 클릭 시 열리고, 선택하면 로컬 서버 발급 폴더에 저장 */}
@@ -794,51 +935,8 @@ export function DocumentCenter() {
         </div>
       )}
 
-      {/* 🗂 자유 선택 일괄발급(데스크탑) — 담은 정책의 필요서류 밖이라도, 지원 서류 전체에서 골라
-          한 번 인증으로 연쇄 발급. 심사·상담처럼 '이 서류들 미리 떼두자'가 필요한 상황의 직행 경로. */}
-      {!ext && localAgent && (
-        <div className="mt-3">
-          {!pickOpen ? (
-            <button
-              onClick={() => { setPickOpen(true); setPicked(Object.fromEntries(chainDocs.map((d) => [d, true]))) }}
-              className="btn-secondary w-full !py-2 text-xs">
-              🗂 다른 서류도 필요하세요? 지원 {LOCAL_RPA_DOCS.length}종에서 골라 한번에 발급 →
-            </button>
-          ) : (
-            <div className="rounded-2xl border-2 border-sky2-100 bg-sky2-50/40 p-3.5">
-              <div className="flex items-center justify-between gap-2 flex-wrap">
-                <p className="text-sm font-bold">🗂 원하는 서류 골라 일괄발급 <span className="text-xs font-semibold text-muted-foreground">지원 {LOCAL_RPA_DOCS.length}종 · 한 번 인증으로 이어서</span></p>
-                <button onClick={() => setPickOpen(false)} aria-label="일괄발급 선택 닫기" className="text-xs font-semibold text-muted-foreground hover:underline">닫기</button>
-              </div>
-              <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1.5">
-                {LOCAL_RPA_DOCS.map((d) => (
-                  <label key={d} className="flex items-start gap-1.5 text-xs font-medium cursor-pointer select-none">
-                    <input type="checkbox" checked={!!picked[d]} onChange={(e) => setPicked((s) => ({ ...s, [d]: e.target.checked }))} className="mt-0.5 accent-sky2-600" />
-                    <span className="break-keep">{d}
-                      {vaultOk(d) && <span className="ml-1 rounded-md bg-sky2-100 px-1 py-0.5 text-[10px] font-bold text-sky2-700" title="서류함에 유효한 파일이 이미 있어요 — 다시 발급하지 않아도 돼요">🗂 있음</span>}
-                    </span>
-                  </label>
-                ))}
-              </div>
-              <button onClick={startPicked} className="btn-primary w-full mt-2.5 !py-2 text-sm">
-                🚀 선택한 {LOCAL_RPA_DOCS.filter((d) => picked[d]).length}종 한번에 발급 (한 번 인증으로 이어서)
-              </button>
-              {pickMsg && <p className="mt-1 text-[11px] font-semibold text-rose-600">{pickMsg}</p>}
-              <p className="mt-1 text-[11px] text-muted-foreground">📱 각 서류 차례에 인증 요청이 오면 승인만 해주세요 · 발급물은 🗂 서류함에 모여요</p>
-              {/* 담은 정책 카드 밖 서류의 진행 상태 — 카드가 없으므로 여기서 그대로 보여준다(침묵 금지) */}
-              {LOCAL_RPA_DOCS.filter((d) => rpa[d] && !docs.includes(d)).map((d) => {
-                const st = rpa[d]!
-                const done = ['done', 'completed'].includes(st.status)
-                return (
-                  <p key={d} className={`mt-1 text-[11px] font-semibold ${st.status === 'error' ? 'text-rose-600' : done ? 'text-sprout-700' : st.status === 'cancelled' ? 'text-muted-foreground' : 'text-sky2-700'}`}>
-                    {done ? '✅' : st.status === 'error' ? '⚠️' : st.status === 'cancelled' ? '⏹' : '⏳'} {d} — {String(st.step || st.status).split('\n')[0]}
-                  </p>
-                )
-              })}
-            </div>
-          )}
-        </div>
-      )}
+      {/* 🗂 자유 선택 일괄발급(데스크탑) — 슬림 모드와 공유(정의는 return 직전) */}
+      {freePickerBlock}
 
       {/* 🔍 진단 복사 — 발급이 멈추거나 오류일 때만 노출(완료는 제외 — 성공 후에도 뜨면 오해) */}
       {ext && Object.values(rpa).some((s) => s && (s.status === 'error' || (!['done', 'completed'].includes(s.status) && s.at && Date.now() - s.at > 30000))) && (
@@ -855,66 +953,9 @@ export function DocumentCenter() {
 
       {folderMsg && <p className="mt-2 text-xs text-amber-700">{folderMsg}</p>}
 
-      {/* 🚀 여정(연쇄발급) 진행률 헤더 — 전체 흐름 n/m + 현재 단계 + 전체 중단(확인 포함) */}
-      {journeyProg && (
-        <div className="mt-4 rounded-2xl border-2 border-sprout-200 bg-sprout-50/70 p-3.5" role="status" aria-live="polite">
-          <div className="flex items-center justify-between gap-2 flex-wrap text-xs font-bold">
-            <span>
-              🚀 연쇄 자동발급 진행 중 — {journeyProg.done}/{journeyProg.total} 완료{journeyProg.current ? ` · 지금: ${journeyProg.current}` : ''}
-              {journeyProg.authWait && (
-                <span className="ml-1.5 inline-block animate-pulse rounded-lg bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-800">
-                  📱 휴대폰에서 인증 승인해 주세요
-                </span>
-              )}
-            </span>
-            <span className="inline-flex gap-1.5">
-              {journeyProg.current && (
-                <button onClick={skipCurrent}
-                  title="지금 단계만 접고 다음 서류/신청으로 넘어가요(인증이 계속 실패할 때의 탈출구)"
-                  className="rounded-lg border border-sprout-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-sprout-700 hover:bg-sprout-50">
-                  ⏭ 이 단계 건너뛰기
-                </button>
-              )}
-              <button onClick={() => cancel(journeyProg.current || docs[0])}
-                className="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-[11px] font-semibold text-rose-600 hover:bg-rose-100">
-                ⏹ 전체 중단
-              </button>
-            </span>
-          </div>
-          <div className="mt-2 h-2 overflow-hidden rounded-full border border-sprout-100 bg-white">
-            <div className="h-full rounded-full bg-sprout-500 transition-all duration-500"
-              style={{ width: `${journeyProg.total ? Math.max(4, Math.round((journeyProg.done / journeyProg.total) * 100)) : 4}%` }} />
-          </div>
-          <p className="mt-1.5 text-[11px] text-muted-foreground">한 번 인증으로 순서대로 발급돼요 — 📱 인증 요청이 오면 승인만 해주세요.</p>
-        </div>
-      )}
-
-      {/* 여정 종결 요약 — 진행률 헤더가 사라진 자리에서 '어떻게 끝났는지' 한 줄로 닫는다(무언 종료 방지) */}
-      {!journeyProg && journeySummary && (
-        <div className="mt-4 flex items-center justify-between gap-2 flex-wrap rounded-2xl border-2 border-sprout-200 bg-white p-3.5 text-xs font-bold" role="status" aria-live="polite">
-          <span>{journeySummary.text}</span>
-          <span className="inline-flex items-center gap-1.5 shrink-0">
-            {/* 실발급 ≥1건 + 내 PC 에이전트일 때만 — 방금 만들어진 PDF를 1클릭으로 확인(데모·실사용 마무리).
-                원격/공유 서버의 폴더는 내 것이 아니므로 열지 않는다(실패 메시지는 위 folderMsg 자리에 뜸). */}
-            {journeySummary.issued > 0 && vaultOn && (
-              <>
-                <button onClick={() => { downloadDocsBundle().catch((e) => setFolderMsg(e instanceof Error ? e.message : '서류 묶음에 실패했어요.')) }}
-                  title="서류 종류별 최신 1건씩 ZIP 한 파일로 — 복지로 수동 첨부·이메일 제출용"
-                  className="rounded-lg border border-sprout-200 bg-sprout-50 px-2 py-1 text-[11px] font-semibold text-sprout-700 hover:bg-sprout-100">
-                  📦 묶음 받기(ZIP)
-                </button>
-                <button onClick={openFolder}
-                  title="방금 발급된 PDF가 저장된 폴더를 탐색기로 열어요"
-                  className="rounded-lg border border-sprout-200 bg-sprout-50 px-2 py-1 text-[11px] font-semibold text-sprout-700 hover:bg-sprout-100">
-                  🗂 발급물 폴더 열기
-                </button>
-              </>
-            )}
-            <button onClick={() => setJourneySummary(null)} aria-label="여정 요약 닫기"
-              className="rounded-lg px-1.5 py-0.5 text-muted-foreground hover:bg-sprout-50">✕</button>
-          </span>
-        </div>
-      )}
+      {/* 🚀 여정 진행률 헤더 + 종결 요약 — 슬림 모드와 공유(정의는 return 직전) */}
+      {journeyProgBlock}
+      {journeySummaryBlock}
 
       <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
         {docs.map((doc) => {

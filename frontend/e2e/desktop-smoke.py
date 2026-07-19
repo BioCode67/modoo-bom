@@ -2,9 +2,9 @@
 """데스크탑앱 스모크 — local_server(:8000)가 dist-app을 서빙하는 '진짜 배포 셋업'에서
 데스크탑 전용 기능을 실브라우저로 회귀 검증한다(웹 프리뷰 스모크로는 localAgent 기능이 안 보임).
 
-검증 20종(번호는 추가 순서 — 실행 순서는 코드 순):
+검증 21종(번호는 추가 순서 — 실행 순서는 코드 순):
   1 상태 스트립 · 2 진단 복사(PII 0) · 2.5 발급 전 점검(5항목) · 3 서류함 등록+첨부 후보 배지 · 3.5 🖍 가리기
-  4 자동첨부 미리보기 · 5 개별 삭제(2탭) · 5.5 유효기간 배지+📦 ZIP · 5.6 종류별 그룹핑(최신본 대표) · 5.7 부족분만 발급→📨 자동신청만 · 5.8 자유 선택 일괄발급
+  4 자동첨부 미리보기 · 5 개별 삭제(2탭) · 5.5 유효기간 배지+📦 ZIP · 5.6 종류별 그룹핑(최신본 대표) · 5.7 부족분만 발급→📨 자동신청만 · 5.8 자유 선택 일괄발급 · 5.9 빈 상태 슬림 모드
   6 새로고침 복원+실태스크 정리 · 6.5 인증 알림음+🔊 음성(옵트인)+발급 자동 기억
   6.8 챗 에이전트 인지 · 6.9 여정 이어보기 · 6.95 인증정보 탭-기억 옵트인
   7.5 원클릭 연쇄+⏭ 스킵+📨 기록 CTA · 7.6 여정 오류 경로(정직 요약) · 7 검증형 리셋 · 8 🌱 새싹이 가이드
@@ -223,6 +223,22 @@ def main() -> int:
             pg.wait_for_selector("text=실명·생년월일·휴대폰을 먼저 입력", timeout=4000)  # 가드 — 여정 미시작
             pg.locator("button[aria-label='일괄발급 선택 닫기']").click()
             print("[desktop] ✅ 5.8. 자유 선택 일괄발급 — 15종 그리드·부족분 기본 선택·미입력 가드")
+
+            # 5.9) 담은 복지 0 슬림 모드 — 심사·첫 사용이 빈 화면에서 끝나지 않는다(발급 도우미+15종 패널+서류함)
+            pg2 = ctx.new_page()
+            pg2.add_init_script(
+                "localStorage.setItem('modoobom-store',JSON.stringify({state:{onboarded:true,tracked:[],docDone:{}},version:0}));"
+                "localStorage.setItem('modoobom-guide-off','1')")
+            pg2.goto(BASE, wait_until="domcontentloaded", timeout=30000)
+            pg2.wait_for_selector("text=정부·지자체·민간 복지", timeout=20000)
+            pg2.click("text=나의 복지")
+            pg2.wait_for_selector("text=아직 담은 복지가 없어요", timeout=15000)
+            pg2.wait_for_selector("text=서류 발급 도우미", timeout=10000)          # 슬림 모드 헤더
+            pg2.wait_for_selector("text=원하는 서류 골라 일괄발급", timeout=8000)   # 패널 자동 펼침
+            assert pg2.locator("input.accent-sky2-600").count() == 15, "슬림 모드 15종 그리드 누락"
+            pg2.wait_for_selector("text=내 서류함", timeout=8000)                  # 서류함도 동작
+            pg2.close()
+            print("[desktop] ✅ 5.9. 슬림 모드 — 담은 복지 0에서도 발급 도우미·15종 패널·서류함 동작")
 
             # 6) 세션 연속성 — 실태스크(곧 종결) 기억 → 새로고침 → 자동 재연결
             r = pg.evaluate("""async()=>{
@@ -460,7 +476,7 @@ def main() -> int:
         for i in issues[:10]:
             print("  ", i)
         return 1
-    print("✅ 데스크탑 기능 20종 + pageerror 0 — 전부 통과")
+    print("✅ 데스크탑 기능 21종 + pageerror 0 — 전부 통과")
     return 0
 
 
