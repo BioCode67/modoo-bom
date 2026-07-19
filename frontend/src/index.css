@@ -284,3 +284,7 @@
 .elderly-mode .text-\[12px\],
 .elderly-mode .text-\[13px\] { font-size: 0.95rem !important; }
 .elderly-mode button, .elderly-mode input, .elderly-mode select { min-height: 50px; }
+/* 체크박스는 50px 세로 스트레치 대상에서 제외 — 글리프가 라벨 텍스트보다 한 줄 아래에 그려져
+   '어느 서류의 체크인지' 헷갈리던 실측 문제(큰글씨×390 일괄발급 패널). 대신 큰 정사각형(22px)으로
+   판독성을 확보하고, 탭 영역은 감싼 label 전체가 담당한다. */
+.elderly-mode input[type='checkbox'] { min-height: 0; height: 1.4rem; width: 1.4rem; }
