@@ -1,0 +1,5 @@
+https://github.com/BioCode67/modoo-bom
+
+- main 브랜치 최신 코드 (Docker 미사용 — 규정 충족)
+- README 첫 화면에 실행법·품질 게이트 정리
+- 데모 실행은 함께 제출한 "모두봄_실행가이드.pdf" 참조
