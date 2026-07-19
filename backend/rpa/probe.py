@@ -37,6 +37,23 @@ INFO_URL = ("https://www.gov.kr/mw/AA020InfoCappView.do?CappBizCD={code}"
             "&HighCtgCD=A01010001&tp_seq=01&Mcode=10200")
 SEARCH_INPUTS = ["input[type='search']", "input[name*='srh' i]", "input[placeholder*='검색']", "#ptl-search input"]
 
+# 서류 기본 후보 — 카탈로그 required_docs 빈도·복지 신청 통용 서류에서 선정(CLI·앱 후보 칩 공용).
+# (신분증·통장사본·임대차계약서·진단서류는 실물/은행/병원 발급이라 📷 촬영·등록 경로가 정답 — 후보 제외)
+DEFAULT_DOC_CANDIDATES = [
+    "혼인관계증명서",
+    "기본증명서",
+    "입양관계증명서",
+    "의료급여증",
+    "차상위계층 확인서",
+    "장기요양인정서",
+    "국민연금 가입자 가입증명",
+    "재학증명서",
+    "사업자등록증명",
+    # 주거급여·이사(전입 확인) + 학생·청년 장학 서류 — 실측 통과분만 등록된다
+    "전입세대확인서",
+    "졸업증명서",
+]
+
 
 def _launch_sync(p):
     """발급 RPA와 같은 우선순위(Chrome→Edge→번들 Chromium)로 첫 성공 브라우저 반환.
@@ -177,3 +194,80 @@ def probe_and_register(names: list) -> dict:
     if registered:
         out.update(apply_runtime_reload())
     return out
+
+
+# ── 자동신청(복지로) 커버리지 실측 ────────────────────────────────────────────
+# 한계를 먼저(정직성, tools/probe_bokjiro_apply.py 2026-07-12 조사와 동일):
+# 복지로는 비로그인 상태에서 방문형 서비스에도 '신청하기' 요소를 렌더한다. 따라서 여기서는
+#   ① 서비스명 → wlfareInfoId 매핑 실측 발굴 + ② 상세 페이지가 그 서비스가 맞는지 확인
+# 까지만 자동화한다 — 결과는 '후보(candidate)'이며, 온라인 신청형인지는 **첫 자동신청 실행**이
+# 정직하게 판별한다(신청 버튼이 없으면 apply_rpa가 실패를 실패로 보고 → 공식 링크 폴백).
+BOKJIRO_DETAIL = "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId={wid}"
+BOKJIRO_SEARCH_INPUTS = ["input[type='search']", "input[name*='search' i]", "input[placeholder*='검색']"]
+
+
+def probe_apply_names(names: list):
+    """복지로에서 서비스명별 wlfareInfoId 발굴 + 상세 일치 확인. → (rows, None) 또는 (None, 오류문구).
+
+    row: {name, id, url, title, verdict, note} — verdict '🟡 후보'만 β 등재 대상(클라이언트 로컬 기억).
+    """
+    from playwright.sync_api import sync_playwright
+    rows = []
+    with sync_playwright() as p:
+        try:
+            browser = _launch_sync(p)
+        except Exception as e:
+            return None, str(e)
+        pg = browser.new_page()
+        try:
+            pg.goto("https://www.bokjiro.go.kr/", wait_until="domcontentloaded", timeout=20000)
+        except Exception as e:
+            browser.close()
+            return None, f"복지로 접속 실패: {str(e)[:120]} — 인터넷 되는 PC에서 실행하세요(개발 컨테이너는 정부망 차단)."
+        for name in names:
+            row = {"name": name, "id": "", "url": "", "title": "", "verdict": "❌ 미발견", "note": ""}
+            try:
+                box = None
+                for sel in BOKJIRO_SEARCH_INPUTS:
+                    loc = pg.locator(sel).first
+                    if loc.count() and loc.is_visible():
+                        box = loc
+                        break
+                if box is None:
+                    row["note"] = "검색창을 못 찾음(사이트 개편?) — BOKJIRO_SEARCH_INPUTS 보강 필요"
+                    rows.append(row)
+                    continue
+                box.fill(name)
+                box.press("Enter")
+                pg.wait_for_timeout(2500)
+                hrefs = pg.eval_on_selector_all(
+                    "a[href*='wlfareInfoId']",
+                    "els => els.map(a => ({href: a.href, text: (a.textContent||'').trim()}))")
+                cands = []
+                for a in hrefs:
+                    m = re.search(r"wlfareInfoId=(WLF\w+)", a["href"])
+                    if m:
+                        cands.append((m.group(1), a["text"]))
+                if not cands:
+                    row["note"] = "검색 결과에 wlfareInfoId 링크 없음(서비스명이 다르거나 복지로 미등재)"
+                    rows.append(row)
+                    continue
+                nn = name.replace(" ", "")
+                cands.sort(key=lambda c: (nn not in c[1].replace(" ", ""), len(c[1])))
+                wid = cands[0][0]
+                row["id"] = wid
+                row["url"] = BOKJIRO_DETAIL.format(wid=wid)
+                pg.goto(row["url"], wait_until="domcontentloaded", timeout=20000)
+                pg.wait_for_timeout(1500)
+                row["title"] = (pg.title() or "").strip()[:60]
+                hit = nn in pg.inner_text("body").replace(" ", "")[:3000]
+                row["verdict"] = ("🟡 후보(ID·서비스 일치 확인)" if hit
+                                  else "⚠️ 상세 페이지 불일치(다른 서비스일 수 있음)")
+                pg.goto("https://www.bokjiro.go.kr/", wait_until="domcontentloaded", timeout=20000)
+            except Exception as e:
+                row["note"] = f"오류: {str(e)[:100]}"
+                rows.append(row)
+                continue
+            rows.append(row)
+        browser.close()
+    return rows, None

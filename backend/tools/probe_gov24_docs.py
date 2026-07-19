@@ -36,29 +36,13 @@ HERE = pathlib.Path(__file__).resolve().parent
 if str(HERE.parent) not in sys.path:  # `python tools/…` 직접 실행 시에도 rpa 패키지 임포트 보장
     sys.path.insert(0, str(HERE.parent))
 
-from rpa.probe import probe_names, register_rows, read_extra, remove_names  # noqa: E402
+from rpa.probe import probe_names, register_rows, read_extra, remove_names, DEFAULT_DOC_CANDIDATES  # noqa: E402
 from rpa import gov24_rpa  # noqa: E402
 
 REPORT = HERE / "probe-report.md"
 
-# 기본 후보 — 카탈로그 required_docs 빈도·복지 신청 통용 서류에서 선정.
-# (차상위·국민연금은 과거 조사에서 '발급폼 미확인/별도 흐름'으로 보류된 이력 있음 — 재확인 후보)
-DEFAULT_CANDIDATES = [
-    "혼인관계증명서",
-    "기본증명서",
-    "입양관계증명서",
-    "의료급여증",
-    "차상위계층 확인서",
-    "장기요양인정서",
-    "국민연금 가입자 가입증명",
-    # 카탈로그 required_docs 빈도 분석(2026-07-19) 추가 후보 — 정부24 온라인 발급 가능성이 있는 것만.
-    # (신분증·통장사본·임대차계약서·진단서류는 실물/은행/병원 발급이라 📷 촬영·등록 경로가 정답 — 후보 제외)
-    "재학증명서",
-    "사업자등록증명",
-    # 주거급여·이사 관련 카탈로그 빈출(전입 확인) + 학생·청년 장학 서류 — 실측 통과분만 등록된다
-    "전입세대확인서",
-    "졸업증명서",
-]
+# 기본 후보 목록은 코어(rpa/probe.py DEFAULT_DOC_CANDIDATES)와 단일 소스 — 앱 후보 칩과 항상 동일.
+DEFAULT_CANDIDATES = DEFAULT_DOC_CANDIDATES
 
 
 def cmd_list():

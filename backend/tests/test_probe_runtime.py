@@ -97,3 +97,64 @@ def test_probe_api_shared_blocked(extra_sandbox, monkeypatch):
     monkeypatch.setenv("RPA_SHARED", "1")
     r = TestClient(local_server.app).post("/api/docs/probe", json={"doc_name": "혼인관계증명서"})
     assert r.status_code == 403
+
+
+def test_docs_probe_batch(extra_sandbox, monkeypatch):
+    """일괄 실측(후보 칩 '한번에') — ✅만 등록, 나머지는 판정 그대로 보고."""
+    import local_server
+    from rpa import probe as probe_mod
+    rows = [dict(OK_ROW),
+            {"name": "장기요양인정서", "code": "", "title": "", "issue_btn": False,
+             "verdict": "❌ 미발견", "note": "검색 결과에 민원 코드 링크 없음"}]
+    monkeypatch.setattr(probe_mod, "probe_names", lambda names: (rows, None))
+    j = TestClient(local_server.app).post(
+        "/api/docs/probe", json={"doc_names": ["혼인관계증명서", "장기요양인정서"]}).json()
+    assert j["status"] == "ok" and j["registered"] == ["혼인관계증명서"]
+    assert len(j["rows"]) == 2 and "혼인관계증명서" in j["supported"]
+    assert "장기요양인정서" not in j["supported"]
+
+
+def test_docs_probe_candidates_endpoint(extra_sandbox):
+    """후보 칩 목록 — 기본 후보 중 '아직 미지원'만(기지원 서류가 후보로 다시 뜨지 않게)."""
+    import local_server
+    j = TestClient(local_server.app).get("/api/docs/probe-candidates").json()
+    assert isinstance(j["candidates"], list) and len(j["candidates"]) >= 5
+    assert "주민등록등본" not in j["candidates"]
+
+
+APPLY_OK_ROW = {"name": "경기 청년기본소득", "id": "WLF00012345",
+                "url": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00012345",
+                "title": "경기 청년기본소득", "verdict": "🟡 후보(ID·서비스 일치 확인)", "note": ""}
+
+
+def test_apply_probe_candidate(extra_sandbox, monkeypatch):
+    """자동신청 실측 — 🟡 후보는 candidate + 딥링크 반환, β 한계(첫 자동신청이 최종 검증)를 문구로 명시."""
+    import local_server
+    from rpa import probe as probe_mod
+    monkeypatch.setattr(probe_mod, "probe_apply_names", lambda names: ([dict(APPLY_OK_ROW)], None))
+    j = TestClient(local_server.app).post("/api/apply/probe", json={"service_name": "경기 청년기본소득"}).json()
+    assert j["status"] == "candidate" and "wlfareInfoId=WLF00012345" in j["url"]
+    assert j["wlfareInfoId"] == "WLF00012345" and "첫 자동신청" in j["message"]
+
+
+def test_apply_probe_not_found(extra_sandbox, monkeypatch):
+    """복지로 미등재·불일치는 등록 없이 정직 보고(공식 링크 폴백 안내)."""
+    import local_server
+    from rpa import probe as probe_mod
+    row = {"name": "어촌뉴딜수당", "id": "", "url": "", "title": "",
+           "verdict": "❌ 미발견", "note": "검색 결과에 wlfareInfoId 링크 없음"}
+    monkeypatch.setattr(probe_mod, "probe_apply_names", lambda names: ([row], None))
+    j = TestClient(local_server.app).post("/api/apply/probe", json={"service_name": "어촌뉴딜수당"}).json()
+    assert j["status"] == "not_found" and "공식 링크" in j["message"]
+
+
+def test_apply_probe_error_and_shared(extra_sandbox, monkeypatch):
+    """접속 실패는 error로(날조 금지) · 공유 배포는 403(본인 PC 전용)."""
+    import local_server
+    from rpa import probe as probe_mod
+    monkeypatch.setattr(probe_mod, "probe_apply_names", lambda names: (None, "복지로 접속 실패: blocked"))
+    c = TestClient(local_server.app)
+    j = c.post("/api/apply/probe", json={"service_name": "아무수당"}).json()
+    assert j["status"] == "error" and "복지로" in j["message"]
+    monkeypatch.setenv("RPA_SHARED", "1")
+    assert c.post("/api/apply/probe", json={"service_name": "아무수당"}).status_code == 403

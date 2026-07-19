@@ -1,5 +1,6 @@
 import { buildPrefill, type RpaInfo } from '@/lib/prefill'
 import { applyLink } from '@/lib/officialLinks'
+import { applyExtraUrl } from '@/lib/applyExtra'
 import { getCatalog } from '@/data/catalog'
 import type { UserProfile } from '@/lib/welfare-engine'
 
@@ -16,6 +17,7 @@ import type { UserProfile } from '@/lib/welfare-engine'
  * 오매칭 방지를 위해 **정확 일치 키만** 사용한다(포함 매칭 금지 — '기초연금'이 유사명을 가로채지 않게).
  */
 const BOKJIRO = 'https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId='
+
 export const KNOWN_APPLY_URLS: Record<string, string> = {
   기초연금: `${BOKJIRO}WLF00001164`,
   아동수당: `${BOKJIRO}WLF00001171`,
@@ -166,6 +168,10 @@ export function bestApplyUrl(application: string, policyName?: string, policyId?
   if (!isLoc && policyName) {
     const borrowed = borrowApplyUrl(policyName) // ③ 공공데이터 교차참조로 검증된 신청 URL 확보
     if (borrowed) return borrowed
+    // ③.5 앱 내 실측(β) 오버레이 — 데스크탑 에이전트가 복지로를 실측해 이 브라우저에 기억한 딥링크.
+    //     내장 검증(②)·실데이터(①③)보다 후순위, 검색 폴백(④)보다는 우선(실측 > 추정).
+    const extra = applyExtraUrl(policyName)
+    if (extra) return extra
   }
   // ④ 최후 폴백: 온라인 신청형만 정부24 통합검색(주민센터 방문형은 온라인처럼 오도하지 않게 제외)
   if (policyName && !link.label.includes('주민센터')) {

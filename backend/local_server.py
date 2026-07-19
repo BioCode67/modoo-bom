@@ -148,7 +148,12 @@ class DemoRequest(BaseModel):
 
 
 class ProbeRequest(BaseModel):
-    doc_name: str  # 자동발급 지원을 실측 확인할 서류 이름(정부24 검색어)
+    doc_name: str = ""          # 자동발급 지원을 실측 확인할 서류 이름(정부24 검색어)
+    doc_names: list[str] = []   # 일괄 실측(후보 칩 '전부 확인') — 최대 12종, 한 브라우저로 순회
+
+
+class ApplyProbeRequest(BaseModel):
+    service_name: str  # 자동신청 후보를 실측 확인할 복지 서비스 이름(복지로 검색어)
 
 
 class ApplyRequest(BaseModel):
@@ -400,20 +405,67 @@ async def docs_probe(req: ProbeRequest):
     from rpa.config import rpa_enabled, rpa_disabled_reason
     if not rpa_enabled():
         raise HTTPException(status_code=503, detail=rpa_disabled_reason())
-    name = (req.doc_name or "").strip()
-    if not name or len(name) > 40:
-        raise HTTPException(status_code=400, detail="서류 이름을 1~40자로 입력해 주세요.")
+    raw = req.doc_names if req.doc_names else [req.doc_name]
+    names = [str(n or "").strip() for n in raw]
+    names = [n for n in names if n]
+    if not names or any(len(n) > 40 for n in names) or len(names) > 12:
+        raise HTTPException(status_code=400, detail="서류 이름을 1~40자, 최대 12종까지 입력해 주세요.")
     from rpa.manager import SUPPORTED_DOC_NAMES
-    if name in SUPPORTED_DOC_NAMES:
-        return {"status": "already", "message": f"「{name}」는 이미 자동발급을 지원해요."}
+    todo = [n for n in names if n not in SUPPORTED_DOC_NAMES]  # 기지원분은 브라우저를 띄우지 않음
+    if not todo:
+        return {"status": "already", "message": f"「{names[0]}」{' 등은' if len(names) > 1 else '는'} 이미 자동발급을 지원해요."}
     if _probe_busy["on"]:
         raise HTTPException(status_code=409, detail="이미 다른 실측 확인이 진행 중이에요 — 잠시 후 다시 시도해 주세요.")
     _probe_busy["on"] = True
     try:
         import asyncio as _aio
         from rpa.probe import probe_and_register
-        # 브라우저 조사 ~30초 — 스레드로 옮겨 이벤트 루프(발급 폴링 등)를 막지 않는다
-        return await _aio.to_thread(probe_and_register, [name])
+        # 브라우저 조사 ~30초/종 — 스레드로 옮겨 이벤트 루프(발급 폴링 등)를 막지 않는다
+        return await _aio.to_thread(probe_and_register, todo)
+    finally:
+        _probe_busy["on"] = False
+
+
+@app.get("/api/docs/probe-candidates")
+async def docs_probe_candidates():
+    """실측 후보 칩 — 기본 후보 중 '아직 미지원'인 것만(카탈로그 빈도 기반, 추측 등재 아님 — 실측 대상일 뿐)."""
+    from rpa.probe import DEFAULT_DOC_CANDIDATES
+    from rpa.manager import SUPPORTED_DOC_NAMES
+    return {"candidates": [n for n in DEFAULT_DOC_CANDIDATES if n not in SUPPORTED_DOC_NAMES]}
+
+
+@app.post("/api/apply/probe")
+async def apply_probe(req: ApplyProbeRequest):
+    """🔎 자동신청 후보 실측 확인 — 복지로에서 서비스명→wlfareInfoId를 실측 발굴하고 상세 일치까지 확인.
+
+    정직성(중요): 복지로는 비로그인 시 방문형에도 '신청하기'를 렌더하므로 여기선 '후보(candidate)'까지만 —
+    온라인 신청형인지는 첫 자동신청 실행이 판별한다(버튼 없으면 apply_rpa가 정직한 실패 + 공식 링크 폴백).
+    매핑은 클라이언트(이 PC 브라우저)에만 기억되고, 서버 신청 경로는 기존 복지로 URL 검증 게이트를 그대로 탄다.
+    🔒 본인 PC 전용(공유 배포 403) · 조사에는 로그인·개인정보 불필요."""
+    _shared_mode_guard()
+    from rpa.config import rpa_enabled, rpa_disabled_reason
+    if not rpa_enabled():
+        raise HTTPException(status_code=503, detail=rpa_disabled_reason())
+    name = (req.service_name or "").strip()
+    if not name or len(name) > 60:
+        raise HTTPException(status_code=400, detail="서비스 이름을 1~60자로 입력해 주세요.")
+    if _probe_busy["on"]:
+        raise HTTPException(status_code=409, detail="이미 다른 실측 확인이 진행 중이에요 — 잠시 후 다시 시도해 주세요.")
+    _probe_busy["on"] = True
+    try:
+        import asyncio as _aio
+        from rpa.probe import probe_apply_names
+        rows, err = await _aio.to_thread(probe_apply_names, [name])
+        if err:
+            return {"status": "error", "message": err}
+        r = rows[0] if rows else {}
+        if str(r.get("verdict", "")).startswith("🟡"):
+            return {"status": "candidate", "name": name, "wlfareInfoId": r.get("id", ""),
+                    "url": r.get("url", ""), "title": r.get("title", ""),
+                    "message": "복지로 등재·서비스 일치를 확인했어요(β) — 온라인 신청형인지는 첫 자동신청에서 확인돼요."}
+        return {"status": "not_found", "name": name,
+                "note": r.get("note", "") or r.get("verdict", ""),
+                "message": f"복지로에서 「{name}」의 신청 상세를 확정하지 못했어요 — 공식 링크로 신청을 안내해 드려요."}
     finally:
         _probe_busy["on"] = False
 
