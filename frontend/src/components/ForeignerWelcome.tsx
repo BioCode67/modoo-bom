@@ -66,6 +66,7 @@ export function ForeignerWelcome() {
             <button
               key={code}
               onClick={() => window.dispatchEvent(new CustomEvent('modoobom:voice-call', { detail: { lang: code } }))}
+              onMouseEnter={warm} onFocus={warm} onTouchStart={warm} // 통화→AI 검색 핸드오프 대비 모델 프리워밍(언어 카드와 동일)
               aria-label={`자국어 통화 상담 — ${label}`}
               className="rounded-full border border-violet-200 bg-white px-3.5 py-1.5 text-sm font-semibold hover:border-violet-400 hover:shadow-sm transition-all"
             >
