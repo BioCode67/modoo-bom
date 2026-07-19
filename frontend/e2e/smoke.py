@@ -195,6 +195,8 @@ def main() -> int:
             page.fill('[aria-label="말 대신 입력하기"]', "72세 혼자 사는데 소득이 적어요")
             page.click('[aria-label="입력 보내기"]')
             page.wait_for_selector("text=바로 찾아봤어요", timeout=8000)
+            # 금액 브리핑은 결과 화면 헤더와 '같은 보수 합산'(핵심 현금지원) — 이론최대 과장 회귀 방지
+            page.wait_for_selector("text=핵심 현금지원만 적게 잡아", timeout=4000)
             page.wait_for_selector("text=결과 화면에서 자세히 보기", timeout=4000)
             page.keyboard.press("Escape")
             page.wait_for_timeout(300)

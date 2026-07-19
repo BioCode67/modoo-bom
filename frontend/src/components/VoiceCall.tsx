@@ -10,7 +10,7 @@ import type { Policy } from '@/data/policies'
 import { parseProfileFromText, profileSignalCount } from '@/lib/parseQuery'
 import { VOICE_LANGS, voiceStrings, voiceRouteLang, routeReplyFor } from '@/lib/voiceI18n'
 import { runAnalysis } from '@/lib/welfare-engine'
-import { formatWon } from '@/lib/format'
+import { formatWon, sumCashMonthly } from '@/lib/format'
 import { speakableText } from '@/lib/speakable'
 import { cn } from '@/lib/utils'
 
@@ -110,12 +110,16 @@ export function VoiceCall({ open, onClose, presetLang }: { open: boolean; onClos
         const prof = parseProfileFromText(q)
         const res = runAnalysis(prof)
         setAnalysis(prof, res)
-        const top = res.eligible_policies.slice(0, 3).map((p) => p.name)
-        const monthly = res.portfolio_summary?.total_monthly
+        // 결과 화면 헤더와 '같은 기준'의 보수 합산(정밀추천 POL- 중 강력추천의 현금성만) —
+        // portfolio_summary.total_monthly(전체 적격 이론 최대)를 읽어주면 화면(64만)과 통화(228만)가
+        // 3배 넘게 어긋나는 과장 안내가 된다(엔진 주석의 'UI 헤드라인 금지' 값)
+        const primary = res.eligible_policies.filter((p) => /^POL-/.test(p.id))
+        const top = (primary.length ? primary : res.eligible_policies).slice(0, 3).map((p) => p.name)
+        const monthly = sumCashMonthly(primary.filter((p) => p.priority === 'high'))
         const text =
           `말씀하신 상황으로 바로 찾아봤어요. 지금 신청해볼 만한 복지가 ${res.eligible_policies.length}개 있어요.\n` +
           `대표적으로 ${top.join(', ')} 이에요.` +
-          (monthly ? `\n현금성 지원만 더하면 다달이 최대 ${formatWon(monthly)}까지예요 — 실제 조건·중복수급에 따라 달라질 수 있어요.` : '') +
+          (monthly > 0 ? `\n핵심 현금지원만 적게 잡아 더하면 월 ${formatWon(monthly)} 정도예요 — 실제 조건·중복수급에 따라 달라질 수 있어요.` : '') +
           `\n자세한 자격과 신청 방법은 결과 화면에서 하나씩 짚어드릴게요.`
         say({ text, cta: { view: 'analyze', label: '결과 화면에서 자세히 보기' } })
       } else {
