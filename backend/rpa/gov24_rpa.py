@@ -284,7 +284,8 @@ async def _login_on_www_gov(page, task, user_info: dict = None) -> bool:
     pv = provider_display(provider)
 
     # ① 간편인증 버튼 클릭 (신 UI: button.login-type → 텍스트 폴백)
-    await asyncio.sleep(1)
+    #   고정 1초 대기 대신 버튼이 '보이는 즉시' 진행 — 없을 때만 최대 3초 폴링(실사용: 간편인증이 느리다).
+    await wait_any_visible(page, SIMPLE_AUTH_SELECTORS, 3)
     simple_clicked = await click_first_matching(page, SIMPLE_AUTH_SELECTORS)
     if not simple_clicked:
         simple_clicked = await click_by_text(page, ["간편인증", "간편 인증", "간편로그인", "간편 로그인"])
