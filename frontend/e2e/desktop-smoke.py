@@ -2,7 +2,7 @@
 """데스크탑앱 스모크 — local_server(:8000)가 dist-app을 서빙하는 '진짜 배포 셋업'에서
 데스크탑 전용 기능을 실브라우저로 회귀 검증한다(웹 프리뷰 스모크로는 localAgent 기능이 안 보임).
 
-검증 23종(번호는 추가 순서 — 실행 순서는 코드 순):
+검증 24종(번호는 추가 순서 — 실행 순서는 코드 순):
   1 상태 스트립 · 2 진단 복사(PII 0) · 2.5 발급 전 점검(6항목·서류함 무결성) · 3 서류함 등록+첨부 후보 배지 · 3.5 🖍 가리기
   4 자동첨부 미리보기 · 5 개별 삭제(2탭) · 5.5 유효기간 배지+📦 ZIP · 5.55 👁 파일 열람 · 5.6 종류별 그룹핑(최신본 대표) · 5.65 🧹 이전 버전 정리 · 5.7 부족분만 발급→📨 자동신청만 · 5.8 자유 선택 일괄발급 · 5.9 빈 상태 슬림 모드
   6 새로고침 복원+실태스크 정리 · 6.5 인증 알림음+🔊 음성(옵트인)+발급 자동 기억
@@ -247,6 +247,25 @@ def main() -> int:
             pg.wait_for_selector("text=실명·생년월일·휴대폰을 먼저 입력", timeout=4000)  # 가드 — 여정 미시작
             pg.locator("button[aria-label='일괄발급 선택 닫기']").click()
             print("[desktop] ✅ 5.8. 자유 선택 일괄발급 — 15종 그리드·부족분 기본 선택·미입력 가드")
+
+            # 5.85) 🔁 손상 파일 원탭 재발급 — ⚠️ 배지→[지우고 다시 발급]: 손상본 삭제 + 같은 서류 자동발급 시작
+            #       (인증정보 미입력 상태라 발급은 카드 밖 상태줄의 정직한 안내로 멈춘다 — 가드까지 한 번에 검증)
+            broken = Path(folder) / "지방세 납세증명서_스모크_2026-07-19_1200.pdf"
+            broken.write_bytes(b"broken")  # 1KB 미만 — 무결성 게이트 위반(잘린 저장 재현)
+            try:
+                pg.locator("button[aria-label='서류함 새로고침']").click()
+                pg.wait_for_selector("span:has-text('⚠️ 손상')", timeout=8000)
+                pg.once("dialog", lambda d: d.accept())
+                pg.locator("button:has-text('지우고 다시 발급')").click()
+                pg.wait_for_selector("text=지방세 납세증명서 — 실명·생년월일·휴대폰", timeout=8000)
+                for _ in range(20):
+                    if not broken.exists():
+                        break
+                    time.sleep(0.3)
+                assert not broken.exists(), "손상 파일이 삭제되지 않음"
+            finally:
+                broken.unlink(missing_ok=True)
+            print("[desktop] ✅ 5.85. 🔁 손상 원탭 재발급 — 손상본 삭제 + 발급 시작(미입력 가드)")
 
             # 5.9) 담은 복지 0 슬림 모드 — 심사·첫 사용이 빈 화면에서 끝나지 않는다(발급 도우미+15종 패널+서류함)
             pg2 = ctx.new_page()
@@ -500,7 +519,7 @@ def main() -> int:
         for i in issues[:10]:
             print("  ", i)
         return 1
-    print("✅ 데스크탑 기능 23종 + pageerror 0 — 전부 통과")
+    print("✅ 데스크탑 기능 24종 + pageerror 0 — 전부 통과")
     return 0
 
 

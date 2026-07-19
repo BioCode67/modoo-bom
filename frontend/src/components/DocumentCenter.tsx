@@ -373,6 +373,12 @@ export function DocumentCenter() {
     }
   }
 
+  // 🔁 서류함 ⚠️ 손상의 '지우고 다시 발급' — 카드가 없는 서류는 자유 발급 패널의 상태줄로 진행을 보여준다(침묵 금지)
+  const reissueFromVault = (doc: string) => {
+    if (!docs.includes(doc)) setPickOpen(true)
+    startRpa(doc)
+  }
+
   // 단건 발급 폴링 — 시작(startRpa)과 복원(마운트 재연결)이 공유하는 단일 루프.
   //   resumed=true(복원)면 404를 오류 카드 대신 '조용한 정리'로 처리 — 앱 재시작으로 사라진 태스크를
   //   사용자가 다시 볼 이유가 없다(시작 직후 404는 기존대로 정직한 오류 표시).
@@ -837,7 +843,7 @@ export function DocumentCenter() {
         {folderMsg && <p className="mt-2 text-xs text-amber-700">{folderMsg}</p>}
         {journeyProgBlock}
         {journeySummaryBlock}
-        {vaultOn && <DocVault />}
+        {vaultOn && <DocVault onReissue={reissueFromVault} />}
       </motion.section>
     )
   }
@@ -1193,7 +1199,7 @@ export function DocumentCenter() {
       ))}
 
       {/* 🗂 내 서류함 — 데스크탑 에이전트에서만(이 PC 폴더의 발급/등록물 가시화 + 자동첨부 후보 표시) */}
-      {vaultOn && <DocVault />}
+      {vaultOn && <DocVault onReissue={reissueFromVault} />}
     </motion.section>
   )
 }
