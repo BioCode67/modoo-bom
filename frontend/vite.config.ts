@@ -3,10 +3,17 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
 import { readFileSync } from 'fs'
+import { execSync } from 'child_process'
 
 // 푸터 버전 표기용 — package.json 버전을 빌드타임에 주입(스테일 캐시 제보를 1초에 판정).
 // npm 스크립트 밖에서 vite를 직접 불러도 동작하게 env 대신 파일을 읽는다.
 const pkg = JSON.parse(readFileSync(path.resolve(__dirname, 'package.json'), 'utf-8')) as { version: string }
+
+// 빌드 커밋 short SHA — '이 번들(특히 데스크탑 exe)이 정확히 어느 커밋인지'를 못박아 신선도 판정을
+// 확실하게 한다(빌드일은 같은 날 재빌드를 구분 못 함). git이 없는 환경(zip 빌드 등)에선 빈 문자열로
+// 안전 폴백 — 빌드 자체는 절대 깨지지 않는다.
+let __sha = ''
+try { __sha = execSync('git rev-parse --short HEAD', { cwd: __dirname, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim() } catch { /* git 없음 → 빈 값 */ }
 
 // GitHub Pages(project site)는 /modoo-bom/ 하위에 서빙되므로 빌드 시 base를 맞춘다.
 // 개발 서버는 루트('/')를 사용.
@@ -101,6 +108,7 @@ export default defineConfig(({ command, mode }) => {
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
     __BUILD_DATE__: JSON.stringify(new Date().toISOString().slice(0, 10)),
+    __BUILD_SHA__: JSON.stringify(__sha),
   },
   // transformers.js는 dev 사전번들에서 제외(무거운 ONNX 런타임) — 지연 동적 import로만 로드.
   optimizeDeps: {

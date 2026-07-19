@@ -89,7 +89,14 @@ export function AgentStatusStrip() {
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className="inline-flex items-center gap-1.5 font-bold text-sprout-700">
           <Bot className="h-3.5 w-3.5" /> {caps.rpaRemote ? '원격 에이전트' : caps.shared ? '공유 에이전트' : '내 PC 에이전트'} 연결됨
-          {caps.version && <span className="font-semibold text-muted-foreground">v{caps.version}</span>}
+          {caps.version && (
+            /* 버전·빌드일·커밋을 함께 — '이 exe가 최신 코드인지'를 한눈에(구버전이면 날짜/커밋이 다름).
+               버전은 백엔드(로컬 에이전트), 빌드일·커밋은 지금 보는 프론트 번들 — 데스크탑앱은 함께 빌드된다. */
+            <span className="font-semibold text-muted-foreground"
+              title={`앱 버전 v${caps.version} · 프론트 빌드 ${__BUILD_DATE__}${__BUILD_SHA__ ? ` (${__BUILD_SHA__})` : ''} — 최신 배포와 커밋/날짜가 같으면 최신본입니다`}>
+              v{caps.version} · 빌드 {__BUILD_DATE__}{__BUILD_SHA__ ? ` · ${__BUILD_SHA__}` : ''}
+            </span>
+          )}
         </span>
         {slots && <span className={busy ? 'font-semibold text-amber-700' : 'text-muted-foreground'}>{busy ? `혼잡 — ${slots}` : slots}</span>}
         {autoOk && !result && (
