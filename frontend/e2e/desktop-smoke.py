@@ -2,9 +2,9 @@
 """데스크탑앱 스모크 — local_server(:8000)가 dist-app을 서빙하는 '진짜 배포 셋업'에서
 데스크탑 전용 기능을 실브라우저로 회귀 검증한다(웹 프리뷰 스모크로는 localAgent 기능이 안 보임).
 
-검증 22종(번호는 추가 순서 — 실행 순서는 코드 순):
+검증 23종(번호는 추가 순서 — 실행 순서는 코드 순):
   1 상태 스트립 · 2 진단 복사(PII 0) · 2.5 발급 전 점검(5항목) · 3 서류함 등록+첨부 후보 배지 · 3.5 🖍 가리기
-  4 자동첨부 미리보기 · 5 개별 삭제(2탭) · 5.5 유효기간 배지+📦 ZIP · 5.55 👁 파일 열람 · 5.6 종류별 그룹핑(최신본 대표) · 5.7 부족분만 발급→📨 자동신청만 · 5.8 자유 선택 일괄발급 · 5.9 빈 상태 슬림 모드
+  4 자동첨부 미리보기 · 5 개별 삭제(2탭) · 5.5 유효기간 배지+📦 ZIP · 5.55 👁 파일 열람 · 5.6 종류별 그룹핑(최신본 대표) · 5.65 🧹 이전 버전 정리 · 5.7 부족분만 발급→📨 자동신청만 · 5.8 자유 선택 일괄발급 · 5.9 빈 상태 슬림 모드
   6 새로고침 복원+실태스크 정리 · 6.5 인증 알림음+🔊 음성(옵트인)+발급 자동 기억
   6.8 챗 에이전트 인지 · 6.9 여정 이어보기 · 6.95 인증정보 탭-기억 옵트인
   7.5 원클릭 연쇄+⏭ 스킵+📨 기록 CTA · 7.6 여정 오류 경로(정직 요약) · 7 검증형 리셋 · 8 🌱 새싹이 가이드
@@ -187,11 +187,21 @@ def main() -> int:
                 pg.wait_for_selector("text=3개월 지남", timeout=4000)   # 펼치면 이전본(95일 경과)+배지 노출
                 pg.wait_for_selector("text=이전 버전", timeout=2000)
                 print("[desktop] ✅ 5.6. 서류함 그룹핑 — 최신본 대표 + 이전 버전 접기/펼치기")
+                # 5.65) 🧹 이전 버전 일괄 정리 — 최신본만 남기고 지난 발급본 삭제(confirm 승인 후 실파일 검증)
+                pg.once("dialog", lambda d: d.accept())
+                pg.locator("button:has-text('이전 버전 정리')").click()
+                pg.wait_for_selector("button:has-text('이전 버전')", state="detached", timeout=8000)
+                assert not aged.exists(), "이전 버전 파일이 실제로 삭제되지 않음"
+                assert fresh2.exists(), "최신본이 지워짐(정리 범위 오류)"
+                print("[desktop] ✅ 5.65. 🧹 이전 버전 정리 — 최신본 보존·이전본만 삭제(실파일 검증)")
             finally:
                 aged.unlink(missing_ok=True)
                 fresh.unlink(missing_ok=True)
                 (Path(folder) / "주민등록등본_스모크_2026-07-19_0900.pdf").unlink(missing_ok=True)
             pg.locator("button[aria-label='서류함 새로고침']").click()
+            # 5.65의 🧹가 docs-changed 로 vaultHave 를 갱신해두므로, 파일 정리 후에도 같은 이벤트로
+            # '보유 0' 상태를 재동기화해야 5.7 시작 조건(3종 전부)이 성립한다
+            pg.evaluate("() => window.dispatchEvent(new Event('modoobom:docs-changed'))")
             pg.wait_for_timeout(500)
 
             # 5.7) 🧾 신청 준비도 인텔리전스 — 서류함 실파일 기준 '부족분만 발급' + '자동신청만 진행'
@@ -485,7 +495,7 @@ def main() -> int:
         for i in issues[:10]:
             print("  ", i)
         return 1
-    print("✅ 데스크탑 기능 22종 + pageerror 0 — 전부 통과")
+    print("✅ 데스크탑 기능 23종 + pageerror 0 — 전부 통과")
     return 0
 
 
