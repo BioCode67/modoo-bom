@@ -23,6 +23,8 @@ export interface AgentReply {
   issueDoc?: string
   /** 💬→🚀 CTA가 원클릭 연쇄(전부 자동발급)를 시작해야 함(데스크탑 에이전트 연결 시에만 설정) */
   issueAll?: boolean
+  /** 💬→🚀 오토파일럿 — 'run'=담기→연쇄 발급→신청 준비 실행, 'analyze'=결과가 없어 분석부터 안내 */
+  autopilot?: 'run' | 'analyze'
 }
 
 const HH = (p: UserProfile) => [p.age > 0 ? `${p.age}세` : '', p.household_type].filter(Boolean).join('·')
@@ -231,6 +233,34 @@ export function issueAllReply(): AgentReply {
   }
 }
 
+/**
+ * "알아서 다 해줘" — 오토파일럿(추천 전부 담기→연쇄 발급→신청 준비) 실행 의도.
+ * '알아서/끝까지/신청까지' 같은 위임 표현 + 실행 요청이 함께 있을 때만 — "전부 발급해줘"(연쇄)와는
+ * 분리(그쪽은 발급 동사 필수), "신청까지 해주나요?" 질문에도 오토파일럿 안내가 곧 정답이라 잡는다.
+ */
+export function matchAutopilotIntent(raw: string): boolean {
+  const t = raw.replace(/\s/g, '')
+  if (/오토파일럿/.test(t)) return true
+  return /(알아서|끝까지|신청까지)(전부|다|모두)?(해줘|해주|해봐|진행|처리)/.test(t)
+    || /(전부|다|모두)알아서/.test(t)
+}
+
+/** 오토파일럿 응답 — 결과가 있으면 실행 CTA, 없으면 정직하게 '분석 먼저' 경로 안내. */
+export function autopilotReply(ready: boolean): AgentReply {
+  if (ready) {
+    return {
+      text: '제가 이어서 진행할게요 — 분석 결과의 추천 복지를 전부 담고, 부족한 서류 연쇄 자동발급과 신청 준비까지 한 흐름으로 해요. 📱 본인인증과 최종 제출 확인만 직접 해주시면 돼요.',
+      cta: { view: 'my', label: '🚀 오토파일럿 시작' },
+      autopilot: 'run',
+    }
+  }
+  return {
+    text: '먼저 상황을 알아야 정확히 도와드릴 수 있어요 — 복지 찾기에서 한 문장(예: "72세 혼자 사는데 소득이 적어요")으로 분석하면, 결과 화면의 🚀 오토파일럿 버튼 하나로 담기부터 서류 발급·신청 준비까지 이어서 해드려요.',
+    cta: { view: 'analyze', label: '복지 찾기로 이동' },
+    autopilot: 'analyze',
+  }
+}
+
 /** "등본 발급해줘" 응답 — CTA 한 번이면 나의 복지로 이동해 그 서류의 자동발급이 바로 시작된다. */
 export function issueReply(doc: string): AgentReply {
   return {
@@ -281,6 +311,10 @@ export function agentReply(raw: string, ctx: { profile: UserProfile | null; resu
   const q = raw.trim()
   if (!q) return { text: '' }
   if (GREET_RE.test(q)) return greetingReply(ctx.profile, [])
+  // 🚀 "알아서 다 해줘"(오토파일럿)는 발급 지목보다 먼저 — 위임 의도가 가장 넓은 실행 요청.
+  if (ctx.agentOn && matchAutopilotIntent(q)) {
+    return autopilotReply(!!ctx.result?.eligible_policies?.some((p) => p.id.startsWith('POL-')))
+  }
   // 💬→🖨 실행 의도("등본 발급해줘")는 방법 질문(DOCS_RE)보다 먼저 — 서류가 지목된 경우에만 발동.
   //   데스크탑 에이전트가 연결됐을 때만(웹은 기존 전자증명서 경로 안내 유지).
   if (ctx.agentOn && ctx.issueDocs?.length) {

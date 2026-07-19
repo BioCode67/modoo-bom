@@ -8,6 +8,7 @@ import { useTTS } from '@/lib/useTTS'
 import { agentReply, greetingReply, matchSaveIntent, type AgentReply } from '@/lib/chatAgent'
 import { localRpaDocs } from '@/lib/officialLinks'
 import { requestIssueDoc, requestIssueAll } from '@/lib/issueBridge'
+import { startAutopilot } from '@/lib/autopilot'
 import type { Policy } from '@/data/policies'
 import { parseProfileFromText, profileSignalCount } from '@/lib/parseQuery'
 import { VOICE_LANGS, voiceStrings, voiceRouteLang, routeReplyFor } from '@/lib/voiceI18n'
@@ -145,7 +146,9 @@ export function VoiceCall({ open, onClose, presetLang, onTranscript, briefing }:
         // 📞→🖨 "등본 발급해줘"/"전부 발급해줘"도 통화에서 실동작 — 챗과 같은 인텐트·브리지 재사용.
         //   act는 CTA를 '눌렀을 때만'(외국어 핸드오프와 동일 원칙 — 스테일 보류 잔존 방지).
         const r = agentReply(q, { profile, result, tracked, agentOn, issueDocs: agentOn ? localRpaDocs() : [] })
-        const act = r.issueAll ? () => requestIssueAll() : r.issueDoc ? () => requestIssueDoc(r.issueDoc!) : undefined
+        // 🚀 "알아서 다 해줘"(run)는 담기+연쇄 보류+이동을 헬퍼가 일괄 수행(CTA의 setView와 목적지 동일)
+        const act = r.autopilot === 'run' ? () => { startAutopilot() }
+          : r.issueAll ? () => requestIssueAll() : r.issueDoc ? () => requestIssueDoc(r.issueDoc!) : undefined
         say(r, undefined, act)
       }
       setThinking(false)

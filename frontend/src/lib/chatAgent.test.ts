@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { agentReply, greetingReply, matchSaveIntent, matchIssueIntent, matchIssueAllIntent, issueReply, docsReply, isLocalIntent } from './chatAgent'
+import { agentReply, greetingReply, matchSaveIntent, matchIssueIntent, matchIssueAllIntent, matchAutopilotIntent, issueReply, docsReply, isLocalIntent } from './chatAgent'
 import type { UserProfile, AnalysisResult, EligiblePolicy } from './welfare-engine'
 import type { Policy } from '@/data/policies'
 import type { TrackedItem } from '@/store/useAppStore'
@@ -219,5 +219,33 @@ describe('matchIssueAllIntent — 💬→🚀 "전부 발급해줘" 연쇄 실�
     expect(matchIssueAllIntent('발급 다 됐어?')).toBe(false)
     expect(matchIssueAllIntent('등본 발급해줘')).toBe(false)
     expect(matchIssueAllIntent('서류 발급 어떻게 해?')).toBe(false)
+  })
+})
+
+describe('matchAutopilotIntent — 🚀 "알아서 다 해줘" 오토파일럿 위임 의도', () => {
+  it('위임 표현 + 실행 요청', () => {
+    expect(matchAutopilotIntent('알아서 다 해줘')).toBe(true)
+    expect(matchAutopilotIntent('끝까지 해줘')).toBe(true)
+    expect(matchAutopilotIntent('신청까지 해주나요?')).toBe(true) // 질문이어도 오토파일럿 안내가 정답
+    expect(matchAutopilotIntent('오토파일럿 시작')).toBe(true)
+    expect(matchAutopilotIntent('전부 알아서 진행해')).toBe(true)
+  })
+  it('발급 지목·일반 질문은 아님(연쇄/지식 경로와 분리)', () => {
+    expect(matchAutopilotIntent('서류 전부 발급해줘')).toBe(false) // 연쇄(issueAll) 경로
+    expect(matchAutopilotIntent('등본 발급해줘')).toBe(false)
+    expect(matchAutopilotIntent('기초연금 알려줘')).toBe(false)
+  })
+  it('agentReply: 결과 있으면 run CTA, 없으면 분석 안내(analyze)', () => {
+    const withResult = agentReply('알아서 다 해줘', {
+      profile, result, tracked: [], agentOn: true,
+    })
+    expect(withResult.autopilot).toBe('run')
+    expect(withResult.cta?.view).toBe('my')
+    const noResult = agentReply('알아서 다 해줘', { profile: null, result: null, tracked: [], agentOn: true })
+    expect(noResult.autopilot).toBe('analyze')
+    expect(noResult.cta?.view).toBe('analyze')
+    // 웹(에이전트 미연결)에선 오토파일럿 약속을 하지 않는다(정직성)
+    const web = agentReply('알아서 다 해줘', { profile: null, result: null, tracked: [], agentOn: false })
+    expect(web.autopilot).toBeUndefined()
   })
 })

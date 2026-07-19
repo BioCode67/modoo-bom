@@ -504,9 +504,13 @@ def main() -> int:
             pg.fill("input[aria-label='질문 입력']", "서류 어떻게 발급해?")
             pg.keyboard.press("Enter")
             pg.wait_for_selector("text=전부 자동발급", timeout=10000)  # agentOn 분기 응답
+            # 🚀 "알아서 다 해줘" — 아직 분석 결과가 없는 시점이라 '분석 먼저' 정직 안내 + 이동 CTA가 정답
+            pg.fill("input[aria-label='질문 입력']", "알아서 다 해줘")
+            pg.keyboard.press("Enter")
+            pg.wait_for_selector("button:has-text('복지 찾기로 이동')", timeout=10000)
             pg.locator("button[aria-label='복지 도우미 챗봇 닫기']").click()
             pg.wait_for_timeout(400)
-            print("[desktop] ✅ 6.8. 챗 에이전트 데스크탑 인지(자동화 경로 안내)")
+            print("[desktop] ✅ 6.8. 챗 에이전트 데스크탑 인지(자동화 경로 + 오토파일럿 안내)")
 
             # 6.85) 💬→🖨 대화→발급 다리 — "초본 발급해줘" 한마디 → CTA 한 번 → 나의 복지에서 발급이 '실제로' 시작.
             #       (인증정보는 6.5에서 입력됨 → 실발급 태스크가 뜨고 컨테이너에선 곧 정직한 오류/진행 표시 —

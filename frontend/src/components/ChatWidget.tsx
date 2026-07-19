@@ -4,9 +4,10 @@ import { MessageCircleHeart, X, Send, Mic, Compass, Sparkles, ArrowRight, Plus, 
 import type { Policy } from '@/data/policies'
 import { useSpeech } from '@/lib/useSpeech'
 import { GUIDE_STEPS, recommend, type GuideAnswers } from '@/lib/guidedChat'
-import { agentReply, greetingReply, matchSaveIntent, matchIssueIntent, matchIssueAllIntent, issueReply, issueAllReply, isLocalIntent, type AgentReply } from '@/lib/chatAgent'
+import { agentReply, greetingReply, matchSaveIntent, matchIssueIntent, matchIssueAllIntent, matchAutopilotIntent, issueReply, issueAllReply, autopilotReply, isLocalIntent, type AgentReply } from '@/lib/chatAgent'
 import { localRpaDocs } from '@/lib/officialLinks'
 import { requestIssueDoc, requestIssueAll } from '@/lib/issueBridge'
+import { startAutopilot } from '@/lib/autopilot'
 import { API_BASE, checkBackend, getCapabilities } from '@/lib/backend'
 import { useBackend } from '@/lib/useBackend'
 import { getCatalog } from '@/data/catalog'
@@ -15,7 +16,7 @@ import { SproutLogo } from '@/ui/SproutLogo'
 import { VoiceCall, type Turn } from '@/components/VoiceCall'
 import { cn } from '@/lib/utils'
 
-interface Msg { role: 'user' | 'bot'; text: string; policies?: Policy[]; cta?: AgentReply['cta']; issueDoc?: string; issueAll?: boolean; ai?: boolean; pending?: boolean; pendingId?: string }
+interface Msg { role: 'user' | 'bot'; text: string; policies?: Policy[]; cta?: AgentReply['cta']; issueDoc?: string; issueAll?: boolean; autopilot?: AgentReply['autopilot']; ai?: boolean; pending?: boolean; pendingId?: string }
 
 const SUGGESTIONS = ['내가 받을 수 있는 거', '기초연금', '출산·육아', '청년', '실업급여']
 
@@ -150,6 +151,12 @@ export function ChatWidget() {
         ? `${added.join(', ')} 담았어요 ✅ 마감·서류는 제가 챙길게요.`
         : `${toSave.map((p) => p.name).join(', ')}는 이미 담겨 있어요 🙂`
       setTimeout(() => botSay(msg, { cta: { view: 'my', label: '나의 복지 보기' } }), 300)
+      return
+    }
+    // 🚀 "알아서 다 해줘" — 오토파일럿(담기→연쇄 발급→신청 준비). 발급 지목보다 먼저(가장 넓은 위임).
+    if (agentOn && matchAutopilotIntent(q)) {
+      const r = autopilotReply(!!result?.eligible_policies?.some((p) => p.id.startsWith('POL-')))
+      setTimeout(() => botSay(r.text, { cta: r.cta, autopilot: r.autopilot }), 300)
       return
     }
     // 💬→🖨 "등본 발급해줘"/"전부 발급해줘" 실행 의도 — 데스크탑 에이전트 연결 시, CTA 한 번으로
@@ -323,6 +330,13 @@ export function ChatWidget() {
                       {m.cta && (
                         <button
                           onClick={() => {
+                            // 🚀 오토파일럿 'run'은 담기+보류+이동을 헬퍼가 일괄 수행. 클릭 시점에 결과가
+                            //   사라졌으면(리셋 등) false — 분석 화면으로 정직하게 폴백.
+                            if (m.autopilot === 'run') {
+                              if (!startAutopilot()) setView('analyze')
+                              setOpen(false)
+                              return
+                            }
                             // 💬→🖨 발급 지목/전부 응답이면 뷰 이동 전에 보류 등록 — 서류 도우미가 이어받아 바로 시작
                             if (m.issueAll) requestIssueAll()
                             else if (m.issueDoc) requestIssueDoc(m.issueDoc)
