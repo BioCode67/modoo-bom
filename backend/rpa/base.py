@@ -266,9 +266,25 @@ def doc_basename(name: str, user_name: str = "") -> str:
     return f"{_safe_filename(name)}{mid}_{stamp}"
 
 
+def _looks_valid_doc(path: pathlib.Path) -> bool:
+    """저장 파일 무결성 게이트 — 헤더 시그니처(%PDF/PNG)+최소 크기(1KB).
+    '발급 완료'라고 보고했는데 실제로는 깨진·잘린 파일이던 상황(자동첨부·제출까지 오염)을
+    성공 경로에서 원천 차단한다. 내용 검증(엉뚱한 화면 인쇄)은 범위 밖 — 크기·형식만 정직 확인."""
+    try:
+        if not path.exists() or path.stat().st_size < 1024:
+            return False
+        head = path.read_bytes()[:8]
+        if path.suffix.lower() == ".pdf":
+            return head.startswith(b"%PDF")
+        return head.startswith(b"\x89PNG")
+    except Exception:
+        return False
+
+
 async def save_document(page, name: str, user_name: str = "") -> Optional[str]:
     """발급된 서류 페이지를 파일로 '반드시' 저장한다.
     1순위 PDF(CDP Page.printToPDF — headed에서도 시도), 실패 시 전체 스크린샷(PNG) 폴백.
+    저장 후 무결성(_looks_valid_doc)까지 통과해야 성공 — 깨진 PDF는 지우고 PNG로 폴백.
     저장 경로를 반환하고, 완전 실패 시 None.
     """
     try:
@@ -287,14 +303,19 @@ async def save_document(page, name: str, user_name: str = "") -> Optional[str]:
         if data:
             out = base.with_suffix(".pdf")
             out.write_bytes(base64.b64decode(data))
-            return str(out)
+            if _looks_valid_doc(out):
+                return str(out)
+            out.unlink(missing_ok=True)  # 깨진 PDF를 성공으로 두지 않음 → PNG 폴백으로
     except Exception:
         pass
-    # 2) 스크린샷 폴백 — 어떤 경우에도 증빙은 남긴다
+    # 2) 스크린샷 폴백 — 어떤 경우에도 증빙은 남긴다(단, 이것도 무결성 통과해야 성공)
     try:
         out = base.with_suffix(".png")
         await page.screenshot(path=str(out), full_page=True)
-        return str(out)
+        if _looks_valid_doc(out):
+            return str(out)
+        out.unlink(missing_ok=True)
+        return None
     except Exception:
         return None
 
