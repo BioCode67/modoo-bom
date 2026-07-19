@@ -80,7 +80,7 @@ export function RpaShowcase() {
                   title={`Windows 설치 파일(${APP_VERSION})을 바로 내려받아요 — 실행 후 '추가 정보 → 실행'을 누르면 설치돼요`}
                 >
                   <Download className="h-4 w-4" /> Windows 앱 바로 받기
-                  <span className="ml-1.5 rounded-full bg-white/25 px-1.5 py-0.5 text-[10px] font-bold">{APP_VERSION}</span>
+                  <span className="ml-1.5 rounded-full bg-white px-1.5 py-0.5 text-[10px] font-extrabold text-sprout-700">{APP_VERSION}</span>
                 </a>
                 <a
                   href={AGENT_RELEASES_URL} target="_blank" rel="noopener noreferrer"
