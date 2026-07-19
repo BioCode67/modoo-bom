@@ -14,7 +14,14 @@ import { formatWon } from '@/lib/format'
 import { speakableText } from '@/lib/speakable'
 import { cn } from '@/lib/utils'
 
-interface Turn { role: 'user' | 'bot'; text: string; policies?: AgentReply['policies']; cta?: AgentReply['cta'] }
+interface Turn {
+  role: 'user' | 'bot'
+  text: string
+  policies?: AgentReply['policies']
+  cta?: AgentReply['cta']
+  /** CTA를 실제로 눌렀을 때만 실행할 부수효과(예: AI 검색 프리필) — 답변 시점에 심으면 ESC 후에도 상태가 남는다 */
+  act?: () => void
+}
 
 /**
  * 📞 새싹이와 통화하기 — 어르신 우선 '음성 통화형' 상담.
@@ -53,8 +60,8 @@ export function VoiceCall({ open, onClose, presetLang }: { open: boolean; onClos
   turnsRef.current = turns
   const listRef = useRef<HTMLDivElement>(null)
 
-  const say = (r: AgentReply, speakLang?: string) => {
-    setTurns((t) => [...t, { role: 'bot', text: r.text, policies: r.policies, cta: r.cta }])
+  const say = (r: AgentReply, speakLang?: string, act?: () => void) => {
+    setTurns((t) => [...t, { role: 'bot', text: r.text, policies: r.policies, cta: r.cta, act }])
     // 해당 언어 보이스가 없는 브라우저에서 외국어를 한국어 보이스로 읽으면 발음이 깨진다 → 자막만(정직한 축소)
     if (!mutedRef.current && (!speakLang || tts.hasVoice(speakLang))) tts.speak(speakableText(r.text), speakLang)
   }
@@ -72,10 +79,11 @@ export function VoiceCall({ open, onClose, presetLang }: { open: boolean; onClos
       const route = voiceRouteLang(q)
       if (route !== 'ko') {
         const r = routeReplyFor(route)
-        setAiQuery(q)
-        setAiIntent(true)
         if (VOICE_LANGS[route]) setLang(route) // 다음 발화부터 마이크·버튼도 그 언어로
-        say({ text: r.text, cta: { view: 'explore', label: r.cta } }, r.speakLang)
+        // 프리필은 CTA를 '눌렀을 때만' — 답변 시점에 심으면 ESC로 닫아도 aiIntent가 남아
+        // 나중에 무관한 탐색 진입에서 옛 외국어 질의가 튀어나온다(스테일 상태 잔존 방지)
+        say({ text: r.text, cta: { view: 'explore', label: r.cta } }, r.speakLang,
+          () => { setAiQuery(q); setAiIntent(true) })
         setThinking(false)
         return
       }
@@ -194,7 +202,7 @@ export function VoiceCall({ open, onClose, presetLang }: { open: boolean; onClos
               {t.text}
               {t.role === 'bot' && t.cta && (
                 <button
-                  onClick={() => { setView(t.cta!.view); onClose() }}
+                  onClick={() => { t.act?.(); setView(t.cta!.view); onClose() }}
                   className="btn-primary mt-3 w-full !py-3 text-base"
                 >
                   {t.cta.label} →
