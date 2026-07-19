@@ -27,7 +27,14 @@ def run() -> bool:
         pg = ctx.new_page()
         perrs = []
         pg.on("pageerror", lambda e: perrs.append(str(e)))
-        pg.goto(SITE, wait_until="networkidle", timeout=60000)
+        try:
+            pg.goto(SITE, wait_until="networkidle", timeout=60000)
+        except Exception as e:  # 프록시/망 차단 환경 — 코드 결함이 아님을 명확히(detail-smoke와 동일 규약)
+            if "ERR_TUNNEL" in str(e) or "ERR_PROXY" in str(e) or "ERR_NAME" in str(e):
+                print(f"[i18n] ⚠️ 라이브 사이트 접근 불가(네트워크/프록시 차단): {SITE}")
+                print("[i18n] ⚠️ 이 스위트는 라이브 배포 검증용 — 인터넷 연결 환경에서 재실행하세요.")
+                sys.exit(2)  # 거짓 OK/원인불명 트레이스백 방지 — 환경코드로 종료
+            raise
         pg.wait_for_timeout(800)
         vi_banner = pg.locator("text=Dùng tiếng Việt").count() > 0
         print(f"[vi-VN] 언어 제안 배너 노출: {'OK' if vi_banner else '실패'}")
