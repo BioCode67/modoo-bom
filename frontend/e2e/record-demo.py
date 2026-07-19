@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """시연영상 초안 녹화 — 30초 투표용 핵심 여정을 실브라우저로 녹화(.webm).
-여정: 홈 → 한 문장 입력(타이핑) → 분석 결과(64만원) → 챗 '다 담아줘' → 서류 준비 도우미.
+여정: 홈 → 한 문장 입력(타이핑) → 분석 결과(64만원) → 챗 '다 담아줘' →
+      📞 통화 상담(질문→답변, 🇻🇳 다국어 전환) → 서류 준비 도우미.
 실행: backend\\venv\\Scripts\\python.exe frontend\\e2e\\record-demo.py
 출력: frontend/e2e/demo-video/*.webm (유튜브 업로드 가능)
 """
@@ -78,7 +79,23 @@ def main():
             pg.keyboard.press("Enter")
             pg.wait_for_selector("text=담았어요", timeout=10000)
             pg.wait_for_timeout(1800)
+
+            # 📞 통화형 상담 — 말로 묻고 소리로 듣는 상담(+다국어) 하이라이트
+            pg.click('[aria-label="음성 통화 상담으로 전환"]')
+            pg.wait_for_selector('[role="dialog"][aria-label="새싹이와 통화 상담"]', timeout=8000)
+            pg.wait_for_timeout(1600)  # 인사 브리핑 감상
+            call_in = pg.locator('[aria-label="말 대신 입력하기"]')
+            call_in.press_sequentially("기초연금 알려줘", delay=80)
+            pg.wait_for_timeout(400)
+            pg.click('[aria-label="입력 보내기"]')
+            pg.wait_for_selector("text=기초연금", timeout=8000)
+            pg.wait_for_timeout(2000)  # 큰 글씨 답변 감상
+            # 🌍 다국어: 베트남어 전환 → 자국어 인사(외국인 무장벽 한 컷)
+            pg.select_option('select[aria-label="상담 언어 선택 (Language)"]', "vi")
+            pg.wait_for_selector("text=Xin chào", timeout=6000)
+            pg.wait_for_timeout(2000)
             pg.keyboard.press("Escape")
+            pg.wait_for_timeout(400)
 
             # 나의 복지 → 서류 준비 도우미
             pg.click("text=나의 복지"); pg.wait_for_timeout(1800)
