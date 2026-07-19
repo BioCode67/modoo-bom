@@ -686,9 +686,11 @@ async def _issue_family_cert_efamily(page, task, context, user_info: dict = None
                     if (/^추가정보확인/.test(head)) {
                         const sel = tr.querySelector('select');
                         if (sel && v.parentKind) {
-                            const opt = [...sel.options].find(o => o.text.includes(v.parentKind + ' 성명'));
-                            if (opt) { sel.value = opt.value; sel.dispatchEvent(new Event('change', {bubbles: true})); }
+                            // 실측: 옵션 표기가 '부  성명'처럼 공백이 여럿일 수 있음 → 공백 제거 비교(관대 매칭)
+                            const opt = [...sel.options].find(o => o.text.replace(/\\s+/g, '').includes(v.parentKind + '성명'));
+                            if (opt && sel.value !== opt.value) { sel.value = opt.value; sel.dispatchEvent(new Event('change', {bubbles: true})); }
                         }
+                        // select 변경이 입력칸을 초기화할 수 있어 '마지막에' 채운다
                         put(inputs[inputs.length - 1], v.parentName);
                     }
                 }
@@ -718,31 +720,56 @@ async def _issue_family_cert_efamily(page, task, context, user_info: dict = None
             await take_screenshot(page),
         )
 
-    # ③ 간편인증 모달 등장 대기 → 카카오톡 선택 + 휴대폰 채움 + 전체동의(마지막). 인증요청은 본인(뒷자리 필요).
+    # ③ 간편인증 모달 등장 대기 → 카카오톡 선택 + 휴대폰·주민번호 채움 + 전체동의(마지막).
+    #    ⚠️ 실사용: 휴대폰이 placeholder 그대로 남음 — 모달이 iframe 안에 렌더될 수 있어(정부24 simpleCert
+    #    유사 위젯) '모든 프레임'에서 텍스트를 모으고, 모달이 있는 프레임(ctx)에 직접 입력한다.
+    async def _all_text(pg) -> str:
+        parts = []
+        for fr in pg.frames:
+            try:
+                t = await fr.evaluate("() => document.body ? document.body.innerText : ''")
+                if t:
+                    parts.append(t)
+            except Exception:
+                continue
+        return "\n".join(parts)
+
+    async def _modal_ctx(pg):
+        # '인증 요청'이 보이는 프레임을 모달 컨텍스트로 — 메인 문서에 있으면 page 그대로
+        for fr in pg.frames:
+            try:
+                t = await fr.evaluate("() => document.body ? document.body.innerText : ''")
+                if t and ("인증 요청" in t or "인증요청" in t):
+                    return fr
+            except Exception:
+                continue
+        return pg
+
     modal_ready = False
     for _w in range(240):  # 최대 ~8분(약관·정보 입력 + 인증까지 사람 속도)
         check_cancel(task, context)
         try:
-            body = await page.evaluate("() => document.body ? document.body.innerText : ''")
+            body = await _all_text(page)
         except Exception:
             body = ""
         # 인증 완료 후 화면(신청 폼)으로 이미 넘어갔으면 ④로
         if ("신청하기" in body or "일반증명서" in body) and "인증 요청" not in body:
             modal_ready = False
             break
-        if (not modal_ready) and ("인증 요청" in body and "전체동의" in body):
+        if (not modal_ready) and (("인증 요청" in body or "인증요청" in body) and "전체동의" in body):
             modal_ready = True
-            await click_provider_in_anyid(page, provider)
+            ctx = await _modal_ctx(page)  # 모달이 iframe이면 그 프레임에 직접 입력(실사용: 휴대폰 미입력 원인)
+            await click_provider_in_anyid(ctx, provider)
             await asyncio.sleep(0.6)
             try:
-                await page.evaluate(
+                await ctx.evaluate(
                     """(v) => {
                         const fire = (el) => { el.dispatchEvent(new Event('input', {bubbles: true})); el.dispatchEvent(new Event('change', {bubbles: true})); };
                         const put = (el, val) => { if (el && val && !el.value) { el.value = val; fire(el); } };
                         for (const tr of document.querySelectorAll('tr, li, div')) {
                             const t = (tr.innerText || '').trim();
                             if (t.length > 80) continue;
-                            if (t.includes('휴대폰')) {
+                            if (t.includes('휴대폰') || t.includes('핸드폰')) {
                                 put([...tr.querySelectorAll("input[type=text], input[type=tel], input:not([type])")].pop(), v.tail);
                             }
                             if (t.includes('주민등록번호')) {
@@ -761,11 +788,11 @@ async def _issue_family_cert_efamily(page, task, context, user_info: dict = None
                 )
             except Exception:
                 pass
-            await _check_agree_all(page)  # 전체동의는 제공자 선택 뒤 '마지막에'(동의 리셋 방지 — 정부24와 동일 순서)
+            await _check_agree_all(ctx)  # 전체동의는 제공자 선택 뒤 '마지막에'(동의 리셋 방지 — 정부24와 동일 순서)
             if rrn7:
                 # 전부 채웠으니 [인증 요청]까지 자동 — 본인은 폰에서 [인증 허용]만(HITL 유지)
                 await asyncio.sleep(0.5)
-                await _request_auth(page)
+                await _request_auth(ctx)
                 task.update(
                     "waiting_login",
                     "📱 인증창을 모두 채우고 '인증 요청'까지 눌렀어요.\n폰에서 [인증 허용]만 누르시면 다음 단계로 자동 진행돼요.",
