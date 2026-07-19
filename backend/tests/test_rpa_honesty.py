@@ -127,6 +127,40 @@ def test_journey_success_from_result_not_status():
     assert 'any(s["status"] in ("done", "completed") for s in j["steps"])' not in src
 
 
+def test_manual_apply_result_stays_unsuccessful_in_journey(monkeypatch):
+    """신청 페이지 도달만 한 단계는 done으로 종료돼도 성공/양식준비로 집계되지 않는다."""
+    from rpa import orchestrator
+
+    async def run():
+        async def manual_only(task, service_name, profile):
+            task.result = {
+                "success": False,
+                "status": "manual_required",
+                "manual_apply": True,
+                "form_detected": False,
+                "filled_fields": [],
+                "attached_docs": [],
+            }
+            task.update("done", "신청 페이지 안내 완료")
+
+        from rpa import apply_rpa
+        monkeypatch.setattr(apply_rpa, "run_apply_rpa", manual_only)
+        jid, _, _ = orchestrator.start_journey([], ["청년월세지원"], "홍", {}, {})
+        for _ in range(200):
+            await asyncio.sleep(0.01)
+            if orchestrator._journeys[jid]["status"] in ("completed", "error", "cancelled"):
+                break
+        journey = orchestrator._journeys.pop(jid)
+        step = journey["steps"][0]
+        assert step["status"] == "done"       # 러너 자체는 정상 종료
+        assert step["success"] is False       # 양식 준비 성공은 아님
+        assert step["result_status"] == "manual_required"
+        assert step["manual_apply"] is True
+        assert journey["status"] == "error"  # 성공 단계 0건
+
+    _run(run())
+
+
 def test_journey_uses_bounded_cleanup_not_wait_for():
     """여정 단계 실행이 wait_for(무한 정리 슬롯누수) 대신 asyncio.wait+유계정리 패턴을 쓰는지 계약 고정(감사).
     또 하드취소가 '지금 도는' 단계를 정확히 지목하도록 current_task_id 를 세팅한다."""

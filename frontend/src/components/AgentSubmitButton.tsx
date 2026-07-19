@@ -16,7 +16,18 @@ import { playAuthCue, isAuthWaitTransition } from '@/lib/authCue'
 import { RpaInfoForm } from '@/components/RpaInfoForm'
 import { useAppStore } from '@/store/useAppStore'
 
-type RunState = { status: string; step: string; shot?: string; at?: number; taskId?: string } | null
+type RunState = {
+  status: string
+  step: string
+  shot?: string
+  at?: number
+  taskId?: string
+  success?: boolean
+  resultStatus?: string
+  filledFields?: string[]
+  attachedDocs?: string[]
+  manualApply?: boolean
+} | null
 
 /**
  * 에이전트 신청 자동화 — 정직한 human-in-the-loop.
@@ -53,7 +64,10 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
       const isAuthWait = s.status === 'waiting' && /\[인증 허용\]|인증 허용|📱/.test(s.step || '')
       if (isAuthWait && !extAuthWait) { playAuthCue(); titleBadge('📱 자동신청 — 휴대폰 인증 승인 필요') }
       extAuthWait = isAuthWait
-      setRun({ status: s.status, step: s.step, at: Date.now() })
+      setRun({
+        status: s.status, step: s.step, at: Date.now(),
+        success: ['done', 'completed'].includes(s.status) ? true : undefined,
+      })
     })
     return () => { clearInterval(t); off() }
   }, [policy.name])
@@ -181,7 +195,6 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
         throw new Error(detail || (res.status === 503 ? '지금은 자동 신청이 어려워요 — 공식 신청 페이지로 진행해 주세요.' : '이 서비스는 자동 신청을 지원하지 않아요'))
       }
       const { task_id, download_token } = await res.json()
-      armReturnConfirm() // 로컬 에이전트가 복지로 창을 여는 중 — 복귀 시 '신청하셨나요?' 확인으로 사후관리 진입
       rememberLive('apply', policy.id, { taskId: task_id, token: download_token || '' }) // 새로고침·뷰 이탈 복원용
       setRun((prev) => ({ status: prev?.status || 'running', step: prev?.step || '', shot: prev?.shot, at: startedAt, taskId: task_id }))
       await pollApply(task_id, download_token || '', startedAt, gen)
@@ -199,11 +212,12 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
     let failStreak = 0
     let prevBody = '' // 직전 응답 원문 — 같으면 setState 생략(불필요 리렌더 제거)
     let prevStatus = '' // 📱 인증 대기 '전이' 감지용
+    let returnArmed = false // 실제 양식 준비 신호를 처음 받은 뒤에만 복귀 확인 예약
     // 폴링 상한을 백엔드 대기창(로그인 5분 + 검토 10분) 이상으로 — 인증이 느려도 UI가 완료 전에 멈추지 않게
     for (let i = 0; i < 800; i++) { // 최대 ~20분
       await new Promise((r) => setTimeout(r, 1500))
       if (!mountedRef.current || genRef.current !== gen) return  // 언마운트/재시작 시 폴링 종료(감사 :145)
-      let st: { status?: string; current_step?: string; screenshot_b64?: string }
+      let st: { status?: string; current_step?: string; screenshot_b64?: string; result?: { success?: boolean; status?: string; filled_fields?: string[]; attached_docs?: string[]; manual_apply?: boolean } }
       let bodyTxt = ''
       try {
         const resp = await fetch(`${getRpaBase()}/api/apply/status/${task_id}${tq}`)
@@ -232,14 +246,27 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
       if (!mountedRef.current || genRef.current !== gen) return
       prevBody = bodyTxt
       // ⚠️ at을 유지해야(감사 :106) 30초 후 '멈춘 듯' 탈출구(공식 신청/처음부터 다시)가 뜬다 — 과거엔 at 누락으로 영영 안 떴다.
-      setRun({ status: st.status || 'running', step: st.current_step || st.status || '', shot: st.screenshot_b64 || undefined, at: startedAt, taskId: task_id })
+      const result = st.result || {}
+      setRun({
+        status: st.status || 'running', step: st.current_step || st.status || '',
+        shot: st.screenshot_b64 || undefined, at: startedAt, taskId: task_id,
+        success: result.success, resultStatus: result.status,
+        filledFields: result.filled_fields, attachedDocs: result.attached_docs,
+        manualApply: result.manual_apply,
+      })
+      if (result.success === true && !returnArmed) {
+        armReturnConfirm()
+        returnArmed = true
+      }
       // 📱 인증 대기로 넘어가는 순간 알림음 + 탭 제목 배지 — 화면을 안 보고 있어도 폰을 집게
       if (isAuthWaitTransition(prevStatus, st.status)) { playAuthCue(); titleBadge('📱 자동신청 — 휴대폰 인증 승인 필요') }
       prevStatus = st.status || ''
       if (['done', 'error', 'completed', 'cancelled'].includes(st.status || '')) {
         forgetLive('apply', policy.id) // 종결 — 복원 대상에서 제거
         // 다른 탭에 가 있으면 탭 제목으로 알림(신청 양식 준비/확인 필요) — 돌아오면 자동 원복
-        titleBadge(st.status === 'done' || st.status === 'completed' ? '✅ 신청 양식 준비됨 — 모두봄' : '⚠️ 자동신청 확인 필요 — 모두봄')
+        titleBadge((st.status === 'done' || st.status === 'completed') && result.success === true
+          ? '✅ 신청 양식 준비됨 — 모두봄'
+          : '⚠️ 자동신청 확인 필요 — 모두봄')
         break
       }
     }
@@ -259,6 +286,8 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
   }
 
   const done = run && ['done', 'error', 'completed', 'cancelled'].includes(run.status)
+  const prepared = !!(run && ['done', 'completed'].includes(run.status) && run.success === true)
+  const manualRequired = !!(run && ['done', 'completed'].includes(run.status) && run.success !== true)
   // 30초 넘게 진행상태가 안 오면(새 탭에서 본인인증 대기 등) 멈춘 게 아니라는 걸 정직하게 안내
   const stale = !!(run && !done && run.at && Date.now() - run.at > 30000 && tick >= 0)
 
@@ -313,7 +342,10 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
       ) : (
         <div className="mt-3">
           <p className="text-xs flex items-center gap-1.5">
-            {run.status === 'error' ? <AlertCircle className="h-4 w-4 text-rose-500" /> : done ? <ShieldCheck className="h-4 w-4 text-success-500" /> : <Loader2 className="h-4 w-4 animate-spin text-sprout-500" />}
+            {run.status === 'error' ? <AlertCircle className="h-4 w-4 text-rose-500" />
+              : manualRequired ? <AlertCircle className="h-4 w-4 text-amber-600" />
+              : done ? <ShieldCheck className="h-4 w-4 text-success-500" />
+              : <Loader2 className="h-4 w-4 animate-spin text-sprout-500" />}
             <span className="font-medium flex-1">{run.step}</span>
             {/* 진행 중 [중단] — 멈춘 신청의 복구 수단(로컬 에이전트 취소). 30초 스테일 배너보다 먼저 쓸 수 있게. */}
             {!done && canLocal && <button onClick={reset} className="shrink-0 rounded-lg border border-rose-200 bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-600 hover:bg-rose-100">⏹ 중단</button>}
@@ -331,9 +363,11 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
           {run.shot && (
             <img src={`data:image/jpeg;base64,${run.shot}`} alt="에이전트 진행 화면" className="mt-2 w-full rounded-xl border border-sprout-100" />
           )}
-          {done && (run.status === 'done' || run.status === 'completed') && (
+          {prepared && (
             <div className="mt-2">
-              <p className="text-[11px] text-muted-foreground">브라우저 창에서 본인인증 후 내용을 확인하고 최종 제출해 주세요.</p>
+              <p className="text-[11px] text-muted-foreground">
+                신청 양식 준비를 확인했어요{run.filledFields?.length ? ` · 기본정보 ${run.filledFields.length}개 입력` : ''}{run.attachedDocs?.length ? ` · 서류 ${run.attachedDocs.length}건 첨부` : ''}. 브라우저 창에서 내용을 확인하고 최종 제출해 주세요.
+              </p>
               {/* 같은 창에서 제출까지 끝낸 사용자의 기록 경로 — 복귀 확인(탭 전환 감지)에만 의존하지 않게(감사 갭).
                   사용자가 직접 눌러야만 기록(자동 낙관처리 금지, 정직성). */}
               <div className="mt-2 flex flex-wrap gap-2">
@@ -355,14 +389,21 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
               </div>
             </div>
           )}
-          {done && run.status !== 'done' && run.status !== 'completed' && (
-            /* 오류·중단 종결 — 기존엔 재시도 수단이 없어 막다른 UI였음(시작 버튼이 run 상태에 가려짐) */
-            <div className="mt-2 flex flex-wrap gap-2">
+          {done && !prepared && (
+            /* 오류·중단·수동필요 종결 — 자동 양식 준비를 성공으로 보이지 않고 복구 경로를 제공한다. */
+            <div className="mt-2">
+              {manualRequired && (
+                <p className="mb-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-semibold leading-relaxed text-amber-800">
+                  복지로 신청 페이지에는 도달했지만 자동 입력·첨부 완료는 확인되지 않았어요. 열린 창에서 신청 양식을 직접 열고 진행해 주세요.
+                </p>
+              )}
+              <div className="flex flex-wrap gap-2">
               <button onClick={reset} className="rounded-xl border-2 border-sprout-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-sprout-700 hover:bg-sprout-50">↻ 처음부터 다시</button>
               <a href={bestApplyUrl(policy.application, policy.name, policy.id)} target="_blank" rel="noopener noreferrer"
                 className="rounded-xl border-2 border-sky2-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-sky2-700 hover:bg-sky2-50">
                 공식 페이지에서 직접 신청
               </a>
+              </div>
             </div>
           )}
         </div>
