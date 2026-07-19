@@ -15,7 +15,7 @@
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { background: #e8ede6; }
   body { font-family: 'Pretendard Variable', Pretendard, 'Noto Sans CJK KR', sans-serif; color: #16281c; word-break: keep-all;
-    -webkit-font-smoothing: antialiased; letter-spacing: -0.01em; }
+    -webkit-font-smoothing: antialiased; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
   .slide {
     width: 1280px; height: 720px; position: relative; overflow: hidden;
     background: linear-gradient(90deg,#15803d,#22c55e 55%,#84cc16) top/100% 5px no-repeat,
@@ -76,17 +76,24 @@
     background:#dcf6dc; border:2px solid #a7e3b4; font-size:23px; flex-shrink:0; box-shadow:0 4px 12px rgba(22,101,52,.10); }
   .kpi { font-size:46px; font-weight:900; line-height:1; background:linear-gradient(92deg,#15803d,#22c55e);
     -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .slide.dark { background: radial-gradient(1100px 560px at 50% -12%, rgba(52,211,153,.16), transparent 60%),
+    linear-gradient(158deg,#103c24 0%,#0c2e1c 56%,#0a2517 100%); color:#eafaf0; }
+  .slide.dark::before, .slide.dark::after { display:none; }
+  .slide.dark .muted { color:#a7c9b4; }
+  .slide.dark .pill { background:rgba(255,255,255,.07); border:1.5px solid rgba(255,255,255,.22); color:#eafaf0; box-shadow:none; }
+  .slide.dark .foot { color:#84a892; }
+  .gradL { background:linear-gradient(90deg,#4ade80,#a3e635); -webkit-background-clip:text; background-clip:text; color:transparent; }
   table { word-break: keep-all; }
 </style>
 </head>
 <body>
 
 <!-- S1 표지 -->
-<section class="slide">
+<section class="slide dark">
   <div class="pad" style="justify-content:center; align-items:center; text-align:center;">
-    <div style="width:120px; height:120px; border-radius:38px; margin-bottom:16px; display:flex; align-items:center; justify-content:center; font-size:68px; background:radial-gradient(circle at 50% 38%, #eafce9, #d6f5d6); border:3px solid #a7e3b4; box-shadow:0 18px 44px rgba(22,101,52,.20);"><svg width="62" height="62" viewBox="0 0 64 64" aria-hidden="true"><path d="M32 60 V33" stroke="#15803d" stroke-width="5" stroke-linecap="round"/><ellipse cx="21" cy="27" rx="14" ry="8" fill="#22c55e" transform="rotate(-32 21 27)"/><ellipse cx="43" cy="25" rx="14" ry="8" fill="#4ade80" transform="rotate(30 43 25)"/></svg></div>
-    <h1 style="font-size:92px;"><span class="grad">모두봄</span></h1>
-    <p style="font-size:29px; font-weight:800; margin-top:8px;">몰라서 못 받는 복지를 찾아주는<br/><span class="grad">개인 복지 AI 에이전트</span></p>
+    <div style="width:120px; height:120px; border-radius:38px; margin-bottom:16px; display:flex; align-items:center; justify-content:center; font-size:68px; background:rgba(255,255,255,.06); border:1.5px solid rgba(255,255,255,.16); box-shadow:0 18px 44px rgba(0,0,0,.28);"><svg width="62" height="62" viewBox="0 0 64 64" aria-hidden="true"><path d="M32 60 V33" stroke="#86efac" stroke-width="5" stroke-linecap="round"/><ellipse cx="21" cy="27" rx="14" ry="8" fill="#4ade80" transform="rotate(-32 21 27)"/><ellipse cx="43" cy="25" rx="14" ry="8" fill="#a3e635" transform="rotate(30 43 25)"/></svg></div>
+    <h1 style="font-size:92px;"><span class="gradL">모두봄</span></h1>
+    <p style="font-size:29px; font-weight:800; margin-top:8px; color:#eafaf0;">몰라서 못 받는 복지를 찾아주는<br/><span class="gradL">개인 복지 AI 에이전트</span></p>
     <p class="muted" style="font-size:18px; margin-top:18px; font-weight:600;">찾기 → 이해 → 서류·신청 실행 → 사후관리까지 · 개인정보는 내 기기 안에서만</p>
     <div style="display:flex; gap:10px; margin-top:24px; flex-wrap:wrap; justify-content:center;">
       <span class="pill"> 온디바이스 AI</span>
@@ -95,7 +102,7 @@
       <span class="pill"> 서버 전송 0</span>
     </div>
     <div style="margin-top:22px;">
-      <span class="pill" style="background:linear-gradient(90deg,#14532d,#1c6b3c); color:#eafbea; border-color:transparent;">● 라이브 운영 중 · biocode67.github.io/modoo-bom</span>
+      <span class="pill" style="background:#22c55e; color:#06331c; border-color:transparent; box-shadow:0 8px 22px rgba(34,197,94,.30); font-weight:800;">● 라이브 운영 중 · biocode67.github.io/modoo-bom</span>
     </div>
     <p class="muted" style="font-size:17px; margin-top:28px; font-weight:700;">2026 AI·SW 중심대학 디지털 경진대회 SW부문 본선 · 영남대학교 팀 모두봄</p>
     <p class="muted" style="font-size:16px; margin-top:6px; font-weight:600;">김주형 · 류다영 · 신주현 · 이준영 · 장지웅</p>
@@ -523,14 +530,14 @@
 </section>
 
 <!-- S9 마무리 -->
-<section class="slide">
+<section class="slide dark">
   <div class="pad" style="justify-content:center; align-items:center; text-align:center;">
-    <p style="font-size:34px; font-weight:900; line-height:1.5;">김복순 님 같은 분이 전국에 <span class="grad">수백만</span>입니다.</p>
-    <p style="font-size:34px; font-weight:900; margin-top:6px;">모두봄이 그분들의 <span class="grad">몰랐던 권리</span>를 찾아드리겠습니다.</p>
+    <p style="font-size:34px; font-weight:900; line-height:1.5; color:#eafaf0;">김복순 님 같은 분이 전국에 <span class="gradL">수백만</span>입니다.</p>
+    <p style="font-size:34px; font-weight:900; margin-top:6px; color:#eafaf0;">모두봄이 그분들의 <span class="gradL">몰랐던 권리</span>를 찾아드리겠습니다.</p>
     <div style="display:flex; align-items:center; gap:26px; margin-top:44px;">
-      <img src="../기획서자료/qr-live.png" alt="라이브 서비스 QR" style="width:170px; height:170px; border-radius:18px; border:3px solid #bbe3bb;" />
+      <img src="../기획서자료/qr-live.png" alt="라이브 서비스 QR" style="width:170px; height:170px; border-radius:16px; border:1px solid rgba(255,255,255,.2); background:#fff; box-sizing:border-box; padding:8px;" />
       <div style="text-align:left;">
-        <p style="font-weight:900; font-size:24px;">지금 바로 체험하세요</p>
+        <p style="font-weight:900; font-size:24px; color:#eafaf0;">지금 바로 체험하세요</p>
         <p class="muted" style="font-size:19px; font-weight:700; margin-top:6px;">biocode67.github.io/modoo-bom<br/>설치 없이 · 로그인 없이 · 30초</p>
       </div>
     </div>
