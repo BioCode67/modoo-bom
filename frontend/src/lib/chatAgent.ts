@@ -19,6 +19,8 @@ export interface AgentReply {
   policies?: Policy[]
   /** 이어서 하면 좋은 다음 행동(뷰 이동) */
   cta?: { view: 'analyze' | 'explore' | 'my'; label: string }
+  /** 💬→🖨 CTA가 뷰 이동에 더해 이 서류의 자동발급을 시작해야 함(데스크탑 에이전트 연결 시에만 설정) */
+  issueDoc?: string
 }
 
 const HH = (p: UserProfile) => [p.age > 0 ? `${p.age}세` : '', p.household_type].filter(Boolean).join('·')
@@ -179,6 +181,43 @@ export function applyReply(tracked: TrackedItem[], agentOn = false): AgentReply 
   }
 }
 
+// 💬→🖨 "등본 발급해줘/떼줘" — 서류를 '지목'하고 발급을 '요청'하는 실행 의도(방법 질문 DOCS_RE와 구분).
+//   생활어 축약(등본·초본 등)도 정식 발급명으로 해석 — 지원 서류가 실제로 지목된 경우에만 발동(오발동 방지).
+const ISSUE_VERB_RE = /(발급|떼|띠|뽑|출력)(아|어|해|받)?\s*(줘|주세요|주라|줄래|봐|자|버려|해줘|하고\s*싶|받고\s*싶|해야|할래|할게)|발급\s*(부탁|고고|ㄱ)|(떼|뽑)고\s*싶/
+const ISSUE_SHORT_ALIASES: Record<string, string> = {
+  등본: '주민등록등본', 초본: '주민등록초본', 가족관계: '가족관계증명서', 가족증명: '가족관계증명서',
+  소득증명: '소득금액증명', 소득금액: '소득금액증명', 수급자증명: '기초생활수급자 증명서',
+  한부모증명: '한부모가족 증명서', 병적: '병적증명서', 출입국사실: '출입국에 관한 사실증명',
+}
+
+/**
+ * "등본 발급해줘" 실행 의도 해석 — 발급 동사 + 지원 서류명(정식명 또는 생활어 축약)이 함께 있을 때만
+ * 그 서류의 정식 발급명을 반환(없으면 null = 실행 의도 아님 → 기존 방법 안내로 폴백).
+ * 실제 발급 시작·인증정보 가드는 서류 도우미의 기존 경로가 수행한다(여기는 해석만 — 부작용 없음).
+ */
+export function matchIssueIntent(raw: string, supportedDocs: string[]): string | null {
+  const t = raw.replace(/\s/g, '')
+  if (!ISSUE_VERB_RE.test(raw) && !/발급해/.test(t)) return null
+  // ① 정식 발급명 직접 지목(공백 무시) — 긴 이름 우선(예: '주민등록등본'이 '등본'보다 먼저)
+  const direct = [...supportedDocs].sort((a, b) => b.length - a.length)
+    .find((d) => t.includes(d.replace(/\s/g, '')))
+  if (direct) return direct
+  // ② 생활어 축약 — 해석된 정식명이 지원 목록에 있을 때만(β 해제 등으로 빠진 서류를 안내하지 않게)
+  for (const [short, full] of Object.entries(ISSUE_SHORT_ALIASES)) {
+    if (t.includes(short) && supportedDocs.includes(full)) return full
+  }
+  return null
+}
+
+/** "등본 발급해줘" 응답 — CTA 한 번이면 나의 복지로 이동해 그 서류의 자동발급이 바로 시작된다. */
+export function issueReply(doc: string): AgentReply {
+  return {
+    text: `「${doc}」 자동발급을 시작할 준비가 됐어요. 아래 버튼을 누르면 서류 도우미로 이동해 바로 발급을 시작해요 — 실명·생년월일·휴대폰이 아직 비어 있으면 입력칸으로 안내해 드리고, 📱 카카오/PASS 인증 승인만 직접 해주시면 됩니다. 발급물은 🗂 서류함에 저장되고 신청 때 자동첨부돼요.`,
+    cta: { view: 'my', label: `${doc} 자동발급 시작` },
+    issueDoc: doc,
+  }
+}
+
 const SAVE_RE = /담(아|어|을|기|아줘|아둬|아주|아 줘)|저장|추가|찜|관심\s*목록|넣어/
 // 조회 의도 — "관심목록 보여줘/찜 목록 알려줘/저장된 거 뭐야"는 저장이 아니라 '보기' 요청.
 // SAVE_RE 단독 판정 시 조회 문장이 전체 저장으로 오인되던 결함(감사 실측) 차단.
@@ -216,10 +255,16 @@ export function isLocalIntent(raw: string): boolean {
 }
 
 /** 메인 진입점 — 자유문장을 의도로 나눠 개인화·행동형으로 응답 */
-export function agentReply(raw: string, ctx: { profile: UserProfile | null; result: AnalysisResult | null; tracked?: TrackedItem[]; agentOn?: boolean }): AgentReply {
+export function agentReply(raw: string, ctx: { profile: UserProfile | null; result: AnalysisResult | null; tracked?: TrackedItem[]; agentOn?: boolean; issueDocs?: string[] }): AgentReply {
   const q = raw.trim()
   if (!q) return { text: '' }
   if (GREET_RE.test(q)) return greetingReply(ctx.profile, [])
+  // 💬→🖨 실행 의도("등본 발급해줘")는 방법 질문(DOCS_RE)보다 먼저 — 서류가 지목된 경우에만 발동.
+  //   데스크탑 에이전트가 연결됐을 때만(웹은 기존 전자증명서 경로 안내 유지).
+  if (ctx.agentOn && ctx.issueDocs?.length) {
+    const doc = matchIssueIntent(q, ctx.issueDocs)
+    if (doc) return issueReply(doc)
+  }
   if (DOCS_RE.test(q)) return docsReply(ctx.tracked ?? [], ctx.agentOn ?? false)
   if (APPLY_RE.test(q)) return applyReply(ctx.tracked ?? [], ctx.agentOn ?? false)
   if (ELIG_RE.test(q)) return eligibilityReply(ctx.profile, ctx.result)

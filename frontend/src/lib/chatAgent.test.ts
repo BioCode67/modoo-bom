@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { agentReply, greetingReply, matchSaveIntent, docsReply, isLocalIntent } from './chatAgent'
+import { agentReply, greetingReply, matchSaveIntent, matchIssueIntent, issueReply, docsReply, isLocalIntent } from './chatAgent'
 import type { UserProfile, AnalysisResult, EligiblePolicy } from './welfare-engine'
 import type { Policy } from '@/data/policies'
 import type { TrackedItem } from '@/store/useAppStore'
@@ -180,5 +180,30 @@ describe('searchReply 정직성 — 비현금(재가급여 한도)을 월 현금
     expect(line).toContain('재가급여')                 // POL-057이 결과에 노출됨
     expect(/\(월 .*까지\)/.test(line)).toBe(false)     // 한도액을 월 현금처럼 표기 금지
     expect(r.text).not.toMatch(/251만원까지|2,510,000/) // 서비스 한도 금액을 현금으로 오표기 금지
+  })
+})
+
+describe('matchIssueIntent — 💬→🖨 "등본 발급해줘" 실행 의도(데스크탑 다리)', () => {
+  const DOCS = ['주민등록등본', '주민등록초본', '가족관계증명서', '소득금액증명']
+  it('정식 발급명 + 발급 동사 → 그 서류', () => {
+    expect(matchIssueIntent('주민등록등본 발급해줘', DOCS)).toBe('주민등록등본')
+    expect(matchIssueIntent('가족관계증명서 떼줘', DOCS)).toBe('가족관계증명서')
+  })
+  it('생활어 축약(등본·초본·소득증명)도 정식명으로 해석', () => {
+    expect(matchIssueIntent('등본 좀 떼줘', DOCS)).toBe('주민등록등본')
+    expect(matchIssueIntent('초본 발급해주세요', DOCS)).toBe('주민등록초본')
+    expect(matchIssueIntent('소득증명 뽑아줘', DOCS)).toBe('소득금액증명')
+  })
+  it('방법 질문·서류 미지목·미지원 서류는 null(오발동 방지)', () => {
+    expect(matchIssueIntent('서류 발급 어떻게 해?', DOCS)).toBeNull()
+    expect(matchIssueIntent('등본이 뭐예요?', DOCS)).toBeNull()
+    expect(matchIssueIntent('운전면허증 발급해줘', DOCS)).toBeNull()
+    expect(matchIssueIntent('한부모증명 떼줘', DOCS)).toBeNull() // 축약이지만 지원 목록 밖이면 안내하지 않음
+  })
+  it('issueReply — CTA가 나의 복지 + issueDoc(실행 지시)을 함께 담는다', () => {
+    const r = issueReply('주민등록등본')
+    expect(r.cta?.view).toBe('my')
+    expect(r.issueDoc).toBe('주민등록등본')
+    expect(r.text).toContain('인증 승인')  // 본인인증은 직접(정직성 문구)
   })
 })

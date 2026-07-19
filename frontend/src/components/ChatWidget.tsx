@@ -4,7 +4,9 @@ import { MessageCircleHeart, X, Send, Mic, Compass, Sparkles, ArrowRight, Plus, 
 import type { Policy } from '@/data/policies'
 import { useSpeech } from '@/lib/useSpeech'
 import { GUIDE_STEPS, recommend, type GuideAnswers } from '@/lib/guidedChat'
-import { agentReply, greetingReply, matchSaveIntent, isLocalIntent, type AgentReply } from '@/lib/chatAgent'
+import { agentReply, greetingReply, matchSaveIntent, matchIssueIntent, issueReply, isLocalIntent, type AgentReply } from '@/lib/chatAgent'
+import { localRpaDocs } from '@/lib/officialLinks'
+import { requestIssueDoc } from '@/lib/issueBridge'
 import { API_BASE, checkBackend, getCapabilities } from '@/lib/backend'
 import { useBackend } from '@/lib/useBackend'
 import { getCatalog } from '@/data/catalog'
@@ -13,7 +15,7 @@ import { SproutLogo } from '@/ui/SproutLogo'
 import { VoiceCall, type Turn } from '@/components/VoiceCall'
 import { cn } from '@/lib/utils'
 
-interface Msg { role: 'user' | 'bot'; text: string; policies?: Policy[]; cta?: AgentReply['cta']; ai?: boolean; pending?: boolean; pendingId?: string }
+interface Msg { role: 'user' | 'bot'; text: string; policies?: Policy[]; cta?: AgentReply['cta']; issueDoc?: string; ai?: boolean; pending?: boolean; pendingId?: string }
 
 const SUGGESTIONS = ['내가 받을 수 있는 거', '기초연금', '출산·육아', '청년', '실업급여']
 
@@ -148,6 +150,14 @@ export function ChatWidget() {
         ? `${added.join(', ')} 담았어요 ✅ 마감·서류는 제가 챙길게요.`
         : `${toSave.map((p) => p.name).join(', ')}는 이미 담겨 있어요 🙂`
       setTimeout(() => botSay(msg, { cta: { view: 'my', label: '나의 복지 보기' } }), 300)
+      return
+    }
+    // 💬→🖨 "등본 발급해줘" 실행 의도 — 데스크탑 에이전트 연결 시, CTA 한 번으로 실제 자동발급까지 연결.
+    //   클라우드 LLM보다 먼저 판정(행동 의도는 로컬이 정확·즉시 — 담기와 동일 원칙).
+    const issueDoc = agentOn ? matchIssueIntent(q, localRpaDocs()) : null
+    if (issueDoc) {
+      const r = issueReply(issueDoc)
+      setTimeout(() => botSay(r.text, { cta: r.cta, issueDoc: r.issueDoc }), 300)
       return
     }
     // 하이브리드: 행동·개인화 의도는 로컬 에이전트(정확·즉시), 지식 질문은 진짜 LLM(백엔드 시) — 실패하면 규칙 폴백
@@ -306,7 +316,13 @@ export function ChatWidget() {
                         )
                       })}
                       {m.cta && (
-                        <button onClick={() => { setView(m.cta!.view); setOpen(false) }} className="chip text-xs bg-sprout-600 text-white font-bold hover:bg-sprout-700">
+                        <button
+                          onClick={() => {
+                            // 💬→🖨 발급 지목 응답이면 뷰 이동 전에 보류 등록 — 서류 도우미가 마운트 시 이어받아 바로 시작
+                            if (m.issueDoc) requestIssueDoc(m.issueDoc)
+                            setView(m.cta!.view); setOpen(false)
+                          }}
+                          className="chip text-xs bg-sprout-600 text-white font-bold hover:bg-sprout-700">
                           {m.cta.label} <ArrowRight className="h-3 w-3" />
                         </button>
                       )}

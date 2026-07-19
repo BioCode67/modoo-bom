@@ -15,6 +15,7 @@ import { RemoteRpaSetup } from '@/components/RemoteRpaSetup'
 import { DocCameraModal } from '@/components/DocCameraModal'
 import { DocVault, notifyDocsChanged, DOCS_CHANGED_EVENT } from '@/components/DocVault'
 import { ProbeCoverage, requestProbe } from '@/components/ProbeCoverage'
+import { ISSUE_DOC_EVENT, takePendingIssue } from '@/lib/issueBridge'
 import { AgentStatusStrip } from '@/components/AgentStatusStrip'
 import { rememberLive, forgetLive, listLive } from '@/lib/liveTasks'
 import { downloadDocsBundle } from '@/lib/bundleDocs'
@@ -67,6 +68,23 @@ export function DocumentCenter() {
       .catch(() => { /* 미응답이면 내장 목록 그대로 — 정직 폴백 */ })
     return () => { alive = false }
   }, [localAgent])
+  // 💬→🖨 챗 "등본 발급해줘" 이어받기 — 뷰 전환 직후(마운트)의 보류분 + 이미 떠 있을 때의 이벤트 모두.
+  //   실행 함수(reissueFromVault)는 훅 구역보다 뒤에 정의되므로 ref로 최신 참조를 넘긴다(TDZ·의존성 회피).
+  const issueFnRef = useRef<(doc: string) => void>(() => {})
+  useEffect(() => {
+    if (!localAgent) return // 에이전트 없이 보류분을 소모하면 발급 기회가 증발 — 남겨서 다음 마운트가 처리
+    const onIssue = (e: Event) => {
+      const doc = takePendingIssue() || String((e as CustomEvent).detail || '')
+      if (doc) issueFnRef.current(doc)
+    }
+    window.addEventListener(ISSUE_DOC_EVENT, onIssue)
+    const t = setTimeout(() => { // 마운트 직후 보류분 — 첫 렌더가 끝나 실행 함수 ref가 채워진 뒤에
+      const pend = takePendingIssue()
+      if (pend) issueFnRef.current(pend)
+    }, 120)
+    return () => { clearTimeout(t); window.removeEventListener(ISSUE_DOC_EVENT, onIssue) }
+  }, [localAgent])
+
   // '서류가 어디 저장되는지 모르겠다'(실사용 피드백) — 로컬 에이전트(내 PC)일 때만 탐색기 열기 제공
   const rpaBase = getRpaBase()
   const isLocalAgentBase = /^https?:\/\/(localhost|127\.0\.0\.1)/.test(rpaBase)
@@ -379,6 +397,7 @@ export function DocumentCenter() {
     if (!docs.includes(doc)) setPickOpen(true)
     startRpa(doc)
   }
+  issueFnRef.current = reissueFromVault // 💬→🖨 브리지의 실행 함수 — 매 렌더 최신 클로저 유지
 
   // 단건 발급 폴링 — 시작(startRpa)과 복원(마운트 재연결)이 공유하는 단일 루프.
   //   resumed=true(복원)면 404를 오류 카드 대신 '조용한 정리'로 처리 — 앱 재시작으로 사라진 태스크를

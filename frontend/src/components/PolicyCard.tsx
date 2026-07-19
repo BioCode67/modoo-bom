@@ -7,6 +7,8 @@ import { deadlineHint } from '@/lib/deadline'
 import { benefitTypeOf, BENEFIT_TYPE_META } from '@/lib/benefitType'
 import { useAutoTranslate } from '@/lib/onDeviceTranslate'
 import { useAppStore } from '@/store/useAppStore'
+import { useBackend } from '@/lib/useBackend'
+import { isBokjiroApplyable } from '@/lib/quickApply'
 import { cn } from '@/lib/utils'
 
 function isEligible(p: Policy | EligiblePolicy): p is EligiblePolicy {
@@ -27,6 +29,8 @@ export function PolicyCard({
   translateTo?: string
 }) {
   const { isSaved, toggleSaved } = useAppStore()
+  const { ready, caps } = useBackend() // 모듈 캐시라 카드 수천 장에서도 검사 1회(checkBackend 내부 캐시)
+  const agentOn = ready === true && !!caps?.rpa
   const saved = isSaved(policy.id)
   const meta = categoryMeta(policy.category)
   // 현금성 혜택일 때만 '월 N까지' 배지 — 감면·할인·바우처(예: 다자녀 전기요금 감면)를 현금처럼 오표기하지 않게.
@@ -90,6 +94,14 @@ export function PolicyCard({
             {eligible && (
               <span className={cn('chip text-[10px] !px-2 !py-0.5 border', PRIORITY_META[policy.priority].cls)}>
                 {PRIORITY_META[policy.priority].emoji} {PRIORITY_META[policy.priority].label}
+              </span>
+            )}
+            {/* 🤖 데스크탑 에이전트 연결 + 복지로 딥링크 해석 시에만 — 상세를 열기 전에 '신청까지 자동'임을 알린다
+                (추천→자동신청 이음새 표지판 · 웹/미지원 정책엔 표시하지 않아 과장 없음) */}
+            {agentOn && isBokjiroApplyable(policy.application, policy.name, policy.id) && (
+              <span className="text-[10px] font-semibold text-sprout-700 bg-sprout-50 rounded-full px-1.5 py-0.5"
+                title="이 복지는 상세에서 에이전트가 신청 양식 작성까지 자동으로 진행해요(제출 직전 정지)">
+                🤖 자동신청
               </span>
             )}
           </div>
