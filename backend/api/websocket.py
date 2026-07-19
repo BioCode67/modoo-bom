@@ -10,6 +10,30 @@ async def _send(ws: WebSocket, msg_type: str, data: dict):
     await ws.send_text(json.dumps({"type": msg_type, **data}, ensure_ascii=False))
 
 
+def enrich_from_seed(eligible: list[dict]) -> list[dict]:
+    """수혜 정책에 시드(sample_data)의 혜택·신청정보를 보강한다.
+
+    시드에 없는 정책(GOV/LOC- 등 공공데이터 검색 결과)은 **원본 값을 유지**한다 —
+    이전엔 extra.get(..., "")가 기존 benefit/application을 빈 문자열로 덮어써
+    프로덕션(RAG) 경로에서 혜택 표기가 사라졌다(2026-07-19 수정)."""
+    try:
+        from rag.sample_data import WELFARE_POLICIES
+        _pol_map = {p["id"]: p for p in WELFARE_POLICIES}
+    except Exception:
+        return eligible
+    enriched = []
+    for p in eligible:
+        extra = _pol_map.get(p.get("id", ""), {})
+        enriched.append({
+            **p,
+            "benefit": extra.get("benefit") or p.get("benefit", ""),
+            "application": extra.get("application") or p.get("application", ""),
+            "department": extra.get("department") or p.get("department", ""),
+            "category": extra.get("category") or p.get("category", ""),
+        })
+    return enriched
+
+
 async def run_agent_with_streaming(ws: WebSocket, profile_data: dict):
     """
     LangGraph astream(stream_mode="values")로 전체 상태를 매 노드마다 받아
@@ -74,23 +98,8 @@ async def run_agent_with_streaming(ws: WebSocket, profile_data: dict):
     if full_state:
         eligible = full_state.get("eligible_policies", [])
 
-        # 수혜 정책에 혜택·신청정보 보강 (sample_data 매핑)
-        try:
-            from rag.sample_data import WELFARE_POLICIES
-            _pol_map = {p["id"]: p for p in WELFARE_POLICIES}
-            enriched = []
-            for p in eligible:
-                extra = _pol_map.get(p.get("id", ""), {})
-                enriched.append({
-                    **p,
-                    "benefit": extra.get("benefit", ""),
-                    "application": extra.get("application", ""),
-                    "department": extra.get("department", ""),
-                    "category": extra.get("category", ""),
-                })
-            eligible = enriched
-        except Exception:
-            pass
+        # 수혜 정책에 혜택·신청정보 보강 (sample_data 매핑, 시드 밖 정책은 원본 유지)
+        eligible = enrich_from_seed(eligible)
 
         result_payload = {
             "eligible_policies": eligible,

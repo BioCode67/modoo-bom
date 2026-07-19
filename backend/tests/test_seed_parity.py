@@ -54,3 +54,15 @@ def test_backend_has_no_stale_2025_figures():
             continue  # 이름 개편 시 파리티 테스트가 잡는다
         blob = p["benefit"] + p.get("eligibility", "") + p.get("renewal", "")
         assert needle in blob, f"{name}: 2026 검증값 '{needle}' 누락 — 낡은 수치 회귀 의심"
+
+
+def test_ws_enrich_keeps_non_seed_fields():
+    """시드에 없는 정책(GOV- 등)의 benefit/application이 보강 과정에서 지워지지 않는다."""
+    from api.websocket import enrich_from_seed
+
+    out = enrich_from_seed([
+        {"id": "GOV-WLF999", "name": "공공데이터 정책", "benefit": "월 10만원", "application": "https://x"},
+        {"id": "POL-001", "name": "기초연금", "benefit": ""},
+    ])
+    assert out[0]["benefit"] == "월 10만원" and out[0]["application"] == "https://x"
+    assert "349,700" in out[1]["benefit"]  # 시드 항목은 시드 값으로 보강
