@@ -721,9 +721,16 @@ export function DocumentCenter() {
             const st = rpa[d]!
             const done = ['done', 'completed'].includes(st.status)
             return (
-              <p key={d} className={`mt-1 text-[11px] font-semibold ${st.status === 'error' ? 'text-rose-600' : done ? 'text-sprout-700' : st.status === 'cancelled' ? 'text-muted-foreground' : 'text-sky2-700'}`}>
-                {done ? '✅' : st.status === 'error' ? '⚠️' : st.status === 'cancelled' ? '⏹' : '⏳'} {d} — {String(st.step || st.status).split('\n')[0]}
-              </p>
+              <div key={d} className="mt-1">
+                <p className={`text-[11px] font-semibold ${st.status === 'error' ? 'text-rose-600' : done ? 'text-sprout-700' : st.status === 'cancelled' ? 'text-muted-foreground' : 'text-sky2-700'}`}>
+                  {done ? '✅' : st.status === 'error' ? '⚠️' : st.status === 'cancelled' ? '⏹' : '⏳'} {d} — {String(st.step || st.status).split('\n')[0]}
+                </p>
+                {/* 진행 실화면 파리티 — 카드가 없는 자유 발급 서류도 지금 브라우저 화면이 보이게(단건 카드와 동일 신뢰 장치) */}
+                {st.shot && !done && st.status !== 'error' && st.status !== 'cancelled' && (
+                  <img src={`data:image/jpeg;base64,${st.shot}`} alt={`${d} 진행 화면`}
+                    className="mt-1 max-h-36 w-auto rounded-lg border border-sky2-100" />
+                )}
+              </div>
             )
           })}
         </div>
