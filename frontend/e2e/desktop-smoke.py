@@ -52,6 +52,23 @@ def main() -> int:
     if not server_up():
         print("[desktop] ❌ local_server(:8000)가 떠 있지 않아요 — 파일 상단 실행법 참고")
         return 2
+    # 0) 서빙-디스크 일치 가드 — :8000이 디스크 dist-app과 다른 빌드를 서빙하면(번들 프로세스·스테일
+    #    서버가 포트 점유) 이후 전 검증이 '옛 코드' 상대의 무효 측정이 된다(실제 오진 사례) → 즉시 실패.
+    import re as _re0
+    import urllib.request as _u0
+    try:
+        served = _u0.urlopen(BASE, timeout=5).read().decode("utf-8", "replace")
+        disk = (FRONTEND / "dist-app" / "index.html").read_text(encoding="utf-8")
+        s_js = _re0.search(r"assets/index-[\w-]+\.js", served)
+        d_js = _re0.search(r"assets/index-[\w-]+\.js", disk)
+        if not s_js or not d_js or s_js.group() != d_js.group():
+            print(f"[desktop] ❌ :8000이 디스크 dist-app과 다른 빌드를 서빙 중"
+                  f"(서빙={s_js.group() if s_js else '?'} · 디스크={d_js.group() if d_js else '?'}) — "
+                  f"번들(모두봄-에이전트)이나 스테일 서버가 포트를 잡고 있는지 확인하세요")
+            return 2
+    except OSError as e:
+        print(f"[desktop] ❌ 서빙-디스크 일치 확인 실패: {e}")
+        return 2
     from playwright.sync_api import sync_playwright
     exe = glob.glob("/opt/pw-browsers/chromium-*/chrome-linux/chrome")
     issues: list[str] = []
@@ -276,7 +293,9 @@ def main() -> int:
             pg.fill("input[aria-label='실측 확인할 서류 이름']", "혼인관계증명서")
             pg.locator("button:has-text('실측 확인')").click()
             pg.wait_for_selector("text=실측 확인 중", timeout=8000)      # 진행 상태(개인정보 미사용 명시)
-            pg.wait_for_selector("text=실패", timeout=90000)             # 정부망 차단 → 실패를 실패로
+            # ⚠️ 범용 'text=실패'는 다른 카드(5.85 재발급 오류 등)의 문구에 조기 매칭돼 서버 프로브가
+            #    끝나기 전에 통과할 수 있다(실측 오진 사례 — 이후 단계가 동시 1건 락 409) → 프로브 고유 문구로.
+            pg.wait_for_selector("text=정부24 접속 실패", timeout=90000)  # 정부망 차단 → 실패를 실패로
             _sup2 = json.loads(_url.urlopen(f"{BASE.rstrip('/')}/api/documents/rpa-supported", timeout=5).read())
             assert "혼인관계증명서" not in _sup2.get("supported", []), "실측 실패인데 등록됨 — 날조 게이트 붕괴"
             print("[desktop] ✅ 5.87. 🔎 앱 내 실측 확인 — 진행 표시 + 실패 정직 보고(미등록)")
@@ -285,11 +304,20 @@ def main() -> int:
             #       (복지로도 컨테이너에선 차단 — 후보 발굴 실패가 'error'로 그대로 보고돼야 한다)
             pg.wait_for_selector("button:has-text('한번에 실측')", timeout=8000)   # 후보 칩 로드
             assert pg.locator("button:has-text('혼인관계증명서')").count() >= 1, "후보 칩 미렌더"
+            import urllib.error as _uerr
             _req = _url.Request(f"{BASE.rstrip('/')}/api/apply/probe",
                                 data=json.dumps({"service_name": "경기 청년기본소득"}).encode(),
                                 headers={"Content-Type": "application/json"})
-            _aj = json.loads(_url.urlopen(_req, timeout=90).read())
-            assert _aj.get("status") == "error", f"복지로 차단인데 status={_aj.get('status')} — 날조 게이트 붕괴"
+            _aj = None
+            for _ in range(24):  # 프로브는 동시 1건(409) — 직전 단계 브라우저 조사가 막 끝났을 수 있어 대기 재시도
+                try:
+                    _aj = json.loads(_url.urlopen(_req, timeout=90).read())
+                    break
+                except _uerr.HTTPError as e:
+                    if e.code != 409:
+                        raise
+                    time.sleep(5)
+            assert _aj and _aj.get("status") == "error", f"복지로 차단인데 status={_aj and _aj.get('status')} — 날조 게이트 붕괴"
             print("[desktop] ✅ 5.88. 🔎 후보 칩·일괄 버튼 + 자동신청 실측 정직 실패(error)")
 
             # 5.9) 담은 복지 0 슬림 모드 — 심사·첫 사용이 빈 화면에서 끝나지 않는다(발급 도우미+15종 패널+서류함)
