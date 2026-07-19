@@ -137,6 +137,24 @@ async def _login_bokjiro(page, task, provider: str = "kakao") -> bool:
     return True
 
 
+# 발급·등록물 이름 ↔ 신청 폼 라벨의 표기 차이 보정 — '같은 서류를 가리키는 확신 표현'만 등재.
+# 라벨이 발급명보다 짧거나('자격득실확인서' ⊄ '건강보험 자격득실확인서' 라 기존 대조 실패) 동의어일 때
+# ('소득 증빙' ↔ 소득금액증명) 첨부가 성립하게 한다. 어차피 제출은 본인 확인 후(제출 직전 정지 +
+# '맞게 붙었는지 확인' 안내)라 과신 위험은 사람이 걸러낸다. 키·값 모두 공백 제거 표기.
+_ATTACH_ALIASES = {
+    "주민등록등본": ["주민등록표등본"],
+    "주민등록초본": ["주민등록표초본"],
+    "소득금액증명": ["소득금액증명원", "소득증빙", "소득확인"],
+    "건강보험자격득실확인서": ["자격득실확인서", "자격득실"],
+    "건강보험료납부확인서": ["보험료납부확인서", "건보료납부"],
+    "임대차계약서": ["전월세계약서"],
+    "기초생활수급자증명서": ["수급자증명서", "수급자확인"],
+    "한부모가족증명서": ["한부모증명서", "한부모확인"],
+    "고용보험피보험자격이력내역서": ["피보험자격이력", "고용보험이력"],
+    "통장사본": ["입금계좌", "계좌사본"],
+}
+
+
 async def _auto_attach(target_page, issued, applicant_name: str = "") -> list:
     """파일 첨부칸의 주변 문맥(가장 가까운 행/라벨 텍스트)과 발급 서류명을 대조해 '확신 매칭'만 자동 첨부.
 
@@ -169,7 +187,9 @@ async def _auto_attach(target_page, issued, applicant_name: str = "") -> list:
             raw = str(doc_name).replace(" ", "")
             # 표시명 끝의 '_신청인이름'을 떼어 순수 서류명으로 대조(폼 라벨엔 이름이 없음)
             key = raw[: -(len(who) + 1)] if (who and raw.endswith("_" + who)) else raw
-            if key and key in compact and doc_name not in used_docs:
+            # 정확명 + 확신 별칭(라벨이 더 짧거나 동의어인 실측 표기) 중 하나라도 문맥에 있으면 매칭
+            keys = [key] + _ATTACH_ALIASES.get(key, []) if key else []
+            if key and doc_name not in used_docs and any(k in compact for k in keys):
                 try:
                     await el.set_input_files(path)
                     used_docs.add(doc_name)

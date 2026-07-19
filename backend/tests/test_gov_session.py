@@ -142,3 +142,46 @@ def test_journey_retries_failed_doc_once(monkeypatch):
         assert j["status"] == "completed"                    # 성공 1건 이상 → 여정은 완료로 종결
 
     _run(run())
+
+
+def test_auto_attach_alias_matching():
+    """📎 자동첨부 별칭 매칭 — 폼 라벨이 발급명보다 짧거나('자격득실확인서') 동의어('소득 증빙')여도
+    올바른 칸에 붙고, 무관한 칸(신분증)엔 붙지 않는다. 신청인 이름 접미 제거도 함께 검증."""
+    from rpa.apply_rpa import _auto_attach
+
+    class _Input:
+        def __init__(self, ctx):
+            self._ctx = ctx
+            self.attached = None
+        async def evaluate(self, _js):
+            return self._ctx
+        async def set_input_files(self, path):
+            self.attached = path
+
+    class _Inputs:
+        def __init__(self, items):
+            self._items = items
+        async def count(self):
+            return len(self._items)
+        def nth(self, i):
+            return self._items[i]
+        @property
+        def first(self):
+            return self._items[0]
+
+    class _Page:
+        def __init__(self, items):
+            self._inputs = _Inputs(items)
+        def locator(self, _sel):
+            return self._inputs
+
+    slots = [_Input("소득 증빙 서류 첨부"), _Input("건강보험 자격득실확인서 제출"),
+             _Input("자격득실확인서"), _Input("신분증 사본")]
+    issued = [("소득금액증명_홍길동", "/d/소득.pdf"), ("건강보험 자격득실확인서_홍길동", "/d/득실.pdf")]
+
+    attached = _run(_auto_attach(_Page(slots), issued, applicant_name="홍길동"))
+    assert slots[0].attached == "/d/소득.pdf"          # 동의어 라벨('소득 증빙') ← 소득금액증명
+    assert slots[1].attached == "/d/득실.pdf"          # 전체명 라벨 — 기존 경로 유지
+    assert slots[2].attached is None                   # 같은 서류는 한 번만(중복 첨부 금지)
+    assert slots[3].attached is None                   # 무관한 칸(신분증)엔 안 붙는다
+    assert len(attached) == 2
