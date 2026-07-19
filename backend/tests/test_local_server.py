@@ -629,3 +629,39 @@ def test_bundle_blocked_in_shared_mode(monkeypatch, tmp_path):
     monkeypatch.setenv("RPA_SHARED", "1")
     r = client.post("/api/documents/bundle", json={})
     assert r.status_code == 403
+
+
+def test_journey_run_accepts_all_15_supported_docs(monkeypatch):
+    """자유 선택 일괄발급 계약 — 지원 15종 '전부'를 한 여정으로 요청해도 전량 수락된다.
+
+    프론트의 '원하는 서류 골라 일괄발급'(LOCAL_RPA_DOCS 15종 체크박스)이 백엔드에서
+    조용히 잘리면 카드/상태줄이 스피너로 남는다 — accepted 목록이 요청과 같아야 한다."""
+    from rpa import orchestrator
+    from rpa.manager import SUPPORTED_DOC_NAMES
+    monkeypatch.setenv("RPA_ENABLED", "1")
+    monkeypatch.delenv("RPA_SHARED", raising=False)
+    assert len(SUPPORTED_DOC_NAMES) == 15  # 프론트 officialLinks.LOCAL_RPA_DOCS 와 일치해야 함
+    started = {}
+
+    def fake_spawn(coro):
+        coro.close()  # 실제 RPA 는 돌리지 않는다(계약만 검증)
+        class _T:
+            def add_done_callback(self, cb):
+                pass
+        return _T()
+
+    monkeypatch.setattr("rpa.manager._spawn_bg", fake_spawn)
+    r = client.post("/api/journey/run", json={
+        "doc_names": list(SUPPORTED_DOC_NAMES), "service_names": [],
+        "user_name": "테스트", "birth_date": "20010101", "phone": "01000000000",
+    })
+    assert r.status_code == 200
+    j = r.json()
+    started["id"] = j.get("journey_id")
+    try:
+        assert sorted(j.get("docs") or []) == sorted(SUPPORTED_DOC_NAMES), "15종 중 일부가 조용히 탈락"
+        st = orchestrator._journeys.get(started["id"]) or {}
+        doc_steps = [s for s in st.get("steps", []) if s.get("kind") == "doc"]
+        assert len(doc_steps) == 15
+    finally:
+        orchestrator._journeys.pop(started.get("id"), None)
