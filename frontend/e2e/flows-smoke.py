@@ -17,6 +17,8 @@
 import io as _io, os, socket, subprocess, sys, time, glob
 sys.stdout = _io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 from pathlib import Path
+
+from _procutil import SPAWN_KW, stop_tree
 FRONTEND = Path(__file__).resolve().parents[1]
 ENVNOISE = ("ERR_TUNNEL", "ERR_CONNECTION", "ERR_NAME_NOT", "ERR_INTERNET", "ERR_ABORTED",
             "/api/", "health", "huggingface", "/ws/", "favicon", "Failed to fetch", "transformers")
@@ -46,7 +48,7 @@ def main():
                       cwd=str(FRONTEND), shell=True, stdout=log, stderr=subprocess.STDOUT).returncode != 0:
         print("[flows] ❌ 빌드 실패"); return 2
     server = subprocess.Popen(f"npm run preview -- --outDir e2e-dist-flows --port {PORT} --strictPort",
-                              cwd=str(FRONTEND), shell=True, stdout=log, stderr=subprocess.STDOUT)
+                              cwd=str(FRONTEND), shell=True, stdout=log, stderr=subprocess.STDOUT, **SPAWN_KW)
     issues = []
 
     def note(kind, v):
@@ -126,11 +128,7 @@ def main():
                 note("CSP", c)
             b.close()
     finally:
-        server.terminate()
-        try:
-            server.wait(timeout=5)
-        except Exception:
-            server.kill()
+        stop_tree(server)  # 셸+node 트리째 종료(_procutil) — 전 OS 고아 프리뷰 방지
     print("\n===== flows-smoke 결과 =====")
     if not issues:
         print("✅ 실제 이슈 0건 — 핵심 흐름 런타임/CSP 깨끗"); return 0

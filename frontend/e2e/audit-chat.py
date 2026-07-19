@@ -5,6 +5,8 @@
 import os
 import io as _io, socket, subprocess, sys, time
 from pathlib import Path
+
+from _procutil import SPAWN_KW, stop_tree
 sys.stdout = _io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 FRONTEND = Path(__file__).resolve().parents[1]
 OUT = FRONTEND / "e2e" / "audit"; OUT.mkdir(exist_ok=True)
@@ -28,7 +30,7 @@ def main():
         subprocess.run("npm run build -- --outDir e2e-dist --emptyOutDir --base /",
             cwd=str(FRONTEND), shell=True, stdout=log, stderr=subprocess.STDOUT)
     server = subprocess.Popen(f"npm run preview -- --outDir e2e-dist --port {PORT} --strictPort",
-        cwd=str(FRONTEND), shell=True, stdout=log, stderr=subprocess.STDOUT)
+        cwd=str(FRONTEND), shell=True, stdout=log, stderr=subprocess.STDOUT, **SPAWN_KW)
     fails = []
     try:
         if not wait_port(PORT): print("preview 실패"); return 1
@@ -117,15 +119,7 @@ def main():
                 fails.append(f"pageerror {len(errs)}건: {errs[0][:80]}")
             b.close()
     finally:
-        if os.name == "nt":
-            subprocess.run(f"taskkill /F /T /PID {server.pid}", shell=True,
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        else:  # 리눅스/맥 — taskkill이 없어 프리뷰가 고아로 남던 문제(포트 점유 원인) 방지
-            server.terminate()
-            try:
-                server.wait(timeout=5)
-            except Exception:
-                server.kill()
+        stop_tree(server)  # 셸+node 트리째 종료(_procutil) — 전 OS 고아 프리뷰 방지
         log.close()
     if fails:
         print("\n❌ 대화형 온보딩 회귀:", *fails, sep="\n  - "); return 1

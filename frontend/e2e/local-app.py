@@ -18,6 +18,8 @@ import json
 import os
 import socket
 import subprocess
+
+from _procutil import SPAWN_KW, stop_tree
 import sys
 import time
 from pathlib import Path
@@ -69,6 +71,7 @@ def main() -> int:
         [sys.executable, "-m", "uvicorn", "local_server:app", "--host", "127.0.0.1",
          "--port", str(port), "--log-level", "warning"],
         cwd=str(BACKEND), env=env, stdout=log, stderr=subprocess.STDOUT,
+        **SPAWN_KW,
     )
     try:
         if not wait_health(port):
@@ -78,8 +81,11 @@ def main() -> int:
         from playwright.sync_api import sync_playwright
         url = f"http://localhost:{port}/"
         errors, cors_errors, health_hits = [], [], []
+        # 레지스트리에 chromium이 없는 환경(컨테이너)용 폴백 — desktop-smoke와 동일 방식
+        import glob as _glob
+        _exe = _glob.glob("/opt/pw-browsers/chromium-*/chrome-linux/chrome")
         with sync_playwright() as p:
-            b = p.chromium.launch(headless=True)
+            b = p.chromium.launch(headless=True, executable_path=(_exe[0] if _exe else None))
             ctx = b.new_context()
             ctx.add_init_script(f"try{{localStorage.setItem('modoobom-store', {json.dumps(json.dumps(SEED))})}}catch(e){{}}")
             pg = ctx.new_page()
@@ -118,11 +124,7 @@ def main() -> int:
         print("[e2e:app] ✅ 로컬 앱 동일출처 자동발급 체인 정상")
         return 0
     finally:
-        server.terminate()
-        try:
-            server.wait(timeout=5)
-        except Exception:
-            server.kill()
+        stop_tree(server)  # 트리째 종료(_procutil) — uvicorn 고아 방지
         log.close()
 
 

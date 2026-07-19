@@ -10,6 +10,8 @@ preview 서빙 → Playwright로 홈 열고 '실제 자동화 체험 시작' 클
 """
 import io as _io, os, socket, subprocess, sys, time
 from pathlib import Path
+
+from _procutil import SPAWN_KW, stop_tree
 sys.stdout = _io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 FRONTEND = Path(__file__).resolve().parents[1]
 BACKEND = FRONTEND.parent / "backend"
@@ -44,6 +46,7 @@ def main():
     rpa_srv = subprocess.Popen(
         [PY, "-m", "uvicorn", "local_server:app", "--host", "127.0.0.1", "--port", str(rpa_port), "--log-level", "warning"],
         cwd=str(BACKEND), env=env, stdout=log, stderr=subprocess.STDOUT,
+        **SPAWN_KW,
     )
     # 2) 프론트를 VITE_RPA_BASE=RPA서버 로 빌드
     web_srv = None
@@ -58,7 +61,7 @@ def main():
             print("❌ 빌드 실패 (demo.log 참고)"); return 1
         print("✅ 프론트 빌드 (VITE_RPA_BASE 주입)")
         web_srv = subprocess.Popen(f"npm run preview -- --outDir e2e-demo-dist --port {web_port} --strictPort",
-                                   cwd=str(FRONTEND), shell=True, stdout=log, stderr=subprocess.STDOUT)
+                                   cwd=str(FRONTEND), shell=True, stdout=log, stderr=subprocess.STDOUT, **SPAWN_KW)
         if not wait_port(web_port):
             print("❌ preview 기동 실패"); return 1
 
@@ -120,7 +123,7 @@ def main():
     finally:
         for s in (web_srv, rpa_srv):
             try:
-                if s: s.terminate()
+                stop_tree(s)  # 셸+node 트리째 종료(_procutil) — 전 OS 고아 프리뷰 방지
             except Exception:
                 pass
 

@@ -2,6 +2,8 @@
 import os
 import io as _io, socket, subprocess, sys, time
 from pathlib import Path
+
+from _procutil import SPAWN_KW, stop_tree
 sys.stdout = _io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 FRONTEND = Path(__file__).resolve().parents[1]; OUT = FRONTEND/"e2e"/"audit"; OUT.mkdir(exist_ok=True)
 def fp():
@@ -17,7 +19,7 @@ def wait(p,t=60):
 log=open(FRONTEND/"e2e"/"audit.log","w",encoding="utf-8")
 if not (FRONTEND/"e2e-dist"/"index.html").exists():
     subprocess.run("npm run build -- --outDir e2e-dist --emptyOutDir --base /",cwd=str(FRONTEND),shell=True,stdout=log,stderr=subprocess.STDOUT)
-srv=subprocess.Popen(f"npm run preview -- --outDir e2e-dist --port {PORT} --strictPort",cwd=str(FRONTEND),shell=True,stdout=log,stderr=subprocess.STDOUT)
+srv=subprocess.Popen(f"npm run preview -- --outDir e2e-dist --port {PORT} --strictPort",cwd=str(FRONTEND),shell=True,stdout=log,stderr=subprocess.STDOUT,**SPAWN_KW)
 try:
     if not wait(PORT): print("preview fail"); sys.exit(1)
     from playwright.sync_api import sync_playwright
@@ -50,4 +52,4 @@ try:
         pg.screenshot(path=str(OUT/"41-i18n-en.png")); print("✅ i18n en drawer captured")
         b.close()
 finally:
-    (subprocess.run(f"taskkill /F /T /PID {srv.pid}",shell=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL) if os.name=="nt" else srv.terminate()); log.close()  # 비윈도우 고아 프리뷰 방지
+    stop_tree(srv); log.close()  # 셸+node 트리째 종료(_procutil) — 전 OS 고아 프리뷰 방지

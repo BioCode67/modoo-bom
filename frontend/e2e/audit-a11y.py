@@ -18,6 +18,8 @@ import io as _io
 import os
 import socket
 import subprocess
+
+from _procutil import SPAWN_KW, stop_tree
 import sys
 from pathlib import Path
 
@@ -64,7 +66,7 @@ def main() -> int:
         return 2
     print(f"[a11y] vite preview 기동(:{port}) …")
     server = subprocess.Popen(f"npm run preview -- --outDir {OUT_DIR} --port {port} --strictPort",
-                              cwd=str(FRONTEND), shell=True, stdout=log, stderr=subprocess.STDOUT)
+                              cwd=str(FRONTEND), shell=True, stdout=log, stderr=subprocess.STDOUT, **SPAWN_KW)
     failed = 0
     try:
         if not wait_port(port):
@@ -111,11 +113,7 @@ def main() -> int:
                 pg.close()
             b.close()
     finally:
-        server.terminate()
-        try:
-            server.wait(timeout=5)
-        except Exception:
-            server.kill()
+        stop_tree(server)  # 셸+node 트리째 종료(_procutil) — 전 OS 고아 프리뷰 방지
     print("\n===== a11y 감사 결과 =====")
     if failed:
         print(f"❌ {failed}개 화면에서 위반/무효 — 위 로그 확인")

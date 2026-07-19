@@ -12,6 +12,8 @@
 import io as _io, os, socket, subprocess, sys, time, glob
 sys.stdout = _io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 from pathlib import Path
+
+from _procutil import SPAWN_KW, stop_tree
 FRONTEND = Path(__file__).resolve().parents[1]
 
 
@@ -39,7 +41,7 @@ def main():
                       cwd=str(FRONTEND), shell=True, stdout=log, stderr=subprocess.STDOUT).returncode != 0:
         print("[mobile] ❌ 빌드 실패"); return 2
     server = subprocess.Popen(f"npm run preview -- --outDir e2e-dist-mobile --port {PORT} --strictPort",
-                              cwd=str(FRONTEND), shell=True, stdout=log, stderr=subprocess.STDOUT)
+                              cwd=str(FRONTEND), shell=True, stdout=log, stderr=subprocess.STDOUT, **SPAWN_KW)
     issues = []
     try:
         if not wait_port(PORT):
@@ -85,11 +87,7 @@ def main():
             print("[mobile] ✅ 서류 촬영 모달 + 1장 촬영(폰 카메라 경로)")
             b.close()
     finally:
-        server.terminate()
-        try:
-            server.wait(timeout=5)
-        except Exception:
-            server.kill()
+        stop_tree(server)  # 셸+node 트리째 종료(_procutil) — 전 OS 고아 프리뷰 방지
     print("\n===== mobile-smoke 결과 =====")
     if not issues:
         print("✅ 모바일 이슈 0건(가로오버플로·에러 없음)"); return 0

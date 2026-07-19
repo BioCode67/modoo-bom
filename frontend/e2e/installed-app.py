@@ -15,6 +15,8 @@ import time
 import urllib.request
 from pathlib import Path
 
+from _procutil import SPAWN_KW, stop_tree
+
 sys.stdout = _io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 sys.stderr = _io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
@@ -42,7 +44,7 @@ def main() -> int:
     env = dict(os.environ, RPA_ENABLED="1", PORT=str(port), HOST="127.0.0.1")
     print(f"[e2e:exe] 실행파일 기동(:{port}) … {EXE.name}")
     proc = subprocess.Popen([str(EXE)], env=env, cwd=str(EXE.parent),
-                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, **SPAWN_KW)
     try:
         # 헬스 대기(최대 25초 — PyInstaller 콜드 부팅 여유)
         ok = False
@@ -96,7 +98,7 @@ def main() -> int:
         print("[e2e:exe] ✅ 실행파일 패키징 스모크 통과(뜨고·서빙·RPA 준비)")
         return 0
     finally:
-        proc.terminate()
+        stop_tree(proc)  # 실행파일+자식(uvicorn 등) 트리째 종료(_procutil)
         try:
             proc.wait(timeout=5)
         except Exception:

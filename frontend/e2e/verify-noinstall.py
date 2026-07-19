@@ -14,6 +14,8 @@ import json
 import os
 import socket
 import subprocess
+
+from _procutil import SPAWN_KW, stop_tree
 import sys
 import time
 from pathlib import Path
@@ -72,6 +74,7 @@ def main() -> int:
     server = subprocess.Popen(
         f"npm run preview -- --outDir e2e-dist --port {PORT} --strictPort",
         cwd=str(FRONTEND), shell=True, stdout=log, stderr=subprocess.STDOUT,
+        **SPAWN_KW,
     )
     try:
         if not wait_port(PORT, timeout=60):
@@ -139,12 +142,7 @@ def main() -> int:
         print("[verify] 🎉 무설치 발급 흐름 전 구간 통과")
         return 0
     finally:
-        server.terminate()
-        try:
-            subprocess.run(f"npx kill-port {PORT}", cwd=str(FRONTEND), shell=True,
-                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=20)
-        except Exception:
-            pass
+        stop_tree(server)  # 셸+node 트리째 종료(_procutil) — npx kill-port 우회 불필요
 
 
 if __name__ == "__main__":

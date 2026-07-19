@@ -21,6 +21,8 @@ import io as _io
 import os
 import socket
 import subprocess
+
+from _procutil import SPAWN_KW, stop_tree
 import sys
 import time
 from pathlib import Path
@@ -71,6 +73,7 @@ def main() -> int:
     server = subprocess.Popen(
         f"npm run preview -- --outDir e2e-dist --port {PORT} --strictPort",
         cwd=str(FRONTEND), shell=True, stdout=log, stderr=subprocess.STDOUT,
+        **SPAWN_KW,
     )
     try:
         if not wait_port(PORT, timeout=60):
@@ -237,16 +240,7 @@ def main() -> int:
         print("[e2e] 🎉 스모크 전 구간 통과 (페이지 에러 0)")
         return 0
     finally:
-        # Windows에서 terminate()는 npm 래퍼만 죽이고 node 자식이 살아남음 → 프로세스 트리째 종료
-        if os.name == "nt":
-            subprocess.run(f"taskkill /F /T /PID {server.pid}", shell=True,
-                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        else:
-            server.terminate()
-        try:
-            server.wait(timeout=5)
-        except Exception:
-            server.kill()
+        stop_tree(server)  # 셸+node 트리째 종료(_procutil) — 전 OS 고아 프리뷰 방지
 
 
 if __name__ == "__main__":

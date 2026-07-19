@@ -12,6 +12,8 @@ import io as _io
 import os
 import socket
 import subprocess
+
+from _procutil import SPAWN_KW, stop_tree
 import sys
 import time
 from pathlib import Path
@@ -55,7 +57,7 @@ def main() -> int:
         print("[cam] ❌ 빌드 실패 — e2e/preview.log 확인"); return 2
     print(f"[cam] preview 기동(:{PORT}) …")
     server = subprocess.Popen(f"npm run preview -- --outDir e2e-dist-cam --port {PORT} --strictPort",
-                              cwd=str(FRONTEND), shell=True, stdout=log, stderr=subprocess.STDOUT)
+                              cwd=str(FRONTEND), shell=True, stdout=log, stderr=subprocess.STDOUT, **SPAWN_KW)
     try:
         if not wait_port(PORT):
             print("[cam] ❌ preview 서버가 뜨지 않음"); return 1
@@ -175,11 +177,7 @@ def main() -> int:
             browser.close()
         return 0
     finally:
-        server.terminate()
-        try:
-            server.wait(timeout=5)
-        except Exception:
-            server.kill()
+        stop_tree(server)  # 셸+node 트리째 종료(_procutil) — 전 OS 고아 프리뷰 방지
 
 
 if __name__ == "__main__":
