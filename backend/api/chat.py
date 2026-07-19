@@ -183,7 +183,10 @@ async def chat_websocket_endpoint(ws: WebSocket):
             else:
                 try:
                     answer = await _ai_answer(question, policies)
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001
+                    # 무로그 폴백 금지 — AI 실패 원인이 남지 않으면 '왜 목업 답변이지?'를 진단할 수 없다
+                    from logging_config import get_logger
+                    get_logger("ws.chat").warning("AI 답변 실패 → 규칙기반 폴백: %s", str(e)[:200])
                     answer = _mock_answer(question, policies)
 
             await ws.send_text(json.dumps(
