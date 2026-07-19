@@ -103,7 +103,7 @@ async def health(debug: int = 0):
     result = {
         "status": "ok",
         "service": "ModooBom API",
-        "version": "0.3.0",
+        "version": "0.3.2",
         "mode": "production" if ai_ok else "rule-based",
         "capabilities": {
             "ai": ai_ok,

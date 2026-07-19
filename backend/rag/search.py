@@ -24,15 +24,51 @@ def rag_light() -> bool:
 
 
 def backend_label() -> str:
-    return "bm25(경량)" if rag_light() else "chromadb(임베딩)"
+    return "bm25(경량)" if rag_light() else "hybrid(bm25+임베딩 RRF)"
+
+
+def _rrf_merge(bm25_hits: list, chroma_hits: list, n_results: int,
+               k: int = 20, w_bm25: float = 1.0, w_chroma: float = 0.6) -> list:
+    """가중 Reciprocal Rank Fusion — BM25 주도 + 임베딩 보강.
+
+    ChromaDB 기본 임베딩(all-MiniLM-L6-v2)은 영어 최적화라 한국어 자연어 질의에서
+    무관 정책을 상위로 올리는 게 실측됐다('기초연금 누가 받을 수 있어?' → 직업훈련생계비대부).
+    BM25는 같은 질의에서 기초연금을 2위로 랭크 → 한국어 키워드 신호(BM25)를 주(1.0)로,
+    임베딩 유사도는 보강(0.6)으로 융합한다. 양쪽에 모두 잡힌 정책이 자연히 최상위."""
+    scores: dict[str, float] = {}
+    items: dict[str, dict] = {}
+    for weight, hits in ((w_bm25, bm25_hits), (w_chroma, chroma_hits)):
+        for rank, p in enumerate(hits):
+            key = str(p.get("id") or p.get("name") or rank)
+            scores[key] = scores.get(key, 0.0) + weight / (k + rank + 1)
+            # 필드가 풍부한 쪽(bm25는 benefit·eligibility 포함)을 대표 항목으로 유지
+            if key not in items or len(p) > len(items[key]):
+                items[key] = p
+    top = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)[:n_results]
+    max_s = (w_bm25 + w_chroma) / (k + 1)  # 양쪽 1위를 동시에 차지했을 때
+    out = []
+    for key, s in top:
+        p = dict(items[key])
+        p["similarity_score"] = round(min(1.0, s / max_s), 4)
+        out.append(p)
+    return out
 
 
 def search_policies(query: str, n_results: int = 5) -> list:
     if rag_light():
         from .bm25_search import search_policies as _bm25
         return _bm25(query, n_results)
+    # 하이브리드: 임베딩(chromadb) + BM25 가중 RRF. BM25 실패 시 임베딩 단독 폴백.
     from .embedder import search_policies as _chroma
-    return _chroma(query, n_results)
+    chroma_hits = _chroma(query, n_results)
+    try:
+        from .bm25_search import search_policies as _bm25
+        bm25_hits = _bm25(query, n_results)
+    except Exception:
+        bm25_hits = []
+    if not bm25_hits:
+        return chroma_hits
+    return _rrf_merge(bm25_hits, chroma_hits, n_results)
 
 
 def seed() -> tuple[int, str]:

@@ -31,8 +31,13 @@ def _rank_key(p: dict):
     )
 
 
-def seed_from_catalog(limit: int | None = None, batch: int = 256) -> int:
-    """카탈로그를 배치로 임베딩해 ChromaDB upsert. 반환: 시딩 건수."""
+def seed_from_catalog(limit: int | None = None, batch: int = 256, force: bool = False) -> int:
+    """카탈로그를 배치로 임베딩해 ChromaDB upsert. 반환: 시딩 건수(스킵 시 기존 색인 건수).
+
+    멱등 부팅: PersistentClient(./chroma_db)라 이전 부팅의 색인이 남아 있는데도
+    매번 전체(5,000여 건)를 재임베딩하면 CPU에서 수 분간 서버가 안 열린다(콜드스타트 블록 실측).
+    기존 색인 건수 ≥ 목표 건수면 재시딩을 스킵한다 — 건수 휴리스틱이라 '같은 건수의 내용 교체'는
+    못 잡는다. 그 경우 RAG_RESEED=1(또는 force=True)로 강제 재시딩."""
     from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
 
     catalog = load_catalog()
@@ -43,8 +48,18 @@ def seed_from_catalog(limit: int | None = None, batch: int = 256) -> int:
     if limit:
         catalog = sorted(catalog, key=_rank_key, reverse=True)[:limit]
 
-    embed_fn = DefaultEmbeddingFunction()
     collection = get_collection(COLLECTION_NAME)
+    reseed = force or os.getenv("RAG_RESEED", "").strip().lower() in ("1", "true", "yes", "on")
+    if not reseed:
+        try:
+            existing = collection.count()
+            if existing >= len(catalog):
+                print(f"[seed] 기존 색인 {existing}건 ≥ 카탈로그 {len(catalog)}건 — 재시딩 스킵(즉시 기동, RAG_RESEED=1로 강제)")
+                return existing
+        except Exception:
+            pass  # count 실패 시엔 안전하게 전체 시딩
+
+    embed_fn = DefaultEmbeddingFunction()
 
     total = 0
     for start in range(0, len(catalog), batch):
@@ -65,8 +80,9 @@ def main() -> int:
     ap.add_argument("--limit", type=int, default=int(os.getenv("RAG_MAX_DOCS", "0")) or None,
                     help="시딩 최대 건수(메모리 제약 배포용). 미지정 시 전체")
     ap.add_argument("--batch", type=int, default=256)
+    ap.add_argument("--force", action="store_true", help="기존 색인이 있어도 전체 재시딩")
     args = ap.parse_args()
-    return 0 if seed_from_catalog(limit=args.limit, batch=args.batch) else 1
+    return 0 if seed_from_catalog(limit=args.limit, batch=args.batch, force=args.force) else 1
 
 
 if __name__ == "__main__":
