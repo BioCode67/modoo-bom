@@ -26,10 +26,14 @@ export function AgentStatusStrip() {
     if (ready !== true || !caps?.rpa || caps.rpaRemote || caps.shared) return
     try {
       if (sessionStorage.getItem('modoobom-auto-pf')) return
-      sessionStorage.setItem('modoobom-auto-pf', '1')
-    } catch { return } // 저장 불가 환경(시크릿 등)이면 반복 실행 위험 — 자동 점검 생략(수동 버튼은 그대로)
+    } catch { return } // 접근 불가 환경(시크릿 등)이면 반복 실행 위험 — 자동 점검 생략(수동 버튼은 그대로)
     let alive = true
     const timer = setTimeout(async () => {
+      // 실행 '시점'에 기록 — 2.5초 안에 화면을 떠나 타이머가 취소되면 다음 방문에서 다시 시도되게
+      try {
+        if (sessionStorage.getItem('modoobom-auto-pf')) return
+        sessionStorage.setItem('modoobom-auto-pf', '1')
+      } catch { return }
       try {
         const ctrl = new AbortController()
         const kill = setTimeout(() => ctrl.abort(), 45000)

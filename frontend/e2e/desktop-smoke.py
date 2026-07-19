@@ -285,20 +285,20 @@ def main() -> int:
             print("[desktop] ✅ 5.85. 🔁 손상 원탭 재발급 — 손상본 삭제 + 발급 시작(미입력 가드)")
 
             # 5.87) 🔎 앱 내 커버리지 실측 확인 — 서류명 하나로 정부24 실측→β 등록(재시작 불필요).
-            #       컨테이너는 정부망이 막혀 있으므로 '진행 표시 → 정직한 실패 보고 + 미등록'까지가 검증 대상
-            #       (성공 등록 경로는 pytest test_probe_runtime 이 스텁으로 고정).
+            #       ⚠️ 이식성: 대상은 '실존하지 않는 서류명' — 정부망이 뚫린 실PC에선 not_supported(미발견),
+            #       막힌 컨테이너에선 error(접속 실패). 둘 다 '정직한 음성 + 미등록'이라 어느 환경에서도
+            #       부작용(β 등록) 없이 같은 계약을 검증한다(성공 등록 경로는 pytest 스텁으로 고정).
             if pg.locator("input[aria-label='실측 확인할 서류 이름']").count() == 0:
                 pg.locator("button:has-text('골라 한번에 발급')").click()
             pg.wait_for_selector("input[aria-label='실측 확인할 서류 이름']", timeout=6000)
-            pg.fill("input[aria-label='실측 확인할 서류 이름']", "혼인관계증명서")
+            pg.fill("input[aria-label='실측 확인할 서류 이름']", "가나다시험용증명서")
             pg.locator("button:has-text('실측 확인')").click()
             pg.wait_for_selector("text=실측 확인 중", timeout=8000)      # 진행 상태(개인정보 미사용 명시)
-            # ⚠️ 범용 'text=실패'는 다른 카드(5.85 재발급 오류 등)의 문구에 조기 매칭돼 서버 프로브가
-            #    끝나기 전에 통과할 수 있다(실측 오진 사례 — 이후 단계가 동시 1건 락 409) → 프로브 고유 문구로.
-            pg.wait_for_selector("text=정부24 접속 실패", timeout=90000)  # 정부망 차단 → 실패를 실패로
+            # ⚠️ 범용 'text=실패' 대기는 다른 카드 오류 문구에 조기 매칭된 실사례 — 프로브 고유 문구 2종만.
+            pg.locator("p:has-text('정부24 접속 실패'), p:has-text('확인하지 못했어요')").first.wait_for(timeout=90000)
             _sup2 = json.loads(_url.urlopen(f"{BASE.rstrip('/')}/api/documents/rpa-supported", timeout=5).read())
-            assert "혼인관계증명서" not in _sup2.get("supported", []), "실측 실패인데 등록됨 — 날조 게이트 붕괴"
-            print("[desktop] ✅ 5.87. 🔎 앱 내 실측 확인 — 진행 표시 + 실패 정직 보고(미등록)")
+            assert "가나다시험용증명서" not in _sup2.get("supported", []), "실측 음성인데 등록됨 — 날조 게이트 붕괴"
+            print("[desktop] ✅ 5.87. 🔎 앱 내 실측 확인 — 진행 표시 + 정직한 음성 보고(미등록)")
 
             # 5.88) 🔎 실측 후보 칩 + 일괄 버튼 렌더 + 자동신청 실측 API의 정직 실패
             #       (복지로도 컨테이너에선 차단 — 후보 발굴 실패가 'error'로 그대로 보고돼야 한다)
@@ -306,7 +306,7 @@ def main() -> int:
             assert pg.locator("button:has-text('혼인관계증명서')").count() >= 1, "후보 칩 미렌더"
             import urllib.error as _uerr
             _req = _url.Request(f"{BASE.rstrip('/')}/api/apply/probe",
-                                data=json.dumps({"service_name": "경기 청년기본소득"}).encode(),
+                                data=json.dumps({"service_name": "가나다시험용수당"}).encode(),
                                 headers={"Content-Type": "application/json"})
             _aj = None
             for _ in range(24):  # 프로브는 동시 1건(409) — 직전 단계 브라우저 조사가 막 끝났을 수 있어 대기 재시도
@@ -317,8 +317,10 @@ def main() -> int:
                     if e.code != 409:
                         raise
                     time.sleep(5)
-            assert _aj and _aj.get("status") == "error", f"복지로 차단인데 status={_aj and _aj.get('status')} — 날조 게이트 붕괴"
-            print("[desktop] ✅ 5.88. 🔎 후보 칩·일괄 버튼 + 자동신청 실측 정직 실패(error)")
+            # 실존하지 않는 서비스명 — 실PC(정부망 정상)는 not_found, 컨테이너(차단)는 error: 둘 다 정직한 음성
+            assert _aj and _aj.get("status") in ("error", "not_found"), \
+                f"실측 음성이어야 하는데 status={_aj and _aj.get('status')} — 날조 게이트 붕괴"
+            print("[desktop] ✅ 5.88. 🔎 후보 칩·일괄 버튼 + 자동신청 실측 정직 음성(error/not_found)")
 
             # 5.9) 담은 복지 0 슬림 모드 — 심사·첫 사용이 빈 화면에서 끝나지 않는다(발급 도우미+15종 패널+서류함)
             pg2 = ctx.new_page()
@@ -334,13 +336,14 @@ def main() -> int:
             assert pg2.locator("input.accent-sky2-600").count() == n_server, "슬림 모드 지원 그리드 수 불일치(동적 배선)"
             pg2.wait_for_selector("text=내 서류함", timeout=8000)                  # 서류함도 동작
 
-            # 5.95) 🩺 조용한 자가점검 — 새 탭(새 세션)에서 클릭 없이 스스로 점검이 돌고,
-            #       문제가 있으면(컨테이너: 브라우저·정부망 실패) 결과 패널이 '자동으로' 표시돼야 한다.
-            #       (전부 정상인 실PC에선 패널 대신 무소음 '✓ 자가점검 통과'만 — 여기선 실패 경로를 고정)
-            pg2.wait_for_selector("text=일부 항목 점검 필요", timeout=60000)
-            assert "서류함 무결성" in pg2.inner_text("body"), "자가점검 결과에 점검 항목 미표시"
+            # 5.95) 🩺 조용한 자가점검 — 새 탭(새 세션)에서 클릭 없이 스스로 점검이 돌아야 한다.
+            #       이식성: 문제가 있으면(컨테이너: 정부망 차단) 결과 패널 자동 표시, 전부 정상(실PC)이면
+            #       무소음 '✓ 자가점검 통과' — 두 결말 모두 '자동으로 돌았다'는 같은 계약의 증거다.
+            pg2.locator("text=일부 항목 점검 필요").or_(pg2.locator("text=자가점검 통과")).first.wait_for(timeout=60000)
+            if pg2.locator("text=일부 항목 점검 필요").count():
+                assert "서류함 무결성" in pg2.inner_text("body"), "자가점검 결과에 점검 항목 미표시"
             pg2.close()
-            print("[desktop] ✅ 5.95. 🩺 조용한 자가점검 — 문제 발견 시 무클릭 자동 표시(시작 전 발견)")
+            print("[desktop] ✅ 5.95. 🩺 조용한 자가점검 — 무클릭 자동 실행(문제=패널·정상=✓)")
             print("[desktop] ✅ 5.9. 슬림 모드 — 담은 복지 0에서도 발급 도우미·15종 패널·서류함 동작")
 
             # 6) 세션 연속성 — 실태스크(곧 종결) 기억 → 새로고침 → 자동 재연결
