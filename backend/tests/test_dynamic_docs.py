@@ -89,6 +89,37 @@ def test_maintenance_notice_detection():
     assert not _is_maintenance_notice(None)  # 방어적: None 안전
 
 
+def test_privacy_masking_env_valve_and_result():
+    """🔒 주민번호 뒷자리 비공개 선택 — RPA_PRIVACY_MASK=0 안전밸브로 끌 수 있고,
+    폼에 옵션이 있으면 True(안내 노출)·없거나 실패면 False(무해 침묵)를 고정."""
+    import asyncio, os
+    from rpa.gov24_rpa import _select_privacy_masking
+
+    class _Page:
+        def __init__(self, result):
+            self._r = result
+        async def evaluate(self, _js):
+            if isinstance(self._r, Exception):
+                raise self._r
+            return self._r
+
+    def run(page):
+        loop = asyncio.new_event_loop()
+        try:
+            return loop.run_until_complete(_select_privacy_masking(page))
+        finally:
+            loop.close()
+
+    assert run(_Page(2)) is True          # 옵션 클릭됨 → 안내 노출
+    assert run(_Page(0)) is False         # 해당 옵션 없음 → 침묵(무해)
+    assert run(_Page(RuntimeError("x"))) is False  # 평가 실패도 침묵
+    os.environ["RPA_PRIVACY_MASK"] = "0"
+    try:
+        assert run(_Page(2)) is False     # 안전밸브: 끄면 시도 자체를 안 함
+    finally:
+        del os.environ["RPA_PRIVACY_MASK"]
+
+
 def test_wallet_required_detection():
     """정부24 '전자문서지갑 발급 후 사용가능' 안내 감지 — 가족관계 등 전자문서지갑 선행 서류를
     점검과 구분해 정직 안내로 전환(실사용 제보: 가족관계 타일이 이 팝업)."""

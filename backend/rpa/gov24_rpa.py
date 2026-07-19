@@ -421,6 +421,37 @@ async def _select_doc_form_options(page, doc_name: str) -> None:
         pass
 
 
+async def _select_privacy_masking(page) -> bool:
+    """🔒 발급 폼에서 '주민등록번호 뒷자리'를 비공개(미포함/미표시)로 선택 — 개인정보 최소화(사용자 요청).
+    정부24 등본류 폼은 표시 항목별 포함/미포함 라디오를 제공한다. '주민등록번호'가 언급된 행에서만
+    미포함/미표시/비공개 옵션을 고른다(세대원 정보 등 다른 항목은 건드리지 않음 — 복지 신청엔 필요).
+    선택했으면 True. 폼에 해당 옵션이 없으면 False(무해). RPA_PRIVACY_MASK=0 으로 끌 수 있다
+    (기관이 뒷자리 포함본을 요구하는 예외 대비 안전밸브)."""
+    if os.environ.get("RPA_PRIVACY_MASK", "1") == "0":
+        return False
+    try:
+        clicked = await page.evaluate("""() => {
+            const rows = [...document.querySelectorAll('tr, li, dl, .form-group, fieldset')];
+            let n = 0;
+            for (const row of rows) {
+                const t = (row.innerText || '').trim();
+                // 행 단위로만(긴 컨테이너 제외) — 화면 전체를 잡아 엉뚱한 라디오를 누르지 않게
+                if (t.length > 200 || !/주민등록번호/.test(t)) continue;
+                const cands = [...row.querySelectorAll('label, input[type=radio]')];
+                for (const el of cands) {
+                    const lt = (el.tagName === 'INPUT'
+                        ? (el.value || '') + ((el.nextElementSibling && el.nextElementSibling.innerText) || '')
+                        : el.innerText) || '';
+                    if (/미포함|미표시|비공개/.test(lt)) { el.click(); n++; break; }
+                }
+            }
+            return n;
+        }""")
+        return bool(clicked)
+    except Exception:
+        return False
+
+
 def _is_maintenance_notice(txt: str) -> bool:
     """정부 사이트 '서비스 점검 중' 팝업 감지 — 외부기관 연계 서류(가족관계=대법원, 소득=국세청 홈택스)는
     야간·새벽 점검이 잦아 이 팝업이 뜨면 '앱 오류'가 아니라 정부 사이트 상태다(정직 안내로 전환).
@@ -691,6 +722,14 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None, session=Non
             # ③.5 발급 폼의 유형/발급목적/귀속연도 등 필수 선택(가족관계 '일반' + 미선택 select 기본값).
             #   소득금액증명·지방세·기초생활수급자·한부모 등은 발급목적/연도 미선택이면 신청이 안 넘어가 발급이 미완됨.
             await _select_doc_form_options(page, doc_name)
+            # 🔒 개인정보 최소화(사용자 요청): 주민등록번호 뒷자리는 비공개(미포함/미표시)로 — 실제 선택된 경우에만 안내
+            if await _select_privacy_masking(page):
+                task.update(
+                    "running",
+                    "🔒 주민등록번호 뒷자리는 '비공개(미포함)'로 선택했어요 — 서류에 민감정보가 덜 실려요.\n"
+                    "(제출처가 뒷자리 포함본을 요구하면 화면에서 '포함'으로 바꿔 주세요)",
+                    await take_screenshot(page),
+                )
 
             # ④ 신청하기 — 자동입력만으로 다음 단계로 못 넘어가면(주소 불일치·필수항목 미선택 등)
             #    사용자가 화면 폼을 직접 고칠 시간을 준 뒤 자동으로 다시 신청한다(human-in-the-loop 보정).
@@ -770,6 +809,16 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None, session=Non
                 #   두 번 이상 헛돌면 사용자에게 폼을 직접 고칠 유예(대기)를 주고, 그 뒤 루프 상단에서
                 #   자동으로 다시 '신청하기'를 눌러 재시도한다(실사용 요청: "약간 대기 → 알아서 다음 시도").
                 stuck += 1
+                # 🧠 스마트 복구 1단계: '예상 밖 안내 팝업'이 진행을 막고 있으면 사람이 하듯 [확인]으로 닫고
+                #    바로 재시도한다(사용자 요청: 상황 보고 알아서). 점검·전자문서지갑 팝업은 위에서 이미
+                #    정직 안내로 종결됐으므로, 여기 도달한 팝업은 단순 안내일 가능성이 높다. 무엇을 했는지
+                #    반드시 알린다(침묵 자동화 금지).
+                if stuck == 1:
+                    _blk = (await _maintenance_popup_text(page)).strip()
+                    if _blk:
+                        await click_by_text(page, ["확인"])
+                        task.update("running", "안내창이 진행을 막고 있어 [확인]으로 닫고 다시 시도해요…", await take_screenshot(page))
+                        continue
                 if stuck >= 2:
                     if not fix_hinted:
                         task.update(
