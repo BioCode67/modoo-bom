@@ -211,6 +211,7 @@ async def _run_journey(jid, user_info, profile):
     _gov_doc_count = sum(1 for s in j["steps"]
                          if s["kind"] == "doc" and _SUPPORTED_DOCS.get(s["name"], ("",))[0] == "gov24")
     gov_session = GovSession() if _gov_doc_count >= 2 else None
+    j["one_login"] = gov_session is not None  # UI 요약에 '🔑 로그인 인증 1회' 표기용(정직한 사실만)
     try:
         for step in j["steps"]:
             # 여정 중단 요청 시 남은 단계는 시작하지 않는다(다음 단계 브라우저가 안 뜨게 — 감사 :123)
