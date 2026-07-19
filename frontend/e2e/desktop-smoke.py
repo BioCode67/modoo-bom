@@ -343,7 +343,10 @@ def main() -> int:
             pg2.click("text=나의 복지")
             pg2.wait_for_selector("text=아직 담은 복지가 없어요", timeout=15000)
             pg2.wait_for_selector("text=서류 발급 도우미", timeout=10000)          # 슬림 모드 헤더
-            pg2.wait_for_selector("text=원하는 서류 골라 일괄발급", timeout=8000)   # 패널 자동 펼침
+            # 자동 펼침 제거(사용자 요청: 필요 서류만 기본 표시) — 패널은 접힌 opt-in 버튼으로만 열린다
+            assert pg2.locator("text=원하는 서류 골라 일괄발급").count() == 0, "자유발급 패널 자동 펼침(제거된 동작 회귀)"
+            pg2.click("text=서류를 골라 발급하기")                                  # 접힌 버튼 opt-in
+            pg2.wait_for_selector("text=원하는 서류 골라 일괄발급", timeout=8000)   # 클릭 후 펼침
             assert pg2.locator("input.accent-sky2-600").count() == n_server, "슬림 모드 지원 그리드 수 불일치(동적 배선)"
             pg2.wait_for_selector("text=내 서류함", timeout=8000)                  # 서류함도 동작
 
@@ -355,7 +358,7 @@ def main() -> int:
                 assert "서류함 무결성" in pg2.inner_text("body"), "자가점검 결과에 점검 항목 미표시"
             pg2.close()
             print("[desktop] ✅ 5.95. 🩺 조용한 자가점검 — 무클릭 자동 실행(문제=패널·정상=✓)")
-            print("[desktop] ✅ 5.9. 슬림 모드 — 담은 복지 0에서도 발급 도우미·15종 패널·서류함 동작")
+            print("[desktop] ✅ 5.9. 슬림 모드 — 담은 복지 0에서도 발급 도우미·옵트인 일괄발급·서류함 동작")
 
             # 6) 세션 연속성 — 실태스크(곧 종결) 기억 → 새로고침 → 자동 재연결
             r = pg.evaluate("""async()=>{

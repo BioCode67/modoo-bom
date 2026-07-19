@@ -435,12 +435,22 @@ async def _select_privacy_masking(page) -> dict:
     try:
         picked = await page.evaluate("""() => {
             const radios = [...document.querySelectorAll('input[type=radio]')];
-            const labOf = (r) => (((r.closest('label') || {}).innerText) ||
-                (r.labels && r.labels[0] ? r.labels[0].innerText : '') ||
-                (r.parentElement ? r.parentElement.innerText : '') || '').replace(/\\s+/g, '');
+            // ⚠️ 무조건 parentElement 폴백 금지 — 그룹 컨테이너 텍스트('전체표시 선택표시')를 통째로
+            //   잡아 첫 라디오(전체표시)를 오클릭할 수 있다(프레시아이 재정독에서 발견).
+            //   부모는 라디오가 정확히 1개일 때만(개별 래퍼) 신뢰 — label 없는 e-gov 마크업 대응.
+            const labOf = (r) => {
+                let t = ((r.closest('label') || {}).innerText) ||
+                        (r.labels && r.labels[0] ? r.labels[0].innerText : '') ||
+                        ((r.nextElementSibling && r.nextElementSibling.innerText) || '');
+                if (!t && r.parentElement &&
+                    r.parentElement.querySelectorAll('input[type=radio]').length === 1)
+                    t = r.parentElement.innerText || '';
+                return String(t).replace(/\\s+/g, '');
+            };
             if (!radios.some(r => labOf(r).includes('전체표시'))) return false;
             for (const r of radios) {
-                if (labOf(r).includes('선택표시')) { if (!r.checked) r.click(); return true; }
+                const l = labOf(r);
+                if (l.includes('선택표시') && !l.includes('전체표시')) { if (!r.checked) r.click(); return true; }
             }
             return false;
         }""")
@@ -908,12 +918,20 @@ async def _issue_family_cert_efamily(page, task, context, user_info: dict = None
             """() => {
                 const want = ['화면 열람', '국내 기관 제출'];
                 const radios = [...document.querySelectorAll('input[type=radio]')];
+                // ⚠️ 무조건 parentElement 폴백 금지 — 그룹 컨테이너 텍스트('직접 인쇄 … 화면 열람')를 통째로
+                //   잡으면 첫 라디오(직접 인쇄)를 오클릭한다. 부모는 라디오가 정확히 1개일 때만(개별 래퍼) 신뢰.
+                const labOf = (r) => {
+                    let t = ((r.closest('label') || {}).innerText) ||
+                            (r.labels && r.labels[0] ? r.labels[0].innerText : '') ||
+                            ((r.nextElementSibling && r.nextElementSibling.innerText) || '');
+                    if (!t && r.parentElement &&
+                        r.parentElement.querySelectorAll('input[type=radio]').length === 1)
+                        t = r.parentElement.innerText || '';
+                    return String(t).replace(/\\s+/g, ' ');
+                };
                 for (const w of want) {
                     for (const r of radios) {
-                        const lab = ((r.closest('label') || {}).innerText ||
-                                     (r.labels && r.labels[0] ? r.labels[0].innerText : '') ||
-                                     (r.parentElement ? r.parentElement.innerText : '') || '').replace(/\\s+/g, ' ');
-                        if (lab.includes(w)) { if (!r.checked) r.click(); break; }
+                        if (labOf(r).includes(w)) { if (!r.checked) r.click(); break; }
                     }
                 }
             }"""

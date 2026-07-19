@@ -600,6 +600,16 @@ async def run_apply_rpa(task, service_name: str, profile: dict) -> None:
                 form_detected, form_contexts, form_state = await _wait_for_apply_form(
                     task, context, page, before_state, 30
                 )
+                if not form_detected:
+                    # (추가형) 수동 클릭·늦은 렌더로 '서비스 선택' 화면이 지금 떠 있을 수 있음 —
+                    # 브리지 재시도(시그니처 없으면 즉시 no-op) 후 통과 시에만 양식을 다시 기다린다.
+                    try:
+                        if await _pass_service_select_page(page, task, service_name, wait_sec=4):
+                            form_detected, form_contexts, form_state = await _wait_for_apply_form(
+                                task, context, page, before_state, 12
+                            )
+                    except Exception:
+                        pass
 
             ss = await take_screenshot(page)
             task.update("running", "신청 화면 분석 중...", ss)
