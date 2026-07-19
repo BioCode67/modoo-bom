@@ -17,7 +17,9 @@ export function docLink(doc: string): OfficialLink {
   if (d.includes('주민등록등본') || d.includes('주민등록초본'))
     return { label: '정부24에서 발급 (주민등록표 등·초본)', url: 'https://www.gov.kr/mw/AA020InfoCappView.do?CappBizCD=13100000015', rpa: true, issue: 'wallet' }
   if (d.includes('가족관계'))
-    return { label: '정부24에서 발급 (가족관계증명서 — 전자가족관계등록시스템에서도 가능)', url: 'https://www.gov.kr/mw/AA020InfoCappView.do?CappBizCD=97400000004', rpa: true, issue: 'wallet' }
+    // ⚠️ 실측(2026-07-20, 사용자 스크린샷): 원 발급처는 대법원 전자가족관계등록시스템(efamily) — 24시간·무료.
+    //   정부24 경로는 '전자문서지갑' 선행 요구 + 연계 차단이 잦아 직접 링크는 efamily 로 보낸다(정부24 안내 페이지도 결국 여기로 보냄).
+    return { label: '전자가족관계등록시스템(대법원)에서 발급 — 인터넷 무료·본인인증 필요', url: 'https://efamily.scourt.go.kr/index.jsp', rpa: true, issue: 'wallet' }
   if (d.includes('장애인등록') || d.includes('장애인증명'))
     return { label: '정부24에서 발급 (장애인증명서)', url: 'https://www.gov.kr/mw/AA020InfoCappView.do?CappBizCD=14600000273', rpa: true, issue: 'wallet' }
   if (d.includes('건강보험') && (d.includes('자격') || d.includes('득실')))
