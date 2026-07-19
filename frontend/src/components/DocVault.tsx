@@ -173,11 +173,32 @@ export function DocVault() {
             <Fragment key={g.type}>
               {row(g.latest)}
               {g.older.length > 0 && (
-                <li className="ml-5">
+                <li className="ml-5 flex items-center gap-3">
                   <button onClick={() => setOpenTypes((s) => ({ ...s, [g.type]: !s[g.type] }))}
                     aria-expanded={!!openTypes[g.type]}
                     className="text-[11px] font-semibold text-sky2-700 hover:underline">
                     {openTypes[g.type] ? '▾ 이전 버전 접기' : `▸ 이전 버전 ${g.older.length}건 보기`}
+                  </button>
+                  {/* 🧹 지난 발급본 일괄 정리 — 최신본은 남기고 이전본만(재발급이 쌓인 PII 파일 청소) */}
+                  <button
+                    onClick={async () => {
+                      if (busy) return
+                      if (!window.confirm(`「${g.type}」 이전 버전 ${g.older.length}건을 지울까요?\n(최신본은 그대로 남아요 — 지운 파일은 되돌릴 수 없어요)`)) return
+                      setBusy(true)
+                      try {
+                        for (const old of g.older) {
+                          await fetch(`${getRpaBase()}/api/documents/delete`, {
+                            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ filename: old.filename }),
+                          }).catch(() => { /* 개별 실패는 목록 갱신으로 드러남(은폐 없음) */ })
+                        }
+                        notifyDocsChanged()
+                      } finally {
+                        setBusy(false)
+                      }
+                    }}
+                    className="text-[11px] font-semibold text-muted-foreground/80 hover:text-rose-600 hover:underline disabled:opacity-50"
+                    disabled={busy}>
+                    🧹 이전 버전 정리
                   </button>
                 </li>
               )}

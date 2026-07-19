@@ -102,7 +102,8 @@ def test_gov24_shared_session_contract():
 def test_journey_creates_and_cleans_shared_session():
     """orchestrator 계약 — 정부24 2종 이상이면 공유 세션 생성, 종결 경로 무관 finally 정리."""
     src = open("rpa/orchestrator.py", encoding="utf-8").read()
-    assert "GovSession() if _gov_doc_count >= 2 else None" in src
+    assert "GovSession() if (_gov_doc_count >= 2 and _one_login_on) else None" in src
+    assert 'RPA_ONE_LOGIN' in src  # 실사이트 안전밸브 — 문제 시 env 로 즉시 기존 방식 복귀
     assert "await close_quietly(gov_session)" in src
     # 단계 실행에 세션이 실제로 전달돼야 한다(만들고 안 쓰는 죽은 배선 방지)
     assert '_run_step_doc(task, step["name"], user_info, gov_session)' in src

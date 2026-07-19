@@ -62,8 +62,8 @@ export function RpaShowcase() {
           <div className="flex-1">
             <p className="font-bold">더 자동으로도 — 원하는 분만 (선택)</p>
             <p className="text-sm text-muted-foreground mt-0.5">
-              데스크탑 앱에서는 <b className="text-foreground">🚀 원클릭 연쇄</b> — 필요한 서류를 순서대로 자동 발급하고, 방금 발급분을
-              복지로 신청 양식에 <b className="text-foreground">자동 첨부</b>한 뒤 <b className="text-foreground">제출 직전에 멈춰요</b>.
+              데스크탑 앱에서는 <b className="text-foreground">🚀 원클릭 연쇄</b> — <b className="text-foreground">🔑 로그인 인증 한 번</b>으로 필요한 서류를 순서대로 자동 발급하고
+              (일시 오류는 자동 재시도), 방금 발급분을 복지로 신청 양식에 <b className="text-foreground">자동 첨부</b>한 뒤 <b className="text-foreground">제출 직전에 멈춰요</b>.
               발급물은 <b className="text-foreground">🗂 서류함</b>이 유효기간까지 관리하고, 이미 있는 서류는 건너뛰어 <b className="text-foreground">부족한 것만</b> 발급해요.
               📱 카카오 인증 승인과 최종 제출만 본인이요(명의도용 방지 안전장치).
               <br className="hidden sm:block" />앞으로는 <b className="text-foreground">공공 마이데이터</b>로 <b className="text-foreground">인증 한 번이면 완전 자동</b> — 설치 없이 안전하게 준비 중이에요.

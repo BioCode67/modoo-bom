@@ -210,7 +210,11 @@ async def _run_journey(jid, user_info, profile):
     from rpa.session import GovSession, close_quietly
     _gov_doc_count = sum(1 for s in j["steps"]
                          if s["kind"] == "doc" and _SUPPORTED_DOCS.get(s["name"], ("",))[0] == "gov24")
-    gov_session = GovSession() if _gov_doc_count >= 2 else None
+    #    안전밸브: 실사이트에서 공유 세션이 문제를 일으키면 RPA_ONE_LOGIN=0 으로 즉시 기존
+    #    '서류별 개별 브라우저' 방식 복귀(코드 수정·재빌드 불필요 — 데모 직전 리스크 차단).
+    import os as _os
+    _one_login_on = _os.getenv("RPA_ONE_LOGIN", "1") != "0"
+    gov_session = GovSession() if (_gov_doc_count >= 2 and _one_login_on) else None
     j["one_login"] = gov_session is not None  # UI 요약에 '🔑 로그인 인증 1회' 표기용(정직한 사실만)
     try:
         for step in j["steps"]:
