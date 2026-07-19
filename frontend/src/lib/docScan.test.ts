@@ -101,3 +101,60 @@ describe('jpegPagesToPdf — 여러 사진을 A4 PDF로', () => {
     }
   })
 })
+
+// ── 신규: 문서영역 자동 감지 + 마스킹 (2026-07-19 서류 인식 축) ──────────────────
+
+import { detectDocRegion, normRectFromDrag, applyMaskRects } from './docScan'
+
+/** 합성 이미지: W×H를 bg 명도로 채우고, 지정 사각형만 fg 명도로. */
+function synth(W: number, H: number, bg: number, fg?: { x: number; y: number; w: number; h: number; v: number }) {
+  const data = new Uint8ClampedArray(W * H * 4)
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = (y * W + x) * 4
+    let v = bg
+    if (fg && x >= fg.x && x < fg.x + fg.w && y >= fg.y && y < fg.y + fg.h) v = fg.v
+    data[i] = data[i + 1] = data[i + 2] = v; data[i + 3] = 255
+  }
+  return { data, width: W, height: H }
+}
+
+describe('detectDocRegion — 밝기 기반 문서영역 제안', () => {
+  it('어두운 배경 위 밝은 서류의 경계를 찾는다(±2px 허용)', () => {
+    const img = synth(100, 100, 25, { x: 20, y: 30, w: 60, h: 55, v: 235 })
+    const r = detectDocRegion(img)
+    expect(r).not.toBeNull()
+    expect(Math.abs(r!.x * 100 - 20)).toBeLessThanOrEqual(2)
+    expect(Math.abs(r!.y * 100 - 30)).toBeLessThanOrEqual(2)
+    expect(Math.abs(r!.w * 100 - 60)).toBeLessThanOrEqual(3)
+    expect(Math.abs(r!.h * 100 - 55)).toBeLessThanOrEqual(3)
+  })
+  it('균일 이미지(경계 없음)·프레임 꽉 참·조각(15% 미만)은 제안하지 않는다', () => {
+    expect(detectDocRegion(synth(80, 80, 30))).toBeNull()                                     // 균일
+    expect(detectDocRegion(synth(80, 80, 25, { x: 1, y: 1, w: 78, h: 78, v: 235 }))).toBeNull() // 꽉 참(>92%)
+    expect(detectDocRegion(synth(80, 80, 25, { x: 35, y: 35, w: 8, h: 8, v: 235 }))).toBeNull() // 조각(<15%)
+  })
+})
+
+describe('normRectFromDrag — 드래그 사각형 정규화', () => {
+  it('역방향 드래그도 좌상단 기준으로 정규화하고 0~1로 클램프한다', () => {
+    expect(normRectFromDrag(0.8, 0.7, 0.2, 0.1)).toEqual({ x: 0.2, y: 0.1, w: expect.closeTo(0.6), h: expect.closeTo(0.6) })
+    const r = normRectFromDrag(-0.2, 0.5, 0.5, 1.4)
+    expect(r!.x).toBe(0)
+    expect(r!.y).toBe(0.5)
+    expect(r!.x + r!.w).toBeLessThanOrEqual(1)
+    expect(r!.y + r!.h).toBeLessThanOrEqual(1)
+  })
+  it('너무 작은(실수 클릭) 사각형은 null', () => {
+    expect(normRectFromDrag(0.5, 0.5, 0.505, 0.505)).toBeNull()
+  })
+})
+
+describe('applyMaskRects — 민감정보 가림(픽셀 덮어쓰기)', () => {
+  it('사각형 안은 검정, 밖은 원본 유지 — 알파 보존', () => {
+    const img = synth(10, 10, 200)
+    applyMaskRects(img, [{ x: 0.2, y: 0.2, w: 0.3, h: 0.3 }])
+    const at = (x: number, y: number) => { const i = (y * 10 + x) * 4; return [img.data[i], img.data[i + 3]] }
+    expect(at(3, 3)).toEqual([0, 255])   // 안 — 검정+알파 유지
+    expect(at(8, 8)).toEqual([200, 255]) // 밖 — 원본
+  })
+})

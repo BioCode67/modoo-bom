@@ -2,8 +2,8 @@
 """데스크탑앱 스모크 — local_server(:8000)가 dist-app을 서빙하는 '진짜 배포 셋업'에서
 데스크탑 전용 기능을 실브라우저로 회귀 검증한다(웹 프리뷰 스모크로는 localAgent 기능이 안 보임).
 
-검증 18종(번호는 추가 순서 — 실행 순서는 코드 순):
-  1 상태 스트립 · 2 진단 복사(PII 0) · 2.5 발급 전 점검(5항목) · 3 서류함 등록+첨부 후보 배지
+검증 19종(번호는 추가 순서 — 실행 순서는 코드 순):
+  1 상태 스트립 · 2 진단 복사(PII 0) · 2.5 발급 전 점검(5항목) · 3 서류함 등록+첨부 후보 배지 · 3.5 🖍 가리기
   4 자동첨부 미리보기 · 5 개별 삭제(2탭) · 5.5 유효기간 배지+📦 ZIP · 5.6 종류별 그룹핑(최신본 대표) · 5.7 부족분만 발급→📨 자동신청만 · 5.8 자유 선택 일괄발급
   6 새로고침 복원+실태스크 정리 · 6.5 인증 알림음+🔊 음성(옵트인)+발급 자동 기억
   6.8 챗 에이전트 인지 · 6.9 여정 이어보기 · 6.95 인증정보 탭-기억 옵트인
@@ -97,8 +97,29 @@ def main() -> int:
             pg.wait_for_selector("text=내 서류함", timeout=8000)
             pg.locator("button:has-text('📷 촬영')").first.click()
             pg.wait_for_selector("div[role='dialog'][aria-label*='촬영']", timeout=8000)
-            pg.locator("div[role='dialog'] input[type='file']").set_input_files(str(tiny))
+            # 400×300 합성 사진(어두운 배경 + 밝은 서류) — 1×1 픽셀론 가리기 드래그·영역 감지를 검증할 수 없다
+            big_b64 = pg.evaluate(
+                "()=>{const c=document.createElement('canvas');c.width=400;c.height=300;const x=c.getContext('2d');"
+                "x.fillStyle='#2a2a2a';x.fillRect(0,0,400,300);x.fillStyle='#f2f0ea';x.fillRect(60,40,280,220);"
+                "return c.toDataURL('image/jpeg',0.9).split(',')[1]}")
+            pg.locator("div[role='dialog'] input[type='file']").set_input_files(
+                files=[{"name": "doc.jpg", "mimeType": "image/jpeg", "buffer": base64.b64decode(big_b64)}])
             pg.wait_for_selector("div[role='dialog'] img[alt='1쪽']", timeout=8000)
+
+            # 3.5) 🖍 민감정보 가리기 — 드래그로 검정 사각형을 만들어 픽셀을 덮는다(주민번호 뒷자리 등)
+            pg.locator("button[aria-label='1쪽 민감정보 가리기']").click()
+            pg.wait_for_selector("div[role='dialog'][aria-label='민감정보 가리기']", timeout=6000)
+            box = pg.locator("img[alt='가릴 이미지']").bounding_box()
+            assert box and box["width"] > 10, "가리기 편집기 이미지 미표시"
+            pg.mouse.move(box["x"] + box["width"] * 0.25, box["y"] + box["height"] * 0.35)
+            pg.mouse.down()
+            pg.mouse.move(box["x"] + box["width"] * 0.75, box["y"] + box["height"] * 0.6, steps=6)
+            pg.mouse.up()
+            pg.wait_for_selector("button:has-text('가림 적용 (1곳)')", timeout=4000)
+            pg.locator("button:has-text('가림 적용 (1곳)')").click()
+            pg.wait_for_selector("div[role='dialog'][aria-label='민감정보 가리기']", state="detached", timeout=4000)
+            print("[desktop] ✅ 3.5. 🖍 민감정보 가리기 — 드래그 마스킹 적용(픽셀 덮어쓰기)")
+
             pg.locator("div[role='dialog'] button:has-text('제출문서로 만들기')").click()
             pg.wait_for_selector("text=등록됨", timeout=12000)
             pg.wait_for_selector("span:has-text('첨부 후보')", timeout=8000)
@@ -428,7 +449,7 @@ def main() -> int:
         for i in issues[:10]:
             print("  ", i)
         return 1
-    print("✅ 데스크탑 기능 18종 + pageerror 0 — 전부 통과")
+    print("✅ 데스크탑 기능 19종 + pageerror 0 — 전부 통과")
     return 0
 
 

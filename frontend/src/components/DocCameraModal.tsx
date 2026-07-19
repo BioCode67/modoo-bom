@@ -1,13 +1,25 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Camera, RotateCw, Trash2, Crop, Check, Loader2, ImagePlus, AlertCircle } from 'lucide-react'
+import { X, Camera, RotateCw, Trash2, Crop, Check, Loader2, ImagePlus, AlertCircle, Highlighter } from 'lucide-react'
 import { useModalFocus } from '@/hooks/useModalFocus'
-import { enhanceImageData, dataUrlToBytes, jpegPagesToPdf, type PdfPage } from '@/lib/docScan'
+import { enhanceImageData, dataUrlToBytes, jpegPagesToPdf, detectDocRegion, normRectFromDrag, applyMaskRects, type PdfPage, type NormRect } from '@/lib/docScan'
 
 const MAX_EDGE = 1600 // 다운스케일 상한(제출용으로 충분 + PDF 용량·처리 절감)
 const JPEG_Q = 0.85
 
-interface Shot { canvas: HTMLCanvasElement; thumb: string }
+interface Shot { canvas: HTMLCanvasElement; thumb: string; suggest?: NormRect | null }
+
+/** 문서영역 자동 감지 — 220px 축소본에서 밝기 기반 경계를 추정(비율 좌표라 원본에 그대로 적용). */
+function suggestRegion(canvas: HTMLCanvasElement): NormRect | null {
+  try {
+    const s = Math.min(1, 220 / Math.max(canvas.width, canvas.height))
+    const w = Math.max(1, Math.round(canvas.width * s)), h = Math.max(1, Math.round(canvas.height * s))
+    const c = document.createElement('canvas'); c.width = w; c.height = h
+    const ctx = c.getContext('2d')!
+    ctx.drawImage(canvas, 0, 0, w, h)
+    return detectDocRegion(ctx.getImageData(0, 0, w, h))
+  } catch { return null }
+}
 
 /** 원본 이미지를 비율 유지로 MAX_EDGE 안에 맞춰 캔버스에 그린다(원본 픽셀 보관 — 흑백 토글이 되돌릴 수 있게). */
 function drawScaled(src: CanvasImageSource, w: number, h: number): HTMLCanvasElement {
@@ -67,7 +79,8 @@ export function DocCameraModal({ docName, onClose, onComplete }: {
 
   const addShot = (canvas: HTMLCanvasElement) => {
     const thumb = canvas.toDataURL('image/jpeg', 0.6)
-    setShots((s) => [...s, { canvas, thumb }])
+    // 문서영역 자동 감지(밝기 기반 제안) — 실패(null)면 수동 자르기 기본값 그대로
+    setShots((s) => [...s, { canvas, thumb, suggest: suggestRegion(canvas) }])
   }
 
   // 라이브 프레임 촬영
@@ -116,7 +129,11 @@ export function DocCameraModal({ docName, onClose, onComplete }: {
   const cropContRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<{ mode: string; sx: number; sy: number; box: { x: number; y: number; w: number; h: number } } | null>(null)
   const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))
-  const openCrop = (i: number) => { setCrop({ x: 0.06, y: 0.06, w: 0.88, h: 0.88 }); setCropIdx(i) }
+  const openCrop = (i: number) => {
+    // ✨ 자동 감지된 문서영역이 있으면 초기 박스로 — 사용자는 확인·미세조정만 하면 된다
+    setCrop(shots[i]?.suggest ?? { x: 0.06, y: 0.06, w: 0.88, h: 0.88 })
+    setCropIdx(i)
+  }
   const startCropDrag = (mode: string) => (e: React.PointerEvent) => {
     e.preventDefault(); e.stopPropagation()
     try { (e.target as HTMLElement).setPointerCapture(e.pointerId) } catch { /* noop */ }
@@ -159,6 +176,58 @@ export function DocCameraModal({ docName, onClose, onComplete }: {
       return { canvas: c, thumb: c.toDataURL('image/jpeg', 0.6) }
     }))
     setCropIdx(null)
+  }
+
+  // 🖍 민감정보 가리기(마스킹) — 신분증 주민번호 뒷자리·계좌번호 등을 드래그해 검정으로 덮는다.
+  //   픽셀을 실제로 덮어쓴 뒤 저장하므로 파일에 원본 정보가 남지 않는다(지운 척 금지).
+  const [maskIdx, setMaskIdx] = useState<number | null>(null)
+  const [maskRects, setMaskRects] = useState<NormRect[]>([])
+  const [maskDraft, setMaskDraft] = useState<NormRect | null>(null)
+  const maskContRef = useRef<HTMLDivElement>(null)
+  const maskDragRef = useRef<{ ax: number; ay: number } | null>(null)
+  const maskPoint = (e: React.PointerEvent): { x: number; y: number } | null => {
+    const r = maskContRef.current?.getBoundingClientRect()
+    if (!r || !r.width || !r.height) return null
+    return { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height }
+  }
+  const maskDown = (e: React.PointerEvent) => {
+    const p = maskPoint(e)
+    if (!p) return
+    e.preventDefault()
+    try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId) } catch { /* noop */ }
+    maskDragRef.current = { ax: p.x, ay: p.y }
+    setMaskDraft(null)
+  }
+  const maskMove = (e: React.PointerEvent) => {
+    const d = maskDragRef.current
+    const p = maskPoint(e)
+    if (!d || !p) return
+    setMaskDraft(normRectFromDrag(d.ax, d.ay, p.x, p.y, 0))
+  }
+  const maskUp = (e: React.PointerEvent) => {
+    const d = maskDragRef.current
+    const p = maskPoint(e)
+    maskDragRef.current = null
+    setMaskDraft(null)
+    if (!d || !p) return
+    const rect = normRectFromDrag(d.ax, d.ay, p.x, p.y)
+    if (rect) setMaskRects((s) => [...s, rect])
+  }
+  const applyMask = () => {
+    if (maskIdx === null || !maskRects.length) { setMaskIdx(null); return }
+    const i = maskIdx
+    const rects = maskRects
+    setShots((s) => s.map((shot, idx) => {
+      if (idx !== i) return shot
+      const src = shot.canvas
+      const ctx = src.getContext('2d')!
+      const id = ctx.getImageData(0, 0, src.width, src.height)
+      applyMaskRects(id, rects)
+      ctx.putImageData(id, 0, 0)
+      return { ...shot, canvas: src, thumb: src.toDataURL('image/jpeg', 0.6) }
+    }))
+    setMaskIdx(null)
+    setMaskRects([])
   }
 
   // 보정 적용 → JPEG 바이트 → PDF 조립 → onComplete
@@ -251,10 +320,15 @@ export function DocCameraModal({ docName, onClose, onComplete }: {
                         className="absolute -right-1.5 -top-1.5 rounded-full bg-rose-500 p-1 text-white shadow hover:bg-rose-600">
                         <Trash2 className="h-3 w-3" />
                       </button>
-                      {/* ✂️ 자르기 — 배경(책상·여백) 제거해 서류만 남기기 */}
-                      <button onClick={() => openCrop(i)} aria-label={`${i + 1}쪽 자르기`} title="자르기(배경 제거)"
+                      {/* ✂️ 자르기 — 배경(책상·여백) 제거해 서류만 남기기(문서영역 자동 감지 시 초기 박스 제안) */}
+                      <button onClick={() => openCrop(i)} aria-label={`${i + 1}쪽 자르기`} title={s.suggest ? '자르기 — ✨ 문서 영역이 자동으로 잡혀 있어요' : '자르기(배경 제거)'}
                         className="absolute -left-1.5 -bottom-1.5 rounded-full bg-sprout-500 p-1 text-white shadow hover:bg-sprout-600">
                         <Crop className="h-3 w-3" />
+                      </button>
+                      {/* 🖍 가리기 — 주민번호 뒷자리·계좌번호 등 민감정보를 검정으로 덮기 */}
+                      <button onClick={() => { setMaskRects([]); setMaskIdx(i) }} aria-label={`${i + 1}쪽 민감정보 가리기`} title="가리기(주민번호 뒷자리 등)"
+                        className="absolute -right-1.5 -bottom-1.5 rounded-full bg-slate-700 p-1 text-white shadow hover:bg-slate-800">
+                        <Highlighter className="h-3 w-3" />
                       </button>
                     </div>
                   ))}
@@ -264,7 +338,9 @@ export function DocCameraModal({ docName, onClose, onComplete }: {
 
             <p className="text-[11px] text-muted-foreground leading-relaxed">
               📸 촬영본은 자동 대비 보정 후 <b>제출용 PDF</b>로 만들어져요. 신분증은 <b>앞·뒤 2장</b>, 계약서는 페이지마다 한 장씩 찍으세요.
-              가로로 찍혔으면 <b>↻</b>로 세우고, 배경이 넓으면 <b>✂️</b>로 서류만 잘라내세요. 모든 처리는 <b>이 기기 안에서</b>만 이뤄져요(사진은 서버로 안 보내요).
+              가로로 찍혔으면 <b>↻</b>로 세우고, 배경이 넓으면 <b>✂️</b>로 잘라내세요(어두운 배경이면 문서 영역을 자동으로 잡아드려요).
+              신분증·통장사본은 <b>🖍 가리기</b>로 주민번호 뒷자리·계좌번호를 덮어 제출하는 걸 권해요(요구 기관별 상이).
+              모든 처리는 <b>이 기기 안에서</b>만 이뤄져요(사진은 서버로 안 보내요).
             </p>
 
             <button onClick={build} disabled={!shots.length || busy} className="btn-primary w-full !py-2.5 text-sm justify-center disabled:opacity-50">
@@ -299,6 +375,34 @@ export function DocCameraModal({ docName, onClose, onComplete }: {
           <button onClick={() => setCropIdx(null)} className="btn-secondary !px-5 !py-2 text-sm">취소</button>
           <button onClick={applyCrop} className="btn-primary !px-5 !py-2 text-sm"><Crop className="h-4 w-4" /> 자르기 적용</button>
         </div>
+        {shots[cropIdx]?.suggest && (
+          <p className="text-[11px] text-white/70">✨ 문서 영역을 자동 감지해 초기 박스로 잡았어요 — 밝기 기반 추정이라 꼭 확인·조정해 주세요</p>
+        )}
+      </div>
+    )}
+
+    {/* 🖍 가리기 편집기 — 드래그한 사각형들을 검정으로 덮는다(주민번호 뒷자리·계좌번호 등). */}
+    {maskIdx !== null && shots[maskIdx] && (
+      <div className="fixed inset-0 z-[70] bg-black/85 flex flex-col items-center justify-center gap-3 p-4"
+        role="dialog" aria-modal="true" aria-label="민감정보 가리기">
+        <p className="text-white text-sm font-semibold">가릴 부분을 <b className="text-amber-300">드래그</b>하세요 — 주민번호 뒷자리·계좌번호 등</p>
+        <div ref={maskContRef} className="relative touch-none select-none cursor-crosshair"
+          onPointerDown={maskDown} onPointerMove={maskMove} onPointerUp={maskUp}>
+          <img src={shots[maskIdx].thumb} alt="가릴 이미지" draggable={false} className="block max-w-[92vw] max-h-[62vh] w-auto h-auto rounded" />
+          {[...maskRects, ...(maskDraft ? [maskDraft] : [])].map((r, i) => (
+            <div key={i} className="pointer-events-none absolute bg-black border border-amber-300/70"
+              style={{ left: `${r.x * 100}%`, top: `${r.y * 100}%`, width: `${r.w * 100}%`, height: `${r.h * 100}%` }} />
+          ))}
+        </div>
+        <div className="flex gap-2 flex-wrap justify-center">
+          <button onClick={() => setMaskRects((s) => s.slice(0, -1))} disabled={!maskRects.length}
+            className="btn-secondary !px-4 !py-2 text-sm disabled:opacity-40">하나 되돌리기</button>
+          <button onClick={() => { setMaskIdx(null); setMaskRects([]) }} className="btn-secondary !px-5 !py-2 text-sm">취소</button>
+          <button onClick={applyMask} disabled={!maskRects.length} className="btn-primary !px-5 !py-2 text-sm disabled:opacity-50">
+            <Highlighter className="h-4 w-4" /> 가림 적용 ({maskRects.length}곳)
+          </button>
+        </div>
+        <p className="text-[11px] text-white/70">픽셀을 실제로 덮어써 저장돼요 — 파일에 원본 정보가 남지 않아요 · 적용 후엔 되돌릴 수 없어요(다시 촬영은 가능)</p>
       </div>
     )}
     </>
