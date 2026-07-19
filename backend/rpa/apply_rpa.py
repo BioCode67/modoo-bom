@@ -13,9 +13,11 @@
   - 아동수당
   - 부모급여
   - 청년 내일저축계좌
+  - 청년월세지원
 """
 import asyncio
 import os
+import re
 from rpa.base import (
     take_screenshot, wait_for_login,
     click_first_matching, click_by_text, make_browser_context_args,
@@ -155,6 +157,206 @@ _ATTACH_ALIASES = {
 }
 
 
+_AUTH_CONTEXT_URL_KEYWORDS = ("fincert", "yeskey", "simplecert", "anyid", "kakao")
+
+_PROFILE_FIELDS = (
+    ("name", "이름", [
+        "input[name='aplcntNm']", "#aplcntNm", "input[id*='aplcntNm']",
+        "input[placeholder*='이름']", "input[placeholder*='성명']",
+        "input[aria-label*='이름']", "input[aria-label*='성명']",
+    ], ["신청인 이름", "신청인 성명", "이름", "성명"]),
+    ("birth_date", "생년월일", [
+        "input[placeholder*='생년월일']", "input[name*='brthdy']", "input[name*='birth']",
+        "input[id*='brthdy']", "input[id*='birth']", "input[aria-label*='생년월일']",
+    ], ["생년월일", "신청인 생년월일"]),
+    ("phone", "휴대폰", [
+        "input[placeholder*='휴대폰']", "input[placeholder*='연락처']",
+        "input[name*='telno']", "input[name*='phone']", "input[id*='telno']",
+        "input[id*='phone']", "input[aria-label*='휴대폰']", "input[aria-label*='연락처']",
+    ], ["휴대폰 번호", "휴대전화", "연락처", "휴대폰"]),
+)
+
+_FORM_MARKERS = (
+    "신청인 정보", "신청서 작성", "신청정보 입력", "가구원 정보", "첨부서류",
+)
+
+
+def _as_contexts(target) -> list:
+    """Page/Frame 하나 또는 목록을 중복 없이 정규화한다."""
+    raw = list(target) if isinstance(target, (list, tuple)) else [target]
+    contexts = []
+    seen = set()
+    for ctx in raw:
+        if ctx is None or id(ctx) in seen:
+            continue
+        seen.add(id(ctx))
+        contexts.append(ctx)
+    return contexts
+
+
+def _is_auth_context(ctx) -> bool:
+    try:
+        url = str(ctx.url or "").lower()
+    except Exception:
+        return False
+    return any(keyword in url for keyword in _AUTH_CONTEXT_URL_KEYWORDS)
+
+
+def _apply_contexts(browser_context, preferred_page=None) -> list:
+    """신청 양식 후보인 모든 열린 Page와 자식 Frame을 반환한다.
+
+    간편인증 iframe은 이름/전화 입력칸이 있어 신청 양식으로 오인하기 쉬우므로 제외한다.
+    """
+    try:
+        pages = [p for p in browser_context.pages if not p.is_closed()]
+    except Exception:
+        pages = []
+    if preferred_page in pages:
+        pages.remove(preferred_page)
+        pages.insert(0, preferred_page)
+
+    candidates = []
+    for page in pages:
+        if _is_auth_context(page):
+            continue
+        candidates.append(page)
+        try:
+            main_frame = page.main_frame
+            frames = page.frames
+        except Exception:
+            frames = []
+            main_frame = None
+        for frame in frames:
+            if frame == main_frame or _is_auth_context(frame):
+                continue
+            candidates.append(frame)
+    return _as_contexts(candidates)
+
+
+async def _locator_count(ctx, selector: str) -> int:
+    try:
+        return int(await ctx.locator(selector).count())
+    except Exception:
+        return 0
+
+
+async def _scan_apply_state(contexts) -> dict:
+    """양식 도달 여부 판정에 필요한 DOM 신호를 스냅샷으로 만든다."""
+    profile_controls = 0
+    file_inputs = 0
+    generic_controls = 0
+    urls = []
+    markers = set()
+    normalized = _as_contexts(contexts)
+    for ctx in normalized:
+        try:
+            urls.append(str(ctx.url or ""))
+        except Exception:
+            pass
+        for _key, _label, selectors, _labels in _PROFILE_FIELDS:
+            for selector in selectors:
+                profile_controls += await _locator_count(ctx, selector)
+        file_inputs += await _locator_count(ctx, "input[type='file']")
+        generic_controls += await _locator_count(
+            ctx, "input:not([type='hidden']), select, textarea, [contenteditable='true']"
+        )
+        try:
+            found = await ctx.evaluate(
+                """(needles) => {
+                    const text = (document.body && document.body.innerText) || '';
+                    return needles.filter((needle) => text.includes(needle));
+                }""",
+                list(_FORM_MARKERS),
+            )
+            markers.update(found or [])
+        except Exception:
+            pass
+    return {
+        "context_count": len(normalized),
+        "urls": tuple(sorted(set(urls))),
+        "profile_controls": profile_controls,
+        "file_inputs": file_inputs,
+        "generic_controls": generic_controls,
+        "markers": tuple(sorted(markers)),
+    }
+
+
+def _is_apply_form_ready(before: dict, after: dict) -> bool:
+    """클릭·팝업 생성만으로 성공 처리하지 않고 실제 양식 신호의 출현을 요구한다."""
+    new_profile = after.get("profile_controls", 0) > before.get("profile_controls", 0)
+    new_files = after.get("file_inputs", 0) > before.get("file_inputs", 0)
+    new_markers = set(after.get("markers", ())) - set(before.get("markers", ()))
+    if new_profile or new_files or new_markers:
+        return True
+
+    navigated = (
+        after.get("urls") != before.get("urls")
+        or after.get("context_count", 0) > before.get("context_count", 0)
+    )
+    # 사이트 개편으로 필드명이 바뀐 경우에도, 화면 전환 뒤 일반 입력 컨트롤이 2개 이상 늘면
+    # 양식 후보로 인정한다. 새 창만 뜨거나 URL만 바뀐 경우는 성공으로 보지 않는다.
+    return bool(
+        navigated
+        and after.get("generic_controls", 0) >= 2
+        and after.get("generic_controls", 0) >= before.get("generic_controls", 0) + 2
+    )
+
+
+async def _wait_for_apply_form(task, browser_context, preferred_page, before: dict, timeout_sec: int):
+    end = asyncio.get_event_loop().time() + max(0, timeout_sec)
+    latest_contexts = _apply_contexts(browser_context, preferred_page)
+    latest_state = await _scan_apply_state(latest_contexts)
+    while not _is_apply_form_ready(before, latest_state):
+        if asyncio.get_event_loop().time() >= end:
+            return False, latest_contexts, latest_state
+        check_cancel(task, browser_context)
+        await asyncio.sleep(0.5)
+        latest_contexts = _apply_contexts(browser_context, preferred_page)
+        latest_state = await _scan_apply_state(latest_contexts)
+    return True, latest_contexts, latest_state
+
+
+async def _fill_first(contexts, selectors: list, labels: list, value: str) -> bool:
+    if not value:
+        return False
+    for ctx in _as_contexts(contexts):
+        for selector in selectors:
+            try:
+                el = ctx.locator(selector).first
+                if await el.count() > 0:
+                    try:
+                        if not await el.is_visible():
+                            continue
+                    except Exception:
+                        pass
+                    await el.fill(value)
+                    return True
+            except Exception:
+                continue
+        for label in labels:
+            try:
+                el = ctx.get_by_label(label, exact=False).first
+                if await el.count() > 0:
+                    await el.fill(value)
+                    return True
+            except Exception:
+                continue
+    return False
+
+
+async def _fill_profile_fields(contexts, profile: dict) -> list:
+    values = {
+        "name": str((profile or {}).get("name", "") or "").strip(),
+        "birth_date": re.sub(r"[^0-9]", "", str((profile or {}).get("birth_date", ""))),
+        "phone": re.sub(r"[^0-9]", "", str((profile or {}).get("phone", ""))),
+    }
+    filled = []
+    for key, display, selectors, labels in _PROFILE_FIELDS:
+        if await _fill_first(contexts, selectors, labels, values[key]):
+            filled.append(display)
+    return filled
+
+
 async def _auto_attach(target_page, issued, applicant_name: str = "") -> list:
     """파일 첨부칸의 주변 문맥(가장 가까운 행/라벨 텍스트)과 발급 서류명을 대조해 '확신 매칭'만 자동 첨부.
 
@@ -167,15 +369,19 @@ async def _auto_attach(target_page, issued, applicant_name: str = "") -> list:
     (안 떼면 '임대차계약서_홍길동' ∉ '임대차계약서'라 다건 자동첨부가 전부 실패).
     """
     attached: list = []
-    try:
-        inputs = target_page.locator("input[type='file']")
-        n = await inputs.count()
-    except Exception:
+    slots = []
+    for ctx in _as_contexts(target_page):
+        try:
+            inputs = ctx.locator("input[type='file']")
+            n = await inputs.count()
+            slots.extend(inputs.nth(i) for i in range(n))
+        except Exception:
+            continue
+    if not slots:
         return attached
     used_docs: set = set()
     who = (applicant_name or "").replace(" ", "")
-    for i in range(n):
-        el = inputs.nth(i)
+    for i, el in enumerate(slots):
         try:
             ctx_text = await el.evaluate(
                 "e => ((e.closest('tr,li,dl,.row,.form-group') || e.parentElement)?.innerText || '').slice(0, 300)"
@@ -194,14 +400,17 @@ async def _auto_attach(target_page, issued, applicant_name: str = "") -> list:
                     await el.set_input_files(path)
                     used_docs.add(doc_name)
                     label = (ctx_text or "").strip().splitlines()[0][:30] if ctx_text else f"{i + 1}번째 칸"
-                    attached.append(f"{doc_name} → '{label}'")
+                    # 상태 API에 신청인 이름이 섞인 파일 표시명을 노출하지 않는다.
+                    attached.append(f"{key} → '{label}'")
                 except Exception:
                     pass
                 break
-    if not attached and n == 1 and len(issued) == 1:
+    if not attached and len(slots) == 1 and len(issued) == 1:
         try:
-            await inputs.first.set_input_files(issued[0][1])
-            attached.append(f"{issued[0][0]} → 첨부칸")
+            await slots[0].set_input_files(issued[0][1])
+            raw = str(issued[0][0]).replace(" ", "")
+            key = raw[: -(len(who) + 1)] if (who and raw.endswith("_" + who)) else raw
+            attached.append(f"{key} → 첨부칸")
         except Exception:
             pass
     return attached
@@ -288,87 +497,86 @@ async def run_apply_rpa(task, service_name: str, profile: dict) -> None:
             ss = await take_screenshot(page)
             task.update("running", "신청하기 버튼 탐색 중...", ss)
 
-            apply_clicked = await click_first_matching(page, APPLY_BUTTON_SELECTORS)
+            # 클릭 전 DOM을 기준점으로 저장한다. 팝업이 하나 늘거나 click()이 예외 없이 끝났다는 사실은
+            # 실제 신청 양식 도달 증거가 아니므로 이후의 입력칸/첨부칸/양식 문구 출현과 비교한다.
+            before_contexts = _apply_contexts(context, page)
+            before_state = await _scan_apply_state(before_contexts)
+
+            apply_clicked = False
+            for candidate in before_contexts:
+                if await click_first_matching(candidate, APPLY_BUTTON_SELECTORS):
+                    apply_clicked = True
+                    break
             if not apply_clicked:
                 # 복지로 '신청하기'는 eForm(clipsoft) 위젯 — 합성 클릭에 무반응이라 좌표 기반 신뢰 클릭으로 폴백
-                #   (감사 :251 — 표준 셀렉터만으로 '클릭 실패'인데 양식 열림 오보되던 것 실제 클릭으로 해소)
-                apply_clicked = await click_eform_button(page, "신청하기") or await click_eform_button(page, "신청")
-            await asyncio.sleep(2)
+                for candidate in before_contexts:
+                    if (await click_eform_button(candidate, "신청하기")
+                            or await click_eform_button(candidate, "신청")):
+                        apply_clicked = True
+                        break
 
-            if not apply_clicked:
+            form_detected = False
+            form_contexts = before_contexts
+            form_state = before_state
+            if apply_clicked:
+                task.update("running", "신청 양식이 실제로 열렸는지 확인 중...")
+                form_detected, form_contexts, form_state = await _wait_for_apply_form(
+                    task, context, page, before_state, 12
+                )
+
+            if not form_detected:
                 ss = await take_screenshot(page)
-                task.update("waiting_login",
-                    f"신청하기 버튼을 찾지 못했습니다.\n"
-                    f"브라우저에서 '{service_name}' 신청하기 버튼을 직접 클릭한 후\n"
-                    f"신청 양식이 표시되면 계속 진행됩니다.", ss)
-                # 사용자가 직접 클릭하도록 최대 30초 대기 — [중단]·창닫힘엔 즉시 탈출(고정 sleep은 취소 지연, 감사 H3)
-                for _ in range(30):
-                    check_cancel(task, context)
-                    await asyncio.sleep(1)
+                task.update("running",
+                    f"'{service_name}' 신청 양식 자동 열기를 확인하지 못했어요.\n"
+                    "브라우저에서 '신청하기' 버튼을 직접 눌러주세요.\n"
+                    "입력 양식이 나타나면 에이전트가 감지해 이어서 작성합니다.", ss)
+                form_detected, form_contexts, form_state = await _wait_for_apply_form(
+                    task, context, page, before_state, 30
+                )
 
             ss = await take_screenshot(page)
-            task.update("running", "신청 양식 로드 중...", ss)
+            task.update("running", "신청 화면 분석 중...", ss)
 
             # ⑤ 팝업 확인
             target_page = page
-            if len(context.pages) > 1:
-                target_page = context.pages[-1]
+            open_pages = [p for p in context.pages if not p.is_closed()]
+            if len(open_pages) > 1:
+                target_page = open_pages[-1]
                 await target_page.bring_to_front()
                 ss = await take_screenshot(target_page)
-                task.update("running", "신청 팝업 창 감지 — 양식 자동 작성 중...", ss)
-
-            await asyncio.sleep(2)
+                task.update("running", "신청 팝업 창 감지 — 입력 가능한 양식 확인 중...", ss)
 
             # ⑥ 기본 양식 자동 작성 (이름·생년월일·연락처)
-            import re as _re
-            name = profile.get("name", "")
-            birth = _re.sub(r"[^0-9]", "", str(profile.get("birth_date", "")))
-            phone = _re.sub(r"[^0-9]", "", str(profile.get("phone", "")))
-
-            async def _fill(selectors, value):
-                if not value:
-                    return False
-                for sel in selectors:
-                    try:
-                        el = target_page.locator(sel).first
-                        if await el.count() > 0:
-                            await el.fill(value)
-                            return True
-                    except Exception:
-                        pass
-                return False
-
-            any_filled = False
-            any_filled |= await _fill(["input[name='aplcntNm']", "input[placeholder*='이름']", "#aplcntNm"], name)
-            any_filled |= await _fill(["input[placeholder*='생년월일']", "input[name*='brthdy']", "input[name*='birth']"], birth)
-            any_filled |= await _fill(["input[placeholder*='휴대폰']", "input[placeholder*='연락처']", "input[name*='telno']", "input[name*='phone']"], phone)
+            name = str((profile or {}).get("name", "") or "")
+            filled_fields = await _fill_profile_fields(form_contexts, profile) if form_detected else []
 
             # ⑦ 발급 서류 '자동 첨부' — 첨부칸 주변 문맥(라벨·행 텍스트)과 발급 서류명이 일치하는
             #    '확신 매칭'만 자동으로 붙인다(오첨부 방지). 단일 첨부칸+단일 발급서류처럼 모호성이
             #    없는 경우도 첨부. 애매하면 기존처럼 정확 안내로 폴백. 제출은 여전히 본인 확인 후.
             #    (정부24 담당 확인: 정상적 발급·신청 목적의 자동화 접근은 허용 — 2026-07 사용자 확인)
             from rpa.base import recent_issued_docs, DOCS_DIR
-            try:
-                has_file_input = await target_page.locator("input[type='file']").count() > 0
-            except Exception:
-                has_file_input = False
+            has_file_input = bool(form_detected and form_state.get("file_inputs", 0) > 0)
             # ⚠️ 자동 첨부 후보는 '최근 발급물'만 — 공용 PC에서 직전 사용자의 오래된 서류(주민번호 포함)가
             #    다음 사용자 신청서에 붙는 교차사용자 PII 유출 방지(감사 확정). '다음 분 상담'은 폴더를 비우고,
             #    이 시간창은 리셋을 깜빡한 경우의 2차 방어선. (안내 목록에는 전체 issued 사용)
             _attach_age = int(os.getenv("RPA_ATTACH_MAX_AGE", "1200"))  # 기본 20분
             issued = recent_issued_docs()
             attach_candidates = recent_issued_docs(within_seconds=_attach_age)
-            attached = await _auto_attach(target_page, attach_candidates, name) if (has_file_input and attach_candidates) else []
+            attached = await _auto_attach(form_contexts, attach_candidates, name) if (has_file_input and attach_candidates) else []
             attach_guide = ""
             if attached:
                 lst = "\n".join(f"   ✓ {a}" for a in attached)
                 attach_guide = (f"\n\n📎 발급해둔 서류를 자동으로 첨부했어요:\n{lst}\n"
                                 f"   제출 전 첨부칸에서 맞게 붙었는지 한 번만 확인해주세요.")
             elif has_file_input:
-                try:
-                    await target_page.locator("input[type='file']").first.scroll_into_view_if_needed(timeout=3000)
-                except Exception:
-                    pass
+                for candidate in form_contexts:
+                    try:
+                        inputs = candidate.locator("input[type='file']")
+                        if await inputs.count() > 0:
+                            await inputs.first.scroll_into_view_if_needed(timeout=3000)
+                            break
+                    except Exception:
+                        continue
                 if issued:
                     lst = "\n".join(f"   • {n}" for n, _ in issued[:6])
                     attach_guide = (f"\n\n📎 서류 첨부: 아래 발급 서류를 첨부칸에 올려주세요\n{lst}\n"
@@ -382,37 +590,57 @@ async def run_apply_rpa(task, service_name: str, profile: dict) -> None:
 
             await asyncio.sleep(1)
             ss = await take_screenshot(target_page)
-            # 신청 양식이 '실제로' 열렸는지 구체 신호로 판정 — 클릭 실패·미개폐인데도 '양식 열림!'으로
-            #   오보하던 결함(감사 :251) 해소. 어느 하나라도 참이면 양식 도달로 본다.
-            form_detected = bool(apply_clicked) or (len(context.pages) > 1) or has_file_input or any_filled
             import os as _os
             if form_detected:
+                filled_summary = " · ".join(filled_fields) if filled_fields else "자동 입력 가능한 기본정보 없음"
+                attached_summary = f"{len(attached)}건" if attached else "0건"
                 task.update("running",
                     f"✅ '{service_name}' 신청 양식이 열렸어요!\n\n"
+                    f"🖊 자동 입력: {filled_summary}\n"
+                    f"📎 자동 첨부: {attached_summary}\n\n"
                     f"📋 남은 작업:\n"
                     f"1. 신청 양식의 내용을 확인해주세요\n"
                     f"2. 추가 정보가 필요하면 직접 입력해주세요"
                     + attach_guide +
                     f"\n3. 모든 내용 확인 후 '신청' 버튼을 클릭해주세요\n\n"
                     f"⚠️ 제출은 반드시 직접 확인 후 진행해주세요.", ss)
-                task.result = {"success": True, "service_name": service_name, "status": "form_ready"}
+                task.result = {
+                    "success": True,
+                    "service_name": service_name,
+                    "status": "form_ready",
+                    "form_detected": True,
+                    "apply_clicked": bool(apply_clicked),
+                    "filled_fields": filled_fields,
+                    "attached_docs": attached,
+                    "file_input_count": int(form_state.get("file_inputs", 0)),
+                }
             else:
                 # 서비스 페이지까진 왔지만 '신청하기'를 자동으로 열지 못함 — 가짜 '양식 열림' 대신 정직 안내.
-                #   (요구사항 최소선 '신청 사이트 자동이동'은 충족 → success=True, 다만 양식 개폐는 수동)
                 task.update("running",
                     f"📄 '{service_name}' 신청 페이지까지 왔어요.\n\n"
-                    "화면에서 '신청하기' 버튼을 눌러 양식을 열어주세요.\n"
-                    "(신청 화면이 eForm이라 버튼을 자동으로 못 여는 경우가 있어요.)"
+                    "신청 양식이 열린 것은 확인하지 못했습니다.\n"
+                    "화면에서 '신청하기' 버튼을 눌러 직접 진행해주세요.\n"
+                    "(사이트 구조나 신청 기간에 따라 자동 입력을 이어가지 못할 수 있어요.)"
                     + attach_guide +
                     "\n\n⚠️ 제출은 반드시 직접 확인 후 진행해주세요.", ss)
-                task.result = {"success": True, "service_name": service_name, "status": "page_ready", "manual_apply": True}
+                task.result = {
+                    "success": False,
+                    "service_name": service_name,
+                    "status": "manual_required",
+                    "manual_apply": True,
+                    "form_detected": False,
+                    "apply_clicked": bool(apply_clicked),
+                    "filled_fields": [],
+                    "attached_docs": [],
+                }
 
             # 사용자 검토·제출 동안 브라우저 유지 — 기본 10분(RPA_REVIEW_WINDOW 초).
             # ⚠️ 과거 60초는 어르신·현장에서 검토 중에 창이 사라지는 문제 → 대폭 확장.
             #    사용자가 창을 직접 닫으면 조기 종료(불필요한 대기 없음).
             review_sec = max(60, int(_os.getenv("RPA_REVIEW_WINDOW", "600")))
             for _rw in range(review_sec // 5):
-                check_cancel(task, context)  # [중단] 요청·창닫힘 즉시 탈출
+                # 명시적 [중단]만 취소로 처리한다. 검토·제출 후 브라우저를 닫는 것은 정상 종료 신호다.
+                check_cancel(task)
                 await asyncio.sleep(5)
                 try:
                     if not context.pages or all(p.is_closed() for p in context.pages):
@@ -426,11 +654,19 @@ async def run_apply_rpa(task, service_name: str, profile: dict) -> None:
                         _open = [pg for pg in context.pages if not pg.is_closed()]
                         _ss = await take_screenshot(_open[-1]) if _open else None
                         _el = _rw * 5
-                        task.update("running",
-                            f"🕐 신청서 검토를 기다리는 중이에요 ({_el // 60}분 {_el % 60:02d}초 경과)\n"
-                            "열린 브라우저 창에서 내용을 확인하고 [신청] 버튼으로 제출해 주세요.\n"
-                            "제출을 마쳤거나 그만두려면 그 창을 닫으면 돼요(자동으로 정리됩니다).",
-                            _ss)
+                        if form_detected:
+                            heartbeat = (
+                                f"🕐 신청서 검토를 기다리는 중이에요 ({_el // 60}분 {_el % 60:02d}초 경과)\n"
+                                "열린 브라우저 창에서 내용을 확인하고 [신청] 버튼으로 제출해 주세요.\n"
+                                "제출을 마쳤거나 그만두려면 그 창을 닫으면 돼요(자동으로 정리됩니다)."
+                            )
+                        else:
+                            heartbeat = (
+                                f"🕐 직접 신청을 기다리는 중이에요 ({_el // 60}분 {_el % 60:02d}초 경과)\n"
+                                "열린 복지로 화면에서 [신청하기]를 눌러 직접 진행해 주세요.\n"
+                                "마쳤거나 그만두려면 그 창을 닫으면 돼요(자동으로 정리됩니다)."
+                            )
+                        task.update("running", heartbeat, _ss)
                     except Exception:
                         pass
 
@@ -443,10 +679,16 @@ async def run_apply_rpa(task, service_name: str, profile: dict) -> None:
             except Exception:
                 pass
 
-            task.update("done",
-                f"✅ '{service_name}' 신청 절차 안내 완료!\n"
-                "브라우저에서 신청을 마저 진행하거나 나중에 복지로(www.bokjiro.go.kr)에서 신청하실 수 있습니다.\n"
-                "문의: ☎ 129 (복지로 콜센터)", ss)
+            if form_detected:
+                task.update("done",
+                    f"✅ '{service_name}' 신청 양식 준비를 마쳤어요.\n"
+                    "열린 브라우저에서 내용을 확인하고 최종 제출해 주세요.\n"
+                    "문의: ☎ 129 (복지로 콜센터)", ss)
+            else:
+                task.update("done",
+                    f"⚠️ '{service_name}' 신청 페이지 안내를 마쳤어요.\n"
+                    "자동 양식 준비는 완료하지 못했습니다. 열린 브라우저에서 직접 신청해 주세요.\n"
+                    "문의: ☎ 129 (복지로 콜센터)", ss)
 
             await browser.close()
 

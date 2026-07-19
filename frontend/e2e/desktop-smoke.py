@@ -363,7 +363,10 @@ def main() -> int:
                 else:
                     body = {"status": "completed", "current": None, "steps": [
                         {"name": "주민등록등본", "status": "cancelled", "kind": "doc"},
-                        {"name": "청년월세지원", "status": "done", "kind": "apply"}]}
+                        {"name": "청년월세지원", "status": "done", "kind": "apply",
+                         "success": True, "result_status": "form_ready",
+                         "filled_fields": ["이름", "생년월일", "휴대폰"],
+                         "attached_docs": ["주민등록등본 → '첨부서류'"]}]}
                 r.fulfill(status=200, content_type="application/json", body=json.dumps(body))
             pg.route("**/api/journey/status/**", onjstatus)
             def onskip(r):
