@@ -20,7 +20,7 @@
     -webkit-font-smoothing: antialiased; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
   .slide {
     width: 1280px; height: 720px; position: relative; overflow: hidden;
-    background: linear-gradient(90deg,#15803d,#22c55e 55%,#84cc16) top/100% 5px no-repeat,
+    background: linear-gradient(90deg,#22c55e,#4ade80) top/100% 4px no-repeat,
                 linear-gradient(155deg, #ffffff 0%, #f6fbf4 60%, #eef8ec 100%);
     page-break-after: always; margin: 0 auto 24px; display: flex; flex-direction: column;
   }
@@ -53,8 +53,8 @@
   .stat-n { font-size: 44px; font-weight: 900; line-height: 1.05; color: #15803d; }
   .stat-l { font-size: 16px; font-weight: 700; color: #446b4d; margin-top: 4px; }
   .band {
-    background: linear-gradient(100deg,#14532d,#1c6b3c); color: #eafbea; border-radius: 22px; padding: 16px 26px;
-    font-size: 19px; font-weight: 700; box-shadow: 0 10px 26px rgba(20,60,30,.20); /* flex 금지 — <b> 조각이 플렉스 아이템으로 흩어져 어색한 간격 발생 */
+    background: #eef8f0; color: #17694a; border: 1.5px solid #d3ecda; border-radius: 22px; padding: 15px 26px;
+    font-size: 19px; font-weight: 700; box-shadow: 0 6px 16px rgba(20,83,45,.06); /* flex 금지 — <b> 조각이 플렉스 아이템으로 흩어져 어색한 간격 발생 */
   }
   .shot { border: 2px solid #cfe8cf; border-radius: 20px; box-shadow: 0 10px 26px rgba(20, 60, 30, .12); }
   .pill { display: inline-block; background: #fff; border: 1.5px solid #c3e6c1; color: #166534; border-radius: 999px; padding: 8px 18px; font-weight: 700; box-shadow: 0 3px 10px rgba(20,83,45,.08); }
@@ -77,13 +77,13 @@
   .chip { display:inline-flex; align-items:center; justify-content:center; width:46px; height:46px; border-radius:14px;
     background:#dcf6dc; border:2px solid #a7e3b4; font-size:23px; flex-shrink:0; box-shadow:0 4px 12px rgba(22,101,52,.10); }
   .kpi { font-size:46px; font-weight:900; line-height:1; color:#15803d; }
-  .slide.dark { background: radial-gradient(1100px 560px at 50% -12%, rgba(52,211,153,.16), transparent 60%),
-    linear-gradient(158deg,#103c24 0%,#0c2e1c 56%,#0a2517 100%); color:#eafaf0; }
+  .slide.dark { background: 
+    linear-gradient(160deg,#f3fbf5 0%,#e8f7ec 68%,#dcf2e4 100%); color:#16281c; }
   .slide.dark::before, .slide.dark::after { display:none; }
-  .slide.dark .muted { color:#a7c9b4; }
-  .slide.dark .pill { background:rgba(255,255,255,.07); border:1.5px solid rgba(255,255,255,.22); color:#eafaf0; box-shadow:none; }
-  .slide.dark .foot { color:#84a892; }
-  .gradL { color:#86efac; }
+  .slide.dark .muted { color:#55705c; }
+  .slide.dark .pill { background:#fff; border:1.5px solid #c3e6c1; color:#166534; box-shadow:0 3px 10px rgba(20,83,45,.08); }
+  .slide.dark .foot { color:#6b8570; }
+  .gradL { color:#16a34a; }
   table { word-break: keep-all; }
 </style>
 </head>
@@ -92,9 +92,9 @@
 <!-- S1 표지 -->
 <section class="slide dark">
   <div class="pad" style="justify-content:center; align-items:center; text-align:center;">
-    <div style="width:120px; height:120px; border-radius:38px; margin-bottom:16px; display:flex; align-items:center; justify-content:center; font-size:68px; background:rgba(255,255,255,.06); border:1.5px solid rgba(255,255,255,.16); box-shadow:0 18px 44px rgba(0,0,0,.28);"><svg width="62" height="62" viewBox="0 0 64 64" aria-hidden="true"><path d="M32 60 V33" stroke="#86efac" stroke-width="5" stroke-linecap="round"/><ellipse cx="21" cy="27" rx="14" ry="8" fill="#4ade80" transform="rotate(-32 21 27)"/><ellipse cx="43" cy="25" rx="14" ry="8" fill="#a3e635" transform="rotate(30 43 25)"/></svg></div>
+    <div style="width:120px; height:120px; border-radius:38px; margin-bottom:16px; display:flex; align-items:center; justify-content:center; font-size:68px; background:radial-gradient(circle at 50% 38%,#eafce9,#d6f5d6); border:1.5px solid #a7e3b4; box-shadow:0 16px 40px rgba(22,101,52,.16);"><svg width="62" height="62" viewBox="0 0 64 64" aria-hidden="true"><path d="M32 60 V33" stroke="#15803d" stroke-width="5" stroke-linecap="round"/><ellipse cx="21" cy="27" rx="14" ry="8" fill="#22c55e" transform="rotate(-32 21 27)"/><ellipse cx="43" cy="25" rx="14" ry="8" fill="#4ade80" transform="rotate(30 43 25)"/></svg></div>
     <h1 style="font-size:92px;"><span class="gradL">모두봄</span></h1>
-    <p style="font-size:29px; font-weight:800; margin-top:8px; color:#eafaf0;">몰라서 못 받는 복지를 찾아주는<br/><span class="gradL">개인 복지 AI 에이전트</span></p>
+    <p style="font-size:29px; font-weight:800; margin-top:8px; color:#16281c;">몰라서 못 받는 복지를 찾아주는<br/><span class="gradL">개인 복지 AI 에이전트</span></p>
     <p class="muted" style="font-size:18px; margin-top:18px; font-weight:600;">찾기 → 이해 → 서류·신청 실행 → 사후관리까지 · 개인정보는 내 기기 안에서만</p>
     <div style="display:flex; gap:10px; margin-top:24px; flex-wrap:wrap; justify-content:center;">
       <span class="pill"> 온디바이스 AI</span>
@@ -167,7 +167,7 @@
 <section class="slide">
   <div class="pad">
     <span class="eyebrow">문제</span>
-    <h2>일흔둘 김복순 님은, 자신의 <span class="grad">월 64만원어치 권리</span>를 모른 채 삽니다</h2>
+    <h2>72세 박영순 님은, 자신의 <span class="grad">월 64만원어치 권리</span>를 모른 채 삽니다</h2>
     <div class="row" style="margin-top:26px; flex:1;">
       <div class="card" style="flex:1.25; display:flex; flex-direction:column; justify-content:center; gap:16px;">
         <p style="font-size:23px; line-height:1.6; font-weight:600;">
@@ -219,53 +219,53 @@
       <thead>
         <tr style="font-size:15px; color:#446b4d;">
           <th style="width:24%;"></th>
-          <th style="padding:6px 10px; font-weight:800;">복지로 · 보조금24</th>
-          <th style="padding:6px 10px; font-weight:800;">웰로 (상용)</th>
+          <th style="padding:8px 10px; font-weight:800; background:#f5f6f4; border-radius:9px;">복지로 · 보조금24</th>
+          <th style="padding:8px 10px; font-weight:800; background:#f5f6f4; border-radius:9px;">웰로 (상용)</th>
           <th style="padding:8px 10px; font-weight:900; color:#15803d; background:#dcf3dc; border-radius:8px;">모두봄</th>
         </tr>
       </thead>
       <tbody style="font-size:16px; font-weight:600;">
         <tr>
           <td style="padding:8px 14px; font-weight:800;">정부·지자체 통합</td>
-          <td style="text-align:center; color:#5a7360;">✓</td>
-          <td style="text-align:center; color:#5a7360;">✓</td>
-          <td style="text-align:center; background:#eaf7ea; color:#166534; font-weight:800; border-radius:8px;">✓ 약 5,300건</td>
+          <td style="text-align:center; color:#5a7360; background:#f5f6f4; border-radius:9px; padding:9px 6px;">✓</td>
+          <td style="text-align:center; color:#5a7360; background:#f5f6f4; border-radius:9px; padding:9px 6px;">✓</td>
+          <td style="text-align:center; background:#e2f5e6; color:#166534; font-weight:800; border-radius:9px; padding:9px 8px;">✓ 약 5,300건</td>
         </tr>
         <tr>
           <td style="padding:8px 14px; font-weight:800;">민간재단(장학·의료·위기)</td>
-          <td style="text-align:center; color:#9aa89b;">✗</td>
-          <td style="text-align:center; color:#5a7360;">△ 일부</td>
-          <td style="text-align:center; background:#eaf7ea; color:#166534; font-weight:800; border-radius:8px;">✓ 21건 실측 큐레이션</td>
+          <td style="text-align:center; color:#9aa89b; background:#f5f6f4; border-radius:9px; padding:9px 6px;">✗</td>
+          <td style="text-align:center; color:#5a7360; background:#f5f6f4; border-radius:9px; padding:9px 6px;">△ 일부</td>
+          <td style="text-align:center; background:#e2f5e6; color:#166534; font-weight:800; border-radius:9px; padding:9px 8px;">✓ 21건 실측 큐레이션</td>
         </tr>
         <tr>
           <td style="padding:8px 14px; font-weight:800;">개인화 방식</td>
-          <td style="text-align:center; color:#5a7360;">로그인+공적정보</td>
-          <td style="text-align:center; color:#5a7360;">서버 프로필</td>
-          <td style="text-align:center; background:#eaf7ea; color:#166534; font-weight:800; border-radius:8px;">온디바이스 · 전송 0</td>
+          <td style="text-align:center; color:#5a7360; background:#f5f6f4; border-radius:9px; padding:9px 6px;">로그인+공적정보</td>
+          <td style="text-align:center; color:#5a7360; background:#f5f6f4; border-radius:9px; padding:9px 6px;">서버 프로필</td>
+          <td style="text-align:center; background:#e2f5e6; color:#166534; font-weight:800; border-radius:9px; padding:9px 8px;">온디바이스 · 전송 0</td>
         </tr>
         <tr>
           <td style="padding:8px 14px; font-weight:800;">다국어</td>
-          <td style="text-align:center; color:#5a7360;">제한적</td>
-          <td style="text-align:center; color:#9aa89b;">✗</td>
-          <td style="text-align:center; background:#eaf7ea; color:#166534; font-weight:800; border-radius:8px;">7개 언어 AI 답변</td>
+          <td style="text-align:center; color:#5a7360; background:#f5f6f4; border-radius:9px; padding:9px 6px;">제한적</td>
+          <td style="text-align:center; color:#9aa89b; background:#f5f6f4; border-radius:9px; padding:9px 6px;">✗</td>
+          <td style="text-align:center; background:#e2f5e6; color:#166534; font-weight:800; border-radius:9px; padding:9px 8px;">7개 언어 AI 답변</td>
         </tr>
         <tr>
           <td style="padding:8px 14px; font-weight:800;">신청 실행(자동화)</td>
-          <td style="text-align:center; color:#5a7360;">링크 안내</td>
-          <td style="text-align:center; color:#5a7360;">링크 안내</td>
-          <td style="text-align:center; background:#eaf7ea; color:#166534; font-weight:800; border-radius:8px;">실제 정부24 조작 · 15종 발급·신청</td>
+          <td style="text-align:center; color:#5a7360; background:#f5f6f4; border-radius:9px; padding:9px 6px;">링크 안내</td>
+          <td style="text-align:center; color:#5a7360; background:#f5f6f4; border-radius:9px; padding:9px 6px;">링크 안내</td>
+          <td style="text-align:center; background:#e2f5e6; color:#166534; font-weight:800; border-radius:9px; padding:9px 8px;">실제 정부24 조작 · 15종 발급·신청</td>
         </tr>
         <tr>
           <td style="padding:8px 14px; font-weight:800;">웹에서 실시간 체험</td>
-          <td style="text-align:center; color:#9aa89b;">✗</td>
-          <td style="text-align:center; color:#9aa89b;">✗</td>
-          <td style="text-align:center; background:#eaf7ea; color:#166534; font-weight:800; border-radius:8px;">✓ 설치 없이</td>
+          <td style="text-align:center; color:#9aa89b; background:#f5f6f4; border-radius:9px; padding:9px 6px;">✗</td>
+          <td style="text-align:center; color:#9aa89b; background:#f5f6f4; border-radius:9px; padding:9px 6px;">✗</td>
+          <td style="text-align:center; background:#e2f5e6; color:#166534; font-weight:800; border-radius:9px; padding:9px 8px;">✓ 설치 없이</td>
         </tr>
         <tr>
           <td style="padding:8px 14px; font-weight:800;">사후관리</td>
-          <td style="text-align:center; color:#5a7360;">알림 일부</td>
-          <td style="text-align:center; color:#5a7360;">알림</td>
-          <td style="text-align:center; background:#eaf7ea; color:#166534; font-weight:800; border-radius:8px;">마감·갱신·서류 감시</td>
+          <td style="text-align:center; color:#5a7360; background:#f5f6f4; border-radius:9px; padding:9px 6px;">알림 일부</td>
+          <td style="text-align:center; color:#5a7360; background:#f5f6f4; border-radius:9px; padding:9px 6px;">알림</td>
+          <td style="text-align:center; background:#e2f5e6; color:#166534; font-weight:800; border-radius:9px; padding:9px 8px;">마감·갱신·서류 감시</td>
         </tr>
       </tbody>
     </table>
@@ -282,7 +282,7 @@
     <div class="row" style="margin-top:20px; flex:1; align-items:center;">
       <img class="shot" src="../제출/스크린샷/슬라이드6-한문장분석결과.png" alt="한 문장 분석 결과 화면" style="width:640px; max-height:520px; object-fit:cover; object-position:top;" />
       <ul class="pts" style="flex:1;">
-        <li>"72세 혼자 사는데 소득이 적어요" → 핵심 현금지원 <b>월 최대 639,700원</b> 즉시 발견</li>
+        <li>72세 혼자 사는데 소득이 적어요 → 핵심 현금지원 <b>월 최대 639,700원</b> 즉시 발견</li>
         <li>정부 데이터 어디에도 없는 <b>민간재단  21곳</b> — 심장 수술비·위기가정·장학, 전 곳 실측 검증 큐레이션</li>
         <li>한국어 · English · Tiếng Việt 등 <b>7개 언어</b>로 묻고 답 받는 온디바이스 의미검색</li>
         <li> <b>통화형 상담</b> — 전화 걸듯 말로 묻고 소리로 답 듣기, 자국어 통화()까지</li>
@@ -490,22 +490,28 @@
 <section class="slide">
   <div class="pad">
     <span class="eyebrow">현장 검증</span>
-    <h2>만든 것에서 그치지 않고, <span class="grad">어르신께 직접 들고 갔습니다</span></h2>
+    <h2>보여드리는 데 그치지 않고, <span class="grad">신청까지 도왔습니다</span></h2>
     <div class="row" style="margin-top:22px; gap:18px;">
       <figure class="col" style="flex:1; gap:10px;">
-        <img class="shot" src="현장/노인복지센터-단체.jpg" alt="경산시 노인복지센터에서 어르신들과 모두봄을 시연하는 팀 모두봄" style="width:100%; height:285px; object-fit:cover; object-position:center; border-radius:16px;" />
+        <img class="shot" src="현장/노인복지센터-단체.jpg" alt="경산시 노인복지센터에서 어르신들과 모두봄을 시연하는 팀 모두봄" style="width:100%; height:230px; object-fit:cover; object-position:center; border-radius:18px;" />
         <figcaption class="muted" style="font-size:14px; font-weight:700; text-align:center;">경산시 노인복지센터 — 어르신과 함께</figcaption>
       </figure>
       <figure class="col" style="flex:1; gap:10px;">
-        <img class="shot" src="현장/노인복지센터-홈화면.jpg" alt="어르신이 직접 모두봄 홈 화면을 보는 모습" style="width:100%; height:285px; object-fit:cover; object-position:center; border-radius:16px;" />
+        <img class="shot" src="현장/노인복지센터-홈화면.jpg" alt="어르신이 직접 모두봄 홈 화면을 보는 모습" style="width:100%; height:230px; object-fit:cover; object-position:center; border-radius:18px;" />
         <figcaption class="muted" style="font-size:14px; font-weight:700; text-align:center;">직접 보고 — 받을 수 있는 복지, 모두</figcaption>
       </figure>
       <figure class="col" style="flex:1; gap:10px;">
-        <img class="shot" src="현장/노인복지센터-사용.jpg" alt="어르신이 직접 복지 검색 결과를 확인하는 모습" style="width:100%; height:285px; object-fit:cover; object-position:center; border-radius:16px;" />
+        <img class="shot" src="현장/노인복지센터-사용.jpg" alt="어르신이 직접 복지 검색 결과를 확인하는 모습" style="width:100%; height:230px; object-fit:cover; object-position:center; border-radius:18px;" />
         <figcaption class="muted" style="font-size:14px; font-weight:700; text-align:center;">직접 써보고 — 내 복지 찾기</figcaption>
       </figure>
     </div>
-    <div class="band" style="margin-top:22px;"> 경산시 <b>노인복지센터</b> · <b>노인종합복지관</b> 두 곳에서 현장 시연 — 큰글씨·음성·통화형 상담이 실제로 어르신께 가닿는지 확인했습니다 <span style="color:#9fd0a6; font-weight:600;">(노인종합복지관은 촬영 미실시)</span></div>
+    <div class="band" style="margin-top:18px;">경산시 <b>노인복지센터 · 노인종합복지관</b>에서 어르신께 맞는 복지를 찾아 <b>서류 자동발급과 신청</b>까지 함께 진행했습니다 <span style="color:#6f9a82; font-weight:600;">(노인종합복지관은 촬영 미실시)</span></div>
+    <div style="display:flex; gap:10px; margin-top:14px; flex-wrap:wrap;">
+      <span class="pill">임플란트 비용 지원</span>
+      <span class="pill">무릎 인공관절 수술비 지원</span>
+      <span class="pill">노인 일자리</span>
+      <span class="pill">노인 심리상담</span>
+    </div>
   </div>
   <div class="foot"><span>모두봄 — 개인 복지 AI 에이전트</span><span>14 / 16</span></div>
 </section>
@@ -539,12 +545,12 @@
 <!-- S9 마무리 -->
 <section class="slide dark">
   <div class="pad" style="justify-content:center; align-items:center; text-align:center;">
-    <p style="font-size:34px; font-weight:900; line-height:1.5; color:#eafaf0;">김복순 님 같은 분이 전국에 <span class="gradL">수백만</span>입니다.</p>
-    <p style="font-size:34px; font-weight:900; margin-top:6px; color:#eafaf0;">모두봄이 그분들의 <span class="gradL">몰랐던 권리</span>를 찾아드리겠습니다.</p>
+    <p style="font-size:34px; font-weight:900; line-height:1.5; color:#16281c;">박영순 님 같은 분이 전국에 <span class="gradL">수백만</span>입니다.</p>
+    <p style="font-size:34px; font-weight:900; margin-top:6px; color:#16281c;">모두봄이 그분들의 <span class="gradL">몰랐던 권리</span>를 찾아드리겠습니다.</p>
     <div style="display:flex; align-items:center; gap:26px; margin-top:44px;">
       <img src="../기획서자료/qr-live.png" alt="라이브 서비스 QR" style="width:170px; height:170px; border-radius:16px; border:1px solid rgba(255,255,255,.2); background:#fff; box-sizing:border-box; padding:8px;" />
       <div style="text-align:left;">
-        <p style="font-weight:900; font-size:24px; color:#eafaf0;">지금 바로 체험하세요</p>
+        <p style="font-weight:900; font-size:24px; color:#16281c;">지금 바로 체험하세요</p>
         <p class="muted" style="font-size:19px; font-weight:700; margin-top:6px;">biocode67.github.io/modoo-bom<br/>설치 없이 · 로그인 없이 · 30초</p>
       </div>
     </div>
