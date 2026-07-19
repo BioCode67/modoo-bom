@@ -314,8 +314,9 @@ def test_documents_list_shows_docs_with_attach_flag(monkeypatch, tmp_path):
     import os, time
     from rpa import base
     d = tmp_path / "docs"; d.mkdir()
-    (d / "주민등록등본_홍길동_2026-07-16_1010.pdf").write_bytes(b"%PDF new")
-    old = d / "임대차계약서_홍길동_2026-07-01_0900.jpg"; old.write_bytes(b"\xff\xd8\xff")
+    # 무결성 게이트(intact: 헤더+1KB) 통과하는 실사이즈 픽스처 — 게이트 자체는 test_doc_integrity에서 검증
+    (d / "주민등록등본_홍길동_2026-07-16_1010.pdf").write_bytes(b"%PDF-1.7\n" + b"x" * 2048)
+    old = d / "임대차계약서_홍길동_2026-07-01_0900.jpg"; old.write_bytes(b"\xff\xd8\xff\xe0" + b"x" * 2048)
     os.utime(old, (time.time() - 999999, time.time() - 999999))  # 오래됨 → 첨부창 밖
     (d / "무관한파일.txt").write_text("x")  # 관리 대상 아님 → 제외
     monkeypatch.setattr(base, "DOCS_DIR", d)

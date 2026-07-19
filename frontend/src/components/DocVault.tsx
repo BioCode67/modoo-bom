@@ -16,6 +16,8 @@ interface VaultDoc {
   age_days: number
   /** 발급형 증명서만 계산됨(통상 '발급 3개월 이내' 제출 요구) — 소지 서류(계약서·신분증)는 null */
   validity: 'fresh' | 'aging' | 'stale' | null
+  /** 파일 무결성(헤더·최소크기, 서버 판정) — false면 깨진/잘린 파일: 자동첨부에서도 서버가 제외 */
+  intact?: boolean
   attach_candidate: boolean
 }
 
@@ -114,6 +116,7 @@ export function DocVault() {
       <span className={cn('min-w-[8rem] flex-1 text-xs font-semibold break-all', old && 'text-muted-foreground')}>{d.display}</span>
       {old && <span title="같은 종류의 더 새 발급본이 있어요 — 묶음 ZIP·자동첨부는 최신본만 써요" className="shrink-0 rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-500">이전 버전</span>}
       {!old && d.attach_candidate && <span title="지금 신청하면 자동첨부 후보" className="shrink-0 inline-flex items-center gap-0.5 rounded-md bg-sprout-100 px-1.5 py-0.5 text-[10px] font-bold text-sprout-700"><Paperclip className="h-3 w-3" /> 첨부 후보</span>}
+      {d.intact === false && <span title="파일이 깨졌거나 잘렸어요(발급/등록 중 중단 등) — 자동첨부에서 제외되니 삭제 후 다시 발급·등록하세요" className="shrink-0 rounded-md bg-rose-100 px-1.5 py-0.5 text-[10px] font-bold text-rose-700">⚠️ 손상 — 다시 발급</span>}
       {d.validity === 'stale' && <span title={`발급 ${d.age_days}일 지남 — 관공서 제출용 증명서는 통상 '발급 3개월 이내'를 요구해요(기관별 상이). 다시 발급을 권해요.`} className="shrink-0 rounded-md bg-rose-100 px-1.5 py-0.5 text-[10px] font-bold text-rose-700">⚠️ 3개월 지남</span>}
       {d.validity === 'aging' && <span title={`발급 ${d.age_days}일째 — 제출처가 '3개월 이내'를 요구하면 곧 만료돼요. 제출 예정이면 유효기간을 확인하세요.`} className="shrink-0 rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800">유효 확인</span>}
       <span className="shrink-0 text-[10px] text-muted-foreground">{d.ext.toUpperCase()} · {fmtSize(d.size)} · {fmtWhen(d.mtime)}</span>

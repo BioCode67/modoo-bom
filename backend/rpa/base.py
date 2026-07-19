@@ -274,8 +274,11 @@ def _looks_valid_doc(path: pathlib.Path) -> bool:
         if not path.exists() or path.stat().st_size < 1024:
             return False
         head = path.read_bytes()[:8]
-        if path.suffix.lower() == ".pdf":
+        suffix = path.suffix.lower()
+        if suffix == ".pdf":
             return head.startswith(b"%PDF")
+        if suffix in (".jpg", ".jpeg"):  # 촬영·등록 경로(서류함) 파일도 같은 게이트로 판정
+            return head.startswith(b"\xff\xd8\xff")
         return head.startswith(b"\x89PNG")
     except Exception:
         return False

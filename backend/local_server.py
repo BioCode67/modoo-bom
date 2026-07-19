@@ -576,6 +576,10 @@ def _scan_documents():
                     validity = "fresh" if age_days <= 60 else ("aging" if age_days <= 90 else "stale")
                 else:
                     validity = None
+                # 무결성 — 헤더·최소크기 게이트(발급 성공 게이트와 동일 기준). 깨진 파일은
+                # ⚠️ 표시 대상이며 '자동첨부 후보'에서도 제외한다(손상물이 조용히 제출되는 것 방지).
+                from rpa.base import _looks_valid_doc
+                intact = _looks_valid_doc(p)
                 items.append({
                     "filename": p.name,
                     "display": display,
@@ -585,7 +589,8 @@ def _scan_documents():
                     "mtime": int(st.st_mtime),
                     "age_days": age_days,
                     "validity": validity,
-                    "attach_candidate": (now - st.st_mtime) <= attach_age,
+                    "intact": intact,
+                    "attach_candidate": intact and (now - st.st_mtime) <= attach_age,
                 })
     except Exception:
         pass  # 폴더 접근 실패 시 빈 목록(정직한 폴백 — 프론트는 '폴더 열기'로 유도)
