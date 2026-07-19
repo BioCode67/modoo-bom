@@ -89,6 +89,20 @@ def test_maintenance_notice_detection():
     assert not _is_maintenance_notice(None)  # 방어적: None 안전
 
 
+def test_wallet_required_detection():
+    """정부24 '전자문서지갑 발급 후 사용가능' 안내 감지 — 가족관계 등 전자문서지갑 선행 서류를
+    점검과 구분해 정직 안내로 전환(실사용 제보: 가족관계 타일이 이 팝업)."""
+    from rpa.gov24_rpa import _is_wallet_required, _wallet_msg
+    assert _is_wallet_required("안내\n전자문서지갑 발급 후 사용가능합니다. 정부24 앱(APP)에서 로그인 후 발급 해주세요.")
+    assert _is_wallet_required("전자문서지갑을 먼저 발급 후 이용하세요")
+    # 무관한 화면은 오탐 없음
+    assert not _is_wallet_required("발급 폼 로드 — 신청하기 진행")
+    assert not _is_wallet_required("")
+    assert not _is_wallet_required(None)
+    m = _wallet_msg("가족관계증명서")
+    assert "가족관계증명서" in m and "전자문서지갑" in m and "앱 오류 아님" in m
+
+
 def test_maintenance_msg_names_service():
     """점검 안내 문구는 서류명을 넣고 '앱 오류 아님'을 명시한다(사용자 오해 방지)."""
     from rpa.gov24_rpa import _maintenance_msg

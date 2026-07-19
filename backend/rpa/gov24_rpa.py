@@ -413,6 +413,23 @@ def _is_maintenance_notice(txt: str) -> bool:
     ))
 
 
+def _is_wallet_required(txt: str) -> bool:
+    """정부24 '전자문서지갑 발급 후 사용가능' 안내 감지 — 일부 서류(가족관계증명서 등)는 전자발급에
+    '전자문서지갑'(정부24 모바일 앱에서 로그인 후 설정)이 선행돼야 한다. 앱 무설정 상태에선 자동발급이
+    안 되므로, 점검과 구분해 정직 안내로 전환한다(실사용 제보: 가족관계 타일이 '전자문서지갑' 팝업)."""
+    t = txt or ""
+    return ("전자문서지갑" in t) and (("발급 후" in t) or ("사용가능" in t) or ("APP" in t) or ("앱" in t))
+
+
+def _wallet_msg(doc_name: str) -> str:
+    """전자문서지갑 필요 안내 — 앱 오류가 아니라 정부24 전자발급 사전조건임을 정직하게 안내."""
+    return (
+        f"‘{doc_name}’은(는) 정부24 ‘전자문서지갑’ 설정이 먼저 필요해요(정부24 모바일 앱에서 로그인 후 설정 · 앱 오류 아님). "
+        f"가족관계증명서 등 일부 서류는 등본과 발급 경로가 달라, 앱 무설정 상태에선 자동발급이 어려워요. "
+        f"옆 [전자발급]으로 직접 발급하시거나, 정부24 앱에서 전자문서지갑을 먼저 만들어 주세요."
+    )
+
+
 def _maintenance_msg(doc_name: str) -> str:
     """점검 팝업 감지 시 사용자에게 보여줄 정직 안내(앱 오류가 아니라 정부 사이트 상태임을 명시)."""
     return (
@@ -650,9 +667,13 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None, session=Non
             fix_hinted = False   # '폼을 직접 확인/선택' 안내를 이미 띄웠는지(중복 안내 방지)
             stuck = 0            # 진행 신호 없이 헛돈 횟수 — 일정 이상이면 사용자 수정 유예 부여
             task.update("running", "신청 버튼을 눌러 발급을 진행하고 있어요…", await take_screenshot(page))
-            # 폼 진입 직후 '서비스 점검 중' 팝업(연계기관 야간 점검)부터 확인 — 헛돌지 않고 즉시 정직 안내.
-            if _is_maintenance_notice(await _maintenance_popup_text(page)):
+            # 폼 진입 직후 팝업 확인 — 점검(연계기관 야간)·전자문서지갑 필요는 헛돌지 않고 즉시 정직 안내.
+            _popup0 = await _maintenance_popup_text(page)
+            if _is_maintenance_notice(_popup0):
                 task.update("error", _maintenance_msg(doc_name), await take_screenshot(page))
+                return
+            if _is_wallet_required(_popup0):
+                task.update("error", _wallet_msg(doc_name), await take_screenshot(page))
                 return
             for _hb in range(24):  # 최대 ~4분(주소·폼 정정 대기 포함)
                 check_cancel(task, context)  # 취소·창닫힘 즉시 탈출
@@ -685,8 +706,12 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None, session=Non
                 #   소득금액증명(국세청 홈택스 08~22시) 등 외부기관 연계 서류는 야간·새벽 점검이 잦다.
                 #   ⚠️ 팝업은 연계기관 iframe 안에 뜰 수 있어 메인 body만 보면 놓친다(실사용: '지연'으로만 보임)
                 #      → 메인+전체 프레임 텍스트를 함께 확인. 4분 헛돌지 않고 즉시 정직 안내.
-                if _is_maintenance_notice(await _maintenance_popup_text(page)):
+                _popup = await _maintenance_popup_text(page)
+                if _is_maintenance_notice(_popup):
                     task.update("error", _maintenance_msg(doc_name), await take_screenshot(page))
+                    return
+                if _is_wallet_required(_popup):
+                    task.update("error", _wallet_msg(doc_name), await take_screenshot(page))
                     return
                 # 주소 불일치 안내 모달 → 닫고, 사용자가 시도·시군구를 고칠 때까지 대기 후 재시도
                 if ("해당 시군구에 존재하지 않" in txt) or ("정보가 해당" in txt and "존재하지 않" in txt):
