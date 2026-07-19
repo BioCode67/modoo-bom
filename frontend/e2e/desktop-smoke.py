@@ -2,9 +2,9 @@
 """데스크탑앱 스모크 — local_server(:8000)가 dist-app을 서빙하는 '진짜 배포 셋업'에서
 데스크탑 전용 기능을 실브라우저로 회귀 검증한다(웹 프리뷰 스모크로는 localAgent 기능이 안 보임).
 
-검증 21종(번호는 추가 순서 — 실행 순서는 코드 순):
+검증 22종(번호는 추가 순서 — 실행 순서는 코드 순):
   1 상태 스트립 · 2 진단 복사(PII 0) · 2.5 발급 전 점검(5항목) · 3 서류함 등록+첨부 후보 배지 · 3.5 🖍 가리기
-  4 자동첨부 미리보기 · 5 개별 삭제(2탭) · 5.5 유효기간 배지+📦 ZIP · 5.6 종류별 그룹핑(최신본 대표) · 5.7 부족분만 발급→📨 자동신청만 · 5.8 자유 선택 일괄발급 · 5.9 빈 상태 슬림 모드
+  4 자동첨부 미리보기 · 5 개별 삭제(2탭) · 5.5 유효기간 배지+📦 ZIP · 5.55 👁 파일 열람 · 5.6 종류별 그룹핑(최신본 대표) · 5.7 부족분만 발급→📨 자동신청만 · 5.8 자유 선택 일괄발급 · 5.9 빈 상태 슬림 모드
   6 새로고침 복원+실태스크 정리 · 6.5 인증 알림음+🔊 음성(옵트인)+발급 자동 기억
   6.8 챗 에이전트 인지 · 6.9 여정 이어보기 · 6.95 인증정보 탭-기억 옵트인
   7.5 원클릭 연쇄+⏭ 스킵+📨 기록 CTA · 7.6 여정 오류 경로(정직 요약) · 7 검증형 리셋 · 8 🌱 새싹이 가이드
@@ -168,6 +168,15 @@ def main() -> int:
                 d = dl.value
                 assert d.suggested_filename.startswith("신청서류_") and d.suggested_filename.endswith(".zip"), d.suggested_filename
                 print("[desktop] ✅ 5.5. 서류함 지능화 — 3개월 경과 배지 + 묶음 받기(ZIP)")
+                # 5.55) 👁 파일 열람 — 발급물을 앱에서 바로 확인(inline PDF + 이탈 가드)
+                vr = pg.evaluate(
+                    "async()=>{const r=await fetch('/api/documents/file?name='+encodeURIComponent('가족관계증명서_스모크_2026-07-18_1000.pdf'));"
+                    "return r.status+'|'+(r.headers.get('content-type')||'')}")
+                assert vr.startswith("200|application/pdf"), f"파일 열람 실패: {vr}"
+                bad = pg.evaluate("async()=>(await fetch('/api/documents/file?name=..%2Fetc%2Fpasswd')).status")
+                assert bad == 400, f"경로 이탈이 차단되지 않음: {bad}"
+                pg.wait_for_selector("a[aria-label*='보기']", timeout=4000)  # 행마다 👁 버튼
+                print("[desktop] ✅ 5.55. 👁 발급물 바로 열람 — inline 서빙 + 이탈 가드 + 행 버튼")
                 # 5.6) 종류별 그룹핑 — 같은 서류를 재발급하면 최신본이 대표, 이전본은 접힘
                 fresh2 = Path(folder) / "주민등록등본_스모크_2026-07-19_0900.pdf"
                 fresh2.write_bytes(b"%PDF-1.4 smoke3")
@@ -476,7 +485,7 @@ def main() -> int:
         for i in issues[:10]:
             print("  ", i)
         return 1
-    print("✅ 데스크탑 기능 21종 + pageerror 0 — 전부 통과")
+    print("✅ 데스크탑 기능 22종 + pageerror 0 — 전부 통과")
     return 0
 
 

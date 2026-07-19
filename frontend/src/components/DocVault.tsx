@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useState } from 'react'
-import { FolderOpen, RefreshCw, Trash2, FileText, Image as ImageIcon, Paperclip, FolderDown } from 'lucide-react'
+import { Eye, FolderOpen, RefreshCw, Trash2, FileText, Image as ImageIcon, Paperclip, FolderDown } from 'lucide-react'
 import { getRpaBase } from '@/lib/backend'
 import { downloadDocsBundle } from '@/lib/bundleDocs'
 import { groupVaultDocs } from '@/lib/vaultGroups'
@@ -117,6 +117,12 @@ export function DocVault() {
       {d.validity === 'stale' && <span title={`발급 ${d.age_days}일 지남 — 관공서 제출용 증명서는 통상 '발급 3개월 이내'를 요구해요(기관별 상이). 다시 발급을 권해요.`} className="shrink-0 rounded-md bg-rose-100 px-1.5 py-0.5 text-[10px] font-bold text-rose-700">⚠️ 3개월 지남</span>}
       {d.validity === 'aging' && <span title={`발급 ${d.age_days}일째 — 제출처가 '3개월 이내'를 요구하면 곧 만료돼요. 제출 예정이면 유효기간을 확인하세요.`} className="shrink-0 rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800">유효 확인</span>}
       <span className="shrink-0 text-[10px] text-muted-foreground">{d.ext.toUpperCase()} · {fmtSize(d.size)} · {fmtWhen(d.mtime)}</span>
+      {/* 👁 제출 전 눈으로 확인 — 새 탭 인라인 열람(본인 PC 전용 엔드포인트) */}
+      <a href={`${getRpaBase()}/api/documents/file?name=${encodeURIComponent(d.filename)}`}
+        target="_blank" rel="noopener noreferrer" aria-label={`${d.display} 보기`} title="새 탭에서 열어 내용 확인(제출 전 점검)"
+        className="shrink-0 rounded-md p-1 text-muted-foreground hover:bg-sky2-50 hover:text-sky2-600">
+        <Eye className="h-3.5 w-3.5" />
+      </a>
       {confirmDel === d.filename ? (
         <span className="shrink-0 inline-flex items-center gap-1">
           <button onClick={() => del(d.filename)} disabled={busy} className="rounded-md bg-rose-500 px-2 py-0.5 text-[10px] font-bold text-white hover:bg-rose-600 disabled:opacity-50">삭제</button>

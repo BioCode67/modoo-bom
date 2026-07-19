@@ -665,3 +665,25 @@ def test_journey_run_accepts_all_15_supported_docs(monkeypatch):
         assert len(doc_steps) == 15
     finally:
         orchestrator._journeys.pop(started.get("id"), None)
+
+
+def test_view_document_file_guards_and_serving(monkeypatch, tmp_path):
+    """🗂 파일 열람 — 정상 서빙(inline·타입) + 이탈/확장자/부재/공유모드 가드(delete 와 동일 수준)."""
+    from rpa import base
+    monkeypatch.setattr(base, "DOCS_DIR", tmp_path)
+    monkeypatch.delenv("RPA_SHARED", raising=False)
+    (tmp_path / "등본_홍길동.pdf").write_bytes(b"%PDF-1.4 test")
+    # 정상 — inline PDF
+    r = client.get("/api/documents/file", params={"name": "등본_홍길동.pdf"})
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("application/pdf")
+    assert "inline" in r.headers.get("content-disposition", "")
+    assert r.content.startswith(b"%PDF")
+    # 경로 이탈·숨김·비관리 확장자·부재
+    assert client.get("/api/documents/file", params={"name": "../etc/passwd"}).status_code == 400
+    assert client.get("/api/documents/file", params={"name": ".env"}).status_code == 400
+    assert client.get("/api/documents/file", params={"name": "run.exe"}).status_code == 400
+    assert client.get("/api/documents/file", params={"name": "없는파일.pdf"}).status_code == 404
+    # 공유(터널) 모드 — 본인 PC 전용 기능 차단
+    monkeypatch.setenv("RPA_SHARED", "1")
+    assert client.get("/api/documents/file", params={"name": "등본_홍길동.pdf"}).status_code == 403

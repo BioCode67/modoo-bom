@@ -676,6 +676,36 @@ async def delete_document(request: Request):
     return {"deleted": True, "filename": filename}
 
 
+_DOC_MEDIA = {".pdf": "application/pdf", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg"}
+
+
+@app.get("/api/documents/file")
+async def view_document_file(name: str = ""):
+    """🗂 서류함 파일 열람 — 발급물·등록물을 제출 전에 앱에서 바로 눈으로 확인(새 탭 인라인).
+    본인 PC 전용(_shared_mode_guard) + delete 와 동일한 베이스네임·realpath 이탈 방지 가드."""
+    _shared_mode_guard()
+    from rpa.base import DOCS_DIR
+    filename = str(name or "").strip()
+    if not filename or filename != os.path.basename(filename) or filename.startswith(".") or ".." in filename:
+        raise HTTPException(status_code=400, detail="올바르지 않은 파일명이에요.")
+    ext = os.path.splitext(filename)[1].lower()
+    if ext not in _DOCS_EXT:
+        raise HTTPException(status_code=400, detail="서류함이 관리하는 파일이 아니에요.")
+    target = os.path.realpath(str(DOCS_DIR / filename))
+    docs_root = os.path.realpath(str(DOCS_DIR))
+    try:
+        outside = os.path.commonpath([target, docs_root]) != docs_root
+    except ValueError:
+        outside = True
+    if outside:
+        raise HTTPException(status_code=403, detail="허용되지 않은 파일 경로입니다.")
+    if not os.path.isfile(target):
+        raise HTTPException(status_code=404, detail="파일을 찾을 수 없어요.")
+    from urllib.parse import quote
+    return FileResponse(target, media_type=_DOC_MEDIA.get(ext, "application/octet-stream"),
+                        headers={"Content-Disposition": f"inline; filename*=UTF-8''{quote(filename)}"})
+
+
 # ── RPA 복지 신청 ──
 @app.get("/api/apply/supported")
 async def apply_supported():
