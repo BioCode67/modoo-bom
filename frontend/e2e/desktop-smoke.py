@@ -2,11 +2,11 @@
 """데스크탑앱 스모크 — local_server(:8000)가 dist-app을 서빙하는 '진짜 배포 셋업'에서
 데스크탑 전용 기능을 실브라우저로 회귀 검증한다(웹 프리뷰 스모크로는 localAgent 기능이 안 보임).
 
-검증 29종(번호는 추가 순서 — 실행 순서는 코드 순):
+검증 30종(번호는 추가 순서 — 실행 순서는 코드 순):
   1 상태 스트립 · 2 진단 복사(PII 0) · 2.5 발급 전 점검(6항목·서류함 무결성) · 3 서류함 등록+첨부 후보 배지 · 3.5 🖍 가리기
   4 자동첨부 미리보기 · 4.7 💬→🚀 챗 전부발급 연쇄 · 5 개별 삭제(2탭) · 5.5 유효기간 배지+📦 ZIP · 5.55 👁 파일 열람 · 5.6 종류별 그룹핑(최신본 대표) · 5.65 🧹 이전 버전 정리 · 5.7 부족분만 발급→📨 자동신청만 · 5.8 자유 선택 일괄발급 · 5.85 🔁 손상 원탭 재발급 · 5.87 🔎 앱 내 실측 확인 · 5.88 후보 칩·자동신청 실측 정직 실패 · 5.9 빈 상태 슬림 모드 · 5.95 🩺 조용한 자가점검
   6 새로고침 복원+실태스크 정리 · 6.5 인증 알림음+🔊 음성(옵트인)+발급 자동 기억
-  6.8 챗 에이전트 인지 · 6.85 💬→🖨 대화→발급 다리 · 6.9 여정 이어보기 · 6.95 인증정보 탭-기억 옵트인
+  6.8 챗 에이전트 인지 · 6.85 💬→🖨 대화→발급 다리 · 6.9 여정 이어보기 · 6.95 인증정보 탭-기억 옵트인 · 6.97 🚀 오토파일럿
   7.5 원클릭 연쇄+⏭ 스킵+📨 기록 CTA · 7.6 여정 오류 경로(정직 요약) · 7 검증형 리셋 · 8 🌱 새싹이 가이드
   + 전 구간 pageerror 0
 
@@ -563,6 +563,26 @@ def main() -> int:
             assert pg.evaluate("()=>sessionStorage.getItem('modoobom-rpainfo-session')") is None, "옵트아웃 후 보관분 잔류"
             print("[desktop] ✅ 6.95. 인증정보 탭-기억 옵트인 — F5 복원 + 옵트아웃 흔적 삭제")
 
+            # 6.97) 🚀 오토파일럿 — 결과 화면 원버튼: 추천 전부 담기 → '나의 복지' 자동 이동 → 원클릭 연쇄
+            #       이어받기(issueBridge). 이 시점 rpaInfo는 생년월일·휴대폰이 빈 상태(미persist+6.9 reload)라
+            #       연쇄는 시작 대신 '먼저 입력' 가드+폼 포커스가 정답 — 실태스크가 안 떠 정리 불필요(결정적).
+            pg.click("text=복지 찾기")
+            pg.click("text=한 문장으로")
+            pg.fill("textarea[aria-label='상황을 한 문장으로 입력']", "72세 혼자 사는데 소득이 적어요")
+            pg.locator("button:has-text('이 내용으로 바로 분석')").click()
+            # 분석 연출(백엔드 스트림 폴백 포함) 뒤 결과 화면 — 에이전트 연결 시에만 뜨는 CTA가 증거
+            pg.wait_for_selector("[data-testid='autopilot-cta']", timeout=45000)
+            before = pg.evaluate("()=>JSON.parse(localStorage.getItem('modoobom-store')).state.tracked.length")
+            pg.locator("[data-testid='autopilot-cta']").click()
+            pg.wait_for_selector("text=서류 준비 도우미", timeout=15000)          # 나의 복지로 자동 이동
+            # 연쇄 이어받기 성립 증거 — 부족 서류가 있으면 '먼저 입력' 가드, 서류함이 이미 다 채웠으면
+            # 자유 선택 패널 자동 오픈(둘 다 설계된 정직한 경로 — 실PC 서류함 상태와 무관하게 통과)
+            pg.locator("text=실명·생년월일·휴대폰을 먼저 입력해 주세요").or_(
+                pg.locator("text=원하는 서류 골라 일괄발급")).first.wait_for(timeout=15000)
+            after = pg.evaluate("()=>JSON.parse(localStorage.getItem('modoobom-store')).state.tracked.length")
+            assert after > before, f"오토파일럿 자동 담기 미동작(before={before}, after={after})"
+            print("[desktop] ✅ 6.97. 🚀 오토파일럿 — 담기+이동+연쇄 이어받기(인증정보 가드)")
+
             # 7.6) 여정 '오류' 경로 — 정부 사이트 불통 시에도 정직한 오류 요약 + 재시도 CTA가 남는지
             #      (실사용자가 실제로 만나는 경로 — 가짜 성공·무언 종료·막다른 UI가 없어야 한다)
             pg.route("**/api/journey/run", lambda r: r.fulfill(
@@ -608,7 +628,7 @@ def main() -> int:
         for i in issues[:10]:
             print("  ", i)
         return 1
-    print("✅ 데스크탑 기능 29종 + pageerror 0 — 전부 통과")
+    print("✅ 데스크탑 기능 30종 + pageerror 0 — 전부 통과")
     return 0
 
 
