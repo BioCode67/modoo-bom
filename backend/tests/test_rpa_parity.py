@@ -74,3 +74,29 @@ def test_journey_skip_parity():
     for name, c in _CLIENTS:
         r = c.post("/api/journey/skip/none-such")
         assert r.status_code == 200 and r.json() == {"skipped": False}, name
+
+
+def test_session_reset_shared_guard_parity(monkeypatch):
+    """🔒 RPA_SHARED=1 이면 두 앱 모두 /api/session/reset 을 403 으로 차단.
+
+    회귀 고정 사유: routes.py 쪽에만 _shared_mode_guard() 가 빠져 있어, 공유(터널) 배포에서
+    무인증 POST 한 번으로 다른 이용자가 방금 발급한 서류가 전부 지워질 수 있었다.
+    docstring 은 '(local_server 패리티)'라고 주장했지만 실제로는 파리티가 아니었다."""
+    monkeypatch.setenv("RPA_SHARED", "1")
+    for name, c in _CLIENTS:
+        assert c.post("/api/session/reset").status_code == 403, name
+
+
+def test_destructive_endpoint_guard_coverage():
+    """파괴적·PII 노출 엔드포인트는 두 앱 모두 공유모드 가드를 '갖고 있어야' 한다(구조 파리티).
+
+    개별 동작 테스트는 위에서 하고, 여기선 '한쪽에만 새 파괴적 라우트가 생기는' 드리프트를 잡는다."""
+    import inspect
+    import api.routes as routes_mod
+
+    for mod in (local_server, routes_mod):
+        src = inspect.getsource(mod)
+        assert "_shared_mode_guard" in src, f"{mod.__name__}: 공유모드 가드 자체가 없음"
+        # session_reset 본문에 가드 호출이 실제로 들어있는지(정의만 해두고 안 부르는 것 방지)
+        body = src.split("async def session_reset(")[1].split("\n@")[0]
+        assert "_shared_mode_guard()" in body, f"{mod.__name__}: session_reset 이 가드를 호출하지 않음"
