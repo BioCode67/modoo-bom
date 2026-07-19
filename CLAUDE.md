@@ -24,7 +24,9 @@ OpenAI 키가 없어도 **Mock 모드**로 전체 파이프라인이 동작한�
 - **FastAPI 0.115** + uvicorn — REST + WebSocket 서버
 - **LangGraph 0.2.56** + LangChain 0.3 — 10노드 StateGraph 에이전트
 - **LLM** — 지식형 챗은 **Gemini 2.5 Flash**(실패 시 Groq→Claude 자동 폴백, `agents/llm.py FallbackChatLLM`). langchain-google-genai/groq/anthropic 모두 설치, 키 없으면 규칙 모드.
-- **ChromaDB 0.5.23** — 복지 정책 RAG (sentence-transformers 내장 임베딩, 별도 임베딩 API 불필요)
+- **ChromaDB 0.5.23** — 복지 정책 RAG. 검색은 **하이브리드(BM25 주도 1.0 + 임베딩 0.6 가중 RRF,
+  `rag/search.py`)** — 기본 임베딩(영어 최적)이 한국어 질의에서 약한 것 실측 보완(2026-07-19).
+  시딩은 카탈로그 5,143건+시드, **건수 기반 멱등 스킵**으로 재부팅 2초(강제 재시딩 RAG_RESEED=1)
 - **Playwright** — 정부24·건강보험공단·고용24 실제 브라우저 RPA
 - **pydantic 2.10** — AgentState / UserProfile 스키마
 - **pytest / pytest-asyncio** — Mock 모드 유닛+통합 테스트

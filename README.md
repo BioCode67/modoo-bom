@@ -232,7 +232,7 @@ docker compose up --build
   └ 클라이언트 복지 엔진(welfare-engine.ts) + 정책 카탈로그(catalog.ts)
         ↕  (백엔드 감지 시에만)
 [백엔드 — 선택 / 로컬·서버]
-  FastAPI + LangGraph 10노드 + LLM(Gemini 2.5 Flash, Groq·Claude 자동 폴백) + ChromaDB RAG
+  FastAPI + LangGraph 10노드 + LLM(Gemini 2.5 Flash, Groq·Claude 자동 폴백) + 하이브리드 RAG(BM25+임베딩 RRF)
   + Playwright RPA(정부24·복지로·건보·고용24)
         ↕
 [공공데이터 ETL] 한국사회보장정보원 복지서비스 → public/policies.json
@@ -388,7 +388,7 @@ modoo-bom/
 
 1. **온디바이스(기본, 항상 동작)** — React18+Vite PWA(GitHub Pages), 복지엔진, 신경망 의미검색(multilingual-e5-small,
    transformers.js), 모니터링. 개인정보 이탈 0 — 이름은 디스크에도 저장하지 않음(메모리만).
-2. **백엔드(선택, 감지 시 자동 활성)** — FastAPI+WebSocket, LangGraph 10노드 StateGraph, LLM 지식형 챗(Gemini 2.5 Flash — Groq·Claude 자동 폴백), ChromaDB RAG.
+2. **백엔드(선택, 감지 시 자동 활성)** — FastAPI+WebSocket, LangGraph 10노드 StateGraph, LLM 지식형 챗(Gemini 2.5 Flash — Groq·Claude 자동 폴백), 하이브리드 RAG(BM25 주도+임베딩 RRF — 한국어 질의 실측 보정).
    미연결이면 규칙 폴백으로 동일 기능 — 폴백은 결함이 아니라 신뢰성 설계.
 3. **실행층(선택, 데스크탑앱·크롬 확장)** — 정부24·복지로·건보·고용24 실사이트 RPA(🔑 여정 공유 세션 — 로그인 인증 1회).
    데스크탑앱은 🚀 원클릭 연쇄(발급→자동첨부→제출 직전 정지)·발급 전 점검·서류함·이어보기까지.
