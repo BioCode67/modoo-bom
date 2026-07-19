@@ -230,6 +230,23 @@ async def _request_auth(ctx) -> bool:
     return False
 
 
+async def _check_agree_all(ctx) -> bool:
+    """'전체동의' 체크 — ⚠️ 제공자(카카오톡) 선택이 이 체크를 지우므로(실사용 확정), 반드시
+    '제공자 선택 다음, 가장 마지막'에 부른다. 여러 번 불러도 무해(이미 체크면 그대로)."""
+    try:
+        await asyncio.sleep(0.3)
+        for sel in ["#totalAgree", "input#totalAgree", "label:has-text('전체동의')"]:
+            try:
+                if await ctx.locator(sel).count() > 0:
+                    await ctx.check(sel) if ("input" in sel or "#totalAgree" == sel) else await ctx.click(sel)
+                    return True
+            except Exception:
+                continue
+    except Exception:
+        pass
+    return False
+
+
 async def _autofill_auth_form(ctx, user_info: dict) -> bool:
     """간편인증 본인인증 폼(iframe oacx 위젯)에 이름·생년월일·휴대폰을 자동 입력하고 전체동의 체크.
     사용자가 정보를 제공한 경우에만 동작하며, 실패해도 조용히 넘어간다(사용자가 직접 입력하면 됨).
@@ -253,16 +270,10 @@ async def _autofill_auth_form(ctx, user_info: dict) -> bool:
                         await ctx.fill(sel, tail); filled = True; break
                 except Exception:
                     continue
-        # '전체동의'는 이름·생년월일·휴대폰을 다 채운 뒤 '가장 마지막'에 체크한다 — 필드 입력에 따른
-        #   재렌더가 동의 체크를 지우지 않도록(실사용 제보: 순서/타이밍에 따라 동의가 풀림). 짧은 안정화 후 체크.
-        await asyncio.sleep(0.3)
-        for sel in ["#totalAgree", "input#totalAgree", "label:has-text('전체동의')"]:
-            try:
-                if await ctx.locator(sel).count() > 0:
-                    await ctx.check(sel) if "input" in sel or "#totalAgree" == sel else await ctx.click(sel)
-                    break
-            except Exception:
-                continue
+        # '전체동의'는 이름·생년월일·휴대폰을 다 채운 뒤 '가장 마지막'에 체크(필드 재렌더가 동의를 지우지 않게).
+        #   ⚠️ 카카오톡 재선택은 이 체크를 또 지우므로, 호출부(_login_on_www_gov)가 '제공자 재선택 → 동의 재체크'
+        #      순서를 한 번 더 보장한다.
+        await _check_agree_all(ctx)
     except Exception:
         pass
     return filled
@@ -315,6 +326,14 @@ async def _login_on_www_gov(page, task, user_info: dict = None) -> bool:
 
     # 정보가 있으면 이름·생년월일·휴대폰 자동 입력 → 생년월일까지 있으면 '인증 요청'도 자동(폰 승인만 남김)
     autofilled = await _autofill_auth_form(auth_ctx, user_info)
+    # ⚠️ 실사용 확정: 카카오톡 로고를 놓치면(또는 뒤늦게 눌리면) '개인정보 이용동의'가 풀려 다음으로 못 간다.
+    #   자동입력 뒤에 카카오톡을 '한 번 더 확실히' 누르고(선택 확정), 그 다음 전체동의를 '가장 마지막에' 다시
+    #   체크한다 → 순서를 '카카오톡 선택 → 동의'로 강하게 고정해 동의 리셋을 방지한다.
+    reclick = await click_provider_in_anyid(auth_ctx, provider)
+    if reclick:
+        kakaotalk_clicked = reclick  # 재클릭이 확정(trusted)이면 자동 인증요청 게이트도 통과
+    await asyncio.sleep(0.4)
+    await _check_agree_all(auth_ctx)  # 카카오톡(재)선택으로 풀렸을 수 있는 전체동의를 마지막에 다시 체크
     requested = False
     _has_birth = bool(re.sub(r"[^0-9]", "", str((user_info or {}).get("birth_date", ""))))
     if autofilled:
@@ -760,7 +779,12 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None, session=Non
                 await click_provider_in_anyid(sign_frame, _prov)
                 # 첫 로그인과 동일하게 — 제공자 선택 후 폼이 렌더될 때까지 기다린 뒤 자동입력(전체동의 리셋 방지).
                 await _wait_auth_form_ready(sign_frame)
-                if await _autofill_auth_form(sign_frame, user_info) and re.sub(r"[^0-9]", "", str((user_info or {}).get("birth_date", ""))):
+                _sf_filled = await _autofill_auth_form(sign_frame, user_info)
+                # 카카오톡 재선택 → 전체동의 재체크(동의 리셋 방지, 첫 로그인과 동일 순서 보장)
+                await click_provider_in_anyid(sign_frame, _prov)
+                await asyncio.sleep(0.4)
+                await _check_agree_all(sign_frame)
+                if _sf_filled and re.sub(r"[^0-9]", "", str((user_info or {}).get("birth_date", ""))):
                     await _request_auth(sign_frame)
                 task.update("waiting_login", f"📱 전자서명 인증이에요 — {provider_display(_prov)} [인증 허용]을 눌러주세요.", await take_screenshot(page))
                 for _sg in range(180):  # ~6분 — 폰 인증은 넉넉히(과거 240초는 촉박, 감사 :543)
