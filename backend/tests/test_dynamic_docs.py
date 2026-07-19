@@ -144,6 +144,44 @@ def test_privacy_masking_env_valve_and_result():
         del os.environ["RPA_PRIVACY_MASK"]
 
 
+def test_fill_income_cert_form_contract():
+    """🧾 소득금액증명 폼 채움 계약 — 기간은 직전 과세연도, 실제 한 것만 보고(dict),
+    용도 검색 버튼이 없으면 purpose=False 로 침묵(무해·막힘 유예가 커버)."""
+    import asyncio
+    from datetime import datetime
+    from rpa.gov24_rpa import _fill_income_cert_form
+
+    class _Page:
+        # evaluate 1회차=기간 입력 수, 2회차=용도 [검색] 클릭 여부
+        def __init__(self, results):
+            self._results = list(results)
+        async def evaluate(self, _js, *args):
+            r = self._results.pop(0) if self._results else 0
+            if isinstance(r, Exception):
+                raise r
+            return r
+
+    class _Ctx:
+        def __init__(self, page):
+            self.pages = [page]
+
+    def run(results):
+        pg = _Page(results)
+        loop = asyncio.new_event_loop()
+        try:
+            return loop.run_until_complete(_fill_income_cert_form(pg, _Ctx(pg)))
+        finally:
+            loop.close()
+
+    yr = str(datetime.now().year - 1)
+    r = run([2, False])                      # 기간 2칸 채움 + 검색 버튼 못 찾음
+    assert r == {"years": True, "purpose": False, "year": yr}
+    r = run([0, False])                      # 아무것도 못 함 → 전부 False(안내 미노출)
+    assert r == {"years": False, "purpose": False, "year": yr}
+    r = run([RuntimeError("x"), RuntimeError("x")])  # 평가 실패도 침묵
+    assert r == {"years": False, "purpose": False, "year": yr}
+
+
 def test_wallet_required_detection():
     """정부24 '전자문서지갑 발급 후 사용가능' 안내 감지 — 가족관계 등 전자문서지갑 선행 서류를
     점검과 구분해 정직 안내로 전환(실사용 제보: 가족관계 타일이 이 팝업)."""

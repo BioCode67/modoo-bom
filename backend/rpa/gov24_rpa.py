@@ -451,7 +451,8 @@ async def _select_privacy_masking(page) -> dict:
         pass
     try:
         clicked = await page.evaluate("""() => {
-            const rows = [...document.querySelectorAll('tr, li, dl, .form-group, fieldset')];
+            // div 포함 — 소득금액증명 신청서(AA040 std form)는 '주민등록번호 공개여부' 행이 div 구조(실측)
+            const rows = [...document.querySelectorAll('tr, li, dl, .form-group, fieldset, div')];
             let n = 0;
             for (const row of rows) {
                 const t = (row.innerText || '').trim();
@@ -468,6 +469,82 @@ async def _select_privacy_masking(page) -> dict:
             return n;
         }""")
         out["rrn"] = bool(clicked)
+    except Exception:
+        pass
+    return out
+
+
+async def _fill_income_cert_form(page, context) -> dict:
+    """🧾 소득금액증명 신청서(AA040 std form) 전용 자동 채움 — 실측 스크린샷(2026-07-20) 기반.
+    실측 필수 항목: ① 증명받는 기간(시작·종료년도, placeholder '예) 2023') — 직전 과세연도로 채움
+    ② 용도 — readonly 입력 옆 [검색] 클릭 → '코드정보 조회' 팝업(새 창)에서 '관공서제출용' 선택
+      (복지 신청 제출의 표준 용도. 수급용 등 다른 용도가 필요하면 화면에서 변경 가능).
+    ③ 주민등록번호 공개여부 '비공개'는 _select_privacy_masking 이 함께 처리(행에 주민등록번호 포함).
+    반환 {"years": bool, "purpose": bool, "year": str} — 실제 한 것만 안내. 실패는 무해(막힘 유예가 커버)."""
+    from datetime import datetime as _dt
+    yr = str(_dt.now().year - 1)  # 직전 과세연도(신고 완료분)
+    out = {"years": False, "purpose": False, "year": yr}
+    # ① 증명받는 기간 — '증명받는' 문구가 있는 짧은 섹션의 빈 텍스트 입력(시작·종료)에 연도 입력
+    try:
+        filled = await page.evaluate(
+            """(yr) => {
+                const fire = (el) => { el.dispatchEvent(new Event('input', {bubbles: true})); el.dispatchEvent(new Event('change', {bubbles: true})); };
+                const secs = [...document.querySelectorAll('div, fieldset, tr, li')]
+                    .filter(s => { const t = (s.innerText || ''); return t.includes('증명받는') && t.length < 400; });
+                const sec = secs.pop();  // 가장 안쪽(작은) 컨테이너
+                let n = 0;
+                if (sec) {
+                    for (const inp of sec.querySelectorAll("input[type=text], input[type=number], input:not([type])")) {
+                        if (!inp.value) { inp.value = yr; fire(inp); n++; }
+                    }
+                }
+                return n;
+            }""",
+            yr,
+        )
+        out["years"] = bool(filled)
+    except Exception:
+        pass
+    # ② 용도 — '용도' 행의 [검색] 버튼 → 새 창(코드정보 조회)에서 '관공서제출용' 클릭
+    try:
+        before = len(context.pages)
+        clicked = await page.evaluate(
+            """() => {
+                const rows = [...document.querySelectorAll('div, tr, li')]
+                    .filter(r => { const t = (r.innerText || '').trim(); return t.length < 200 && /^용도/.test(t); });
+                for (const r of rows) {
+                    const b = [...r.querySelectorAll("button, a, input[type=button], input[type=submit]")]
+                        .find(x => ((x.innerText || x.value || '').includes('검색')));
+                    if (b) { b.click(); return true; }
+                }
+                return false;
+            }"""
+        )
+        if clicked:
+            popup = None
+            for _ in range(10):  # 팝업(새 창) 등장 대기 최대 ~5초
+                await asyncio.sleep(0.5)
+                if len(context.pages) > before:
+                    popup = context.pages[-1]
+                    break
+            target = popup or page  # 새 창이 아니면 레이어 팝업 — 같은 페이지에서 클릭
+            await asyncio.sleep(0.8)
+            ok = False
+            try:
+                ok = await target.evaluate(
+                    """() => {
+                        const el = [...document.querySelectorAll('td, a, li, button, span')]
+                            .find(e => (e.innerText || '').trim() === '관공서제출용');
+                        if (el) { el.click(); return true; }
+                        return false;
+                    }"""
+                )
+            except Exception:
+                ok = False
+            if not ok:
+                ok = await click_by_text(target, ["관공서제출용"])
+            out["purpose"] = bool(ok)
+            await asyncio.sleep(0.8)  # 선택 반영·팝업 자동 닫힘 대기
     except Exception:
         pass
     return out
@@ -1057,6 +1134,20 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None, session=Non
                     "(표시할 항목이 더 필요하거나 전체표시본이 필요하면 화면에서 바꿔 주세요 — 바꾸면 이어서 자동 신청돼요)",
                     await take_screenshot(page),
                 )
+            # 🧾 소득금액증명 전용 — 증명 기간(직전 과세연도)·용도(관공서제출용, 코드 팝업) 자동 채움(실측)
+            if "소득금액증명" in doc_name:
+                _inc = await _fill_income_cert_form(page, context)
+                _bits = []
+                if _inc.get("years"):
+                    _bits.append(f"증명 기간({_inc['year']}년)")
+                if _inc.get("purpose"):
+                    _bits.append("용도 '관공서제출용'")
+                if _bits:
+                    task.update(
+                        "running",
+                        f"🧾 {'·'.join(_bits)}을(를) 자동 선택했어요.\n(다른 기간·용도가 필요하면 화면에서 바꿔 주세요 — 바꾸면 이어서 자동 신청돼요)",
+                        await take_screenshot(page),
+                    )
 
             # ④ 신청하기 — 자동입력만으로 다음 단계로 못 넘어가면(주소 불일치·필수항목 미선택 등)
             #    사용자가 화면 폼을 직접 고칠 시간을 준 뒤 자동으로 다시 신청한다(human-in-the-loop 보정).
