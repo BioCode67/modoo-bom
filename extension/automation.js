@@ -455,13 +455,13 @@
   if (isAuthFrame()) {
     trace('branch', { name: 'auth-frame', top: isTop })
     await sleep(800)
-    clickText(['카카오톡', 'TALK', '카카오'], ['카카오뱅크', 'BANK'])
+    clickText(['카카오톡', 'TALK', '카카오'], ['카카오뱅크', 'BANK', '스토리', 'story'])
     await sleep(600)
     // 필드가 점진적으로 렌더될 수 있어, 전부 채워질 때까지 최대 30초 재시도(가드로 재실행 불가하므로 여기서)
     let af = autofillAuth()
     for (let i = 0; i < 30 && !af.all; i++) {
       await sleep(1000)
-      clickText(['카카오톡', 'TALK', '카카오'], ['카카오뱅크', 'BANK'])
+      clickText(['카카오톡', 'TALK', '카카오'], ['카카오뱅크', 'BANK', '스토리', 'story'])
       af = autofillAuth()
     }
     trace('autofill', af)
