@@ -12,7 +12,8 @@ rem     반드시 ASCII 이름으로 복사해 업로드한다(ModooBom-Setup.ex
 rem ────────────────────────────────────────────────────────────────────
 cd /d "%~dp0"
 set "REPO=BioCode67/modoo-bom"
-set "TAG=app-v0.3.0"
+rem 버전을 올리면 여기 태그만 바꾸면 된다 — --latest 라 홈 CTA(latest/download)가 자동으로 새 자산을 가리킨다.
+set "TAG=app-v0.3.2"
 set "DIST=backend\dist"
 
 if not exist "%DIST%\모두봄-설치.exe" (echo [오류] %DIST%\모두봄-설치.exe 없음 — build-installer.bat 먼저 & pause & exit /b 1)
@@ -25,7 +26,7 @@ echo [2/3] 릴리스 생성/자산 업로드(%TAG%)...
 gh release view %TAG% -R %REPO% >nul 2>&1
 if errorlevel 1 (
   gh release create %TAG% "%DIST%\ModooBom-Setup.exe" "%DIST%\ModooBom-Agent.zip" -R %REPO% --target main ^
-     --title "모두봄 데스크탑 앱 (Windows) v0.3.0" --notes-file "docs\앱-릴리스-노트.md" --latest
+     --title "모두봄 데스크탑 앱 (Windows) v0.3.2" --notes-file "docs\앱-릴리스-노트.md" --latest
 ) else (
   gh release upload %TAG% "%DIST%\ModooBom-Setup.exe" "%DIST%\ModooBom-Agent.zip" -R %REPO% --clobber
 )
