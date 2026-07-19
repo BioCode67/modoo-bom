@@ -997,20 +997,34 @@ def _open_app_ui(url: str) -> None:
         pass
 
 
+def _health_probe_url(url: str) -> str:
+    """health 폴링 주소 — 바인드 주소(127.0.0.1)로 맞춘다. 윈도우에서 'localhost'가 IPv6(::1)로
+    먼저 풀려 서버(127.0.0.1 바인드) 확인이 느려지거나 빗나가는 것 방지(브라우저 자동오픈 실패 원인)."""
+    return url.replace("//localhost", "//127.0.0.1") + "api/health"
+
+
 def _open_browser_when_ready(url: str):
-    """서버 health가 실제로 뜨면 크롬/엣지 우선으로 앱을 연다(최대 ~15초, 안 뜨면 안 엶)."""
+    """서버 health가 뜨면 크롬/엣지 우선으로 앱을 연다.
+    ⚠️ 실사용 제보: run-local-app 에서 브라우저가 안 열림 → 원인은 (1) 첫 기동(콜드 임포트)이 15초를
+       넘겨 폴링이 조용히 포기, (2) localhost→::1 로 풀려 확인 실패. 대응:
+       - 폴링 상한을 ~60초로 넉넉히(첫 실행은 느릴 수 있음), 주소는 127.0.0.1 로.
+       - 60초 안에 확인 못 해도 '마지막엔 그냥 연다' — 서버가 느리게라도 떴으면 창은 열려야 한다
+         (사용자가 새로고침 가능). '조용히 안 열림'이 최악이라 이 폴백을 둔다."""
     import threading
     import time
     import urllib.request
 
+    probe = _health_probe_url(url)
+
     def _worker():
-        for _ in range(30):
+        for _ in range(120):  # 최대 ~60초 — 첫 실행(콜드 임포트·시딩)은 느릴 수 있어 넉넉히
             try:
-                urllib.request.urlopen(url + "api/health", timeout=1)
+                urllib.request.urlopen(probe, timeout=1)
                 _open_app_ui(url)
                 return
             except Exception:
                 time.sleep(0.5)
+        _open_app_ui(url)  # 확인 못 해도 마지막엔 연다 — '조용히 안 열림' 방지(서버는 대개 떠 있음)
     threading.Thread(target=_worker, daemon=True).start()
 
 

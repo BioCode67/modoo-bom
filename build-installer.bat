@@ -10,22 +10,25 @@ rem  사전: setup-local.bat 로 backend\venv-local 준비돼 있어야 함.
 rem ────────────────────────────────────────────────────────────────────
 cd /d "%~dp0"
 
+rem 상위 오케스트레이터(update-and-publish.bat)에서 부르면 MODOO_NOPAUSE=1 로 모든 pause 를 건너뛴다
+rem (무인 체인). 단독 실행 시엔 정상적으로 멈춰서 결과를 보여준다.
 if not exist "backend\venv-local\Scripts\python.exe" (
   echo [오류] backend\venv-local 이 없습니다. 먼저 setup-local.bat 을 실행하세요.
-  pause & exit /b 1
+  if not defined MODOO_NOPAUSE pause
+  exit /b 1
 )
 set "PY=backend\venv-local\Scripts\python.exe"
 
 echo [1/4] 프론트 로컬 앱 빌드(dist-app)...
 pushd frontend
 if not exist "node_modules" ( call npm install )
-call npm run build:app || (echo [오류] 프론트 빌드 실패 & popd & pause & exit /b 1)
+call npm run build:app || (echo [오류] 프론트 빌드 실패 & popd & (if not defined MODOO_NOPAUSE pause) & exit /b 1)
 popd
 
 echo [2/4] 단일 실행파일 빌드(PyInstaller)...
 pushd backend
 "venv-local\Scripts\python.exe" -m pip install -q pyinstaller
-"venv-local\Scripts\python.exe" -m PyInstaller --clean --noconfirm modoobom_agent.spec || (echo [오류] PyInstaller 빌드 실패 & popd & pause & exit /b 1)
+"venv-local\Scripts\python.exe" -m PyInstaller --clean --noconfirm modoobom_agent.spec || (echo [오류] PyInstaller 빌드 실패 & popd & (if not defined MODOO_NOPAUSE pause) & exit /b 1)
 popd
 
 echo [2.5/4] 실행파일 패키징 스모크(뜨고·서빙·RPA 준비·브라우저 실기동 확인)...
@@ -33,7 +36,7 @@ pushd frontend
 "..\backend\venv-local\Scripts\python.exe" e2e\installed-app.py
 if errorlevel 1 (
   echo [오류] 패키징 스모크 실패 — 번들 누락/드라이버 파손 의심. 배포본 빌드 중단.
-  popd & pause & exit /b 1
+  popd & (if not defined MODOO_NOPAUSE pause) & exit /b 1
 )
 popd
 
@@ -60,5 +63,5 @@ echo.
 echo ✅ 배포본 빌드 완료.
 echo   · 폴더 실행: backend\dist\모두봄-에이전트\모두봄-에이전트.exe
 echo   · 배포 ZIP : backend\dist\모두봄-에이전트.zip  ^(압축 풀고 exe 더블클릭^)
-pause
+if not defined MODOO_NOPAUSE pause
 endlocal

@@ -217,6 +217,15 @@ def test_click_provider_returns_false_when_nothing_matches():
     assert r is False
 
 
+def test_health_probe_url_uses_loopback_ipv4():
+    """브라우저 자동오픈용 health 폴링은 127.0.0.1 로 — 'localhost'가 IPv6(::1)로 풀려
+    서버(127.0.0.1 바인드) 확인이 빗나가 창이 안 열리던 것 방지(실사용 제보 회귀 고정)."""
+    import local_server
+    assert local_server._health_probe_url("http://localhost:8000/") == "http://127.0.0.1:8000/api/health"
+    # 이미 127.0.0.1 이면 그대로, api/health 만 붙는다
+    assert local_server._health_probe_url("http://127.0.0.1:8000/") == "http://127.0.0.1:8000/api/health"
+
+
 def test_open_app_ui_non_win32_uses_default_browser(monkeypatch):
     """맥·리눅스: 앱 UI는 기본 브라우저(webbrowser.open)로 연다(기존 동작 불변)."""
     import local_server

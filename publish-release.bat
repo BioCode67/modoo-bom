@@ -16,23 +16,32 @@ rem 버전을 올리면 여기 태그만 바꾸면 된다 — --latest 라 홈 C
 set "TAG=app-v0.3.2"
 set "DIST=backend\dist"
 
-if not exist "%DIST%\모두봄-설치.exe" (echo [오류] %DIST%\모두봄-설치.exe 없음 — build-installer.bat 먼저 & pause & exit /b 1)
+rem 상위 오케스트레이터(update-and-publish.bat)에서 부르면 MODOO_NOPAUSE=1 로 pause 를 건너뛴다(무인 체인).
+if not exist "%DIST%\모두봄-설치.exe" (echo [오류] %DIST%\모두봄-설치.exe 없음 — build-installer.bat 먼저 & (if not defined MODOO_NOPAUSE pause) & exit /b 1)
 
 echo [1/3] ASCII 이름으로 복사(한글명 GitHub 에서 깨짐 방지)...
 copy /y "%DIST%\모두봄-설치.exe" "%DIST%\ModooBom-Setup.exe" >nul
 if exist "%DIST%\모두봄-에이전트.zip" copy /y "%DIST%\모두봄-에이전트.zip" "%DIST%\ModooBom-Agent.zip" >nul
 
+where gh >nul 2>&1 || (echo [오류] gh CLI 가 없습니다 — winget install GitHub.cli 후 "gh auth login" 하세요. & (if not defined MODOO_NOPAUSE pause) & exit /b 1)
+
 echo [2/3] 릴리스 생성/자산 업로드(%TAG%)...
+set "PUB_ERR=0"
 gh release view %TAG% -R %REPO% >nul 2>&1
 if errorlevel 1 (
   gh release create %TAG% "%DIST%\ModooBom-Setup.exe" "%DIST%\ModooBom-Agent.zip" -R %REPO% --target main ^
-     --title "모두봄 데스크탑 앱 (Windows) v0.3.2" --notes-file "docs\앱-릴리스-노트.md" --latest
+     --title "모두봄 데스크탑 앱 (Windows) v0.3.2" --notes-file "docs\앱-릴리스-노트.md" --latest || set "PUB_ERR=1"
 ) else (
-  gh release upload %TAG% "%DIST%\ModooBom-Setup.exe" "%DIST%\ModooBom-Agent.zip" -R %REPO% --clobber
+  gh release upload %TAG% "%DIST%\ModooBom-Setup.exe" "%DIST%\ModooBom-Agent.zip" -R %REPO% --clobber || set "PUB_ERR=1"
+)
+if "%PUB_ERR%"=="1" (
+  echo [오류] 릴리스 게시 실패 — gh 로그인^(gh auth login^)·네트워크·권한을 확인하세요.
+  if not defined MODOO_NOPAUSE pause
+  exit /b 1
 )
 
 echo [3/3] 완료. 자산 목록:
 gh api repos/%REPO%/releases/tags/%TAG% --jq ".assets[].name"
 echo   → https://github.com/%REPO%/releases/tag/%TAG%
-pause
+if not defined MODOO_NOPAUSE pause
 endlocal
