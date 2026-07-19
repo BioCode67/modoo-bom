@@ -14,6 +14,7 @@ import { RpaInfoForm } from '@/components/RpaInfoForm'
 import { RemoteRpaSetup } from '@/components/RemoteRpaSetup'
 import { DocCameraModal } from '@/components/DocCameraModal'
 import { DocVault, notifyDocsChanged, DOCS_CHANGED_EVENT } from '@/components/DocVault'
+import { ProbeCoverage, requestProbe } from '@/components/ProbeCoverage'
 import { AgentStatusStrip } from '@/components/AgentStatusStrip'
 import { rememberLive, forgetLive, listLive } from '@/lib/liveTasks'
 import { downloadDocsBundle } from '@/lib/bundleDocs'
@@ -756,6 +757,10 @@ export function DocumentCenter() {
               </div>
             )
           })}
+          {/* 🔎 커버리지 실측 추가 — 서류명 하나로 정부24 실측→통과 시 재시작 없이 β 합류(본인 PC 전용) */}
+          {vaultOn && (
+            <ProbeCoverage onExpanded={(s, b) => { setLocalRpaDocs(s, b); setLocalDocs(s) }} />
+          )}
         </div>
       )}
     </div>
@@ -1143,6 +1148,17 @@ export function DocumentCenter() {
                   >
                     <ExternalLink className="h-4 w-4" /> {kind === 'wallet' ? '전자발급' : '발급'}
                   </a>
+                )}
+                {/* 🔎 아직 자동발급 미지원 + 본인 PC 에이전트 → 정부24 실측으로 지원 확장 시도(β).
+                    날조 금지: 실측 통과분만, 실패는 정직 보고 — 패널의 ProbeCoverage가 진행·결과를 보여준다 */}
+                {!done && vaultOn && !supported && !userProvided && (
+                  <button
+                    onClick={() => { setPickOpen(true); requestProbe(doc) }}
+                    title="정부24를 실측 조사해 이 서류가 자동발급 가능하면 목록에 바로 추가해요(β · 로그인·개인정보 없이)"
+                    className="rounded-xl border-2 border-sky2-100 bg-white px-2.5 py-2 text-xs font-semibold text-sky2-700 hover:border-sky2-300 whitespace-nowrap transition-colors"
+                  >
+                    🔎 자동 확인
+                  </button>
                 )}
                 <button
                   onClick={() => toggleDocDone(doc)}

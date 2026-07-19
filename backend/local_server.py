@@ -147,6 +147,10 @@ class DemoRequest(BaseModel):
     doc_name: str = "주민등록등본"  # 체험할 서류(안내페이지 없으면 정부24 홈 폴백)
 
 
+class ProbeRequest(BaseModel):
+    doc_name: str  # 자동발급 지원을 실측 확인할 서류 이름(정부24 검색어)
+
+
 class ApplyRequest(BaseModel):
     service_name: str
     user_name: str = "홍길동"
@@ -379,6 +383,39 @@ async def rpa_supported_docs():
     from rpa.manager import SUPPORTED_DOC_NAMES
     from rpa.gov24_rpa import EXTRA_DOC_NAMES
     return {"supported": SUPPORTED_DOC_NAMES, "beta": EXTRA_DOC_NAMES}
+
+
+# 앱 내 커버리지 실측 확인은 한 번에 하나만(브라우저 1개, 정부24 예의) — 동시 클릭 방지 락
+_probe_busy = {"on": False}
+
+
+@app.post("/api/docs/probe")
+async def docs_probe(req: ProbeRequest):
+    """🔎 자동발급 지원 실측 확인 — 서류명 하나로 정부24를 실제 조사해(검색→코드 발굴→발급버튼 확인)
+    통과분만 β 등록하고 **재시작 없이** 발급 목록에 반영한다(모든 서류 자동발급의 정직한 확장 경로).
+
+    날조 금지: 실측 실패·비대상은 그대로 보고(추측 등재 없음). 결과가 ok여도 β — 첫 실발급이 최종 검증.
+    🔒 본인 PC 전용(공유 배포 403) · 프로브는 검색·안내 페이지만 열람(로그인·개인정보 불필요)."""
+    _shared_mode_guard()
+    from rpa.config import rpa_enabled, rpa_disabled_reason
+    if not rpa_enabled():
+        raise HTTPException(status_code=503, detail=rpa_disabled_reason())
+    name = (req.doc_name or "").strip()
+    if not name or len(name) > 40:
+        raise HTTPException(status_code=400, detail="서류 이름을 1~40자로 입력해 주세요.")
+    from rpa.manager import SUPPORTED_DOC_NAMES
+    if name in SUPPORTED_DOC_NAMES:
+        return {"status": "already", "message": f"「{name}」는 이미 자동발급을 지원해요."}
+    if _probe_busy["on"]:
+        raise HTTPException(status_code=409, detail="이미 다른 실측 확인이 진행 중이에요 — 잠시 후 다시 시도해 주세요.")
+    _probe_busy["on"] = True
+    try:
+        import asyncio as _aio
+        from rpa.probe import probe_and_register
+        # 브라우저 조사 ~30초 — 스레드로 옮겨 이벤트 루프(발급 폴링 등)를 막지 않는다
+        return await _aio.to_thread(probe_and_register, [name])
+    finally:
+        _probe_busy["on"] = False
 
 
 @app.post("/api/documents/rpa-issue")

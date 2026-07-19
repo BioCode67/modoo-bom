@@ -354,11 +354,29 @@ _SUPPORTED_DOCS = {
 # 동적 커버리지 — 사용자 PC에서 프로브 실측(--register)으로 확장된 gov24 서류를 병합.
 # 발급 흐름은 CappBizCD 단일소스의 일반 gov24 경로를 그대로 타므로 코드 추가 없이 동작한다.
 # (gov24_rpa 톱레벨은 경량 — playwright 등 무거운 의존은 함수 지역이라 부팅 비용 없음)
+_BUILTIN_DOC_KEYS = frozenset(_SUPPORTED_DOCS)  # 내장(검증 완료) 스냅샷 — 런타임 리로드에서 불변 보장
 from rpa.gov24_rpa import EXTRA_DOC_NAMES as _EXTRA_GOV24_DOCS  # noqa: E402
 for _n in _EXTRA_GOV24_DOCS:
     _SUPPORTED_DOCS.setdefault(_n, ("gov24", "정부24"))
 
 SUPPORTED_DOC_NAMES = list(_SUPPORTED_DOCS.keys())
+
+
+def refresh_supported_docs() -> list:
+    """동적 서류 변경(앱 내 실측 등록/해제)을 **재시작 없이** 지원 목록에 반영.
+
+    gov24_rpa.reload_extra_docs() 이후 호출 — 내장은 그대로, 이전 동적 항목 중 빠진 것만 제거.
+    start_rpa_task 는 _SUPPORTED_DOCS 를, API 핸들러는 SUPPORTED_DOC_NAMES 를 호출 시점에
+    조회하므로 여기서의 갱신만으로 새 서류 발급이 즉시 허용된다.
+    """
+    global SUPPORTED_DOC_NAMES
+    from rpa.gov24_rpa import EXTRA_DOC_NAMES as cur
+    for k in [k for k in list(_SUPPORTED_DOCS) if k not in _BUILTIN_DOC_KEYS and k not in cur]:
+        _SUPPORTED_DOCS.pop(k, None)
+    for n in cur:
+        _SUPPORTED_DOCS.setdefault(n, ("gov24", "정부24"))
+    SUPPORTED_DOC_NAMES = list(_SUPPORTED_DOCS.keys())
+    return SUPPORTED_DOC_NAMES
 
 _SUPPORTED_SERVICES = [
     "기초연금", "아동수당", "부모급여", "청년 내일저축계좌", "첫만남이용권", "기초생활 생계급여",

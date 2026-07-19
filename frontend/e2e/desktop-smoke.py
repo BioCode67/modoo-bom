@@ -2,9 +2,9 @@
 """데스크탑앱 스모크 — local_server(:8000)가 dist-app을 서빙하는 '진짜 배포 셋업'에서
 데스크탑 전용 기능을 실브라우저로 회귀 검증한다(웹 프리뷰 스모크로는 localAgent 기능이 안 보임).
 
-검증 24종(번호는 추가 순서 — 실행 순서는 코드 순):
+검증 25종(번호는 추가 순서 — 실행 순서는 코드 순):
   1 상태 스트립 · 2 진단 복사(PII 0) · 2.5 발급 전 점검(6항목·서류함 무결성) · 3 서류함 등록+첨부 후보 배지 · 3.5 🖍 가리기
-  4 자동첨부 미리보기 · 5 개별 삭제(2탭) · 5.5 유효기간 배지+📦 ZIP · 5.55 👁 파일 열람 · 5.6 종류별 그룹핑(최신본 대표) · 5.65 🧹 이전 버전 정리 · 5.7 부족분만 발급→📨 자동신청만 · 5.8 자유 선택 일괄발급 · 5.9 빈 상태 슬림 모드
+  4 자동첨부 미리보기 · 5 개별 삭제(2탭) · 5.5 유효기간 배지+📦 ZIP · 5.55 👁 파일 열람 · 5.6 종류별 그룹핑(최신본 대표) · 5.65 🧹 이전 버전 정리 · 5.7 부족분만 발급→📨 자동신청만 · 5.8 자유 선택 일괄발급 · 5.85 🔁 손상 원탭 재발급 · 5.87 🔎 앱 내 실측 확인 · 5.9 빈 상태 슬림 모드
   6 새로고침 복원+실태스크 정리 · 6.5 인증 알림음+🔊 음성(옵트인)+발급 자동 기억
   6.8 챗 에이전트 인지 · 6.9 여정 이어보기 · 6.95 인증정보 탭-기억 옵트인
   7.5 원클릭 연쇄+⏭ 스킵+📨 기록 CTA · 7.6 여정 오류 경로(정직 요약) · 7 검증형 리셋 · 8 🌱 새싹이 가이드
@@ -267,6 +267,20 @@ def main() -> int:
                 broken.unlink(missing_ok=True)
             print("[desktop] ✅ 5.85. 🔁 손상 원탭 재발급 — 손상본 삭제 + 발급 시작(미입력 가드)")
 
+            # 5.87) 🔎 앱 내 커버리지 실측 확인 — 서류명 하나로 정부24 실측→β 등록(재시작 불필요).
+            #       컨테이너는 정부망이 막혀 있으므로 '진행 표시 → 정직한 실패 보고 + 미등록'까지가 검증 대상
+            #       (성공 등록 경로는 pytest test_probe_runtime 이 스텁으로 고정).
+            if pg.locator("input[aria-label='실측 확인할 서류 이름']").count() == 0:
+                pg.locator("button:has-text('골라 한번에 발급')").click()
+            pg.wait_for_selector("input[aria-label='실측 확인할 서류 이름']", timeout=6000)
+            pg.fill("input[aria-label='실측 확인할 서류 이름']", "혼인관계증명서")
+            pg.locator("button:has-text('실측 확인')").click()
+            pg.wait_for_selector("text=실측 확인 중", timeout=8000)      # 진행 상태(개인정보 미사용 명시)
+            pg.wait_for_selector("text=실패", timeout=90000)             # 정부망 차단 → 실패를 실패로
+            _sup2 = json.loads(_url.urlopen(f"{BASE.rstrip('/')}/api/documents/rpa-supported", timeout=5).read())
+            assert "혼인관계증명서" not in _sup2.get("supported", []), "실측 실패인데 등록됨 — 날조 게이트 붕괴"
+            print("[desktop] ✅ 5.87. 🔎 앱 내 실측 확인 — 진행 표시 + 실패 정직 보고(미등록)")
+
             # 5.9) 담은 복지 0 슬림 모드 — 심사·첫 사용이 빈 화면에서 끝나지 않는다(발급 도우미+15종 패널+서류함)
             pg2 = ctx.new_page()
             pg2.add_init_script(
@@ -519,7 +533,7 @@ def main() -> int:
         for i in issues[:10]:
             print("  ", i)
         return 1
-    print("✅ 데스크탑 기능 24종 + pageerror 0 — 전부 통과")
+    print("✅ 데스크탑 기능 25종 + pageerror 0 — 전부 통과")
     return 0
 
 

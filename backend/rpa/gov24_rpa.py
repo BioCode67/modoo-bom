@@ -97,6 +97,32 @@ if _extra:
     EXTRA_DOC_NAMES = list(_extra.keys())
 
 
+def reload_extra_docs() -> list:
+    """docs_extra.json 재적재 — **재시작 없이** 동적 서류를 반영(앱 내 [🔎 실측 확인] 직후 호출).
+
+    · 내장(검증 완료) 서류는 불변 — 이전 동적 항목만 걷어내고 파일 현재 상태로 다시 병합
+      (등록 해제(--remove/API)도 즉시 반영).
+    · URL 3맵(DOC_URLS/ISSUE_URLS/APPLY_FORM_URLS)을 함께 갱신 — 발급 흐름은 호출 시점에
+      이 모듈 딕셔너리를 조회하므로 in-place 갱신만으로 새 서류가 바로 발급 가능해진다.
+    """
+    global EXTRA_DOC_NAMES
+    for n in EXTRA_DOC_NAMES:  # 이전 동적 항목 제거(내장은 EXTRA_DOC_NAMES에 없음)
+        DOC_CAPP.pop(n, None)
+        DOC_URLS.pop(n, None)
+        ISSUE_URLS.pop(n, None)
+        APPLY_FORM_URLS.pop(n, None)
+    EXTRA_DOC_NAMES = []
+    extra = _load_extra_docs()
+    if extra:
+        DOC_CAPP.update(extra)
+        EXTRA_DOC_NAMES = list(extra.keys())
+        for d, c in extra.items():
+            DOC_URLS[d] = _info_url(c)
+            ISSUE_URLS[d] = _issue_url(c)
+            APPLY_FORM_URLS[d] = _apply_form_url(c)
+    return EXTRA_DOC_NAMES
+
+
 # 서비스 안내 페이지(AA020) — 로그인 후 접속. 발급폼(applyMinwonForm)이 안 뜰 때의 폴백 진입점.
 def _info_url(capp_biz_cd: str) -> str:
     return (f"https://www.gov.kr/mw/AA020InfoCappView.do?CappBizCD={capp_biz_cd}"
