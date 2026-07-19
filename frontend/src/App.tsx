@@ -9,6 +9,7 @@ const Explore = lazy(() => import('@/sections/Explore').then((m) => ({ default: 
 const My = lazy(() => import('@/sections/My').then((m) => ({ default: m.My })))
 import { ChatWidget } from '@/components/ChatWidget'
 import { ScrollTop } from '@/components/ScrollTop'
+import { SproutGuide } from '@/components/SproutGuide'
 import { ReturnConfirm } from '@/components/ReturnConfirm'
 import { LangSuggest } from '@/components/LangSuggest'
 import { PrintSummary } from '@/components/PrintSummary'
@@ -129,6 +130,8 @@ export default function App() {
 
       <div className="no-print"><ChatWidget /></div>
       <div className="no-print"><ScrollTop /></div>
+      {/* 🌱 새싹이 가이드 — 분석/탐색/나의복지에서 다음 행동 한 문장 안내(홈은 히어로가 담당) */}
+      <div className="no-print"><SproutGuide /></div>
       <div className="no-print"><ReturnConfirm /></div>
       <div className="no-print"><Onboarding /></div>
       <PrintSummary />

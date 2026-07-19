@@ -24,7 +24,7 @@ function hasWebGL(): boolean {
  * 복지 서비스 특성상 알뜰폰·제한 데이터 사용자가 많아 성능과 데이터 비용 형평성을 함께 고려.
  * WebGL 미지원 기기도 여기서 걸러 정적 마스코트로 폴백(첫 화면이 오류화면으로 죽는 것 방지, 감사 CRITICAL).
  */
-function shouldSkipHeavy3D(): boolean {
+export function shouldSkipHeavy3D(): boolean {
   if (typeof navigator === 'undefined') return false
   const nav = navigator as Navigator & {
     connection?: { saveData?: boolean; effectiveType?: string }

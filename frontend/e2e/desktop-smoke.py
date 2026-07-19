@@ -2,12 +2,12 @@
 """데스크탑앱 스모크 — local_server(:8000)가 dist-app을 서빙하는 '진짜 배포 셋업'에서
 데스크탑 전용 기능을 실브라우저로 회귀 검증한다(웹 프리뷰 스모크로는 localAgent 기능이 안 보임).
 
-검증 19종(번호는 추가 순서 — 실행 순서는 코드 순):
+검증 20종(번호는 추가 순서 — 실행 순서는 코드 순):
   1 상태 스트립 · 2 진단 복사(PII 0) · 2.5 발급 전 점검(5항목) · 3 서류함 등록+첨부 후보 배지 · 3.5 🖍 가리기
   4 자동첨부 미리보기 · 5 개별 삭제(2탭) · 5.5 유효기간 배지+📦 ZIP · 5.6 종류별 그룹핑(최신본 대표) · 5.7 부족분만 발급→📨 자동신청만 · 5.8 자유 선택 일괄발급
   6 새로고침 복원+실태스크 정리 · 6.5 인증 알림음+🔊 음성(옵트인)+발급 자동 기억
   6.8 챗 에이전트 인지 · 6.9 여정 이어보기 · 6.95 인증정보 탭-기억 옵트인
-  7.5 원클릭 연쇄+⏭ 스킵+📨 기록 CTA · 7.6 여정 오류 경로(정직 요약) · 7 검증형 리셋
+  7.5 원클릭 연쇄+⏭ 스킵+📨 기록 CTA · 7.6 여정 오류 경로(정직 요약) · 7 검증형 리셋 · 8 🌱 새싹이 가이드
   + 전 구간 pageerror 0
 
 실행(레포 루트에서):
@@ -73,6 +73,17 @@ def main() -> int:
             # 1) 상태 스트립
             pg.wait_for_selector("text=에이전트 연결됨", timeout=8000)
             print("[desktop] ✅ 1. 에이전트 상태 스트립(연결·버전·슬롯)")
+
+            # 8) 🌱 새싹이 가이드 — 나의 복지에서 '에이전트 인지' 안내 + 접기/펼치기 + 영구 숨김
+            #    (검증 직후 숨겨 이후 체크들의 클릭 경로에 말풍선이 끼어들지 않게 한다)
+            pg.wait_for_selector("text=🚀 버튼 하나로", timeout=8000)   # agentOn 상태 인지 문구
+            pg.locator("button[aria-label='안내 접기']").click()
+            pg.wait_for_selector("text=🚀 버튼 하나로", state="detached", timeout=4000)
+            pg.locator("button[aria-label='새싹이 안내 보기']").click()
+            pg.wait_for_selector("text=🚀 버튼 하나로", timeout=4000)
+            pg.locator("button:has-text('다시 보지 않기')").click()
+            pg.wait_for_selector("[aria-label='새싹이 도우미']", state="detached", timeout=4000)
+            print("[desktop] ✅ 8. 🌱 새싹이 가이드 — 상태 인지 문구·접기·영구 숨김")
 
             # 2) 진단 복사(PII 무포함)
             pg.locator("button:has-text('진단 복사')").click()
@@ -449,7 +460,7 @@ def main() -> int:
         for i in issues[:10]:
             print("  ", i)
         return 1
-    print("✅ 데스크탑 기능 19종 + pageerror 0 — 전부 통과")
+    print("✅ 데스크탑 기능 20종 + pageerror 0 — 전부 통과")
     return 0
 
 
