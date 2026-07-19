@@ -3,6 +3,7 @@ import { PRIVATE_POLICIES } from '@/data/privatePolicies'
 import { HOUSING_POLICIES } from '@/data/housingPolicies'
 import { GOV_PROGRAMS } from '@/data/govPrograms'
 import { FINANCIAL_POLICIES } from '@/data/financialPolicies'
+import { parseMonthly } from '@/lib/format'
 
 // 시드 = 정부 큐레이션(POL-) + 민간재단(PRV-) + 청년주택 공고(HOU-) + 정부 지원사업(SUP-) + 정책서민금융(FIN-, 서민금융진흥원 실측)
 const SEED_POLICIES: Policy[] = [...WELFARE_POLICIES, ...PRIVATE_POLICIES, ...HOUSING_POLICIES, ...GOV_PROGRAMS, ...FINANCIAL_POLICIES]
@@ -124,8 +125,16 @@ export async function loadExternalCatalog(): Promise<number> {
       if (!item || typeof item !== 'object') continue
       const p = normalize(item as Record<string, unknown>)
       if (!p.id || !p.name) continue
-      // 지자체(LOC-)는 지역별 동명 사업이 별개이므로 시드와 이름 겹쳐도 유지(dedupeByName과 동일 원칙).
-      if (!p.id.startsWith('LOC-') && seedNames.has(nameKey(p.name))) continue // 시드와 이름 중복 → 스킵
+      const nk = nameKey(p.name)
+      if (p.id.startsWith('LOC-')) {
+        // 지자체(LOC-)는 지역별 동명 사업이 별개라 유지한다. 단 '국가 시드와 이름이 똑같은데
+        //   알맹이가 빈' 지자체 스텁(필요서류 없음 + 현금액 파싱 안 됨)은 국가 시드가 이미 잘 커버하므로 스킵.
+        //   — 실사용 제보: 옥천군 '청년 월세 지원'(빈 데이터)을 담았더니 나의 복지에서 금액·서류가 다 비어
+        //     보였다. 날조 없이 '좋은 원본(POL-)'만 남긴다. 지역 고유명·데이터 있는 지자체 건은 그대로 유지.
+        if (seedNames.has(nk) && p.required_docs.length === 0 && parseMonthly(p.benefit) <= 0) continue
+      } else if (seedNames.has(nk)) {
+        continue // 시드와 이름 중복(중앙/일반) → 스킵(큐레이션 시드 우선)
+      }
       merged.set(p.id, p)
     }
     if (merged.size !== before) {
