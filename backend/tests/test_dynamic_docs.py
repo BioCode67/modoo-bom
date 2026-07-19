@@ -110,18 +110,20 @@ def test_efamily_route_constants_and_valve():
 
 
 def test_privacy_masking_env_valve_and_result():
-    """🔒 주민번호 뒷자리 비공개 선택 — RPA_PRIVACY_MASK=0 안전밸브로 끌 수 있고,
-    폼에 옵션이 있으면 True(안내 노출)·없거나 실패면 False(무해 침묵)를 고정."""
+    """🔒 개인정보 최소화 선택 계약 — ①선택표시 전환 ②뒷자리 비공개를 실제 한 것만 보고(dict),
+    RPA_PRIVACY_MASK=0 안전밸브로 전체를 끌 수 있음을 고정."""
     import asyncio, os
     from rpa.gov24_rpa import _select_privacy_masking
 
     class _Page:
-        def __init__(self, result):
-            self._r = result
+        # evaluate 1회차=선택표시(picked bool), 2회차=뒷자리(clicked count) — 순서대로 반환
+        def __init__(self, results):
+            self._results = list(results)
         async def evaluate(self, _js):
-            if isinstance(self._r, Exception):
-                raise self._r
-            return self._r
+            r = self._results.pop(0) if self._results else 0
+            if isinstance(r, Exception):
+                raise r
+            return r
 
     def run(page):
         loop = asyncio.new_event_loop()
@@ -130,12 +132,14 @@ def test_privacy_masking_env_valve_and_result():
         finally:
             loop.close()
 
-    assert run(_Page(2)) is True          # 옵션 클릭됨 → 안내 노출
-    assert run(_Page(0)) is False         # 해당 옵션 없음 → 침묵(무해)
-    assert run(_Page(RuntimeError("x"))) is False  # 평가 실패도 침묵
+    assert run(_Page([True, 2])) == {"display": True, "rrn": True}    # 둘 다 수행
+    assert run(_Page([False, 2])) == {"display": False, "rrn": True}  # 뒷자리만(전체표시 그룹 없음)
+    assert run(_Page([True, 0])) == {"display": True, "rrn": False}   # 선택표시만
+    assert run(_Page([False, 0])) == {"display": False, "rrn": False} # 해당 옵션 없음 → 침묵(무해)
+    assert run(_Page([RuntimeError("x"), RuntimeError("x")])) == {"display": False, "rrn": False}  # 실패도 침묵
     os.environ["RPA_PRIVACY_MASK"] = "0"
     try:
-        assert run(_Page(2)) is False     # 안전밸브: 끄면 시도 자체를 안 함
+        assert run(_Page([True, 2])) == {"display": False, "rrn": False}  # 안전밸브: 시도 자체를 안 함
     finally:
         del os.environ["RPA_PRIVACY_MASK"]
 

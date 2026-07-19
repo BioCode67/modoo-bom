@@ -421,14 +421,34 @@ async def _select_doc_form_options(page, doc_name: str) -> None:
         pass
 
 
-async def _select_privacy_masking(page) -> bool:
-    """🔒 발급 폼에서 '주민등록번호 뒷자리'를 비공개(미포함/미표시)로 선택 — 개인정보 최소화(사용자 요청).
-    정부24 등본류 폼은 표시 항목별 포함/미포함 라디오를 제공한다. '주민등록번호'가 언급된 행에서만
-    미포함/미표시/비공개 옵션을 고른다(세대원 정보 등 다른 항목은 건드리지 않음 — 복지 신청엔 필요).
-    선택했으면 True. 폼에 해당 옵션이 없으면 False(무해). RPA_PRIVACY_MASK=0 으로 끌 수 있다
-    (기관이 뒷자리 포함본을 요구하는 예외 대비 안전밸브)."""
+async def _select_privacy_masking(page) -> dict:
+    """🔒 발급 폼 개인정보 최소화(사용자 요청) — 두 가지를 best-effort로 선택하고 실제 한 것만 보고한다.
+    ① 표시 방식: '전체표시' 라디오 그룹이 있으면 '선택표시'로 전환(등본류 — 필요한 항목만 싣게).
+       '전체표시'가 존재하는 화면에서만 동작해 무관한 '선택…' 라디오 오클릭을 방지한다.
+    ② 주민등록번호 뒷자리: '주민등록번호'가 언급된 행에서만 미포함/미표시/비공개 선택.
+    반환: {"display": ①수행 여부, "rrn": ②수행 여부}. 폼에 해당 옵션이 없으면 조용히 넘어간다(무해).
+    RPA_PRIVACY_MASK=0 안전밸브(기관이 전체표시·뒷자리 포함본을 요구하는 예외 대비).
+    ⚠️ '선택표시' 전환 후 하위 항목 선택이 더 필요하면 신청 루프의 막힘 감지가 사용자 수정 유예를 준다."""
+    out = {"display": False, "rrn": False}
     if os.environ.get("RPA_PRIVACY_MASK", "1") == "0":
-        return False
+        return out
+    try:
+        picked = await page.evaluate("""() => {
+            const radios = [...document.querySelectorAll('input[type=radio]')];
+            const labOf = (r) => (((r.closest('label') || {}).innerText) ||
+                (r.labels && r.labels[0] ? r.labels[0].innerText : '') ||
+                (r.parentElement ? r.parentElement.innerText : '') || '').replace(/\\s+/g, '');
+            if (!radios.some(r => labOf(r).includes('전체표시'))) return false;
+            for (const r of radios) {
+                if (labOf(r).includes('선택표시')) { if (!r.checked) r.click(); return true; }
+            }
+            return false;
+        }""")
+        if picked:
+            out["display"] = True
+            await asyncio.sleep(0.8)  # 선택표시 전환으로 나타나는 하위 항목 렌더 대기(뒷자리 행 포함)
+    except Exception:
+        pass
     try:
         clicked = await page.evaluate("""() => {
             const rows = [...document.querySelectorAll('tr, li, dl, .form-group, fieldset')];
@@ -447,9 +467,10 @@ async def _select_privacy_masking(page) -> bool:
             }
             return n;
         }""")
-        return bool(clicked)
+        out["rrn"] = bool(clicked)
     except Exception:
-        return False
+        pass
+    return out
 
 
 def _is_maintenance_notice(txt: str) -> bool:
@@ -963,12 +984,18 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None, session=Non
             # ③.5 발급 폼의 유형/발급목적/귀속연도 등 필수 선택(가족관계 '일반' + 미선택 select 기본값).
             #   소득금액증명·지방세·기초생활수급자·한부모 등은 발급목적/연도 미선택이면 신청이 안 넘어가 발급이 미완됨.
             await _select_doc_form_options(page, doc_name)
-            # 🔒 개인정보 최소화(사용자 요청): 주민등록번호 뒷자리는 비공개(미포함/미표시)로 — 실제 선택된 경우에만 안내
-            if await _select_privacy_masking(page):
+            # 🔒 개인정보 최소화(사용자 요청): 표시방식 '선택표시' 전환 + 주민번호 뒷자리 비공개 — 실제 한 것만 안내
+            _priv = await _select_privacy_masking(page)
+            if _priv.get("display") or _priv.get("rrn"):
+                _done = []
+                if _priv.get("display"):
+                    _done.append("표시 방식을 '선택표시'로")
+                if _priv.get("rrn"):
+                    _done.append("주민등록번호 뒷자리를 '비공개(미포함)'로")
                 task.update(
                     "running",
-                    "🔒 주민등록번호 뒷자리는 '비공개(미포함)'로 선택했어요 — 서류에 민감정보가 덜 실려요.\n"
-                    "(제출처가 뒷자리 포함본을 요구하면 화면에서 '포함'으로 바꿔 주세요)",
+                    f"🔒 {'·'.join(_done)} 선택했어요 — 서류에 민감정보가 덜 실려요.\n"
+                    "(표시할 항목이 더 필요하거나 전체표시본이 필요하면 화면에서 바꿔 주세요 — 바꾸면 이어서 자동 신청돼요)",
                     await take_screenshot(page),
                 )
 
