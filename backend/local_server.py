@@ -963,8 +963,42 @@ def _port_in_use(host: str, port: int) -> bool:
             return False
 
 
+def _open_app_ui(url: str) -> None:
+    """앱 UI를 연다 — **크롬/엣지를 먼저** 시도하고, 없으면 기본 브라우저로 폴백.
+
+    자동발급 RPA와 달리 앱 UI는 어떤 최신 브라우저에서도 동작하지만, 3D 히어로·온디바이스
+    AI(번역 API 등)는 크롬/엣지에서 가장 잘 보인다. 그래서 사용자의 '기본 브라우저'가 크롬이
+    아니어도(엣지·파폭·웨일 등) 우선 크롬→엣지로 열어 최상의 데모 경험을 보장하고, 둘 다 없거나
+    실행 실패면 반드시 기본 브라우저로 폴백한다(어떤 경우든 창은 열린다).
+    """
+    if sys.platform == "win32":
+        import subprocess
+        pf = os.environ.get("ProgramFiles", r"C:\Program Files")
+        pfx86 = os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")
+        local = os.environ.get("LocalAppData", "")
+        candidates = [
+            os.path.join(pf, "Google", "Chrome", "Application", "chrome.exe"),
+            os.path.join(pfx86, "Google", "Chrome", "Application", "chrome.exe"),
+            os.path.join(local, "Google", "Chrome", "Application", "chrome.exe") if local else "",
+            os.path.join(pfx86, "Microsoft", "Edge", "Application", "msedge.exe"),
+            os.path.join(pf, "Microsoft", "Edge", "Application", "msedge.exe"),
+        ]
+        for exe in candidates:
+            if exe and os.path.exists(exe):
+                try:
+                    subprocess.Popen([exe, url])
+                    return
+                except Exception:
+                    pass  # 실행 실패 → 다음 후보/기본 브라우저
+    # 폴백: OS 기본 브라우저(맥·리눅스 포함) — 무슨 일이 있어도 앱은 열린다.
+    try:
+        webbrowser.open(url)
+    except Exception:
+        pass
+
+
 def _open_browser_when_ready(url: str):
-    """서버 health가 실제로 뜨면 기본 브라우저로 앱을 연다(최대 ~15초, 안 뜨면 안 엶)."""
+    """서버 health가 실제로 뜨면 크롬/엣지 우선으로 앱을 연다(최대 ~15초, 안 뜨면 안 엶)."""
     import threading
     import time
     import urllib.request
@@ -973,7 +1007,7 @@ def _open_browser_when_ready(url: str):
         for _ in range(30):
             try:
                 urllib.request.urlopen(url + "api/health", timeout=1)
-                webbrowser.open(url)
+                _open_app_ui(url)
                 return
             except Exception:
                 time.sleep(0.5)
@@ -990,10 +1024,7 @@ def main(open_browser: bool = True):
     # 이미 실행 중이면(더블클릭 두 번 등) 새로 띄우지 않고 기존 창을 브라우저로 연다 → 포트 충돌 스택트레이스 방지.
     if _port_in_use(host, port):
         print(f"[모두봄] 이미 실행 중이에요. 브라우저에서 {url} 을 여세요.")
-        try:
-            webbrowser.open(url)
-        except Exception:
-            pass
+        _open_app_ui(url)  # 크롬/엣지 우선 오픈(기본 브라우저 폴백)
         return
 
     # 서버가 뜨면 브라우저 자동 오픈(중복 오픈 방지 위해 여기 한 곳에서만 — agent_entry/bat는 위임).
