@@ -400,8 +400,8 @@ def test_preflight_all_green(monkeypatch, tmp_path):
     j = r.json()
     assert j["ok"] is True
     ids = [c["id"] for c in j["checks"]]
-    assert ids == ["browser", "gov24", "bokjiro", "docs_dir", "disk"]
-    assert all(c["ok"] for c in j["checks"])
+    assert ids == ["browser", "gov24", "bokjiro", "docs_dir", "disk", "vault"]
+    assert all(c["ok"] for c in j["checks"])  # 빈 서류함은 '비어 있음'으로 정상
     # 발급 폴더는 '이름만'(홈 경로 사용자명 미노출) — PII 무포함 원칙
     assert str(tmp_path.parent) not in r.text
 

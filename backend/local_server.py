@@ -282,8 +282,24 @@ async def preflight():
     checks = [{"id": "browser", "name": "자동화 브라우저", "ok": b_ok, "detail": b_detail}]
     for (sid, name, _url), (ok, detail) in zip(sites, results[1:]):
         checks.append({"id": sid, "name": name, "ok": ok, "detail": detail})
+    def vault_check() -> dict:
+        """⑥ 서류함 무결성 — 손상(잘림·헤더 불일치) 파일 수를 발급 전에 알려 조치 유도.
+        손상이 발급 자체를 막진 않지만 '점검'의 목적상 조치 필요 신호이므로 ok=False로 정직 표기."""
+        try:
+            items = _scan_documents()
+            if not items:
+                return {"id": "vault", "name": "서류함 무결성", "ok": True, "detail": "비어 있음"}
+            bad = sum(1 for i in items if not i.get("intact", True))
+            if bad:
+                return {"id": "vault", "name": "서류함 무결성", "ok": False,
+                        "detail": f"{len(items)}건 중 손상 {bad}건 — 서류함의 ⚠️ 표시분을 삭제 후 다시 발급하세요"}
+            return {"id": "vault", "name": "서류함 무결성", "ok": True, "detail": f"{len(items)}건 전부 정상"}
+        except Exception:  # noqa: BLE001
+            return {"id": "vault", "name": "서류함 무결성", "ok": True, "detail": "확인 불가"}
+
     checks.append(docs_check())
     checks.append(disk_check())
+    checks.append(vault_check())
     return {"ok": all(c["ok"] for c in checks), "checks": checks}
 
 
@@ -297,6 +313,7 @@ async def diagnostics():
     from rpa.manager import _rpa_tasks, _MAX_CONCURRENT, _active, _waiting
     from rpa.base import DOCS_DIR
     from rpa.config import rpa_enabled
+    from rpa.gov24_rpa import EXTRA_DOC_NAMES
     counts: dict = {}
     last_error = ""
     try:
@@ -333,6 +350,10 @@ async def diagnostics():
         "last_error": last_error,
         "docs_dir_exists": DOCS_DIR.is_dir(),
         "docs_file_count": docs_count,
+        # 동적 확장·무결성 현황(개수만 — PII 무포함 원칙 유지): 원격 지원 시 '확장이 붙었는지/손상물이
+        # 있는지'를 진단 한 번으로 파악. corrupt는 서류함 관리 대상 확장자만 계산.
+        "extra_docs_count": len(EXTRA_DOC_NAMES),
+        "docs_corrupt_count": sum(1 for i in _scan_documents() if not i.get("intact", True)),
     }
 
 

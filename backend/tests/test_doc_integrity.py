@@ -53,3 +53,35 @@ def test_scanner_marks_corrupt_and_excludes_attach(tmp_path, monkeypatch):
     bad = items["가족관계증명서_홍길동"]
     assert ok["intact"] is True and ok["attach_candidate"] is True
     assert bad["intact"] is False and bad["attach_candidate"] is False
+
+
+def test_preflight_vault_flags_corrupt(monkeypatch, tmp_path):
+    """[발급 전 점검] ⑥ 서류함 무결성 — 손상 파일이 있으면 항목 실패로 조치를 유도(전체 ok=false)."""
+    from rpa import base
+    import local_server
+    from fastapi.testclient import TestClient
+    monkeypatch.setattr(base, "DOCS_DIR", tmp_path)
+    _mk(tmp_path, "주민등록등본_홍길동.pdf", b"partial")  # 잘림
+
+    async def fake_browser():
+        return True, "chrome"
+    monkeypatch.setattr(local_server, "_browser_probe", fake_browser)
+    monkeypatch.setattr(local_server, "_probe_site", lambda url, timeout=6.0: (True, "응답 200"))
+    j = TestClient(local_server.app).get("/api/_preflight").json()
+    vault = next(c for c in j["checks"] if c["id"] == "vault")
+    assert vault["ok"] is False and "손상 1건" in vault["detail"]
+    assert j["ok"] is False
+
+
+def test_diag_counts_extras_and_corrupt(monkeypatch, tmp_path):
+    """진단(/api/_diag) — 동적 확장·손상 '개수만' 노출(PII 무포함 원칙 유지)."""
+    from rpa import base
+    import local_server
+    from fastapi.testclient import TestClient
+    monkeypatch.setattr(base, "DOCS_DIR", tmp_path)
+    _mk(tmp_path, "주민등록등본_홍길동.pdf", b"%PDF-1.7\n" + b"x" * 2048)
+    _mk(tmp_path, "가족관계증명서_홍길동.pdf", b"bad")
+    j = TestClient(local_server.app).get("/api/_diag").json()
+    assert j["docs_corrupt_count"] == 1
+    assert isinstance(j["extra_docs_count"], int)
+    assert "홍길동" not in str(j)  # 개수만 — 이름·파일명 미노출
