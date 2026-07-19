@@ -396,12 +396,16 @@ LOGIN_PAGE_URL_KEYWORDS = [
 # ── 간편인증 제공자 정의 — 어르신 다수가 카카오 미사용(통신사 PASS 등)이라 수단 선택 필수(복지관 현장) ──
 # labels: has-text/alt 정확 매칭용 표시 라벨 · tokens: JS 텍스트 포함 매칭 · loose: 최후 폴백 · exclude: 오클릭 방지
 AUTH_PROVIDERS = {
+    # ⚠️ exclude 는 '느슨한 매칭(loose)'이 페이지 전체를 뒤질 때의 오클릭 차단 목록.
+    #   '스토리/story'는 실사용 확정 사고(2026-07-20 새벽 데모): 간편인증 iframe 을 못 찾은 폴백에서
+    #   loose '카카오'가 정부24 푸터의 '카카오스토리' SNS 링크(페이지 마지막 매칭)를 클릭해
+    #   story.kakao.com 새 탭이 열림. 네이버도 푸터 '네이버블로그' 링크가 같은 계열이라 함께 차단.
     "kakao": {"labels": ["카카오톡"], "tokens": ["카카오톡", "kakaotalk"], "loose": ["카카오", "kakao"],
-              "exclude": ["뱅크", "bank"], "display": "카카오톡"},
+              "exclude": ["뱅크", "bank", "스토리", "story"], "display": "카카오톡"},
     "pass":  {"labels": ["통신사PASS", "통신사 PASS", "PASS"], "tokens": ["통신사pass", "통신사 pass", "pass(통신사)"],
               "loose": ["pass", "통신사"], "exclude": ["카카오", "kakao", "password", "페이코", "payco"], "display": "통신사 PASS"},
     "naver": {"labels": ["네이버"], "tokens": ["네이버", "naver"], "loose": ["네이버"],
-              "exclude": ["뱅크", "bank", "페이", "웨일"], "display": "네이버"},
+              "exclude": ["뱅크", "bank", "페이", "웨일", "블로그", "blog"], "display": "네이버"},
     "toss":  {"labels": ["토스"], "tokens": ["토스", "toss"], "loose": ["토스"],
               "exclude": ["뱅크", "bank"], "display": "토스"},
 }

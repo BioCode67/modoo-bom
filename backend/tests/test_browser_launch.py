@@ -149,6 +149,29 @@ def test_bogus_channel_still_falls_back(monkeypatch):
     assert order[1:] == ["chrome", "msedge", ""]  # 실제 후보로 폴백 경로 확보
 
 
+def test_provider_loose_match_excludes_sns_links():
+    """느슨한 매칭(loose) 오클릭 차단 — 실사용 확정 사고(2026-07-20 새벽 데모) 회귀 고정.
+
+    간편인증 iframe 폴백에서 loose '카카오'가 정부24 푸터의 '카카오스토리' SNS 링크를 클릭해
+    story.kakao.com 탭이 열렸다. _click_provider_once 3단계 JS 와 동일한 술어로 검증:
+    t = (텍스트+클래스).lower() 에 loose 포함 && exclude 미포함."""
+    from rpa.base import AUTH_PROVIDERS
+
+    def loose_hit(provider: str, text_and_class: str) -> bool:
+        p = AUTH_PROVIDERS[provider]
+        t = text_and_class.lower()
+        return any(k.lower() in t for k in p["loose"]) and not any(x.lower() in t for x in p["exclude"])
+
+    # 사고 재현: 푸터 SNS 링크는 차단돼야 한다
+    assert not loose_hit("kakao", "정부24 카카오스토리")           # 실제 사고 링크 텍스트
+    assert not loose_hit("kakao", "kakaostory sns-link")          # 영문 클래스 변형
+    assert not loose_hit("naver", "정부24 네이버 블로그")          # 같은 계열(푸터 블로그 링크)
+    # 정상 인증 버튼은 계속 매칭돼야 한다(차단 과잉 방지)
+    assert loose_hit("kakao", "카카오 인증서")
+    assert loose_hit("kakao", "카카오톡 지갑")
+    assert loose_hit("naver", "네이버 인증서")
+
+
 def test_open_app_ui_non_win32_uses_default_browser(monkeypatch):
     """맥·리눅스: 앱 UI는 기본 브라우저(webbrowser.open)로 연다(기존 동작 불변)."""
     import local_server
