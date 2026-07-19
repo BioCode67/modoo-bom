@@ -201,6 +201,24 @@ def main() -> int:
             assert page.locator('[aria-label="새싹이와 통화 상담"]').count() == 0, "통화 ESC 종료 실패"
             print("[e2e] ✅ 3.7 📞 통화형 상담(인사→질문→답변→ESC 종료)")
 
+            # 3.8) 📞 다국어 통화 — 영어 입력 → 자국어 안내 + UI 언어 자동 추종 + AI 의미 검색 핸드오프.
+            #      (음성 인식·TTS 보이스는 실기기 확인 영역 — 여기선 라우팅·핸드오프 배선을 검증)
+            page.click('[aria-label="복지 도우미 챗봇 열기"]')
+            page.click('[aria-label="음성 통화 상담으로 전환"]')
+            page.wait_for_selector('[role="dialog"][aria-label="새싹이와 통화 상담"]', timeout=8000)
+            page.fill('[aria-label="말 대신 입력하기"]', "housing support for foreign workers")
+            page.click('[aria-label="입력 보내기"]')
+            page.wait_for_selector("text=AI meaning search", timeout=8000)  # 영어 안내
+            page.wait_for_selector('input[placeholder^="Type instead"]', timeout=4000)  # 입력창도 영어로 자동 전환
+            page.click("text=See matching programs")  # CTA → 통화 종료 + 탐색 AI 모드 프리필
+            page.wait_for_selector('[aria-label="정책 검색"]', timeout=8000)
+            assert "housing" in page.input_value('[aria-label="정책 검색"]'), "AI 검색 질의 프리필 실패"
+            page.wait_for_selector("text=AI 의미 검색 ON", timeout=4000)
+            # 정리: 다음 시나리오 오염 방지(AI 모드 off + 검색어 비움)
+            page.click("text=AI 의미 검색 ON")
+            page.click('[aria-label="검색어 지우기"]')
+            print("[e2e] ✅ 3.8 📞 다국어 통화(영어 입력→영어 안내→AI 의미 검색 핸드오프)")
+
             # 4) 탐색: 민간재단 필터 → 큐레이션 노출
             page.click("text=정책 탐색")
             page.click("text=민간재단")

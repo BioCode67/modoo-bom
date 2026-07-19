@@ -8,6 +8,7 @@ import { useTTS } from '@/lib/useTTS'
 import { agentReply, greetingReply, matchSaveIntent, type AgentReply } from '@/lib/chatAgent'
 import type { Policy } from '@/data/policies'
 import { parseProfileFromText, profileSignalCount } from '@/lib/parseQuery'
+import { VOICE_LANGS, voiceStrings, voiceRouteLang, routeReplyFor } from '@/lib/voiceI18n'
 import { runAnalysis } from '@/lib/welfare-engine'
 import { formatWon } from '@/lib/format'
 import { speakableText } from '@/lib/speakable'
@@ -33,6 +34,8 @@ export function VoiceCall({ open, onClose }: { open: boolean; onClose: () => voi
   const setView = useAppStore((s) => s.setView)
   const setAnalysis = useAppStore((s) => s.setAnalysis)
   const toggleSaved = useAppStore((s) => s.toggleSaved)
+  const setAiQuery = useAppStore((s) => s.setAiQuery)
+  const setAiIntent = useAppStore((s) => s.setAiIntent)
   const { ready, caps } = useBackend()
   const agentOn = ready === true && !!caps?.rpa // 데스크탑 에이전트 연결 시 자동화 경로 안내(챗위젯과 동일 기준)
   const tts = useTTS()
@@ -40,15 +43,20 @@ export function VoiceCall({ open, onClose }: { open: boolean; onClose: () => voi
   const [muted, setMuted] = useState(false)
   const [thinking, setThinking] = useState(false)
   const [typed, setTyped] = useState('')
+  // 🌍 통화 언어 — 음성 인식은 시작 전에 언어를 알아야 하므로(recognition.lang) 선택형.
+  // 글로 외국어를 입력하면(라우팅 감지) 마이크 언어도 자동으로 따라간다.
+  const [lang, setLang] = useState('ko')
+  const L = voiceStrings(lang)
   const mutedRef = useRef(muted)
   mutedRef.current = muted
   const turnsRef = useRef<Turn[]>([]) // setTimeout 클로저의 stale turns 방지(담기 맥락은 최신 bot 턴 기준)
   turnsRef.current = turns
   const listRef = useRef<HTMLDivElement>(null)
 
-  const say = (r: AgentReply) => {
+  const say = (r: AgentReply, speakLang?: string) => {
     setTurns((t) => [...t, { role: 'bot', text: r.text, policies: r.policies, cta: r.cta }])
-    if (!mutedRef.current) tts.speak(speakableText(r.text))
+    // 해당 언어 보이스가 없는 브라우저에서 외국어를 한국어 보이스로 읽으면 발음이 깨진다 → 자막만(정직한 축소)
+    if (!mutedRef.current && (!speakLang || tts.hasVoice(speakLang))) tts.speak(speakableText(r.text), speakLang)
   }
 
   const handle = (raw: string) => {
@@ -58,6 +66,19 @@ export function VoiceCall({ open, onClose }: { open: boolean; onClose: () => voi
     setThinking(true)
     // 답변 생성은 동기·즉시지만, '생각 중' 상태가 눈에 보이게 다음 틱으로 넘긴다(통화 감각)
     setTimeout(() => {
+      // 📞→다국어: 외국어 발화·입력은 한국어 규칙 두뇌가 이해하지 못한다 → 날조 답변 대신
+      // 검증된 '온디바이스 다국어 AI 의미 검색'(탐색)으로 정직하게 넘긴다(QuickAsk와 동일 선례).
+      // 게이트는 detectUiLang 보수 기준 — 영문 약어('LH')·한/영 오타('dkssud')는 오발동하지 않음.
+      const route = voiceRouteLang(q)
+      if (route !== 'ko') {
+        const r = routeReplyFor(route)
+        setAiQuery(q)
+        setAiIntent(true)
+        if (VOICE_LANGS[route]) setLang(route) // 다음 발화부터 마이크·버튼도 그 언어로
+        say({ text: r.text, cta: { view: 'explore', label: r.cta } }, r.speakLang)
+        setThinking(false)
+        return
+      }
       // 📞→담기: "다 담아줘/기초연금 담아줘"를 말하면 실제로 담는다(챗위젯과 동일 검증 로직 재사용).
       // 맥락은 직전 답변에서 보여준 정책 → 없으면 분석 결과의 정밀추천(POL-, 명시 지시만) 폴백.
       const shown = [...turnsRef.current].reverse().find((t) => t.role === 'bot' && t.policies?.length)?.policies ?? []
@@ -96,15 +117,28 @@ export function VoiceCall({ open, onClose }: { open: boolean; onClose: () => voi
     }, 150)
   }
 
-  const speech = useSpeech((t) => handle(t))
+  const speech = useSpeech((t) => handle(t), L.sttTag)
 
-  // 열릴 때: 인사 브리핑을 큰 글씨 + 음성으로 시작
+  // 🌍 수동 언어 전환: 그 언어 인사를 보여주고 들려줘 '이 언어로 말해도 된다'를 즉시 확인시킨다
+  const changeLang = (code: string) => {
+    setLang(code)
+    const s = voiceStrings(code)
+    say({ text: s.greeting }, code === 'ko' ? undefined : code)
+  }
+
+  // 열릴 때: 인사 브리핑을 큰 글씨 + 음성으로 시작(외국어 선택 상태면 그 언어 인사)
   useEffect(() => {
     if (!open) return
     setTurns([])
-    const g = greetingReply(profile, tracked, docDone)
-    setTurns([{ role: 'bot', text: g.text, policies: g.policies, cta: g.cta }])
-    if (!mutedRef.current) tts.speak(speakableText(g.text))
+    if (lang !== 'ko') {
+      const s = voiceStrings(lang)
+      setTurns([{ role: 'bot', text: s.greeting }])
+      if (!mutedRef.current && tts.hasVoice(lang)) tts.speak(s.greeting, lang)
+    } else {
+      const g = greetingReply(profile, tracked, docDone)
+      setTurns([{ role: 'bot', text: g.text, policies: g.policies, cta: g.cta }])
+      if (!mutedRef.current) tts.speak(speakableText(g.text))
+    }
     return () => { window.speechSynthesis?.cancel?.() }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 열릴 때 1회 브리핑(상태 스냅샷)
   }, [open])
@@ -132,9 +166,20 @@ export function VoiceCall({ open, onClose }: { open: boolean; onClose: () => voi
         <div className="flex-1 min-w-0">
           <p className="font-extrabold text-xl">새싹이 복지 상담</p>
           <p className="text-sm text-muted-foreground" aria-live="polite">
-            {speech.listening ? '🎤 듣고 있어요 — 편하게 말씀하세요' : thinking ? '생각하고 있어요…' : tts.speaking ? '🔊 읽어드리는 중' : '아래 버튼을 누르고 말씀하세요'}
+            {speech.listening ? L.statusListening : thinking ? L.statusThinking : tts.speaking ? L.statusSpeaking : L.statusIdle}
           </p>
         </div>
+        {/* 🌍 상담 언어 — 음성 인식 언어이자 안내 언어(외국인·다문화 무장벽 상담) */}
+        <select
+          value={lang}
+          onChange={(e) => changeLang(e.target.value)}
+          aria-label="상담 언어 선택 (Language)"
+          className="rounded-full border border-sprout-200 bg-white px-2 py-2 text-sm font-semibold"
+        >
+          {Object.entries(VOICE_LANGS).map(([code, s]) => (
+            <option key={code} value={code}>{s.flag} {s.label}</option>
+          ))}
+        </select>
         <button
           onClick={() => { setMuted((m) => !m); if (!muted) window.speechSynthesis?.cancel?.() }}
           className="rounded-full p-3 bg-slate-100 hover:bg-slate-200"
@@ -178,7 +223,7 @@ export function VoiceCall({ open, onClose }: { open: boolean; onClose: () => voi
               className={cn('w-full rounded-3xl py-5 font-extrabold text-xl flex items-center justify-center gap-3 transition-colors',
                 speech.listening ? 'bg-rose-500 text-white animate-pulse' : 'bg-sprout-600 text-white hover:bg-sprout-700')}
             >
-              <Mic className="h-7 w-7" /> {speech.listening ? '말씀이 끝나면 잠시 기다려 주세요' : '누르고 말씀하세요'}
+              <Mic className="h-7 w-7" /> {speech.listening ? L.micListening : L.micIdle}
             </button>
           ) : (
             <p className="text-base text-amber-800 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3">
@@ -196,7 +241,7 @@ export function VoiceCall({ open, onClose }: { open: boolean; onClose: () => voi
             <input
               value={typed}
               onChange={(e) => setTyped(e.target.value)}
-              placeholder="말 대신 입력하기 (예: 기초연금 알려줘)"
+              placeholder={L.placeholder}
               aria-label="말 대신 입력하기"
               className="input-cute flex-1 text-base"
             />
