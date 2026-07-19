@@ -47,9 +47,11 @@ if not exist "frontend\dist-app\index.html" (
 )
 
 rem 2) 파이썬 인터프리터 선택 (전용 경량 venv-local 우선 → 기존 venv → 시스템 python)
+rem    ⚠️ 절대경로(%~dp0)로 잡는다 — 아래 'pushd backend' 후 상대경로면 backend\backend\... 로 찾아
+rem       "The system cannot find the path specified." 로 서버가 안 뜬다(실사용 확정 버그).
 set "PY=python"
-if exist "backend\venv\Scripts\python.exe" set "PY=backend\venv\Scripts\python.exe"
-if exist "backend\venv-local\Scripts\python.exe" set "PY=backend\venv-local\Scripts\python.exe"
+if exist "%~dp0backend\venv\Scripts\python.exe" set "PY=%~dp0backend\venv\Scripts\python.exe"
+if exist "%~dp0backend\venv-local\Scripts\python.exe" set "PY=%~dp0backend\venv-local\Scripts\python.exe"
 
 rem 3) RPA 활성 + 루프백 바인딩(개인정보 보호)으로 백엔드 기동
 rem    시스템 Chrome 을 그대로 구동(RPA_BROWSER_CHANNEL=chrome) — 실제 브라우저라 정부24 안티매크로에
