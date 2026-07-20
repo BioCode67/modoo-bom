@@ -1955,4 +1955,13 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None, session=Non
     except Exception as e:
         import traceback
         traceback.print_exc()
-        task.update("error", f"자동화 오류: {str(e)[:300]}", None)
+        # 🔬 예기치 못한 실패 — 그 순간의 실화면 구조를 자동 저장(값 없음). 개발자가 접속 못 하는 화면을
+        #    스샷 없이 정확히 파악하게(작업방식 전환). page가 아직 없거나 닫혔으면 조용히 생략.
+        _saved = ""
+        try:
+            _pg = locals().get("page")
+            if _pg is not None:
+                _saved = await _dump_diag(_pg, f"{doc_name}-예외", tried=["doc issue flow"], note=str(e)[:120])
+        except Exception:
+            pass
+        task.update("error", f"자동화 오류: {str(e)[:300]}\n{_saved}".rstrip(), None)

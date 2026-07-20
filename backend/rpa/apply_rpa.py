@@ -985,4 +985,14 @@ async def run_apply_rpa(task, service_name: str, profile: dict) -> None:
     except Exception as e:
         import traceback
         traceback.print_exc()
-        task.update("error", f"자동화 오류: {str(e)[:300]}", None)
+        # 🔬 예기치 못한 실패 — 그 순간의 실화면 구조를 자동 저장(값 없음, 팀원 확인 요망: 진단만 추가·로직 무변경).
+        #    복지로 로그인/신청 폼이 안 잡힐 때 개발자가 스샷 없이 실화면을 정확히 파악하게(작업방식 전환).
+        _saved = ""
+        try:
+            _pg = locals().get("page")
+            if _pg is not None:
+                from rpa.gov24_rpa import _dump_diag
+                _saved = await _dump_diag(_pg, f"복지로신청-예외", tried=["apply flow"], note=str(e)[:120])
+        except Exception:
+            pass
+        task.update("error", f"자동화 오류: {str(e)[:300]}\n{_saved}".rstrip(), None)
