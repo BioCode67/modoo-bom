@@ -421,6 +421,40 @@ async def _select_doc_form_options(page, doc_name: str) -> None:
         pass
 
 
+async def _page_structure_diag(page) -> str:
+    """🔍 자동 채움 실패 시 진행 카드에 붙이는 '페이지 구조 진단'(PII 무포함 — 요소 개수·라벨만).
+    컨테이너에서 정부 화면을 실측할 수 없어 반복 조준이 길어지던 것을 끊는다: 실패한 그 화면의
+    실제 구조(프레임 수·select 수·첫 옵션들·트리거 문구 존재)를 사용자 제보 한 번으로 확보."""
+    lines = []
+    ctxs = [page] + list(getattr(page, "frames", None) or [])
+    for idx, c in enumerate(ctxs[:8]):
+        try:
+            d = await c.evaluate(
+                """() => {
+                    const sels = [...document.querySelectorAll('select')].slice(0, 5)
+                        .map(s => [...s.options].slice(0, 3).map(o => (o.text || '').trim().slice(0, 8)).join('/'));
+                    const body = document.body ? document.body.innerText : '';
+                    return {
+                        ns: document.querySelectorAll('select').length,
+                        ni: document.querySelectorAll('input').length,
+                        sels: sels,
+                        sido: body.includes('시도 선택'),
+                        sgg: body.includes('시군구 선택'),
+                        addr: body.includes('주민등록상 주소'),
+                    };
+                }"""
+            )
+            if d and (d.get("ns") or d.get("addr") or d.get("sido")):
+                lines.append(
+                    f"f{idx}:select{d.get('ns')}·input{d.get('ni')}"
+                    f"{'·시도문구' if d.get('sido') else ''}{'·주소섹션' if d.get('addr') else ''}"
+                    f" {d.get('sels')}"
+                )
+        except Exception:
+            continue
+    return (" | ".join(lines))[:500] or "구조 판독 실패(프레임 접근 불가)"
+
+
 async def _fill_registered_address(page, user_info: dict) -> dict:
     """🏠 '주민등록상 주소 확인' 시도·시군구 드롭다운 자동 선택 — 신형 등본 폼 실측(2026-07-20 스크린샷).
     실사용 3약점 보완: ① 신청 내용 섹션이 늦게 렌더 → 셀렉트가 나타날 때까지 폴링(최대 8초)
@@ -958,6 +992,7 @@ async def _issue_family_cert_efamily(page, task, context, user_info: dict = None
     # ⚠️ 실사용 재제보(스크린샷): 성명·주민번호는 채워지는데 추가정보확인의 부/모 성명만 빈칸 —
     #    드롭다운 change 핸들러가 입력칸을 새 DOM으로 갈아끼우면, 위에서 잡아둔 '옛 노드'에 넣은
     #    값이 화면에서 사라진다. → 잠시 뒤 입력칸을 '다시 조회'해 값이 붙을 때까지 재기입(최대 4회).
+    _parent_ok = not parent_name  # 값이 없으면 판정 대상 아님(안내는 아래 missing 분기가 담당)
     if parent_name:
         _js_refill_parent = """(v) => {
             const fire = (el) => { ['input','change','keyup','blur'].forEach(n => el.dispatchEvent(new Event(n, {bubbles: true}))); };
@@ -977,16 +1012,42 @@ async def _issue_family_cert_efamily(page, task, context, user_info: dict = None
             await asyncio.sleep(0.8)
             try:
                 if await page.evaluate(_js_refill_parent, parent_name):
+                    _parent_ok = True
                     break
             except Exception:
                 pass
+    # 🔍 실패 시 행 구조 진단(PII 무포함: 타입·값 유무만) — 다음 제보 한 번으로 정확 조준
+    _parent_diag = ""
+    if parent_name and not _parent_ok:
+        _js_parent_diag = """() => {
+            for (const tr of document.querySelectorAll('tr')) {
+                const head = ((tr.querySelector('th, td') || {}).innerText || '').trim();
+                if (!/^추가정보확인/.test(head)) continue;
+                const ins = [...tr.querySelectorAll('input')].map(i => (i.type || '?') + (i.disabled ? 'D' : '') + (i.value ? 'V' : ''));
+                return '행발견 input[' + ins.join(',') + '] select' + (tr.querySelector('select') ? '유' : '무');
+            }
+            return '추가정보확인 tr 미발견';
+        }"""
+        for c in [page] + list(getattr(page, "frames", None) or []):
+            try:
+                _d = await c.evaluate(_js_parent_diag)
+                _parent_diag = str(_d or "")
+                if "행발견" in _parent_diag:
+                    break
+            except Exception:
+                continue
     all_ready = bool(name and birth6 and rrn7 and parent_name)
     if all_ready:
         # 전부 채웠으면 [간편인증]까지 자동으로 연다 — 남는 건 인증창 확인·폰 승인뿐
         await asyncio.sleep(0.5)
         await click_by_text(page, ["간편인증"])
         await asyncio.sleep(1.5)
-        task.update("running", "✅ 신청인 정보를 모두 채우고 간편인증 창을 열었어요 — 인증창도 이어서 채울게요...", await take_screenshot(page))
+        _pmsg = "✅ 신청인 정보를 모두 채우고 간편인증 창을 열었어요 — 인증창도 이어서 채울게요..."
+        if not _parent_ok:
+            # 값은 넘겼지만 화면 반영 확인 실패 — 정직하게 알리고 구조 진단 동봉(다음 조준용)
+            _pmsg += (f"\n⚠️ {parent_kind} 성명 칸은 채움 확인이 안 됐어요 — 화면에서 확인·입력해 주세요."
+                      f"\n🔍 진단: {_parent_diag}")
+        task.update("running", _pmsg, await take_screenshot(page))
     else:
         _missing = []
         if not rrn7:
@@ -1083,20 +1144,44 @@ async def _issue_family_cert_efamily(page, task, context, user_info: dict = None
             except Exception:
                 pass
             await _check_agree_all(ctx)  # 전체동의는 제공자 선택 뒤 '마지막에'(동의 리셋 방지 — 정부24와 동일 순서)
+            # 🔍 휴대폰 칸이 실제로 채워졌는지 확인 — 실패 시 행 구조 진단(타입·값 유무만, PII 무포함)
+            _phone_note = ""
+            if phone:
+                try:
+                    _pchk = await ctx.evaluate(
+                        """() => {
+                            for (const tr of document.querySelectorAll('tr, li, div')) {
+                                const t = (tr.innerText || '').trim();
+                                if (t.length > 80) continue;
+                                if (t.includes('휴대폰') || t.includes('핸드폰')) {
+                                    const ins = [...tr.querySelectorAll('input')].map(i => (i.type || '?') + (i.value ? 'V' : ''));
+                                    return {row: true, ins: ins, filled: ins.some(s => s.endsWith('V'))};
+                                }
+                            }
+                            return {row: false, ins: [], filled: false};
+                        }"""
+                    )
+                    if isinstance(_pchk, dict) and not _pchk.get("filled"):
+                        _phone_note = ("\n⚠️ 휴대폰 칸은 채움 확인이 안 됐어요 — 화면에서 확인·입력해 주세요."
+                                       f"\n🔍 진단: {'행발견 input' + str(_pchk.get('ins')) if _pchk.get('row') else '휴대폰 행 미발견'}")
+                except Exception:
+                    pass
             if rrn7:
                 # 전부 채웠으니 [인증 요청]까지 자동 — 본인은 폰에서 [인증 허용]만(HITL 유지)
                 await asyncio.sleep(0.5)
                 await _request_auth(ctx)
                 task.update(
                     "waiting_login",
-                    "📱 인증창을 모두 채우고 '인증 요청'까지 눌렀어요.\n폰에서 [인증 허용]만 누르시면 다음 단계로 자동 진행돼요.",
+                    "📱 인증창을 모두 채우고 '인증 요청'까지 눌렀어요.\n폰에서 [인증 허용]만 누르시면 다음 단계로 자동 진행돼요."
+                    + _phone_note,
                     await take_screenshot(page),
                 )
             else:
                 task.update(
                     "waiting_login",
                     "📱 인증창을 채웠어요(카카오톡·휴대폰·전체동의).\n"
-                    "🔒 **주민등록번호 뒷자리**만 직접 입력하고 [인증 요청]을 누른 뒤, 폰에서 [인증 허용]을 해주세요.",
+                    "🔒 **주민등록번호 뒷자리**만 직접 입력하고 [인증 요청]을 누른 뒤, 폰에서 [인증 허용]을 해주세요."
+                    + _phone_note,
                     await take_screenshot(page),
                 )
         # 🔵 인증 요청 후 '인증 완료' 자동 클릭(사용자 요청) — 폰 승인만 하면 앱이 완료 버튼을 눌러
@@ -1390,10 +1475,12 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None, session=Non
                 if _addr_done:
                     task.update("running", f"🏠 주민등록상 주소를 '{_addr_done}'(으)로 선택했어요.", await take_screenshot(page))
                 else:
+                    _diag = await _page_structure_diag(page)
                     task.update(
                         "running",
                         "🏠 주소 선택칸을 아직 찾지 못했어요 — 화면에서 시도·시군구를 직접 선택해 주세요.\n"
-                        "(선택하시면 이어서 자동으로 진행돼요)",
+                        "(선택하시면 이어서 자동으로 진행돼요)\n"
+                        f"🔍 진단: {_diag}",
                         await take_screenshot(page),
                     )
 
