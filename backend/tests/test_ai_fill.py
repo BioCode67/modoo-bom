@@ -92,6 +92,43 @@ def test_deterministic_skips_other_person_fields():
     assert af._deterministic_plan(only_other, ["name"]) == []
 
 
+def test_do_fill_focus_fallback_when_click_intercepted():
+    """🎯 오버레이가 클릭을 가로채도 JS 포커스 폴백으로 실키 입력이 진행되는지
+    (efamily 휴대폰칸이 오버레이에 막혀 클릭 실패하던 실사용 교훈 — 포커스만 잡으면 키는 통함)."""
+    typed = []
+
+    class _Kbd:
+        async def press(self, key):
+            typed.append(("press", key))
+        async def type(self, text, delay=0):
+            typed.append(("type", text))
+        async def insert_text(self, text):
+            typed.append(("insert", text))
+
+    class _Loc:
+        async def click(self, timeout=None):
+            raise RuntimeError("overlay intercepts pointer events")  # 클릭 차단 재현
+
+        async def fill(self, v, timeout=None):
+            typed.append(("fill", v))
+
+    class _Ctx:
+        async def evaluate(self, js, *args):
+            return True  # JS 포커스 성공(activeElement 일치) + 지연 값일치 재검증 통과
+
+        def locator(self, sel):
+            return _Loc()
+
+    class _Page:
+        keyboard = _Kbd()
+
+    ok = _run(af._do_fill(_Ctx(), _Page(), "[data-modoobom-ai='0']", "12345678"))
+    assert ok is True
+    assert ("type", "12345678") in typed        # 클릭 실패했지만 포커스 폴백으로 실키 입력됨
+    assert ("press", "Control+a") in typed       # 포커스 확보 후 기존값 교체
+    assert ("fill", "12345678") not in typed     # 첫 방법(type)에서 성공 → CDP fill까지 안 감
+
+
 def test_click_guard_allow_and_deny():
     # 클릭 안전 가드 — 진행성 버튼만 허용, 제출/결제류는 어떤 경우에도 거부(HITL 불변)
     assert af.click_text_allowed("간편인증")

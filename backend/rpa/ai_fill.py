@@ -340,23 +340,31 @@ async def _masked_screenshot_b64(page) -> str:
 
 
 async def _do_fill(ctx, page, sel: str, val: str) -> bool:
-    """값 입력 3단 폴백(실키 → IME 삽입 → CDP fill) + 지연 재검증 — 자기만족 검증 금지."""
+    """값 입력 3단 폴백(실키 → IME 삽입 → CDP fill) + 지연 재검증 — 자기만족 검증 금지.
+    포커스 확보는 locator 클릭 우선, 오버레이가 클릭을 가로채면 JS 포커스로 폴백한다
+    (efamily 휴대폰칸이 오버레이에 막혀 클릭 실패하던 실사용 교훈 — 포커스만 잡으면 키 입력은 통함)."""
     loc = ctx.locator(sel)
     for method in ("type", "insert", "fill"):
         try:
-            await loc.click(timeout=4000)
-            await page.keyboard.press("Control+a")
-            await page.keyboard.press("Delete")
-            if method == "type":
-                if val.isascii():
+            if method == "fill":
+                await loc.fill(val, timeout=4000)  # CDP fill은 자체 포커스 — 오버레이 무관
+            else:
+                # 실키 타이핑은 포커스가 필요 — 클릭 실패 시 JS 포커스로 폴백(클릭 못 해도 키는 포커스에 들어감)
+                try:
+                    await loc.click(timeout=3000)
+                except Exception:
+                    focused = await ctx.evaluate(
+                        "(s) => { const e = document.querySelector(s); if (!e) return false;"
+                        " e.focus(); return document.activeElement === e; }", sel)
+                    if not focused:
+                        continue  # 포커스조차 못 잡으면 키 입력은 무의미 — 다음 방법(CDP fill)으로
+                await page.keyboard.press("Control+a")
+                await page.keyboard.press("Delete")
+                if method == "type" and val.isascii():
                     await page.keyboard.type(val, delay=45)
                 else:
                     # 한글 등 비ASCII 키 타이핑은 IME 없는 브라우저에서 영타(김상식→rlatkdtlr)가 된다
                     await page.keyboard.insert_text(val)
-            elif method == "insert":
-                await page.keyboard.insert_text(val)
-            else:
-                await loc.fill(val, timeout=4000)
             await asyncio.sleep(0.5)
             # '값 일치' 검증 — 비어있지 않음만 보면 영타 오입력(rlatkdtlr)도 통과한다(실사용 확정).
             #   숫자 값은 포맷팅(하이픈 등) 관용, 그 외는 정확 일치. 비교는 브라우저 안에서만.
