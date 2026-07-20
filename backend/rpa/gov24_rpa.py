@@ -966,7 +966,9 @@ async def _issue_family_cert_efamily(page, task, context, user_info: dict = None
                     if (t.includes('이용약관')) { if (!c.checked) c.click(); break; }
                 }
                 const fire = (el) => { el.dispatchEvent(new Event('input', {bubbles: true})); el.dispatchEvent(new Event('change', {bubbles: true})); };
-                const put = (el, val) => { if (el && val && !el.value) { el.value = val; fire(el); } };
+                // ⚠️ 실사용 확정: efamily는 일부 칸을 '-'로 초기화한다 — '-'는 빈 칸으로 취급해 덮어쓴다
+                const vacant = (el) => !el.value || el.value.trim() === '-';
+                const put = (el, val) => { if (el && val && vacant(el)) { el.value = val; fire(el); } };
                 for (const tr of document.querySelectorAll('tr')) {
                     const head = ((tr.querySelector('th, td') || {}).innerText || '').trim();
                     // 뒷자리는 password 타입일 수 있어 함께 잡는다
@@ -996,6 +998,8 @@ async def _issue_family_cert_efamily(page, task, context, user_info: dict = None
     if parent_name:
         _js_refill_parent = """(v) => {
             const fire = (el) => { ['input','change','keyup','blur'].forEach(n => el.dispatchEvent(new Event(n, {bubbles: true}))); };
+            // '-' 초기값은 빈 칸으로 취급(실사용 확정: 이 대시 때문에 '이미 채워짐'으로 오판해 건너뛰었다)
+            const vacant = (el) => !el.value || el.value.trim() === '-';
             for (const tr of document.querySelectorAll('tr')) {
                 const head = ((tr.querySelector('th, td') || {}).innerText || '').trim();
                 if (!/^추가정보확인/.test(head)) continue;
@@ -1003,8 +1007,8 @@ async def _issue_family_cert_efamily(page, task, context, user_info: dict = None
                     .filter(i => !i.disabled);
                 const el = ins[ins.length - 1];
                 if (!el) return false;
-                if (!el.value) { el.value = v; fire(el); }
-                return !!el.value;
+                if (vacant(el)) { el.value = v; fire(el); }
+                return !!el.value && el.value.trim() !== '-';
             }
             return false;
         }"""
@@ -1043,7 +1047,8 @@ async def _issue_family_cert_efamily(page, task, context, user_info: dict = None
                 await page.keyboard.type(parent_name, delay=35)
                 await asyncio.sleep(0.3)
                 _parent_ok = bool(await page.evaluate(
-                    "() => { const e = document.querySelector(\"[data-modoobom='parent']\"); return !!(e && e.value); }"
+                    "() => { const e = document.querySelector(\"[data-modoobom='parent']\");"
+                    " return !!(e && e.value && e.value.trim() !== '-'); }"
                 ))
         except Exception:
             pass
@@ -1070,8 +1075,14 @@ async def _issue_family_cert_efamily(page, task, context, user_info: dict = None
     all_ready = bool(name and birth6 and rrn7 and parent_name)
     if all_ready:
         # 전부 채웠으면 [간편인증]까지 자동으로 연다 — 남는 건 인증창 확인·폰 승인뿐
+        # ⚠️ 상단 안내문("…간편인증이 필요합니다")에도 같은 단어가 있어 텍스트 클릭이 안내문을
+        #    짚으면 아무 일도 안 일어난다('치고 멈춤' 원인 후보) — 버튼/링크/이미지 요소를 우선 클릭.
         await asyncio.sleep(0.5)
-        await click_by_text(page, ["간편인증"])
+        if not await click_first_matching(page, [
+            "button:has-text('간편인증')", "a:has-text('간편인증')",
+            "input[value*='간편인증']", "img[alt*='간편인증']",
+        ]):
+            await click_by_text(page, ["간편인증"])
         await asyncio.sleep(1.5)
         _pmsg = "✅ 신청인 정보를 모두 채우고 간편인증 창을 열었어요 — 인증창도 이어서 채울게요..."
         if not _parent_ok:
@@ -1139,7 +1150,8 @@ async def _issue_family_cert_efamily(page, task, context, user_info: dict = None
             #    put은 빈 칸만 채우는 멱등이라 같은 채움을 한 번 더 돌려 재렌더로 지워진 값도 복구.
             _modal_fill_js = """(v) => {
                 const fire = (el) => { ['input','change','keyup'].forEach(n => el.dispatchEvent(new Event(n, {bubbles: true}))); };
-                const put = (el, val) => { if (el && val && !el.value) { el.value = val; fire(el); } };
+                const vacant = (el) => !el.value || el.value.trim() === '-';  // '-' 초기값은 빈 칸 취급
+                const put = (el, val) => { if (el && val && vacant(el)) { el.value = val; fire(el); } };
                 for (const tr of document.querySelectorAll('tr, li, div')) {
                     const t = (tr.innerText || '').trim();
                     if (t.length > 80) continue;
