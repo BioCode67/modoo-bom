@@ -756,7 +756,10 @@ async def run_apply_rpa(task, service_name: str, profile: dict) -> None:
 
             # ④ 신청하기 버튼 클릭
             ss = await take_screenshot(page)
-            task.update("running", "신청하기 버튼 탐색 중...", ss)
+            # 팀원 확인 요망(감사 확정): 착지 불일치면 위 '다른 복지일 수 있다' 경고를 덮어쓰지 않는다 —
+            #   기존엔 이 '탐색 중' 문구가 경고를 0초 만에 지워, 사용자가 오신청 위험을 못 보고 진행했다.
+            if landed_ok:
+                task.update("running", "신청하기 버튼 탐색 중...", ss)
 
             # 클릭 전 DOM을 기준점으로 저장한다. 팝업이 하나 늘거나 click()이 예외 없이 끝났다는 사실은
             # 실제 신청 양식 도달 증거가 아니므로 이후의 입력칸/첨부칸/양식 문구 출현과 비교한다.
@@ -794,7 +797,12 @@ async def run_apply_rpa(task, service_name: str, profile: dict) -> None:
 
             if not form_detected:
                 ss = await take_screenshot(page)
+                # 팀원 확인 요망(감사 확정): 착지 불일치면 '직접 눌러주세요' 안내에 오신청 경고를 함께 실어
+                #   사용자가 서비스명을 확인하고 누르게 한다(경고 없이 클릭 유도 → 다른 복지 오신청 방지).
+                _mismatch = "" if landed_ok else (
+                    f"⚠️ 열린 페이지가 요청하신 '{service_name}'와 다를 수 있어요 — 화면의 서비스명을 꼭 확인하세요.\n")
                 task.update("running",
+                    _mismatch +
                     f"'{service_name}' 신청 양식 자동 열기를 확인하지 못했어요.\n"
                     "브라우저에서 '신청하기' 버튼을 직접 눌러주세요.\n"
                     "입력 양식이 나타나면 에이전트가 감지해 이어서 작성합니다.", ss)

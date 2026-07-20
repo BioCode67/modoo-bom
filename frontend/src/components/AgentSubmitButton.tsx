@@ -113,7 +113,10 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
   //   시점(마운트 후)엔 이미 정의돼 있어 안전하게 참조된다.
   const resumedRef = useRef(false)
   useEffect(() => {
-    if (!rpaOn || resumedRef.current || run) return
+    // 팀원 확인 요망(감사 확정): 이 컴포넌트가 조기 return(null) 하는 렌더에선 pollApply(아래 정의)가 실행되지
+    //   않아 참조 시 TDZ ReferenceError → ErrorBoundary. showApply/canRpa 를 가드에 포함해(단락평가로 TDZ 회피)
+    //   렌더 가능 상태일 때만 복원 폴링을 건다(DocumentCenter가 가드 조건을 맞춰 회피한 것과 동일).
+    if (!rpaOn || resumedRef.current || run || !showApply || !canRpa) return
     const t = listLive('apply')[policy.id]
     if (!t) return
     resumedRef.current = true
@@ -195,6 +198,9 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
         throw new Error(detail || (res.status === 503 ? '지금은 자동 신청이 어려워요 — 공식 신청 페이지로 진행해 주세요.' : '이 서비스는 자동 신청을 지원하지 않아요'))
       }
       const { task_id, download_token } = await res.json()
+      // 팀원 확인 요망(감사 확정): 응답 전에 사용자가 ⏹ 중단(gen 증가)했으면 되살리지 않는다 — 성공
+      //   경로에도 error/finally 와 동일한 세대 검사를 걸어, live 항목 부활 + 폴러 없는 좀비 스피너를 막는다.
+      if (genRef.current !== gen) return
       rememberLive('apply', policy.id, { taskId: task_id, token: download_token || '' }) // 새로고침·뷰 이탈 복원용
       setRun((prev) => ({ status: prev?.status || 'running', step: prev?.step || '', shot: prev?.shot, at: startedAt, taskId: task_id }))
       await pollApply(task_id, download_token || '', startedAt, gen)
