@@ -432,7 +432,13 @@ async def _fill_registered_address(page, user_info: dict) -> dict:
     out = {"sido": False, "sigungu": False}
     if not (sido or sigungu):
         return out
-    js_sido = """(v) => {
+
+    def _ctxs():
+        # 실사용 재제보(같은 날): 메인 프레임만 뒤져서 못 찾음 — 신형 화면은 콘텐츠가 프레임에 나뉠 수 있어
+        # (오늘 카카오톡 클릭과 동일 교훈) 모든 프레임을 훑는다. 페이크 객체(테스트)는 [page]만.
+        return [page] + list(getattr(page, "frames", None) or [])
+
+    _KEY_JS = """
         const norm = (s) => String(s || '').replace(/\\s+/g, '');
         const keyOf = (s) => {
             const t = norm(s);
@@ -440,6 +446,8 @@ async def _fill_registered_address(page, user_info: dict) -> dict:
             for (const [full, sh] of pairs) { if (t.startsWith(full) || t.startsWith(sh)) return sh; }
             return t.slice(0, 2);  // 서울/부산/대구/인천/광주/대전/울산/세종/경기/강원/제주 등
         };
+    """
+    js_sido = "(v) => {" + _KEY_JS + """
         const ss = [...document.querySelectorAll('select')];
         const sel = ss.find(s => [...s.options].some(o => /서울특별시|경상북도|경기도/.test(o.text)));
         if (!sel) return false;
@@ -463,12 +471,63 @@ async def _fill_registered_address(page, user_info: dict) -> dict:
         }
         return false;
     }"""
+    # 커스텀 콤보박스 폴백 — 신형 UI가 <select>가 아닐 때: '시도 선택' 트리거 클릭 → 목록에서 항목 클릭
+    js_open = """(t) => {
+        const norm = (s) => String(s || '').replace(/\\s+/g, '');
+        const els = [...document.querySelectorAll('button, a, div, span, label')]
+            .filter(e => norm(e.innerText) === norm(t) && e.offsetParent !== null);
+        if (!els.length) return false;
+        els.sort((a, b) => (a.innerText || '').length - (b.innerText || '').length);
+        els[0].click();
+        return true;
+    }"""
+    js_pick_sido = "(v) => {" + _KEY_JS + """
+        const k = keyOf(v);
+        const cands = [...document.querySelectorAll('li, a, button, div, span')]
+            .filter(e => e.offsetParent !== null)
+            .map(e => ({e: e, t: norm(e.innerText)}))
+            .filter(x => x.t && x.t.length <= 12);
+        const hit = cands.find(x => x.t === norm(v)) ||
+                    cands.find(x => keyOf(x.t) === k || x.t.includes(k));
+        if (!hit) return false;
+        hit.e.click();
+        return true;
+    }"""
+    js_pick_sgg = """(v) => {
+        const norm = (s) => String(s || '').replace(/\\s+/g, '');
+        const cands = [...document.querySelectorAll('li, a, button, div, span')]
+            .filter(e => e.offsetParent !== null)
+            .map(e => ({e: e, t: norm(e.innerText)}))
+            .filter(x => x.t && x.t.length >= 2 && x.t.length <= 8 && x.t !== '시군구선택');
+        const hit = cands.find(x => x.t === norm(v)) ||
+                    cands.find(x => x.t.includes(norm(v)) || norm(v).includes(x.t));
+        if (!hit) return false;
+        hit.e.click();
+        return true;
+    }"""
+
+    async def _try(select_js, open_trigger, pick_js, value):
+        # ① 네이티브 select(모든 프레임) → ② 커스텀 트리거 클릭 후 목록 클릭(모든 프레임)
+        for c in _ctxs():
+            try:
+                if await c.evaluate(select_js, value):
+                    return True
+            except Exception:
+                continue
+        for c in _ctxs():
+            try:
+                if await c.evaluate(js_open, open_trigger):
+                    await asyncio.sleep(0.6)  # 목록 렌더 대기
+                    if await c.evaluate(pick_js, value):
+                        return True
+                    await c.evaluate(js_open, open_trigger)  # 못 골랐으면 토글 닫기(신청 버튼 가림 방지)
+            except Exception:
+                continue
+        return False
+
     for _ in range(8):  # 섹션 늦은 렌더 폴링
         if sido and not out["sido"]:
-            try:
-                out["sido"] = bool(await page.evaluate(js_sido, sido))
-            except Exception:
-                pass
+            out["sido"] = await _try(js_sido, "시도 선택", js_pick_sido, sido)
         if out["sido"] or not sido:
             break
         await asyncio.sleep(1.0)
@@ -476,10 +535,7 @@ async def _fill_registered_address(page, user_info: dict) -> dict:
         await asyncio.sleep(1.0)  # 시군구 옵션 로드 시작 여유
     if sigungu:
         for _ in range(6):  # 시군구 옵션 비동기 로드 폴링
-            try:
-                out["sigungu"] = bool(await page.evaluate(js_sgg, sigungu))
-            except Exception:
-                pass
+            out["sigungu"] = await _try(js_sgg, "시군구 선택", js_pick_sgg, sigungu)
             if out["sigungu"]:
                 break
             await asyncio.sleep(1.0)
