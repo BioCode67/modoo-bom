@@ -217,8 +217,10 @@ def _ask_llm(prompt: str, timeout: int = 14, image_b64: str = "") -> str:
             parts = [{"text": prompt}]
             if image_b64:
                 parts.append({"inline_data": {"mime_type": "image/jpeg", "data": image_b64}})
+            # 사용자 .env의 GEMINI_MODEL을 존중(챗 스택과 동일 규약) — 미설정 시 2.5-flash
+            _gm = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
             d = _http_json(
-                f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={key}",
+                f"https://generativelanguage.googleapis.com/v1beta/models/{_gm}:generateContent?key={key}",
                 {"contents": [{"parts": parts}],
                  "generationConfig": {"temperature": 0, "maxOutputTokens": 800}},
                 {}, timeout,
