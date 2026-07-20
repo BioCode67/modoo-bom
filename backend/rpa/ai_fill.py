@@ -323,27 +323,41 @@ def _parse_plan(text: str) -> list:
         return []
 
 
+async def _mask_all_frames(page, js: str) -> None:
+    """마스킹 스타일을 메인 문서뿐 아니라 '모든 자식 프레임'에 적용/해제한다.
+    ⚠️ page.screenshot 은 iframe 까지 합성하므로, 폼이 프레임(복지로 fincert 등)에 있으면 메인만
+       마스킹해선 입력값이 그대로 찍혔다(감사 확정 MED — '마스킹 스크린샷만 전송' 계약 위반)."""
+    for fr in [page] + list(getattr(page, "frames", None) or []):
+        try:
+            await fr.evaluate(js)
+        except Exception:
+            pass
+
+
 async def _masked_screenshot_b64(page) -> str:
-    """입력값을 투명 처리한 마스킹 스크린샷(JPEG, base64) — 실패는 빈 문자열(텍스트 모드로 진행)."""
+    """입력값을 투명 처리한 마스킹 스크린샷(JPEG, base64) — 실패는 빈 문자열(텍스트 모드로 진행).
+    전 프레임 마스킹(자식 iframe 입력값까지) 후 촬영, 촬영 뒤 반드시 전 프레임 마스킹 해제."""
     try:
-        await page.evaluate(_MASK_ON_JS)
+        await _mask_all_frames(page, _MASK_ON_JS)
         await asyncio.sleep(0.15)
         raw = await page.screenshot(type="jpeg", quality=55)
         return base64.b64encode(raw).decode("ascii")
     except Exception:
         return ""
     finally:
-        try:
-            await page.evaluate(_MASK_OFF_JS)
-        except Exception:
-            pass
+        await _mask_all_frames(page, _MASK_OFF_JS)
 
 
 async def _do_fill(ctx, page, sel: str, val: str) -> bool:
     """값 입력 3단 폴백(실키 → IME 삽입 → CDP fill) + 지연 재검증 — 자기만족 검증 금지.
     포커스 확보는 locator 클릭 우선, 오버레이가 클릭을 가로채면 JS 포커스로 폴백한다
-    (efamily 휴대폰칸이 오버레이에 막혀 클릭 실패하던 실사용 교훈 — 포커스만 잡으면 키 입력은 통함)."""
+    (efamily 휴대폰칸이 오버레이에 막혀 클릭 실패하던 실사용 교훈 — 포커스만 잡으면 키 입력은 통함).
+
+    ⚠️ 키보드는 반드시 ctx 가 속한 '그 페이지'의 것을 쓴다(감사 확정 MED): ctx 가 프레임/팝업인데
+       원본 page.keyboard 로 타이핑하면 포커스는 ctx 에 잡고 키는 원본 페이지의 다른 칸에 들어가
+       정상 기입값을 지우거나 이름을 엉뚱한 곳에 쓰던 갭 — ctx→소유 페이지 키보드로 정합화."""
     loc = ctx.locator(sel)
+    kb = getattr(ctx, "keyboard", None) or getattr(getattr(ctx, "page", None), "keyboard", None) or page.keyboard
     for method in ("type", "insert", "fill"):
         try:
             if method == "fill":
@@ -358,13 +372,13 @@ async def _do_fill(ctx, page, sel: str, val: str) -> bool:
                         " e.focus(); return document.activeElement === e; }", sel)
                     if not focused:
                         continue  # 포커스조차 못 잡으면 키 입력은 무의미 — 다음 방법(CDP fill)으로
-                await page.keyboard.press("Control+a")
-                await page.keyboard.press("Delete")
+                await kb.press("Control+a")
+                await kb.press("Delete")
                 if method == "type" and val.isascii():
-                    await page.keyboard.type(val, delay=45)
+                    await kb.type(val, delay=45)
                 else:
                     # 한글 등 비ASCII 키 타이핑은 IME 없는 브라우저에서 영타(김상식→rlatkdtlr)가 된다
-                    await page.keyboard.insert_text(val)
+                    await kb.insert_text(val)
             await asyncio.sleep(0.5)
             # '값 일치' 검증 — 비어있지 않음만 보면 영타 오입력(rlatkdtlr)도 통과한다(실사용 확정).
             #   숫자 값은 포맷팅(하이픈 등) 관용, 그 외는 정확 일치. 비교는 브라우저 안에서만.
@@ -453,10 +467,12 @@ _INTENT_PATTERNS = {
 #   고르면 신청인 값이 배우자/대리인 칸에 잘못 들어갈 수 있다(실측 위험). 신청인 값(name/birth6/phone)은
 #   명백한 '다른 사람' 칸을 건너뛴다. ⚠️ '세대주'는 신청인 본인인 경우가 흔해 제외하지 않는다(과잉 배제 방지).
 _INTENT_NEG = {
-    "name": ("대리인", "배우자", "보호자", "담당자", "상담", "부성명", "모성명", "자녀", "아동"),
-    "birth6": ("대리인", "배우자", "보호자", "자녀", "아동"),
-    "phone_tail": ("대리인", "담당자", "기관", "회사", "직장"),
-    "phone_head": ("대리인", "담당자", "기관", "회사", "직장"),
+    "name": ("대리인", "배우자", "보호자", "담당자", "상담", "부성명", "모성명", "자녀", "아동", "가구원"),
+    "birth6": ("대리인", "배우자", "보호자", "자녀", "아동", "가구원"),
+    # ⚠️ 전화도 이름·생년월일과 동일 원칙(감사 확정): 신청인 휴대폰이 이미 채워졌을 때 '배우자/자녀 휴대폰'
+    #    빈 칸으로 흘러 신청인 번호가 타인 칸에 들어가던 갭 — 사람 지시어를 name/birth6 수준으로 맞춘다.
+    "phone_tail": ("대리인", "배우자", "보호자", "담당자", "상담", "자녀", "아동", "가구원", "기관", "회사", "직장"),
+    "phone_head": ("대리인", "배우자", "보호자", "담당자", "상담", "자녀", "아동", "가구원", "기관", "회사", "직장"),
 }
 
 
@@ -472,19 +488,25 @@ def _deterministic_plan(fields: list, keys) -> list:
             continue
         pats, pref = spec
         neg = _INTENT_NEG.get(key, ())
-        cands = []
-        for f in fields:
-            if f.get("idx") in used or f.get("ro") or f.get("filled"):
-                continue
-            role = f.get("role")
-            if role not in ("textbox", "combobox", "spinbutton"):
-                continue
+
+        def _is_applicant_field(f, _pats=pats, _neg=neg):
+            # 이 의도의 '신청인' 칸인가 — 이름 패턴 일치 + 타인 지시어(배우자·대리인·가구원 등) 없음
             nm = _norm(f.get("name"))
-            if not nm or not any(_norm(p) in nm for p in pats):
-                continue
-            if neg and any(_norm(n) in nm for n in neg):
-                continue  # 타인(대리인·배우자·자녀 등) 칸 — 신청인 값 오입력 방지
-            cands.append(f)
+            if not nm or not any(_norm(p) in nm for p in _pats):
+                return False
+            if _neg and any(_norm(n) in nm for n in _neg):
+                return False
+            return True
+
+        # ⚠️ 의도 단위 멱등(감사 확정 HIGH): 이 의도의 '신청인' 칸이 이미 채워져 있으면(하드코딩 셀렉터가
+        #    먼저 성공한 정상 케이스 등) 같은 패턴에 걸리는 '다음 빈 칸'(가구원·배우자 성명·배우자 휴대폰 등)
+        #    으로 값을 흘리지 않는다 — 칸 단위 멱등('filled 제외')만으론 못 막던 신청인 값 오입력을 차단.
+        if any(f.get("filled") and _is_applicant_field(f) for f in fields):
+            continue
+        cands = [f for f in fields
+                 if f.get("idx") not in used and not f.get("ro") and not f.get("filled")
+                 and f.get("role") in ("textbox", "combobox", "spinbutton")
+                 and _is_applicant_field(f)]
         if not cands:
             continue
         # 선호 role 우선(문서순 안정) — phone_tail은 textbox, 시도는 combobox를 먼저 집는다
@@ -493,6 +515,38 @@ def _deterministic_plan(fields: list, keys) -> list:
         used.add(f["idx"])
         plan.append({"action": "select" if f.get("role") == "combobox" else "fill", "idx": f["idx"], "key": key})
     return plan
+
+
+def _plan_respects_intent(plan: list, fields: list) -> list:
+    """LLM 계획(idx 기반)을 실행 전 '타인 칸 가드'로 거른다 — 계층②(LLM)에도 _INTENT_NEG 적용.
+    LLM이 배우자/대리인 성명 칸의 idx로 name 을 채우려 하면(환각·유사 라벨 혼동) 그 행동을 버린다."""
+    _norm = lambda s: str(s or "").replace(" ", "")
+    name_by_idx = {f.get("idx"): _norm(f.get("name")) for f in (fields or [])}
+    out = []
+    for it in plan:
+        key = it.get("key") or ""
+        neg = _INTENT_NEG.get(key, ())
+        if neg:
+            nm = name_by_idx.get(it.get("idx"), "")
+            if nm and any(_norm(n) in nm for n in neg):
+                continue  # 신청인 값(name/birth6/phone)을 타인 칸에 넣는 계획 — 실행 안 함
+        out.append(it)
+    return out
+
+
+def _prompt_fields(fields: list, allow_clicks: bool) -> list:
+    """프롬프트에 실을 요소만 남긴다 — 클릭 비활성(일반 채움) 시 버튼·링크는 제외(불필요 + innerText PII 차단).
+    ⚠️ '홍길동님' 같은 마이페이지 링크 텍스트가 프롬프트로 새던 것(감사 확정 MED)을 구조적으로 막는다."""
+    out = []
+    for f in (fields or []):
+        if f.get("ro"):
+            continue
+        role = f.get("role")
+        is_action = role in ("button", "link") or "text" in f
+        if is_action and not allow_clicks:
+            continue  # fill/select 에는 버튼·링크가 불필요 — 프롬프트에서 제거(콘텐츠 경유 PII 차단)
+        out.append(f if allow_clicks else {k: v for k, v in f.items() if k != "text"})
+    return out
 
 
 async def ai_fill(ctx, page, values: dict, page_hint: str = "", task=None,
@@ -532,15 +586,17 @@ async def ai_fill(ctx, page, values: dict, page_hint: str = "", task=None,
         img = ""
         if vision_enabled():
             img = await _masked_screenshot_b64(page)  # 인지(비전, 옵트인) — 값 마스킹 후 촬영
-        prompt = build_prompt([f for f in fields if not f.get("ro")], unfinished, page_hint,
-                              allow_clicks=allow_clicks and clicks_enabled(),
+        _ac = allow_clicks and clicks_enabled()
+        prompt = build_prompt(_prompt_fields(fields, _ac), unfinished, page_hint,
+                              allow_clicks=_ac,
                               unfinished=unfinished if rnd > 0 else None)
         try:
             loop = asyncio.get_running_loop()
             text = await loop.run_in_executor(None, lambda: _ask_llm(prompt, 14, img))
         except Exception:
             return result
-        plan = _parse_plan(text)
+        # ⚠️ LLM 계획도 타인 칸 가드를 통과시킨다(결정론 계층에만 있던 _INTENT_NEG를 LLM 계층에도 적용)
+        plan = _plan_respects_intent(_parse_plan(text), fields)
         if not plan:
             break
         if task is not None and rnd == 0:
