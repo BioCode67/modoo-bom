@@ -476,6 +476,20 @@ async def _page_structure_diag(page) -> str:
     return (" | ".join(lines))[:500] or "구조 판독 실패(프레임 접근 불가)"
 
 
+async def _dump_diag(page, label: str, tried=None, note: str = "") -> str:
+    """실패한 실화면을 구조로 '파일 하나'에 저장(PII 없음) → 사용자용 안내 문자열. 실패해도 무해.
+    개발 환경에서 실제 gov 사이트를 못 보는 제약을 우회 — 사용자가 이 파일만 공유하면 실화면 구조를 정확히 안다."""
+    try:
+        import os as _os
+        from rpa import base as _base
+        from rpa import diagnostics as _dg
+        d = await _dg.capture(page, label=label, tried=tried, note=note)
+        path = _dg.save(d, str(_base.DOCS_DIR))
+        return f"🔬 진단 저장: {_os.path.basename(path)} — 서류 도우미 [🔬 진단 복사]로 공유하면 정확히 고쳐드려요"
+    except Exception:
+        return ""
+
+
 async def _fill_registered_address(page, user_info: dict) -> dict:
     """🏠 '주민등록상 주소 확인' 시도·시군구 드롭다운 자동 선택 — 신형 등본 폼 실측(2026-07-20 스크린샷).
     실사용 3약점 보완: ① 신청 내용 섹션이 늦게 렌더 → 셀렉트가 나타날 때까지 폴링(최대 8초)
@@ -1708,11 +1722,14 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None, session=Non
                     task.update("running", f"🏠 주민등록상 주소를 '{_addr_done}'(으)로 선택했어요.", await take_screenshot(page))
                 else:
                     _diag = await _page_structure_diag(page)
+                    _saved = await _dump_diag(page, "등본-주소선택",
+                                              tried=["시도 select keyOf 매칭", "커스텀 드롭다운 클릭", "ai_fill 폴백"],
+                                              note="시도/시군구 자동선택 실패")
                     task.update(
                         "running",
                         "🏠 주소 선택칸을 아직 찾지 못했어요 — 화면에서 시도·시군구를 직접 선택해 주세요.\n"
                         "(선택하시면 이어서 자동으로 진행돼요)\n"
-                        f"🔍 진단: {_diag}",
+                        f"🔍 진단: {_diag}\n{_saved}",
                         await take_screenshot(page),
                     )
 

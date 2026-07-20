@@ -75,11 +75,22 @@ export function AgentStatusStrip() {
   }
 
   // 🩺 진단 복사 — 발급이 안 될 때 개발자에게 그대로 붙여넣는 기술 정보(PII 무포함, 서버에서 걸러줌).
+  //   🔬 여기에 '실패 화면 구조 자가진단'(최근 실패 시 저장된 실화면 접근성 트리·마커·URL, 값 없음)도 함께
+  //   붙인다 — 개발 환경에서 실제 gov 사이트에 접속 못 하는 제약을, 사용자가 스샷 대신 이 한 번의 복사로 메운다.
   const copyDiag = async () => {
     try {
       const r = await fetch(`${getRpaBase()}/api/_diag`)
       const j = await r.json()
-      await navigator.clipboard.writeText(`[모두봄 에이전트 진단]\n${JSON.stringify(j, null, 2)}`)
+      let scene: unknown = null
+      try {
+        const rs = await fetch(`${getRpaBase()}/api/_diagnostics/latest`)
+        const js = await rs.json()
+        if (js && js.available) scene = js
+      } catch { /* 저장된 실패 진단 없음 — 기술 정보만 */ }
+      const payload = scene
+        ? `[모두봄 에이전트 진단]\n${JSON.stringify(j, null, 2)}\n\n[실패 화면 구조 — 실화면 접근성 트리·PII 없음]\n${JSON.stringify(scene, null, 2)}`
+        : `[모두봄 에이전트 진단]\n${JSON.stringify(j, null, 2)}`
+      await navigator.clipboard.writeText(payload)
       setDiagDone(true); setTimeout(() => setDiagDone(false), 2500)
     } catch { /* 클립보드 미지원 등 — 조용히 무시(부가 기능) */ }
   }

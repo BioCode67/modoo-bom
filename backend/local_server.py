@@ -374,6 +374,29 @@ async def diagnostics():
     }
 
 
+@app.get("/api/_diagnostics/latest")
+async def latest_diagnostic():
+    """가장 최근 저장된 '실패 자가 진단'(실화면 구조·PII 없음)을 반환 — 프론트 [🔬 진단 복사]가 이 하나를
+    개발자에게 전달하면, 접속 못 하는 실화면 구조를 정확히 파악해 고칠 수 있다. 스크린샷 반복을 대체한다.
+    🔒 본인 PC 전용(공유 배포 403). 값(이름·주민번호 등)은 애초에 담기지 않는다(diagnostics 모듈 계약)."""
+    _shared_mode_guard()
+    import glob as _glob
+    import json as _json
+    from rpa.base import DOCS_DIR
+    ddir = os.path.join(str(DOCS_DIR), "_diagnostics")
+    try:
+        files = sorted(_glob.glob(os.path.join(ddir, "*.json")), key=os.path.getmtime, reverse=True)
+    except Exception:
+        files = []
+    if not files:
+        return {"available": False}
+    try:
+        data = _json.loads(open(files[0], encoding="utf-8").read())
+        return {"available": True, "file": os.path.basename(files[0]), "count": len(files), "diagnostic": data}
+    except Exception as e:
+        return {"available": False, "error": str(e)[:120]}
+
+
 # ── RPA 서류 발급 ──
 # ⚠️ 유지보수 주의: 아래 RPA/apply 엔드포인트는 api/routes.py 의 동명 핸들러를 '의도적으로 복제'한 것이다.
 #   (routes.py 는 상단에서 chromadb/langchain 을 import 해, 경량 로컬 에이전트가 그대로 재사용하면

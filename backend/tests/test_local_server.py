@@ -258,6 +258,24 @@ def test_status_redacts_pii_without_token():
         manager._rpa_tasks.pop("pii1", None)
 
 
+def test_latest_diagnostic_returns_saved_and_shared_gated(monkeypatch, tmp_path):
+    """실패 자가진단 최신본 조회 — 저장된 구조 JSON을 반환(스크린샷 대체). 공유(터널) 배포에선 403."""
+    from rpa import base
+    monkeypatch.setattr(base, "DOCS_DIR", tmp_path)
+    # 진단 파일 하나 저장(diagnostics.save 규약과 동일 위치)
+    from rpa import diagnostics as dg
+    diag = {"label": "등본-주소선택", "note": "시군구 실패", "frames": [{"i": 0, "n": 5, "markers": ["카카오"]}]}
+    dg.save(diag, str(tmp_path))
+    # 비어있지 않은 최신본 반환
+    r = client.get("/api/_diagnostics/latest").json()
+    assert r["available"] is True and r["diagnostic"]["label"] == "등본-주소선택"
+    assert r["diagnostic"]["frames"][0]["markers"] == ["카카오"]
+    # 🔒 공유 모드면 403(본인 PC 전용 — 남의 진단 유출 차단)
+    monkeypatch.setenv("RPA_SHARED", "1")
+    assert client.get("/api/_diagnostics/latest").status_code == 403
+    monkeypatch.delenv("RPA_SHARED", raising=False)
+
+
 def test_status_scrubs_pii_lines_in_current_step_without_token():
     """진행 문구(current_step/steps)에 '이름: 값'처럼 원시 PII가 섞여도 무토큰 폴러에겐 그 줄만 제거되고
     비민감 안내/진행 문구는 유지된다(RPA_SHARED 무토큰 유출 이중 방어 — 감사 실결함 회귀 락)."""
