@@ -307,6 +307,28 @@ async def _login_bokjiro(page, task, provider: str = "kakao", user_info: dict = 
     if user_info:
         await asyncio.sleep(0.6)  # 제공자 선택 후 폼 렌더 안정 대기(동의 리셋 방지)
         filled = await _autofill_bokjiro_auth(contexts, page, user_info)
+        # 🤖 규칙 자동입력이 일부 실패하면 AI 채움(β)이 화면 구조를 보고 이어받는다(gov24와 파리티).
+        #    값은 로컬에서만 입력(프롬프트엔 구조만) — 키 없으면 조용히 무동작.
+        if not all(filled.values()):
+            try:
+                from rpa.ai_fill import ai_fill
+                from rpa.gov24_rpa import _birth6
+                _vals = {}
+                if not filled.get("name"):
+                    _vals["name"] = str((user_info or {}).get("name") or (user_info or {}).get("user_name") or "")
+                if not filled.get("birth"):
+                    _vals["birth6"] = _birth6((user_info or {}).get("birth_date"))
+                if not filled.get("phone"):
+                    _ph = re.sub(r"[^0-9]", "", str((user_info or {}).get("phone", "")))
+                    _vals["phone_tail"] = _ph[3:] if _ph.startswith("01") and len(_ph) >= 10 else _ph
+                _fill_ctx = contexts[-1] if len(contexts) > 1 else page  # 폼이 프레임이면 그 프레임
+                _ai = await ai_fill(_fill_ctx, page, {k: v for k, v in _vals.items() if v},
+                                    page_hint="복지로 간편인증 본인인증 정보 입력 창", task=task)
+                for _k, _dst in (("name", "name"), ("birth6", "birth"), ("phone_tail", "phone")):
+                    if _ai.get(_k):
+                        filled[_dst] = True
+            except Exception:
+                pass
     ss = await take_screenshot(page)
 
     form_detected = any([await detect_auth_form(ctx_) for ctx_ in contexts])
