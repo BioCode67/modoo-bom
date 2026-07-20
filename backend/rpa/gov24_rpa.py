@@ -991,67 +991,64 @@ async def _issue_family_cert_efamily(page, task, context, user_info: dict = None
         )
     except Exception:
         pass
-    # ⚠️ 실사용 재제보(스크린샷): 성명·주민번호는 채워지는데 추가정보확인의 부/모 성명만 빈칸 —
-    #    드롭다운 change 핸들러가 입력칸을 새 DOM으로 갈아끼우면, 위에서 잡아둔 '옛 노드'에 넣은
-    #    값이 화면에서 사라진다. → 잠시 뒤 입력칸을 '다시 조회'해 값이 붙을 때까지 재기입(최대 4회).
+    # ⌨️ 부/모 성명 — '타이핑 1순위'로 전면 재구성(실사용 5차 확정).
+    #    ⚠️ 이전 구조의 자기만족 버그: JS로 값을 넣고 '같은 순간' 자기가 읽어 성공을 반환 →
+    #    사이트가 직후에 지워도 성공 처리돼 실타이핑 폴백이 영원히 안 돌았다.
+    #    새 구조: ① 행의 select에 change를 '항상' 발화(입력칸이 선택 전 잠김/재생성되는 변형 대응)
+    #    ② 입력칸 마킹(비활성·readonly 제외) → 클릭 → 전체선택·삭제 → 실키 타이핑(한글은 IME 삽입)
+    #    ③ 0.7초 '지연 후' 별도 재검증만 신뢰('-'와 빈값은 실패) — 안 남았으면 처음부터 재시도(3회).
     _parent_ok = not parent_name  # 값이 없으면 판정 대상 아님(안내는 아래 missing 분기가 담당)
     if parent_name:
-        _js_refill_parent = """(v) => {
-            const fire = (el) => { ['input','change','keyup','blur'].forEach(n => el.dispatchEvent(new Event(n, {bubbles: true}))); };
-            // '-' 초기값은 빈 칸으로 취급(실사용 확정: 이 대시 때문에 '이미 채워짐'으로 오판해 건너뛰었다)
-            const vacant = (el) => !el.value || el.value.trim() === '-';
+        _js_kick_select = """() => {
+            for (const tr of document.querySelectorAll('tr')) {
+                const head = ((tr.querySelector('th, td') || {}).innerText || '').trim();
+                if (!/^추가정보확인/.test(head)) continue;
+                const sel = tr.querySelector('select');
+                if (sel) sel.dispatchEvent(new Event('change', {bubbles: true}));
+                return true;
+            }
+            return false;
+        }"""
+        _js_mark_parent = """() => {
             for (const tr of document.querySelectorAll('tr')) {
                 const head = ((tr.querySelector('th, td') || {}).innerText || '').trim();
                 if (!/^추가정보확인/.test(head)) continue;
                 const ins = [...tr.querySelectorAll("input[type=text], input[type=password], input:not([type])")]
-                    .filter(i => !i.disabled);
+                    .filter(i => !i.disabled && !i.readOnly);
                 const el = ins[ins.length - 1];
                 if (!el) return false;
-                if (vacant(el)) { el.value = v; fire(el); }
-                return !!el.value && el.value.trim() !== '-';
+                el.setAttribute('data-modoobom', 'parent');
+                return true;
             }
             return false;
         }"""
-        for _ in range(4):
-            await asyncio.sleep(0.8)
+        _js_check_parent = (
+            "() => { const e = document.querySelector(\"[data-modoobom='parent']\");"
+            " const v = e && e.value ? e.value.trim() : '';"
+            " return !!(v && v !== '-'); }"
+        )
+        for _attempt in range(3):
             try:
-                if await page.evaluate(_js_refill_parent, parent_name):
+                await page.evaluate(_js_kick_select)
+            except Exception:
+                pass
+            await asyncio.sleep(0.5)  # change 후 재생성/활성화 렌더 대기
+            try:
+                if not await page.evaluate(_js_mark_parent):
+                    await asyncio.sleep(0.8)  # 행 늦은 렌더 — 다음 시도
+                    continue
+                loc = page.locator("[data-modoobom='parent']")
+                await loc.click()
+                await page.keyboard.press("Control+a")
+                await page.keyboard.press("Delete")
+                await page.keyboard.type(parent_name, delay=60)
+                await asyncio.sleep(0.7)  # 사이트 핸들러가 지울 시간을 준 '뒤에' 검증해야 진짜다
+                if await page.evaluate(_js_check_parent):
                     _parent_ok = True
                     break
             except Exception:
                 pass
-    # ⌨️ 실사용 확정(인증 요청 후 '휴대폰번호를 입력하여 주십시오'): JS 값 주입을 이 사이트가
-    #    등록하지 않는 입력이 있다 — 부/모 성명은 '진짜 키보드 타이핑'으로 다시 입력한다.
-    #    (대상 입력에 data-modoobom 마킹 → 클릭·전체선택 후 실제 키 이벤트로 타이핑)
-    if parent_name and not _parent_ok:
-        try:
-            marked = await page.evaluate(
-                """() => {
-                    for (const tr of document.querySelectorAll('tr')) {
-                        const head = ((tr.querySelector('th, td') || {}).innerText || '').trim();
-                        if (!/^추가정보확인/.test(head)) continue;
-                        const ins = [...tr.querySelectorAll("input[type=text], input[type=password], input:not([type])")]
-                            .filter(i => !i.disabled);
-                        const el = ins[ins.length - 1];
-                        if (!el) return false;
-                        el.setAttribute('data-modoobom', 'parent');
-                        return true;
-                    }
-                    return false;
-                }"""
-            )
-            if marked:
-                loc = page.locator("[data-modoobom='parent']")
-                await loc.click()
-                await page.keyboard.press("Control+a")
-                await page.keyboard.type(parent_name, delay=35)
-                await asyncio.sleep(0.3)
-                _parent_ok = bool(await page.evaluate(
-                    "() => { const e = document.querySelector(\"[data-modoobom='parent']\");"
-                    " return !!(e && e.value && e.value.trim() !== '-'); }"
-                ))
-        except Exception:
-            pass
+            await asyncio.sleep(0.5)
     # 🔍 실패 시 행 구조 진단(PII 무포함: 타입·값 유무만) — 다음 제보 한 번으로 정확 조준
     _parent_diag = ""
     if parent_name and not _parent_ok:
