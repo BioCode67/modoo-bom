@@ -1,19 +1,29 @@
-"""🤖 AI 채움(β) — LLM이 '발급 페이지 구조'를 읽고 어떤 칸에 어떤 값이 들어갈지 계획한다.
+"""🤖 AI 채움/파일럿(β) — 인지 → 계획 → 실행 → 점검 → 재계획 루프.
 
-사용자 요청(2026-07-20): "AI가 발급 페이지를 보고 이해해서 넣어야 하는 정보를 입력하게" —
-규칙 엔진(1순위)이 못 채운 칸에 한해 LLM이 보완하는 감독자 레이어.
+사용자 요청(2026-07-20): "LLM이 멀티모달처럼 웹페이지를 보고 분석/이해/판단해서 행동을
+계획하고 점검해서 실천하게" — 규칙 엔진(1순위)이 못 해낸 일을 LLM이 이어받는 감독자 레이어.
+
+루프 구조(최대 2라운드):
+  ① 인지: 화면 구조 수집(라벨·타입·옵션·채움 여부) + (옵트인) 입력값을 CSS로 가린 마스킹
+     스크린샷(RPA_AI_VISION=1, Gemini/Claude 멀티모달)
+  ② 계획: LLM이 행동 JSON — fill(어느 칸에 어떤 값 키) · select(옵션 텍스트) ·
+     click(허용목록 버튼, RPA_AI_CLICK=1 옵트인)
+  ③ 실행: 로컬 Playwright — 실키 타이핑/IME 삽입/CDP fill 3단, 클릭은 허용·거부목록 검사
+  ④ 점검: 지연 후 값 재검증 → 미완 키만 남기고 ⑤ 재계획 1회
 
 프라이버시 계약(불변):
-- LLM에는 **화면 구조만** 보낸다: 라벨·타입·placeholder·옵션 텍스트·채움 여부(불리언).
-- 사용자 값(이름·주민번호·전화번호·주소)은 **절대 전송하지 않는다** — 프롬프트 빌더가
-  값 자체를 인자로 받지 않아 구조적으로 유출이 불가능하다(테스트로 고정).
-- 계획(어느 idx에 어떤 값 키)만 받아, 실제 입력은 로컬 Playwright 실키 타이핑이 수행한다.
+- 기본 모드는 **화면 구조만** 전송 — 사용자 값(이름·주민번호·전화번호)은 프롬프트 빌더가
+  인자로 받지 않아 구조적으로 유출 불가(테스트 고정).
+- 비전 모드(옵트인)도 input/select 값을 투명 처리한 **마스킹 스크린샷**만 전송. 단, 페이지
+  본문에 이미 표시된 개인정보까지 지울 수는 없어 기본 꺼짐(RPA_AI_VISION=1 옵트인).
+- 실행(값 입력·클릭)은 전부 로컬. 본인인증·최종 제출은 여전히 사람(HITL 불변) —
+  클릭 행동은 제출/결제류를 거부목록으로 차단한다.
 
-동작 조건: API 키가 있어야 동작(GEMINI_API_KEY/GOOGLE_API_KEY → GROQ_API_KEY →
-ANTHROPIC_API_KEY 순 폴백), RPA_AI_FILL=0 밸브로 전체 끔. 키 없으면 조용히 무동작 —
-기존 규칙 엔진 흐름은 단 한 줄도 바뀌지 않는다(β·추가형).
+동작 조건: backend/.env 또는 환경변수의 GEMINI_API_KEY(GOOGLE_API_KEY) → GROQ_API_KEY →
+ANTHROPIC_API_KEY 폴백(표준 urllib — 추가 의존성 0). RPA_AI_FILL=0 밸브. 키 없으면 무동작.
 """
 import asyncio
+import base64
 import json
 import os
 import re
@@ -30,40 +40,60 @@ VALUE_KEYS_DOC = {
     "sigungu": "주소 시/군/구",
 }
 
-# 화면 구조 수집 — 보이는 input/select만, 값은 '있는지 여부'만(내용 미수집), 요소에 idx 마킹
+# 클릭 행동 안전 가드 — 진행성 버튼만 허용, 비가역·위험 버튼은 어떤 경우에도 거부
+_CLICK_ALLOW = re.compile(r"^(간편인증|인증요청|확인|다음|다음단계|검색|조회|닫기)$")
+_CLICK_DENY = re.compile(r"제출|결제|삭제|탈퇴|해지|이체")
+
+# 화면 구조 수집 — 보이는 input/select/button만, 값은 '있는지 여부'만(내용 미수집), 요소에 idx 마킹
 _COLLECT_JS = """() => {
     const out = [];
     let idx = 0;
     const rowLabel = (el) => {
-        const tr = el.closest('tr, li, .form-group, dl, div');
-        if (!tr) return '';
-        const th = tr.querySelector('th, td, label, dt, strong');
-        return th ? (th.innerText || '').trim().slice(0, 30) : '';
+        let n = el.parentElement;
+        for (let i = 0; i < 5 && n; i++) {
+            const t = (n.innerText || '').trim();
+            if (t.length > 0 && t.length <= 60) return t.slice(0, 30);
+            n = n.parentElement;
+        }
+        return '';
     };
-    for (const el of document.querySelectorAll('input, select')) {
-        const type = (el.type || el.tagName).toLowerCase();
-        if (['hidden', 'submit', 'button', 'image', 'file', 'checkbox', 'radio'].includes(type)) continue;
+    for (const el of document.querySelectorAll('input, select, button, a')) {
+        const tag = el.tagName.toLowerCase();
+        const type = (el.type || tag).toLowerCase();
+        if (['hidden', 'image', 'file', 'checkbox', 'radio'].includes(type)) continue;
         if (el.offsetParent === null) continue;
-        const item = {
-            idx: idx,
-            tag: el.tagName.toLowerCase(),
-            type: type,
-            label: rowLabel(el),
-            ph: (el.getAttribute('placeholder') || '').slice(0, 20),
-            filled: !!(el.value && el.value.trim() && el.value.trim() !== '-'),
-            ro: !!(el.readOnly || el.disabled),
-        };
-        if (el.tagName === 'SELECT') {
-            item.options = [...el.options].slice(0, 20).map(o => (o.text || '').trim().slice(0, 16));
+        const item = {idx: idx, tag: tag, type: type};
+        if (tag === 'button' || tag === 'a' || type === 'submit' || type === 'button') {
+            const txt = (el.innerText || el.value || '').trim().slice(0, 16);
+            if (!txt) continue;
+            item.text = txt;
+        } else {
+            item.label = rowLabel(el);
+            item.ph = (el.getAttribute('placeholder') || '').slice(0, 20);
+            item.filled = !!(el.value && el.value.trim() && el.value.trim() !== '-');
+            item.ro = !!(el.readOnly || el.disabled);
+            if (tag === 'select') {
+                item.options = [...el.options].slice(0, 20).map(o => (o.text || '').trim().slice(0, 16));
+            }
         }
         el.setAttribute('data-modoobom-ai', String(idx));
         out.push(item);
         idx += 1;
-        if (idx >= 40) break;
+        if (idx >= 60) break;
     }
     return out;
 }"""
 
+# 비전용 마스킹 — 입력값·캐럿을 투명 처리(구조·라벨은 보임). 스크린샷 후 반드시 제거.
+_MASK_ON_JS = """() => {
+    if (document.getElementById('modoobom-mask')) return true;
+    const st = document.createElement('style');
+    st.id = 'modoobom-mask';
+    st.textContent = 'input, select, textarea { color: transparent !important; caret-color: transparent !important; text-shadow: none !important; }';
+    document.documentElement.appendChild(st);
+    return true;
+}"""
+_MASK_OFF_JS = "() => { const s = document.getElementById('modoobom-mask'); if (s) s.remove(); return true; }"
 
 _ENV_LOADED = False
 
@@ -82,7 +112,7 @@ def _load_env_file():
         if not env_path.exists():
             return
         wanted = {"GEMINI_API_KEY", "GOOGLE_API_KEY", "GROQ_API_KEY", "ANTHROPIC_API_KEY",
-                  "RPA_AI_FILL", "CLAUDE_MODEL"}
+                  "RPA_AI_FILL", "RPA_AI_VISION", "RPA_AI_CLICK", "CLAUDE_MODEL"}
         for line in env_path.read_text(encoding="utf-8", errors="ignore").splitlines():
             line = line.strip()
             if not line or line.startswith("#") or "=" not in line:
@@ -118,15 +148,46 @@ def ai_fill_enabled() -> bool:
     return _pick_provider() is not None
 
 
-def build_prompt(fields: list, keys: list, page_hint: str = "") -> str:
+def vision_enabled() -> bool:
+    """마스킹 스크린샷 전송(멀티모달) — 옵트인 + 이미지 지원 제공자(Gemini/Claude)일 때만."""
+    if os.environ.get("RPA_AI_VISION", "0") != "1":
+        return False
+    prov = _pick_provider()
+    return bool(prov and prov[0] in ("gemini", "anthropic"))
+
+
+def clicks_enabled() -> bool:
+    """LLM 클릭 행동 — 옵트인(RPA_AI_CLICK=1). 켜져도 허용·거부목록 가드는 항상 적용."""
+    return os.environ.get("RPA_AI_CLICK", "0") == "1"
+
+
+def click_text_allowed(text: str) -> bool:
+    """클릭 허용 판정 — 공백 제거 후 허용목록 정확 일치 + 거부목록 무포함(제출·결제류 차단)."""
+    t = re.sub(r"\s+", "", str(text or ""))
+    if not t or _CLICK_DENY.search(t):
+        return False
+    return bool(_CLICK_ALLOW.match(t))
+
+
+def build_prompt(fields: list, keys: list, page_hint: str = "", allow_clicks: bool = False,
+                 unfinished: list = None) -> str:
     """LLM 프롬프트 — 화면 구조와 '값 키 이름'만 담는다.
     ⚠️ 프라이버시 계약: 이 함수는 사용자 값을 인자로 받지 않는다(구조적 유출 차단, 테스트 고정)."""
     kdoc = {k: VALUE_KEYS_DOC[k] for k in keys if k in VALUE_KEYS_DOC}
+    actions = '{"action":"fill","idx":N,"key":"값키"} 또는 {"action":"select","idx":N,"option":"옵션 텍스트"}'
+    if allow_clicks:
+        actions += ' 또는 {"action":"click","idx":N}(진행 버튼만 — 제출/결제류 금지)'
+    extra = ""
+    if unfinished:
+        extra = f"직전 라운드에서 미완된 값 키: {json.dumps(unfinished, ensure_ascii=False)} — 이 키들을 우선 해결하세요.\n"
     return (
-        "당신은 대한민국 정부 웹사이트 폼 자동입력 '계획기'입니다. 실제 값은 로컬 PC에서만 입력되며 당신은 값을 볼 수 없습니다.\n"
+        "당신은 대한민국 정부 웹사이트 자동화의 '행동 계획기'입니다. 실제 값은 로컬 PC에서만 입력되며 당신은 값을 볼 수 없습니다.\n"
         f"화면: {page_hint or '발급/인증 폼'}\n"
-        "아래 '요소 목록'에서 각 '값 키'가 입력될 요소를 고르세요. 확실한 매핑만 포함하고, filled=true(이미 입력됨)·ro=true(잠김) 요소는 제외하세요.\n"
-        'JSON 한 개만 출력: {"plan": [{"idx": <요소 idx>, "key": "<값 키>"}]}\n'
+        + extra +
+        "아래 '요소 목록'을 보고 각 '값 키'가 들어갈 요소와 필요한 행동을 계획하세요. 확실한 것만. "
+        "filled=true(이미 입력됨)·ro=true(잠김) 요소는 채우지 마세요.\n"
+        f"행동 형식: {actions}\n"
+        'JSON 한 개만 출력: {"plan": [<행동>...]}\n'
         f"값 키(이름: 의미): {json.dumps(kdoc, ensure_ascii=False)}\n"
         f"요소 목록: {json.dumps(fields, ensure_ascii=False)}\n"
     )
@@ -145,17 +206,20 @@ def _http_json(url: str, payload: dict, headers: dict, timeout: int) -> dict:
         return json.loads(resp.read().decode("utf-8"))
 
 
-def _ask_llm(prompt: str, timeout: int = 14) -> str:
-    """가벼운 REST 직통 호출(SDK·requests 불필요 — 표준 라이브러리 urllib)."""
+def _ask_llm(prompt: str, timeout: int = 14, image_b64: str = "") -> str:
+    """REST 직통 호출 — image_b64가 있으면 멀티모달(Gemini/Claude), Groq는 텍스트만."""
     prov = _pick_provider()
     if not prov:
         return ""
     kind, key = prov
     try:
         if kind == "gemini":
+            parts = [{"text": prompt}]
+            if image_b64:
+                parts.append({"inline_data": {"mime_type": "image/jpeg", "data": image_b64}})
             d = _http_json(
                 f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={key}",
-                {"contents": [{"parts": [{"text": prompt}]}],
+                {"contents": [{"parts": parts}],
                  "generationConfig": {"temperature": 0, "maxOutputTokens": 800}},
                 {}, timeout,
             )
@@ -169,11 +233,15 @@ def _ask_llm(prompt: str, timeout: int = 14) -> str:
             )
             return d["choices"][0]["message"]["content"]
         if kind == "anthropic":
+            content = [{"type": "text", "text": prompt}]
+            if image_b64:
+                content.append({"type": "image",
+                                "source": {"type": "base64", "media_type": "image/jpeg", "data": image_b64}})
             d = _http_json(
                 "https://api.anthropic.com/v1/messages",
                 {"model": os.environ.get("CLAUDE_MODEL", "claude-sonnet-4-6"),
                  "max_tokens": 800,
-                 "messages": [{"role": "user", "content": prompt}]},
+                 "messages": [{"role": "user", "content": content}]},
                 {"x-api-key": key, "anthropic-version": "2023-06-01"}, timeout,
             )
             return d["content"][0]["text"]
@@ -183,7 +251,7 @@ def _ask_llm(prompt: str, timeout: int = 14) -> str:
 
 
 def _parse_plan(text: str) -> list:
-    """응답에서 {"plan": [...]}만 관대하게 추출 — 잡담·마크다운 섞여도 견딤, 미지 키는 버림."""
+    """응답에서 {"plan": [...]}만 관대하게 추출 — 구형 {"idx","key"}는 fill로 승격, 미지 항목은 버림."""
     try:
         m = re.search(r"\{[\s\S]*\}", text or "")
         if not m:
@@ -192,10 +260,21 @@ def _parse_plan(text: str) -> list:
         out = []
         for it in (data.get("plan") or []):
             try:
+                action = str(it.get("action") or "fill")
                 idx = int(it.get("idx"))
-                key = str(it.get("key") or "")
-                if key in VALUE_KEYS_DOC and idx >= 0:
-                    out.append({"idx": idx, "key": key})
+                if idx < 0:
+                    continue
+                if action == "fill":
+                    key = str(it.get("key") or "")
+                    if key in VALUE_KEYS_DOC:
+                        out.append({"action": "fill", "idx": idx, "key": key})
+                elif action == "select":
+                    key = str(it.get("key") or "")
+                    opt = str(it.get("option") or "")
+                    if opt or key in VALUE_KEYS_DOC:
+                        out.append({"action": "select", "idx": idx, "key": key, "option": opt})
+                elif action == "click":
+                    out.append({"action": "click", "idx": idx})
             except Exception:
                 continue
         return out[:12]
@@ -203,70 +282,148 @@ def _parse_plan(text: str) -> list:
         return []
 
 
-async def ai_fill(ctx, page, values: dict, page_hint: str = "", task=None) -> dict:
-    """구조 수집 → LLM 계획 → 로컬 실키 타이핑 실행 → 지연 검증. 반환 {값키: 성공여부}.
+async def _masked_screenshot_b64(page) -> str:
+    """입력값을 투명 처리한 마스킹 스크린샷(JPEG, base64) — 실패는 빈 문자열(텍스트 모드로 진행)."""
+    try:
+        await page.evaluate(_MASK_ON_JS)
+        await asyncio.sleep(0.15)
+        raw = await page.screenshot(type="jpeg", quality=55)
+        return base64.b64encode(raw).decode("ascii")
+    except Exception:
+        return ""
+    finally:
+        try:
+            await page.evaluate(_MASK_OFF_JS)
+        except Exception:
+            pass
+
+
+async def _do_fill(ctx, page, sel: str, val: str) -> bool:
+    """값 입력 3단 폴백(실키 → IME 삽입 → CDP fill) + 지연 재검증 — 자기만족 검증 금지."""
+    loc = ctx.locator(sel)
+    for method in ("type", "insert", "fill"):
+        try:
+            await loc.click(timeout=4000)
+            await page.keyboard.press("Control+a")
+            await page.keyboard.press("Delete")
+            if method == "type":
+                if val.isascii():
+                    await page.keyboard.type(val, delay=45)
+                else:
+                    # 한글 등 비ASCII 키 타이핑은 IME 없는 브라우저에서 영타(김상식→rlatkdtlr)가 된다
+                    await page.keyboard.insert_text(val)
+            elif method == "insert":
+                await page.keyboard.insert_text(val)
+            else:
+                await loc.fill(val, timeout=4000)
+            await asyncio.sleep(0.5)
+            # '값 일치' 검증 — 비어있지 않음만 보면 영타 오입력(rlatkdtlr)도 통과한다(실사용 확정).
+            #   숫자 값은 포맷팅(하이픈 등) 관용, 그 외는 정확 일치. 비교는 브라우저 안에서만.
+            ok = await ctx.evaluate(
+                """(a) => { const e = document.querySelector(a.s); if (!e || !e.value) return false;
+                    const t = e.value.trim(), v = String(a.v).trim();
+                    if (/^[0-9]+$/.test(v)) return t.replace(/[^0-9]/g, '') === v;
+                    return t === v; }""", {"s": sel, "v": val})
+            if ok:
+                return True
+        except Exception:
+            continue
+    return False
+
+
+async def _execute_plan(ctx, page, plan: list, want: dict, allow_clicks: bool) -> dict:
+    """계획 실행 — 반환 {값키: 성공여부}. 클릭은 허용·거부목록 이중 가드."""
+    result = {}
+    for it in plan:
+        sel = f"[data-modoobom-ai='{it['idx']}']"
+        action = it.get("action")
+        try:
+            if action == "click":
+                if not (allow_clicks and clicks_enabled()):
+                    continue
+                txt = await ctx.evaluate(
+                    "(s) => { const e = document.querySelector(s);"
+                    " return e ? (e.innerText || e.value || '').trim() : ''; }", sel)
+                if not click_text_allowed(txt):
+                    continue  # 허용목록 밖 — 어떤 경우에도 클릭하지 않는다(HITL·비가역 보호)
+                await ctx.locator(sel).click(timeout=4000)
+                await asyncio.sleep(0.8)
+                continue
+            key = it.get("key") or ""
+            val = want.get(key)
+            if action == "select":
+                v = val or it.get("option") or ""
+                if not v:
+                    continue
+                ok = await ctx.evaluate(
+                    """(a) => { const e = document.querySelector(a.s); if (!e || e.tagName !== 'SELECT') return false;
+                        const norm = (x) => String(x || '').replace(/\\s+/g, '');
+                        const o = [...e.options].find(o => norm(o.text).includes(norm(a.v)) || (norm(a.v).includes(norm(o.text)) && norm(o.text).length >= 2));
+                        if (!o) return false;
+                        e.value = o.value; e.dispatchEvent(new Event('change', {bubbles: true})); return true; }""",
+                    {"s": sel, "v": v})
+                if key:
+                    result[key] = bool(ok)
+                continue
+            if action == "fill" and val:
+                info = await ctx.evaluate(
+                    "(s) => { const e = document.querySelector(s); return e ? e.tagName.toLowerCase() : ''; }", sel)
+                if info == "select":
+                    ok = await ctx.evaluate(
+                        """(a) => { const e = document.querySelector(a.s); if (!e) return false;
+                            const norm = (x) => String(x || '').replace(/\\s+/g, '');
+                            const o = [...e.options].find(o => norm(o.text).includes(norm(a.v)) || (norm(a.v).includes(norm(o.text)) && norm(o.text).length >= 2));
+                            if (!o) return false;
+                            e.value = o.value; e.dispatchEvent(new Event('change', {bubbles: true})); return true; }""",
+                        {"s": sel, "v": val})
+                    result[key] = bool(ok)
+                else:
+                    result[key] = await _do_fill(ctx, page, sel, val)
+        except Exception:
+            if it.get("key"):
+                result[it["key"]] = False
+    return result
+
+
+async def ai_fill(ctx, page, values: dict, page_hint: str = "", task=None,
+                  allow_clicks: bool = False, rounds: int = 2) -> dict:
+    """인지→계획→실행→점검→재계획 루프. 반환 {값키: 성공여부}.
     키 없음·LLM 실패·계획 없음 — 전부 빈 dict(호출부 흐름 무변화)."""
     result = {}
     want = {k: str(v) for k, v in (values or {}).items() if v}
     if not want or not ai_fill_enabled():
         return result
-    try:
-        fields = await ctx.evaluate(_COLLECT_JS)
-    except Exception:
-        return result
-    if not fields:
-        return result
-    prompt = build_prompt([f for f in fields if not f.get("ro")], list(want.keys()), page_hint)
-    try:
-        loop = asyncio.get_running_loop()
-        text = await loop.run_in_executor(None, _ask_llm, prompt)
-    except Exception:
-        return result
-    plan = _parse_plan(text)
-    if not plan:
-        return result
-    if task is not None:
+    unfinished = list(want.keys())
+    for rnd in range(max(1, rounds)):
         try:
-            task.update("running",
-                        f"🤖 AI 채움(β): 화면을 읽고 {len(plan)}칸을 매핑했어요 — 값은 이 PC에서만 입력됩니다.")
+            fields = await ctx.evaluate(_COLLECT_JS)  # 인지(구조) — 라운드마다 신선하게 재수집
         except Exception:
-            pass
-    for it in plan:
-        key = it["key"]
-        val = want.get(key)
-        if not val:
-            continue
-        sel = f"[data-modoobom-ai='{it['idx']}']"
+            return result
+        if not isinstance(fields, list) or not fields:
+            return result
+        img = ""
+        if vision_enabled():
+            img = await _masked_screenshot_b64(page)  # 인지(비전, 옵트인) — 값 마스킹 후 촬영
+        prompt = build_prompt([f for f in fields if not f.get("ro")], unfinished, page_hint,
+                              allow_clicks=allow_clicks and clicks_enabled(),
+                              unfinished=unfinished if rnd > 0 else None)
         try:
-            info = await ctx.evaluate(
-                "(s) => { const e = document.querySelector(s); if (!e) return null;"
-                " return {tag: e.tagName.toLowerCase()}; }", sel)
-            if not info:
-                continue
-            if info.get("tag") == "select":
-                ok = await ctx.evaluate(
-                    """(a) => { const e = document.querySelector(a.s); if (!e) return false;
-                        const norm = (x) => String(x || '').replace(/\\s+/g, '');
-                        const o = [...e.options].find(o => norm(o.text).includes(norm(a.v)) || (norm(a.v).includes(norm(o.text)) && norm(o.text).length >= 2));
-                        if (!o) return false;
-                        e.value = o.value; e.dispatchEvent(new Event('change', {bubbles: true})); return true; }""",
-                    {"s": sel, "v": val})
-                result[key] = bool(ok)
-            else:
-                loc = ctx.locator(sel)
-                await loc.click()
-                await page.keyboard.press("Control+a")
-                await page.keyboard.press("Delete")
-                if val.isascii():
-                    await page.keyboard.type(val, delay=45)  # 숫자·영문은 실키(위젯 수용성 최고)
-                else:
-                    # 한글 등 비ASCII는 IME 확정 삽입 — 키 타이핑은 IME 없는 자동화 브라우저에서
-                    # 자판 위치 영문(김상식→rlatkdtlr)이 돼버린다(실사용 확정)
-                    await page.keyboard.insert_text(val)
-                await asyncio.sleep(0.5)  # 위젯이 지울 시간을 준 '뒤' 검증(자기만족 금지)
-                result[key] = bool(await ctx.evaluate(
-                    "(s) => { const e = document.querySelector(s);"
-                    " return !!(e && e.value && e.value.trim() && e.value.trim() !== '-'); }", sel))
+            loop = asyncio.get_running_loop()
+            text = await loop.run_in_executor(None, lambda: _ask_llm(prompt, 14, img))
         except Exception:
-            result[key] = False
+            return result
+        plan = _parse_plan(text)
+        if not plan:
+            break
+        if task is not None and rnd == 0:
+            try:
+                task.update("running",
+                            f"🤖 AI 채움(β): 화면을 읽고 {len(plan)}개 행동을 계획했어요 — 값은 이 PC에서만 입력됩니다.")
+            except Exception:
+                pass
+        got = await _execute_plan(ctx, page, plan, want, allow_clicks)
+        result.update({k: v for k, v in got.items() if v or k not in result})
+        unfinished = [k for k in want.keys() if not result.get(k)]
+        if not unfinished:
+            break  # 점검 통과 — 전 키 완료
     return result

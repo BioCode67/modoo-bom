@@ -41,11 +41,38 @@ def test_gating_mock_anthropic_key_ignored(monkeypatch):
 
 
 def test_parse_plan_tolerant():
-    # 마크다운·잡담 섞인 응답에서도 plan만 추출, 미지 키·음수 idx는 버림
+    # 마크다운·잡담 섞인 응답에서도 plan만 추출, 미지 키·음수 idx는 버림. 구형(action 없음)은 fill로 승격.
     text = '설명입니다.\n```json\n{"plan": [{"idx": 3, "key": "parent_name"}, {"idx": 1, "key": "없는키"}, {"idx": -1, "key": "rrn7"}]}\n```'
-    assert af._parse_plan(text) == [{"idx": 3, "key": "parent_name"}]
+    assert af._parse_plan(text) == [{"action": "fill", "idx": 3, "key": "parent_name"}]
     assert af._parse_plan("json 아님") == []
     assert af._parse_plan("") == []
+    # v2 행동 어휘 — click/select 파싱
+    text2 = '{"plan": [{"action": "click", "idx": 5}, {"action": "select", "idx": 2, "key": "sido"}]}'
+    assert af._parse_plan(text2) == [{"action": "click", "idx": 5},
+                                     {"action": "select", "idx": 2, "key": "sido", "option": ""}]
+
+
+def test_click_guard_allow_and_deny():
+    # 클릭 안전 가드 — 진행성 버튼만 허용, 제출/결제류는 어떤 경우에도 거부(HITL 불변)
+    assert af.click_text_allowed("간편인증")
+    assert af.click_text_allowed("인증 요청")
+    assert af.click_text_allowed("확인")
+    assert not af.click_text_allowed("제출")
+    assert not af.click_text_allowed("최종 제출")
+    assert not af.click_text_allowed("결제하기")
+    assert not af.click_text_allowed("신청하기")  # 허용목록 밖 — 골든패스(규칙 엔진)의 몫
+    assert not af.click_text_allowed("")
+
+
+def test_vision_and_click_default_off(monkeypatch):
+    # 비전(마스킹 스크린샷)·클릭 행동은 옵트인 — 기본 꺼짐(프라이버시·HITL 보수 기본값)
+    monkeypatch.setenv("GEMINI_API_KEY", "k")
+    assert af.vision_enabled() is False
+    assert af.clicks_enabled() is False
+    monkeypatch.setenv("RPA_AI_VISION", "1")
+    monkeypatch.setenv("RPA_AI_CLICK", "1")
+    assert af.vision_enabled() is True
+    assert af.clicks_enabled() is True
 
 
 def test_prompt_privacy_contract():
@@ -69,7 +96,7 @@ def test_ai_fill_no_key_returns_empty_without_page_access():
 def test_ai_fill_executes_plan_with_local_typing(monkeypatch):
     """LLM은 계획만, 입력은 로컬 타이핑 — 성공 판정은 '지연 후 값 존재' 재검증."""
     monkeypatch.setenv("GEMINI_API_KEY", "k")
-    monkeypatch.setattr(af, "_ask_llm", lambda prompt, timeout=14: json.dumps(
+    monkeypatch.setattr(af, "_ask_llm", lambda *a, **k: json.dumps(
         {"plan": [{"idx": 2, "key": "parent_name"}]}))
 
     typed = []
@@ -83,8 +110,10 @@ def test_ai_fill_executes_plan_with_local_typing(monkeypatch):
             typed.append(("insert", text))
 
     class _Loc:
-        async def click(self):
+        async def click(self, timeout=None):
             typed.append(("click", None))
+        async def fill(self, v, timeout=None):
+            typed.append(("fill", v))
 
     class _Ctx:
         def __init__(self):

@@ -32,6 +32,9 @@ export function RpaInfoForm() {
   const localAgent = ready === true && !!caps?.rpa
   // '이 탭에서는 기억' 옵트인 — 새로고침 실수로 인증정보를 재입력하는 실사용 불편의 안전망(발표·상담 현장)
   const [keep, setKeep] = useState(isKeepOn)
+  // 👁 민감 입력(뒷 7자리·부모 성명) 잠깐 보기 — 전부 ●는 오타 확인이 어렵다는 실사용 피드백.
+  //   보기 상태는 저장되지 않으며(세션 한정), 값 무보관 원칙은 그대로다.
+  const [showSecret, setShowSecret] = useState(false)
   const hydratedRef = useRef(false)
   useEffect(() => {
     // 마운트 1회: 옵트인 상태고 폼이 비어 있으면 이 탭 보관분 복원(입력 중 값 덮어쓰기 금지)
@@ -133,7 +136,7 @@ export function RpaInfoForm() {
         {/* 🔒 가족관계증명서(대법원 efamily)용 — 뒷자리는 password 타입이라 화면에 ●●●●●●●로만 보인다.
             rpaInfoKeep FIELDS에서 제외돼 '이 탭에서는 기억'을 켜도 보관되지 않는다(민감정보 무보관). */}
         <input
-          type="password"
+          type={showSecret ? 'text' : 'password'}
           value={rpaInfo.rrn_back ?? ''}
           onChange={(e) => setRpaInfo({ rrn_back: e.target.value.replace(/[^0-9]/g, '').slice(0, 7) })}
           placeholder="주민번호 뒷 7자리 (가족관계용·선택)"
@@ -141,7 +144,7 @@ export function RpaInfoForm() {
           maxLength={7}
           autoComplete="off"
           className="rounded-lg border border-sprout-100 px-2.5 py-1.5 text-xs focus-ring"
-          aria-label="주민등록번호 뒷자리 (가족관계증명서용, 화면에 가려져 표시)"
+          aria-label="주민등록번호 뒷자리 (가족관계증명서용, 기본 가려져 표시)"
         />
         <div className="flex gap-1">
           <select
@@ -154,19 +157,30 @@ export function RpaInfoForm() {
             <option value="모">모</option>
           </select>
           <input
-            type="password"
+            type={showSecret ? 'text' : 'password'}
             value={rpaInfo.parent_name ?? ''}
             onChange={(e) => setRpaInfo({ parent_name: e.target.value })}
             placeholder="부/모 성명 (가족관계용·선택)"
             autoComplete="off"
             className="min-w-0 flex-1 rounded-lg border border-sprout-100 px-2.5 py-1.5 text-xs focus-ring"
-            aria-label="부 또는 모 성명 (가족관계증명서용, 화면에 가려져 표시)"
+            aria-label="부 또는 모 성명 (가족관계증명서용, 기본 가려져 표시)"
           />
+          {/* 👁 잠깐 보기 — 전부 ●는 한글 오타(김상식/김상익)를 못 잡는다는 실사용 피드백. 값 무보관은 그대로. */}
+          <button
+            type="button"
+            onClick={() => setShowSecret((s) => !s)}
+            aria-pressed={showSecret}
+            aria-label={showSecret ? '민감 입력 가리기' : '민감 입력 잠깐 보기'}
+            title={showSecret ? '가리기' : '입력 확인(잠깐 보기)'}
+            className="shrink-0 rounded-lg border border-sprout-100 px-2 py-1.5 text-xs font-semibold text-muted-foreground hover:border-sprout-200"
+          >
+            {showSecret ? '🙈 가리기' : '👁 보기'}
+          </button>
         </div>
       </div>
       <p className="text-[11px] text-muted-foreground leading-relaxed">
-        🔒 뒷 7자리·부모 성명은 <b>가족관계증명서(대법원) 발급 자동입력에만</b> 쓰여요 — 둘 다 화면엔 ●로 가려지고,
-        디스크·탭 기억에도 <b>저장되지 않아요</b>. 넣어두면 인증 요청까지 전부 자동이 돼요.
+        🔒 뒷 7자리·부모 성명은 <b>가족관계증명서(대법원) 발급 자동입력에만</b> 쓰여요 — 기본은 ●로 가려지고
+        [👁 보기]로 잠깐 확인할 수 있어요. 디스크·탭 기억에는 <b>저장되지 않아요</b>. 넣어두면 인증 요청까지 전부 자동이 돼요.
       </p>
       <div className="flex flex-wrap gap-1">
         {CARRIERS.map((c) => (

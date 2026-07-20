@@ -1022,10 +1022,12 @@ async def _issue_family_cert_efamily(page, task, context, user_info: dict = None
             }
             return false;
         }"""
+        # ⚠️ 검증 승격(실사용: 영타 rlatkdtlr가 '비어있지 않음' 검증을 통과) — '우리 값과 정확히
+        #    같은가'로 판정한다. 비교는 브라우저 안에서만(값 외부 미전송).
         _js_check_parent = (
-            "() => { const e = document.querySelector(\"[data-modoobom='parent']\");"
-            " const v = e && e.value ? e.value.trim() : '';"
-            " return !!(v && v !== '-'); }"
+            "(v) => { const e = document.querySelector(\"[data-modoobom='parent']\");"
+            " const t = e && e.value ? e.value.trim() : '';"
+            " return !!(t && t === String(v).trim()); }"
         )
         for _attempt in range(3):
             try:
@@ -1037,16 +1039,26 @@ async def _issue_family_cert_efamily(page, task, context, user_info: dict = None
                 if not await page.evaluate(_js_mark_parent):
                     await asyncio.sleep(0.8)  # 행 늦은 렌더 — 다음 시도
                     continue
+                # ⚠️ 실사용 확정(RLATKDTLR): 자동화 브라우저엔 한글 IME가 없어 '키 타이핑'은 한글을
+                #    자판 위치의 영문으로 쳐버린다 — 한글은 IME 확정 삽입(insert) → CDP fill 순 폴백,
+                #    각 방식마다 지연 후 '값 일치' 검증(영타·잔값이면 다음 방식으로).
                 loc = page.locator("[data-modoobom='parent']")
-                await loc.click()
-                await page.keyboard.press("Control+a")
-                await page.keyboard.press("Delete")
-                # ⚠️ 실사용 확정(RLATKDTLR): 자동화 브라우저엔 한글 IME가 없어 키 타이핑은 한글을
-                #    '자판 위치의 영문'으로 쳐버린다(김상식→rlatkdtlr). 한글은 IME 확정 텍스트 삽입으로.
-                await page.keyboard.insert_text(parent_name)
-                await asyncio.sleep(0.7)  # 사이트 핸들러가 지울 시간을 준 '뒤에' 검증해야 진짜다
-                if await page.evaluate(_js_check_parent):
-                    _parent_ok = True
+                for _pm in ("insert", "fill"):
+                    try:
+                        await loc.click(timeout=4000)
+                        await page.keyboard.press("Control+a")
+                        await page.keyboard.press("Delete")
+                        if _pm == "insert":
+                            await page.keyboard.insert_text(parent_name)
+                        else:
+                            await loc.fill(parent_name, timeout=4000)
+                        await asyncio.sleep(0.7)  # 사이트 핸들러가 지울 시간을 준 '뒤에' 검증해야 진짜다
+                        if await page.evaluate(_js_check_parent, parent_name):
+                            _parent_ok = True
+                            break
+                    except Exception:
+                        continue
+                if _parent_ok:
                     break
             except Exception:
                 pass
@@ -1340,7 +1352,9 @@ async def _issue_family_cert_efamily(page, task, context, user_info: dict = None
                 )
         # 🔵 인증 요청 후 '인증 완료' 자동 클릭(사용자 요청) — 폰 승인만 하면 앱이 완료 버튼을 눌러
         #    다음 단계로 넘어간다. 승인 전 클릭은 '미완료' 안내만 뜨므로 그 확인만 닫고 12초 간격 재시도.
-        if modal_ready and rrn7 and _w % 6 == 0:
+        #    ⚠️ 실사용 제보: 대기 시작 직후(0초)부터 눌러 승인 전에 '미완료' 팝업이 반복 — 폰을 열고
+        #    승인할 최소 시간을 준 뒤(24초 이후) 첫 시도한다(base.wait_for_login의 20초 시작과 동일 취지).
+        if modal_ready and rrn7 and _w >= 12 and _w % 6 == 0:
             try:
                 ctx2 = await _modal_ctx(page)
                 if await click_by_text(ctx2, ["인증 완료", "인증완료"]):
