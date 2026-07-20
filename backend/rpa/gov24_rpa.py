@@ -731,18 +731,42 @@ async def _wait_document_rendered(page, timeout_sec: int = 20) -> bool:
         await page.wait_for_load_state("networkidle", timeout=min(timeout_sec, 10) * 1000)
     except Exception:
         pass
+    # ⚠️ 실사용 재재발(같은 날 15:00 저장본): '큰 캔버스/이미지 존재'만으로는 부족 — 문서출력 뷰어는
+    #    빈(어두운) 대형 캔버스 + 로딩 스피너 상태로도 크기 신호를 만족한다. → 픽셀 샘플링으로 승격:
+    #    요소를 48×48로 축소해 '문서다운 흰 바탕 비율(>20%)'이 실제로 보일 때만 강신호(s)로 센다.
+    #    교차출처 오염(getImageData 불가)은 약신호(w)로 분리 — 약신호만 6초+ 지속되면 로드로 간주.
     js = (
         "() => {"
-        "  const cv = [...document.querySelectorAll('canvas')].filter(c => c.width > 150 && c.height > 150).length;"
-        "  const im = [...document.querySelectorAll('img')].filter(i => i.complete && i.naturalWidth > 150 && i.naturalHeight > 150).length;"
+        "  const bright = (el) => {"
+        "    try {"
+        "      const off = document.createElement('canvas'); off.width = 48; off.height = 48;"
+        "      const octx = off.getContext('2d'); octx.drawImage(el, 0, 0, 48, 48);"
+        "      const d = octx.getImageData(0, 0, 48, 48).data;"
+        "      let n = 0;"
+        "      for (let i = 0; i < d.length; i += 4) { if (d[i] > 200 && d[i+1] > 200 && d[i+2] > 200) n++; }"
+        "      return (n * 4 / d.length) > 0.2 ? 1 : -1;"  # 1=문서같음(흰 바탕), -1=빈/어두움
+        "    } catch (e) { return 0; }"  # 교차출처 오염 — 판정 불가
+        "  };"
+        "  let s = 0, w = 0;"
+        "  for (const c of document.querySelectorAll('canvas')) {"
+        "    if (c.width > 300 && c.height > 300 && bright(c) === 1) s++;"
+        "  }"
+        "  for (const im of document.querySelectorAll('img')) {"
+        "    if (im.complete && im.naturalWidth > 150 && im.naturalHeight > 150) {"
+        "      const b = bright(im); if (b === 1) s++; else if (b === 0) w++;"
+        "    }"
+        "  }"
         "  const tx = (document.body ? document.body.innerText : '').replace(/\\s/g,'').length;"
-        "  return cv + im + (tx > 300 ? 1 : 0);"
+        "  if (tx > 300) s++;"
+        "  return {s: s, w: w};"
         "}"
     )
     prev = None
-    for _ in range(max(1, timeout_sec * 2)):
+    weak_since = None
+    for i in range(max(1, timeout_sec * 2)):
         ready = False
-        cur = 0
+        strong = 0
+        weak = 0
         for fr in [page] + list(getattr(page, "frames", None) or []):
             try:
                 r = await fr.evaluate(js)
@@ -750,12 +774,22 @@ async def _wait_document_rendered(page, timeout_sec: int = 20) -> bool:
                 continue
             if r is True:
                 ready = True  # 불리언 계약(구형 페이크/단순 뷰) — 즉시 준비로 간주
+            elif isinstance(r, dict):
+                strong += int(r.get("s") or 0)
+                weak += int(r.get("w") or 0)
             elif isinstance(r, (int, float)):
-                cur += int(r)
-        if ready or (cur > 0 and prev == cur):
+                strong += int(r)
+        if ready or (strong > 0 and prev == strong):
             await asyncio.sleep(2.0)  # 렌더/페인트 완료 여유 — 캡처가 본문을 담게
             return True
-        prev = cur if cur > 0 else None
+        if strong == 0 and weak > 0:
+            weak_since = i if weak_since is None else weak_since
+            if i - weak_since >= 12:  # 판정 불가 신호만 6초+ — 교차출처 문서로 보고 진행
+                await asyncio.sleep(2.0)
+                return True
+        else:
+            weak_since = None
+        prev = strong if strong > 0 else None
         await asyncio.sleep(0.5)
     await asyncio.sleep(2.0)  # 신호 못 잡아도 최소 여유 후 캡처(빈 화면보다 늦더라도 담기게)
     return False
@@ -1372,8 +1406,11 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None, session=Non
             except Exception:
                 pass
             # 🖨 문서출력 뷰어는 본문 렌더가 늦다 — 너무 빨리 캡처하면 '헤더만 있고 본문 빈' PDF가 저장됨
-            #    (실사용 제보). 본문이 실제로 그려질 때까지 기다린 뒤 save_document 로 캡처한다.
-            await _wait_document_rendered(final_page)
+            #    (실사용 제보). 본문 픽셀이 실제로 보일 때까지 기다리고(30초), 못 잡으면 15초 한 번 더.
+            rendered_ok = await _wait_document_rendered(final_page, 30)
+            if not rendered_ok:
+                task.update("running", "🖨 문서 화면이 아직 그려지는 중이에요 — 조금 더 기다렸다가 저장할게요...", await take_screenshot(final_page))
+                rendered_ok = await _wait_document_rendered(final_page, 15)
             final_url = final_page.url
             body_now = await _txt()
             # ⚠️ 실제 발급 신호로만 성공 판정 — save_document 는 어떤 화면이든 항상 저장(headed에선 스샷 폴백)
@@ -1386,10 +1423,13 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None, session=Non
             # 성공 판정은 really_issued(권위 신호) 단독으로 — headed 저장이 구조적으로 실패해도
             #   실제 발급 성공을 '미완료'로 뒤집지 않는다(감사 HIGH :567). saved 는 자동/수동 저장 안내에만 영향.
             if really_issued:
+                # 렌더 확인 실패(rendered_ok=False)면 저장본이 비었을 수 있다 — 성공 보고에 정직하게 표기
+                _warn = "" if rendered_ok else "⚠️ 문서 화면이 늦게 떠서 저장본이 비었을 수 있어요 — 열어서 확인하고, 비었으면 발급 창의 [인쇄]로 저장하거나 서류함에서 다시 발급해 주세요.\n"
                 task.update(
                     "done",
                     f"✅ {doc_name} 발급 완료!\n"
                     + (f"📄 자동 저장됨: {saved}\n" if saved else "브라우저 화면에서 '문서출력'으로 저장(PDF)해 주세요.\n")
+                    + _warn
                     + "브라우저는 60초 후 자동 종료됩니다.",
                     await take_screenshot(final_page),
                 )
