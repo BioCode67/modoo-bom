@@ -787,13 +787,17 @@ async def wait_for_login(
                 if login_url not in current_url and not is_login_page:
                     return True
 
-            # 로그아웃 버튼 감지 — '보이는' 요소만(숨겨진 로그아웃 링크 오탐 방지)
-            for sel in LOGIN_SUCCESS_SELECTORS:
-                try:
-                    if await page.locator(sel).first.is_visible():
-                        return True
-                except Exception:
-                    pass
+            # 로그아웃 버튼 감지 — '보이는' 요소만(숨겨진 로그아웃 링크 오탐 방지). 메인뿐 아니라 형제
+            #   프레임·창까지 살핀다: 신형 plus.gov.kr 은 로그인 마커(로그아웃 링크)가 자식 프레임/별창에
+            #   렌더돼, 인증 완료 클릭은 됐는데 감지만 놓쳐 5~8분 타임아웃되던 갭(제공자·완료 클릭과 동일
+            #   프레임 분리 대응). page 를 맨 앞에 두므로 마커가 메인에 있으면 동작 불변(순수 확장).
+            for ctx in _sibling_contexts(page):
+                for sel in LOGIN_SUCCESS_SELECTORS:
+                    try:
+                        if await ctx.locator(sel).first.is_visible():
+                            return True
+                    except Exception:
+                        pass
 
             # 일정 간격으로 대기 중 스크린샷 업데이트
             if elapsed - last_report >= report_interval and elapsed > 0:

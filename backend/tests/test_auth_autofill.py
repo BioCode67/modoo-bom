@@ -149,3 +149,32 @@ def test_request_easy_auth_reaches_child_frame():
 
     ok, title = _run(run())
     assert ok is True and title == "req"
+
+
+@pytest.mark.skipif(_chromium_path() is None, reason="컨테이너 chromium 없음 — 실브라우저 e2e 스킵")
+def test_gov24_autofill_resilient_to_missing_name_field():
+    """gov24 _autofill_auth_form: #oacx_name 이 없는 변형 폼에서도 생년월일·휴대폰·전체동의는 채운다.
+    (한 칸이 없을 때 timeout 없는 fill 이 30초 블록+예외로 나머지 입력을 통째 스킵하던 갭 회귀 락 — 감사 확정)"""
+    from playwright.async_api import async_playwright
+    from rpa.gov24_rpa import _autofill_auth_form
+
+    html = ("<body><input id='oacx_birth' type='text'><input id='oacx_phone2' type='tel'>"
+            "<label><input type='checkbox' id='totalAgree'>전체동의</label></body>")  # oacx_name 없음
+
+    async def run():
+        async with async_playwright() as pw:
+            b = await pw.chromium.launch(executable_path=_chromium_path())
+            pg = await (await b.new_context()).new_page()
+            await pg.set_content(html)
+            filled = await _autofill_auth_form(
+                pg, {"user_name": "김순자", "birth_date": "19380315", "phone": "01055557777"})
+            vals = await pg.evaluate(
+                "() => ({b: document.getElementById('oacx_birth').value,"
+                " p: document.getElementById('oacx_phone2').value,"
+                " a: document.getElementById('totalAgree').checked})")
+            await b.close()
+            return filled, vals
+
+    filled, vals = _run(run())
+    assert filled is True
+    assert vals["b"] == "19380315" and vals["p"] == "55557777" and vals["a"] is True  # 이름칸 없어도 나머지 채움

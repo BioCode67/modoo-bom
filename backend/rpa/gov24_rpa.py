@@ -257,22 +257,33 @@ async def _autofill_auth_form(ctx, user_info: dict) -> bool:
     birth = re.sub(r"[^0-9]", "", str(user_info.get("birth_date", "")))
     phone = re.sub(r"[^0-9]", "", str(user_info.get("phone", "")))
     filled = False
+
+    # ⚠️ 각 칸을 '존재 확인 + 타임아웃 4초'로 독립 입력한다(감사 확정 MED): #oacx_name 이 없는 변형 폼에서
+    #    timeout 없는 fill 이 Playwright 기본 30초를 통째로 블록하고, 그 예외가 단일 try 를 깨 생년월일·
+    #    휴대폰·전체동의까지 전부 스킵되던 갭 — 이제 한 칸이 없어도 나머지는 채운다.
+    async def _fill_if(sel, val):
+        nonlocal filled
+        try:
+            if val and await ctx.locator(sel).count() > 0:
+                await ctx.fill(sel, val, timeout=4000)
+                filled = True
+        except Exception:
+            pass
+
+    await _fill_if("#oacx_name", name)
+    await _fill_if("#oacx_birth", birth)
+    if phone:
+        tail = phone[3:] if phone.startswith("010") and len(phone) >= 10 else phone
+        for sel in ["#oacx_phone2", "#oku_phone2", "input.phone"]:
+            try:
+                if await ctx.locator(sel).count() > 0:
+                    await ctx.fill(sel, tail, timeout=4000); filled = True; break
+            except Exception:
+                continue
+    # '전체동의'는 이름·생년월일·휴대폰을 다 채운 뒤 '가장 마지막'에 체크(필드 재렌더가 동의를 지우지 않게).
+    #   ⚠️ 카카오톡 재선택은 이 체크를 또 지우므로, 호출부(_login_on_www_gov)가 '제공자 재선택 → 동의 재체크'
+    #      순서를 한 번 더 보장한다.
     try:
-        if name:
-            await ctx.fill("#oacx_name", name); filled = True
-        if birth:
-            await ctx.fill("#oacx_birth", birth); filled = True
-        if phone:
-            tail = phone[3:] if phone.startswith("010") and len(phone) >= 10 else phone
-            for sel in ["#oacx_phone2", "#oku_phone2", "input.phone"]:
-                try:
-                    if await ctx.locator(sel).count() > 0:
-                        await ctx.fill(sel, tail); filled = True; break
-                except Exception:
-                    continue
-        # '전체동의'는 이름·생년월일·휴대폰을 다 채운 뒤 '가장 마지막'에 체크(필드 재렌더가 동의를 지우지 않게).
-        #   ⚠️ 카카오톡 재선택은 이 체크를 또 지우므로, 호출부(_login_on_www_gov)가 '제공자 재선택 → 동의 재체크'
-        #      순서를 한 번 더 보장한다.
         await _check_agree_all(ctx)
     except Exception:
         pass
