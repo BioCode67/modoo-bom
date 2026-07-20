@@ -310,3 +310,44 @@ def test_launch_rebuilds_args_per_candidate(monkeypatch):
     assert "--no-sandbox" not in by_channel["chrome"]
     assert "--no-sandbox" not in by_channel["msedge"]
     assert "--no-sandbox" in by_channel[""]
+
+
+def _chromium_path():
+    import glob
+    hits = glob.glob("/opt/pw-browsers/chromium-*/chrome-linux/chrome")
+    return hits[0] if hits else None
+
+
+@pytest.mark.skipif(_chromium_path() is None, reason="컨테이너 chromium 없음 — 실브라우저 e2e 스킵")
+def test_auth_confirm_click_reaches_child_frame():
+    """'인증 완료' 버튼이 자식 프레임에 있어도 눌린다 — 신형 plus.gov.kr 프레임 분리 대응(실사용 갭).
+
+    메인 page 만 보던 기존 로직은 이 버튼을 못 눌러 폰 승인 뒤에도 로그인이 안 끝났다.
+    _click_auth_confirm_any 가 형제 프레임까지 훑어 누르는지 실브라우저로 검증(회귀 락)."""
+    from playwright.async_api import async_playwright
+
+    async def run():
+        async with async_playwright() as pw:
+            b = await pw.chromium.launch(executable_path=_chromium_path())
+            pg = await (await b.new_context()).new_page()
+            # 메인엔 '인증 완료'가 없고, 자식 프레임(about:blank)에만 있다 — 실사용 프레임 분리 재현
+            await pg.set_content('<h1>간편인증 진행 중</h1><iframe id="f" src="about:blank" width="360" height="140"></iframe>')
+            # 자식 프레임이 붙을 때까지 잠깐 대기 후 버튼 주입(클릭 시 title 로 신호)
+            for _ in range(20):
+                if len(pg.frames) > 1:
+                    break
+                await asyncio.sleep(0.1)
+            child = pg.frames[1]
+            await child.set_content(
+                "<button id='ok' onclick=\"document.title='clicked'\">인증 완료</button>")
+            # ⬅️ 기존 방식(메인 page 만)으론 이 버튼이 안 잡힌다는 것도 함께 증명
+            main_only = await pg.locator("button:has-text('인증 완료')").first.count()
+            ok = await base._click_auth_confirm_any(pg)
+            title = await child.title()
+            await b.close()
+            return main_only, ok, title
+
+    main_only, ok, title = _run(run())
+    assert main_only == 0            # 메인 page 로케이터로는 자식 프레임 버튼이 안 잡힘(기존 갭 재현)
+    assert ok is True                # 형제 프레임 순회로 눌렀다
+    assert title == "clicked"        # 실제로 그 버튼이 클릭됨

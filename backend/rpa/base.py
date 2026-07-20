@@ -686,6 +686,35 @@ async def try_click_kakao(page) -> bool:
     return False
 
 
+async def _click_auth_confirm_any(ctx_page) -> bool:
+    """'인증 완료' 버튼을 메인 page 뿐 아니라 형제 프레임·창까지 훑어 누른다 → 눌렀으면 True.
+
+    ⚠️ 실사용 배경(2026-07-20 리허설): 신형 plus.gov.kr 간편인증은 '정보 입력 폼·인증 완료 버튼'이
+    자식 프레임에 렌더된다 — 메인 page 만 보던 기존 자동 클릭은 폰 승인 뒤에도 '인증 완료'를 못 눌러
+    로그인이 끝나지 않는 경우가 있었다(제공자 클릭은 이미 _sibling_contexts 로 해결한 것과 같은 갭).
+    page 를 맨 앞에 두므로 버튼이 메인에 있으면 동작은 기존과 100% 동일 — 순수 확장(최악도 기존과 같음).
+
+    승인 전 클릭이면 gov24 가 '완료되지 않았습니다' 안내만 띄우므로, 그 안내의 '확인'만 닫고(메인 팝업
+    '닫기'는 절대 건드리지 않음) 다음 주기에 재시도한다. 실제 본인인증(폰 [인증 허용])은 여전히 사용자 몫."""
+    for ctx in _sibling_contexts(ctx_page):
+        for sel in AUTH_CONFIRM_SELECTORS:
+            try:
+                el = ctx.locator(sel).first
+                if await el.count() > 0 and await el.is_visible():
+                    await el.click()
+                    await asyncio.sleep(1.2)
+                    try:
+                        body = await ctx.evaluate("() => document.body ? document.body.innerText : ''")
+                    except Exception:
+                        body = ""
+                    if any(k in (body or "") for k in ("완료되지 않", "완료되지않", "미완료")):
+                        await click_by_text(ctx, ["확인"])
+                    return True
+            except Exception:
+                continue
+    return False
+
+
 async def wait_for_login(
     page,
     task,
@@ -730,16 +759,10 @@ async def wait_for_login(
         if elapsed >= confirm_start and (elapsed - last_confirm) >= confirm_interval:
             last_confirm = elapsed
             try:
-                for sel in AUTH_CONFIRM_SELECTORS:
-                    el = page.locator(sel).first
-                    if await el.count() > 0 and await el.is_visible():
-                        await el.click()
-                        await asyncio.sleep(1.2)
-                        # 승인 전 클릭이면 '완료되지 않았습니다' 안내 → 그 확인만 닫는다(메인 '닫기' 제외)
-                        body = await page.evaluate("() => document.body ? document.body.innerText : ''")
-                        if any(k in (body or "") for k in ("완료되지 않", "완료되지않", "미완료")):
-                            await click_by_text(page, ["확인"])
-                        break
+                # 메인 page 뿐 아니라 형제 프레임·창까지 훑어 '인증 완료'를 누른다 — 신형 plus.gov.kr은
+                #   완료 버튼이 자식 프레임에 있어 메인만 보던 기존 클릭이 폰 승인 뒤에도 불발하던 실사용
+                #   갭을, 제공자 클릭과 동일한 _sibling_contexts 순회로 해소. page 우선이라 메인이면 동작 불변.
+                await _click_auth_confirm_any(page)
             except Exception:
                 pass
 
