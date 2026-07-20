@@ -44,42 +44,69 @@ VALUE_KEYS_DOC = {
 _CLICK_ALLOW = re.compile(r"^(간편인증|인증요청|확인|다음|다음단계|검색|조회|닫기)$")
 _CLICK_DENY = re.compile(r"제출|결제|삭제|탈퇴|해지|이체")
 
-# 화면 구조 수집 — 보이는 input/select/button만, 값은 '있는지 여부'만(내용 미수집), 요소에 idx 마킹
+# 🧠 의미 기반 인지 — 브라우저 접근성 트리처럼 '접근성 이름(accessible name)'을 WAI-ARIA accname
+#   알고리즘으로 계산해 요소를 사람처럼 읽는다(2026 웹 에이전트 SOTA: Browser-Use/Stagehand/Playwright MCP).
+#   ⚠️ 값(내용)은 절대 담지 않는다 — filled 는 '채워졌는가' 불리언만(프라이버시 계약).
+#   한국 정부 폼의 <tr><th>라벨</th><td>입력</td></tr> 구조를 정확히 잡는 게 핵심(부모 전체 긁기 금지).
 _COLLECT_JS = """() => {
-    const out = [];
-    let idx = 0;
-    const rowLabel = (el) => {
-        let n = el.parentElement;
-        for (let i = 0; i < 5 && n; i++) {
-            const t = (n.innerText || '').trim();
-            if (t.length > 0 && t.length <= 60) return t.slice(0, 30);
-            n = n.parentElement;
+    const txt = (n) => (n && (n.innerText || n.textContent) || '').replace(/\\s+/g, ' ').trim();
+    // WAI-ARIA accessible name 계산(간이·견고) — 라벨을 사람이 보는 그대로.
+    const accName = (el) => {
+        const lb = el.getAttribute('aria-labelledby');
+        if (lb) { const t = lb.split(/\\s+/).map(id => txt(document.getElementById(id))).filter(Boolean).join(' '); if (t) return t; }
+        const al = el.getAttribute('aria-label'); if (al && al.trim()) return al.trim();
+        if (el.id) { try { const l = document.querySelector('label[for=\"' + CSS.escape(el.id) + '\"]'); if (l && txt(l)) return txt(l); } catch (e) {} }
+        const wl = el.closest('label'); if (wl && txt(wl)) return txt(wl);
+        const row = el.closest('tr'); if (row) { const th = row.querySelector('th'); if (th && txt(th)) return txt(th); }
+        // 셀/행 앞쪽의 라벨성 텍스트(dt, .label, 바로 앞 형제)
+        const cell = el.closest('td, li, dd, .form-group, div');
+        if (cell) {
+            const prev = cell.previousElementSibling;
+            if (prev && (prev.tagName === 'TH' || prev.tagName === 'DT' || /label|tit|head/i.test(prev.className)) && txt(prev)) return txt(prev);
         }
+        const ph = el.getAttribute('placeholder'); if (ph && ph.trim()) return ph.trim();
+        const ti = el.getAttribute('title'); if (ti && ti.trim()) return ti.trim();
         return '';
     };
-    for (const el of document.querySelectorAll('input, select, button, a')) {
+    const roleOf = (el) => {
+        const r = el.getAttribute('role'); if (r) return r;
+        const tag = el.tagName.toLowerCase();
+        if (tag === 'select') return 'combobox';
+        if (tag === 'textarea') return 'textbox';
+        if (tag === 'a') return 'link';
+        if (tag === 'button') return 'button';
+        if (tag === 'input') { const t = (el.type || 'text').toLowerCase();
+            return ({checkbox:'checkbox', radio:'radio', button:'button', submit:'button', number:'spinbutton', tel:'textbox', password:'textbox'})[t] || 'textbox'; }
+        return tag;
+    };
+    const out = [];
+    let idx = 0;
+    for (const el of document.querySelectorAll('input, select, textarea, button, a, [role=button], [role=checkbox], [role=radio]')) {
         const tag = el.tagName.toLowerCase();
         const type = (el.type || tag).toLowerCase();
-        if (['hidden', 'image', 'file', 'checkbox', 'radio'].includes(type)) continue;
-        if (el.offsetParent === null) continue;
-        const item = {idx: idx, tag: tag, type: type};
-        if (tag === 'button' || tag === 'a' || type === 'submit' || type === 'button') {
-            const txt = (el.innerText || el.value || '').trim().slice(0, 16);
-            if (!txt) continue;
-            item.text = txt;
-        } else {
-            item.label = rowLabel(el);
-            item.ph = (el.getAttribute('placeholder') || '').slice(0, 20);
+        if (['hidden', 'image', 'file'].includes(type)) continue;
+        if (el.offsetParent === null) continue;  // 보이는 것만
+        const role = roleOf(el);
+        const item = {idx: idx, role: role, name: accName(el).slice(0, 40)};
+        if (['button', 'link'].includes(role) || type === 'submit' || type === 'button') {
+            const t = txt(el) || (el.value || '').trim();
+            if (!t) continue;
+            item.text = t.slice(0, 24);
+        } else if (['checkbox', 'radio'].includes(role)) {
+            item.checked = !!el.checked;
+            if (!item.name) continue;  // 이름 없는 라디오/체크는 스킵(오클릭 방지)
+        } else {  // textbox/combobox/spinbutton 등 입력칸
             item.filled = !!(el.value && el.value.trim() && el.value.trim() !== '-');
             item.ro = !!(el.readOnly || el.disabled);
-            if (tag === 'select') {
-                item.options = [...el.options].slice(0, 20).map(o => (o.text || '').trim().slice(0, 16));
-            }
+            if (tag === 'select') item.options = [...el.options].slice(0, 20).map(o => (o.text || '').trim().slice(0, 16));
         }
+        // 하위호환: 기존 코드/테스트가 tag·type·label·ph 를 읽으므로 함께 채운다
+        item.tag = tag; item.type = type; item.label = item.name;
+        item.ph = (el.getAttribute('placeholder') || '').slice(0, 20);
         el.setAttribute('data-modoobom-ai', String(idx));
         out.push(item);
         idx += 1;
-        if (idx >= 60) break;
+        if (idx >= 80) break;
     }
     return out;
 }"""
@@ -179,15 +206,19 @@ def build_prompt(fields: list, keys: list, page_hint: str = "", allow_clicks: bo
         actions += ' 또는 {"action":"click","idx":N}(진행 버튼만 — 제출/결제류 금지)'
     extra = ""
     if unfinished:
-        extra = f"직전 라운드에서 미완된 값 키: {json.dumps(unfinished, ensure_ascii=False)} — 이 키들을 우선 해결하세요.\n"
+        extra = (f"직전 행동 뒤 아직 값이 안 들어간 키: {json.dumps(unfinished, ensure_ascii=False)}.\n"
+                 "요소 목록의 filled 상태가 바뀌었는지 관찰하고, 안 된 키만 다른 요소/방법으로 다시 계획하세요.\n")
     return (
-        "당신은 대한민국 정부 웹사이트 자동화의 '행동 계획기'입니다. 실제 값은 로컬 PC에서만 입력되며 당신은 값을 볼 수 없습니다.\n"
-        f"화면: {page_hint or '발급/인증 폼'}\n"
+        "당신은 한국 정부 웹사이트 자동화 에이전트입니다. 화면의 '접근성 트리'를 읽고 어떤 칸에 어떤 값을 넣을지 판단하세요.\n"
+        "⚠️ 실제 값(이름·주민번호·전화번호)은 로컬 PC에서만 입력되며 당신에게 전달되지 않습니다. 당신은 '어디에 무엇을'만 정합니다.\n"
+        f"화면 맥락: {page_hint or '발급/인증 폼'}\n"
         + extra +
-        "아래 '요소 목록'을 보고 각 '값 키'가 들어갈 요소와 필요한 행동을 계획하세요. 확실한 것만. "
-        "filled=true(이미 입력됨)·ro=true(잠김) 요소는 채우지 마세요.\n"
+        "각 요소는 role(textbox/combobox/checkbox/button)·name(접근성 라벨)·filled(입력됨)·ro(잠김)를 가집니다.\n"
+        "판단 규칙: ① name이 값 키 의미와 맞는 textbox/combobox를 고른다 ② filled=true·ro=true는 건드리지 않는다 "
+        "③ 주민번호 앞자리는 name='주민등록번호'인 첫 textbox, 생년월일 6자리(birth6)가 거기 들어간다 "
+        "④ 휴대폰 뒷부분(phone_tail)은 name에 '휴대폰/핸드폰'이 있는 textbox ⑤ 시/도·시군구는 combobox(select)면 select 행동.\n"
         f"행동 형식: {actions}\n"
-        'JSON 한 개만 출력: {"plan": [<행동>...]}\n'
+        'JSON 한 개만 출력(설명 금지): {"plan": [<행동>...]}\n'
         f"값 키(이름: 의미): {json.dumps(kdoc, ensure_ascii=False)}\n"
         f"요소 목록: {json.dumps(fields, ensure_ascii=False)}\n"
     )
@@ -387,15 +418,70 @@ async def _execute_plan(ctx, page, plan: list, want: dict, allow_clicks: bool) -
     return result
 
 
+# 🧭 결정론적 의미 매칭 — 접근성 이름(name)을 값 키 의도와 대조(생활어 동의어). LLM 없이도 동작.
+#   한국 정부/인증 폼의 라벨 변형을 흡수(성명↔이름, 휴대폰↔핸드폰, 주민등록번호↔생년월일 등).
+_INTENT_PATTERNS = {
+    "name": ["성명", "이름", "신청인"],
+    "birth6": ["주민등록번호", "생년월일", "주민번호"],
+    "phone_tail": ["휴대폰", "핸드폰", "전화번호"],
+    "parent_name": ["추가정보", "부성명", "모성명", "부모성명"],
+    "sido": ["시도", "시·도", "특별시", "광역시", "주소"],
+    "sigungu": ["시군구", "시·군·구", "군구"],
+}
+
+
+def _deterministic_plan(fields: list, keys) -> list:
+    """접근성 이름 기반 결정론 계획 — LLM 없이 값 키↔요소를 매칭(같은 이름 여럿이면 문서순 첫 미사용).
+    입력 role(textbox/combobox/spinbutton)만 대상, filled/ro/이름없음은 제외. 같은 idx 중복 금지."""
+    plan = []
+    used = set()
+    _norm = lambda s: str(s or "").replace(" ", "")
+    for key in keys:
+        pats = _INTENT_PATTERNS.get(key)
+        if not pats:
+            continue
+        for f in fields:
+            if f.get("idx") in used or f.get("ro") or f.get("filled"):
+                continue
+            role = f.get("role")
+            if role not in ("textbox", "combobox", "spinbutton"):
+                continue
+            nm = _norm(f.get("name"))
+            if not nm or not any(_norm(p) in nm for p in pats):
+                continue
+            used.add(f["idx"])
+            plan.append({"action": "select" if role == "combobox" else "fill", "idx": f["idx"], "key": key})
+            break
+    return plan
+
+
 async def ai_fill(ctx, page, values: dict, page_hint: str = "", task=None,
                   allow_clicks: bool = False, rounds: int = 2) -> dict:
-    """인지→계획→실행→점검→재계획 루프. 반환 {값키: 성공여부}.
-    키 없음·LLM 실패·계획 없음 — 전부 빈 dict(호출부 흐름 무변화)."""
+    """observe→act 에이전트: ① 접근성 이름 인지 ② 결정론 의미매칭 실행(LLM 불필요)
+    ③ 남은 키는 LLM ReAct 루프(키 있을 때)로 계획→실행→점검→재계획. 반환 {값키: 성공여부}.
+    값 없음이면 빈 dict(호출부 무변화). 결정론 계층 덕에 API 키 없이도 라벨 변형에 견고."""
     result = {}
     want = {k: str(v) for k, v in (values or {}).items() if v}
-    if not want or not ai_fill_enabled():
+    if not want:
         return result
-    unfinished = list(want.keys())
+
+    # ── 계층 1: 결정론 의미매칭(무료·오프라인) — 접근성 이름으로 칸을 찾아 로컬 입력 ──
+    try:
+        fields0 = await ctx.evaluate(_COLLECT_JS)
+    except Exception:
+        fields0 = None
+    if isinstance(fields0, list) and fields0:
+        det = _deterministic_plan(fields0, list(want.keys()))
+        if det:
+            got0 = await _execute_plan(ctx, page, det, want, allow_clicks=False)
+            result.update({k: v for k, v in got0.items() if v})
+
+    # ── 계층 2: LLM ReAct(키 있을 때·남은 키만) — 결정론이 못 맞춘 어려운 폼 ──
+    if all(result.get(k) for k in want):
+        return result  # 결정론만으로 완료 — LLM 불필요
+    if not ai_fill_enabled():
+        return result  # 키 없음 — 결정론 결과까지만(그래도 예전보다 똑똑)
+    unfinished = [k for k in want.keys() if not result.get(k)]
     for rnd in range(max(1, rounds)):
         try:
             fields = await ctx.evaluate(_COLLECT_JS)  # 인지(구조) — 라운드마다 신선하게 재수집

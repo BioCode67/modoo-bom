@@ -52,6 +52,28 @@ def test_parse_plan_tolerant():
                                      {"action": "select", "idx": 2, "key": "sido", "option": ""}]
 
 
+def test_deterministic_semantic_match():
+    """🧭 접근성 이름 결정론 매칭(LLM 없이) — 라벨 변형·동의어 흡수, 같은 이름 여럿이면 첫 미사용,
+    filled/ro/이름없음/버튼은 제외. API 키 없이도 똑똑하게 칸을 찾는 핵심 계층."""
+    fields = [
+        {"idx": 0, "role": "textbox", "name": "성명", "filled": False, "ro": False},
+        {"idx": 1, "role": "textbox", "name": "주민등록번호", "filled": False, "ro": False},   # 앞자리
+        {"idx": 2, "role": "textbox", "name": "주민등록번호", "filled": False, "ro": False},   # 뒷자리(같은 이름)
+        {"idx": 3, "role": "textbox", "name": "휴대폰 번호", "filled": False, "ro": False},
+        {"idx": 4, "role": "combobox", "name": "시도 선택", "filled": False, "ro": False},
+        {"idx": 5, "role": "button", "name": "간편인증"},                                      # 버튼 제외
+        {"idx": 6, "role": "textbox", "name": "이메일", "filled": True, "ro": False},          # filled 제외
+    ]
+    plan = af._deterministic_plan(fields, ["name", "birth6", "phone_tail", "sido"])
+    by_key = {p["key"]: p for p in plan}
+    assert by_key["name"]["idx"] == 0 and by_key["name"]["action"] == "fill"
+    assert by_key["birth6"]["idx"] == 1                       # 첫 '주민등록번호' textbox
+    assert by_key["phone_tail"]["idx"] == 3                   # '휴대폰' 동의어 매칭
+    assert by_key["sido"]["idx"] == 4 and by_key["sido"]["action"] == "select"  # combobox → select
+    # 매칭 없는 키는 계획에 없음, 버튼·filled는 절대 안 잡힘
+    assert all(p["idx"] != 5 and p["idx"] != 6 for p in plan)
+
+
 def test_click_guard_allow_and_deny():
     # 클릭 안전 가드 — 진행성 버튼만 허용, 제출/결제류는 어떤 경우에도 거부(HITL 불변)
     assert af.click_text_allowed("간편인증")
@@ -115,14 +137,13 @@ def test_ai_fill_executes_plan_with_local_typing(monkeypatch):
         async def fill(self, v, timeout=None):
             typed.append(("fill", v))
 
+    # ⚠️ role 없는(구형 shape) 필드라 결정론 계층은 스킵 → LLM 경로가 실행되는 계약을 검증.
+    #    mock은 호출순서가 아닌 'JS 내용' 기반 dispatch(3계층 구조로 collect 호출이 늘어도 견고).
     class _Ctx:
-        def __init__(self):
-            self.calls = 0
         async def evaluate(self, js, *args):
-            self.calls += 1
-            if self.calls == 1:   # 구조 수집
+            if "querySelectorAll('input, select" in js or "data-modoobom-ai" in js and "setAttribute" in js:
                 return [{"idx": 2, "tag": "input", "type": "text", "label": "추가정보확인", "filled": False, "ro": False}]
-            if self.calls == 2:   # 요소 정보
+            if "e.tagName.toLowerCase()" in js:   # 요소 정보(tag 조회)
                 return {"tag": "input"}
             return True           # 지연 재검증 — 값 남음
         def locator(self, sel):
