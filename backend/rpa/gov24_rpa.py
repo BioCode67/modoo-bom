@@ -1853,6 +1853,29 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None, session=Non
                         await click_by_text(page, ["확인"])
                         task.update("running", "안내창이 진행을 막고 있어 [확인]으로 닫고 다시 시도해요…", await take_screenshot(page))
                         continue
+                    # 🧠 자가 치유 — 진행을 막는 '미선택 필수항목'을 사람 개입 전에 스스로 보정하고 재시도.
+                    #    ① 늦게 렌더된 필수 select 재선택(결정론·테스트됨) ② LLM 키 있으면 실화면을 읽고 남은
+                    #    빈 칸을 채운다(빈 칸만·값일치 검증·오입력 가드). 실패 상태에서만 도니 개선 아니면 무해.
+                    try:
+                        await _select_doc_form_options(page, doc_name)
+                        from rpa.ai_fill import ai_fill, ai_fill_enabled
+                        if ai_fill_enabled():
+                            _uv = {}
+                            _nm = str((user_info or {}).get("name") or "").strip()
+                            if _nm:
+                                _uv["name"] = _nm
+                            _b6 = _birth6((user_info or {}).get("birth_date"))
+                            if _b6:
+                                _uv["birth6"] = _b6
+                            _ph = re.sub(r"[^0-9]", "", str((user_info or {}).get("phone", "")))
+                            if _ph:
+                                _uv["phone_tail"] = _ph[3:] if _ph.startswith("01") and len(_ph) >= 10 else _ph
+                            if _uv:
+                                await ai_fill(page, page, _uv,
+                                              page_hint=f"정부24 {doc_name} 발급 폼 — 진행을 막는 필수 입력칸", task=task)
+                        task.update("running", "필수 선택·입력을 스스로 보정하고 다시 신청해요…", await take_screenshot(page))
+                    except Exception:
+                        pass
                 if stuck >= 2:
                     if not fix_hinted:
                         task.update(
