@@ -139,12 +139,113 @@ async def _pass_service_select_page(page, task, service_name: str, wait_sec: int
     return False
 
 
-async def _login_bokjiro(page, task, provider: str = "kakao") -> bool:
+async def _autofill_bokjiro_auth(contexts, page, user_info) -> dict:
+    """복지로 간편인증 창 자동입력(이름·생년월일·휴대폰) — 정부24와 동일 레이아웃(실측 스크린샷
+    2026-07-20). 오늘 gov24에서 검증한 방식 이식: 라벨 행 매칭 + 한글 IME 삽입(영타 방지) +
+    숫자 실키 + '값 일치' 지연 검증. 주민번호 뒷자리는 rrn_back 있을 때만(민감정보 무보관 원칙).
+    본인인증 최종 승인(폰)은 사람 — RPA는 입력·전체동의·제공자 선택까지만.
+    반환 {name/birth/phone: 성공여부} — 실패는 무해(사용자 직접 입력 폴백)."""
+    ui = user_info or {}
+    name = str(ui.get("name") or ui.get("user_name") or "").strip()
+    from rpa.gov24_rpa import _birth6
+    birth = _birth6(ui.get("birth_date"))  # 주민번호 앞 6자리(YYMMDD) — '20010601'→'010601'
+    phone = re.sub(r"[^0-9]", "", str(ui.get("phone", "")))
+    rrn7 = re.sub(r"[^0-9]", "", str(ui.get("rrn_back", "")))
+    rrn7 = rrn7 if len(rrn7) == 7 else ""
+    phone_tail = phone[3:] if phone.startswith("01") and len(phone) >= 10 else phone
+    out = {"name": not name, "birth": not birth, "phone": not phone_tail}
+
+    # 행 라벨로 대상 입력칸을 찾아 data-modoobom-b 마킹(보이는 활성 칸만)
+    _mark_js = """(kind) => {
+        const rowOf = (e) => { let n = e.parentElement;
+            for (let i=0;i<5&&n;i++){ const t=(n.innerText||'').trim(); if(t&&t.length<=60) return t; n=n.parentElement; } return ''; };
+        const pat = kind==='name' ? /이름|성명/ : kind==='birth' ? /주민등록번호|생년월일/ : /휴대폰|핸드폰/;
+        const cands = [...document.querySelectorAll("input[type=text],input[type=tel],input[type=number],input:not([type])")]
+            .filter(e => e.offsetParent!==null && !e.disabled && !e.readOnly && pat.test(rowOf(e)));
+        if(!cands.length) return 0;
+        // 이름은 첫 칸, 생년월일은 첫 칸(앞자리), 휴대폰은 마지막 칸(뒷부분)
+        const el = kind==='phone' ? cands[cands.length-1] : cands[0];
+        el.setAttribute('data-modoobom-b', kind); return 1;
+    }"""
+
+    async def _fill(ctx, kind, value, numeric):
+        try:
+            if not await ctx.evaluate(_mark_js, kind):
+                return False
+        except Exception:
+            return False
+        sel = f"[data-modoobom-b='{kind}']"
+        loc = ctx.locator(sel)
+        chk = ("(a)=>{const e=document.querySelector(a.s);if(!e||!e.value)return false;"
+               "const t=e.value.trim(),v=String(a.v).trim();"
+               "return /^[0-9]+$/.test(v)? t.replace(/[^0-9]/g,'')===v : t===v;}")
+        for method in ("focus_key", "click_key", "fill"):
+            try:
+                if method == "focus_key":
+                    if not await ctx.evaluate(
+                        "(s)=>{const e=document.querySelector(s);if(!e)return false;e.focus();try{e.select()}catch(x){}return document.activeElement===e;}", sel):
+                        continue
+                    if numeric or value.isascii():
+                        await page.keyboard.type(value, delay=40)
+                    else:
+                        await page.keyboard.insert_text(value)  # 한글은 IME 삽입(영타 방지)
+                elif method == "click_key":
+                    await loc.click(timeout=3000)
+                    await page.keyboard.press("Control+a")
+                    await page.keyboard.press("Delete")
+                    if numeric or value.isascii():
+                        await page.keyboard.type(value, delay=40)
+                    else:
+                        await page.keyboard.insert_text(value)
+                else:
+                    await loc.fill(value, timeout=3000)
+                await asyncio.sleep(0.4)
+                if await ctx.evaluate(chk, {"s": sel, "v": value}):
+                    return True
+            except Exception:
+                continue
+        return False
+
+    for ctx_ in contexts:
+        if name and not out["name"]:
+            out["name"] = await _fill(ctx_, "name", name, numeric=False)
+        if birth and not out["birth"]:
+            out["birth"] = await _fill(ctx_, "birth", birth, numeric=True)
+        if phone_tail and not out["phone"]:
+            out["phone"] = await _fill(ctx_, "phone", phone_tail, numeric=True)
+        if rrn7:  # 뒷자리는 있을 때만(민감정보) — 검증은 생략(마스킹 입력이라 값 확인 어려움)
+            try:
+                _need = await ctx_.evaluate(
+                    """() => { const rowOf=(e)=>{let n=e.parentElement;for(let i=0;i<5&&n;i++){const t=(n.innerText||'').trim();if(t&&t.length<=60)return t;n=n.parentElement;}return '';};
+                        const cs=[...document.querySelectorAll("input[type=text],input[type=password],input[type=tel],input[type=number],input:not([type])")]
+                            .filter(e=>e.offsetParent!==null&&!e.disabled&&!e.readOnly&&/주민등록번호/.test(rowOf(e)));
+                        const el=cs[cs.length-1]; if(!el||el.value)return false; el.setAttribute('data-modoobom-b','rrn'); return true; }"""
+                )
+                if _need:
+                    _rl = ctx_.locator("[data-modoobom-b='rrn']")
+                    await _rl.click(timeout=3000)
+                    await page.keyboard.type(rrn7, delay=40)
+            except Exception:
+                pass
+    # 전체동의는 '제공자 선택 뒤 마지막에'(정부24와 동일 — 제공자 선택이 동의를 리셋)
+    for ctx_ in contexts:
+        try:
+            await ctx_.evaluate(
+                """() => { for(const el of document.querySelectorAll("input[type=checkbox],input[type=radio],label,button,a,span,div")){
+                    const t=(el.innerText||el.value||'').replace(/\\s+/g,''); if(t.includes('전체동의')){ el.click(); return true; } } return false; }"""
+            )
+        except Exception:
+            pass
+    return out
+
+
+async def _login_bokjiro(page, task, provider: str = "kakao", user_info: dict = None) -> bool:
     """복지로 로그인 (eForm 간편인증 → yeskey fincert → 카카오톡).
 
     복지로는 Clipsoft eForm SPA라 간편인증 버튼이 .cl-button 컴포넌트이고, 인증 위젯은
-    외부 iframe(fincert)로 로드된다. 제공자(카카오) 선택·본인인증 정보 입력·카카오 승인은
-    사용자가 직접 수행한다(비가역 본인인증 원칙). RPA는 위젯까지 안정적으로 도달시킨다.
+    외부 iframe(fincert)로 로드된다. user_info(이름·생년월일·휴대폰)가 오면 제공자 선택 후
+    인증 정보를 자동입력한다(정부24와 동일 — 실사용 제보로 추가). 카카오 최종 승인(폰)은
+    사용자가 직접 수행한다(비가역 본인인증 원칙). RPA는 위젯 도달+입력+전체동의까지.
     """
     login_url = page.url
     pv = provider_display(provider)
@@ -177,10 +278,23 @@ async def _login_bokjiro(page, task, provider: str = "kakao") -> bool:
             kakaotalk_clicked = True
             break
     await asyncio.sleep(1)
+
+    # 🆕 제공자 선택 후 본인인증 정보 자동입력(이름·생년월일·휴대폰 + 전체동의) — 실사용 제보로 추가.
+    #    user_info 없으면 기존처럼 사용자 직접 입력(무해 폴백). 폰 최종 승인은 항상 본인.
+    filled = {"name": True, "birth": True, "phone": True}
+    if user_info:
+        await asyncio.sleep(0.6)  # 제공자 선택 후 폼 렌더 안정 대기(동의 리셋 방지)
+        filled = await _autofill_bokjiro_auth(contexts, page, user_info)
     ss = await take_screenshot(page)
 
     form_detected = any([await detect_auth_form(ctx_) for ctx_ in contexts])
-    if kakaotalk_clicked and form_detected:
+    _all_filled = all(filled.values())
+    if kakaotalk_clicked and _all_filled and user_info:
+        task.update("waiting_login",
+            f"📱 복지로 간편인증 정보를 채우고 {pv}를 선택했어요.\n"
+            f"화면의 [인증 요청]을 누른 뒤, 스마트폰 {pv} 알림에서 [인증 허용]만 눌러 주세요.\n"
+            "이후 자동으로 신청 화면까지 진행됩니다.", ss)
+    elif kakaotalk_clicked and form_detected:
         task.update("waiting_login", AUTH_FORM_USER_GUIDE, ss)
     elif kakaotalk_clicked:
         task.update("waiting_login",
@@ -545,8 +659,8 @@ async def run_apply_rpa(task, service_name: str, profile: dict) -> None:
                 await page.goto(BOKJIRO_LOGIN_URL, wait_until="load", timeout=40000)
             await asyncio.sleep(3)
 
-            # ② 로그인
-            login_ok = await _login_bokjiro(page, task, provider)
+            # ② 로그인 — profile(이름·생년월일·휴대폰)을 넘겨 간편인증 정보 자동입력
+            login_ok = await _login_bokjiro(page, task, provider, user_info=profile)
             if not login_ok:
                 await browser.close()
                 return
@@ -563,7 +677,7 @@ async def run_apply_rpa(task, service_name: str, profile: dict) -> None:
 
             # 로그인 재요구 처리
             if any(k in page.url for k in LOGIN_PAGE_URL_KEYWORDS):
-                login_ok = await _login_bokjiro(page, task, provider)
+                login_ok = await _login_bokjiro(page, task, provider, user_info=profile)
                 if not login_ok:
                     await browser.close()
                     return

@@ -275,6 +275,49 @@ def test_resolve_apply_url_known_service_ignores_deeplink():
     assert resolve_apply_url("아동수당", {"applyUrl": other}) == SERVICE_APPLY_URLS["아동수당"]
 
 
+def test_bokjiro_autofill_local_typing():
+    """복지로 간편인증 자동입력 — 한글 이름은 IME 삽입(영타 방지), 숫자는 실키, 값일치 검증.
+    실사용 제보: 복지로 로그인 창에 이름·주민번호·휴대폰이 자동입력 안 되던 것 해소."""
+    import asyncio
+    from rpa.apply_rpa import _autofill_bokjiro_auth
+
+    typed = []
+
+    class _Kbd:
+        async def press(self, k): typed.append(("press", k))
+        async def type(self, t, delay=0): typed.append(("type", t))
+        async def insert_text(self, t): typed.append(("insert", t))
+
+    class _Loc:
+        async def click(self, timeout=None): typed.append(("click", None))
+        async def fill(self, v, timeout=None): typed.append(("fill", v))
+
+    class _Ctx:
+        async def evaluate(self, js, *a):
+            if "setAttribute('data-modoobom-b'" in js and "kind==='phone'" in js:
+                return 1  # 마킹 성공
+            if "data-modoobom-b" in js and "activeElement" in js:
+                return True  # focus 성공
+            if "e.value.trim()" in js:
+                return True  # 값 일치(성공 판정)
+            if "전체동의" in js:
+                return True
+            return 0
+        def locator(self, sel): return _Loc()
+
+    class _Page:
+        keyboard = _Kbd()
+
+    out = asyncio.new_event_loop().run_until_complete(
+        _autofill_bokjiro_auth([_Ctx()], _Page(),
+                               {"name": "김주형", "birth_date": "20010601", "phone": "01012345678"}))
+    assert out == {"name": True, "birth": True, "phone": True}
+    assert ("insert", "김주형") in typed          # 한글 이름은 IME 삽입(영타 rlatkdtlr 방지)
+    assert ("type", "010601") in typed            # 생년월일 앞 6자리는 실키
+    assert ("type", "12345678") in typed          # 휴대폰 뒷부분은 실키
+    assert ("type", "김주형") not in typed         # 한글을 키 타이핑하지 않음
+
+
 def test_landed_matches_guard():
     # 착지 대조 가드: 다른 서비스 상세로 열리면(복지로 ID 재배정) 자동 클릭을 멈추기 위한 판정.
     from rpa.apply_rpa import _landed_matches
