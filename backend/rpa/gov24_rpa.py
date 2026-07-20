@@ -953,21 +953,32 @@ async def _wait_document_rendered(page, timeout_sec: int = 20) -> bool:
     return False
 
 
-def _pick_result_page(context, fallback):
+def _pick_result_page(context, fallback, baseline=None):
     """발급 결과 페이지를 고른다 — 무관한 팝업/탭이 최신(pages[-1])이면 엉뚱한 화면을 저장하던 것 방지(감사 :555).
-    URL 만 검사(evaluate 없음 → 렌더러 블록 위험 없음): 발급 결과 경로를 담은 살아있는 페이지 우선, 없으면 최신."""
+    URL 만 검사(evaluate 없음 → 렌더러 블록 위험 없음): 발급 결과 경로를 담은 살아있는 페이지 우선, 없으면 최신.
+
+    baseline(단계 시작 시점의 창 id 집합)을 주면 '이번 단계에서 새로 열린 창'만 결과 후보로 삼는다(감사 확정 HIGH):
+    여정 공유 세션에서 이전 단계의 잔류 출력창(plus.gov.kr → 'gov.kr' 키워드 매칭)을 이 서류의 결과로
+    오인해 엉뚱한 문서를 저장·성공보고하던 것을 차단한다. 새 창이 없으면(결과가 작업 페이지에 인라인
+    렌더) fallback(작업 페이지)을 돌려줘 잔류 창을 절대 고르지 않는다."""
     try:
         alive = [p for p in context.pages if not p.is_closed()]
         if not alive:
             return fallback
-        for p in reversed(alive):  # 최신부터
+        candidates = alive
+        if baseline is not None:
+            fresh = [p for p in alive if id(p) not in baseline]
+            if not fresh:
+                return fallback  # 새 창 없음 → 결과는 작업 페이지에 있다(잔류 창 오인 방지)
+            candidates = fresh
+        for p in reversed(candidates):  # 최신부터
             try:
                 u = p.url or ""
             except Exception:
                 continue
             if any(k in u for k in ("mbrAplySrvcList", "AplyView", "issue", "gov.kr")):
                 return p
-        return alive[-1]
+        return candidates[-1]
     except Exception:
         return fallback
 
@@ -990,7 +1001,7 @@ def _birth6(birth_date) -> str:
     return ""
 
 
-async def _issue_family_cert_efamily(page, task, context, user_info: dict = None) -> None:
+async def _issue_family_cert_efamily(page, task, context, user_info: dict = None, baseline=None) -> None:
     """가족관계증명서 — efamily 직행 발급(β).
 
     흐름(실측): ① 신청인 정보조회 페이지 → 약관 동의 + 성명·주민번호 앞자리 자동 입력
@@ -1509,7 +1520,7 @@ async def _issue_family_cert_efamily(page, task, context, user_info: dict = None
     if not await click_by_text(page, ["신청하기", "발급하기", "발급 신청"]):
         await click_first_matching(page, ["button:has-text('신청')", "a:has-text('신청')", "input[value*='신청']"])
     await asyncio.sleep(3)
-    final_page = _pick_result_page(context, page)
+    final_page = _pick_result_page(context, page, baseline)
     await _wait_document_rendered(final_page)
     body_now = ""
     try:
@@ -1517,7 +1528,9 @@ async def _issue_family_cert_efamily(page, task, context, user_info: dict = None
     except Exception:
         pass
     # 증명서 실화면 신호로만 저장·성공 판정 — 신청 폼 화면을 발급물로 오인 저장하면 자동첨부에
-    #   '폼 캡처'가 붙는다(정직성). '등록기준지'는 가족관계증명서 서식의 고정 항목, 새 창 열람도 성공 신호.
+    #   '폼 캡처'가 붙는다(정직성). '등록기준지'는 가족관계증명서 서식의 고정 항목.
+    #   ⚠️ 'final_page is not page'(새 창 열람)는 baseline 덕에 '이번 단계에서 새로 열린 창'만 참이다
+    #      — 여정에서 이전 단계 잔류 창(등본 출력창)을 결과로 오인하던 것이 여기 반영돼 오보가 사라진다.
     really = ("등록기준지" in body_now) or (final_page is not page)
     saved = ""
     if really:
@@ -1662,12 +1675,17 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None, session=Non
                 await session.ensure()
                 browser, context, page = session.browser, session.context, session.page
 
+            # 🪟 결과 창 baseline — 이 단계 '시작 시점'의 열린 창 집합(id). 발급 결과는 '이번 단계에서 새로
+            #    열린 창'만 후보로 삼아(_pick_result_page), 여정 공유 세션에서 이전 단계의 잔류 출력창을 이
+            #    서류의 결과로 오인 저장·성공보고하던 것을 막는다(감사 확정 HIGH — 문서 뒤바뀜 + false success).
+            _result_baseline = {id(p) for p in context.pages}
+
             # 🆕 가족관계증명서는 원 발급처(대법원 efamily) 직행(β) — 정부24 경로는 전자문서지갑
             #    선행+연계 차단으로 실사용 불가 확정(2026-07-20 실측). RPA_FAMILY_EFAMILY=0 이면 기존 경로.
             #    efamily 는 자체 인증이라 여정 공유 로그인과 무관 — 발급 후 다음 서류는 plus.gov.kr 로
             #    복귀하며 쿠키 세션이 유지된다(같은 컨텍스트 내 탐색).
             if "가족관계" in doc_name and os.environ.get("RPA_FAMILY_EFAMILY", "1") != "0":
-                await _issue_family_cert_efamily(page, task, context, user_info)
+                await _issue_family_cert_efamily(page, task, context, user_info, baseline=_result_baseline)
                 if session is None:
                     await cancellable_sleep(60, task, context)
                     await browser.close()
@@ -1933,7 +1951,9 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None, session=Non
             await asyncio.sleep(2)
             await click_by_text(page, ["문서출력", "출력하기"])
             await asyncio.sleep(3)
-            final_page = _pick_result_page(context, page)
+            # baseline: 이번 단계에서 새로 열린 문서출력 창만 결과로(여정에서 이전 단계 잔류 창을 이 서류로
+            #   저장·성공보고하던 것 차단 — really_issued 판정·save_document 대상이 모두 올바른 창을 가리게).
+            final_page = _pick_result_page(context, page, _result_baseline)
             try:
                 await final_page.bring_to_front()
             except Exception:
