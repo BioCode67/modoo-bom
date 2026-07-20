@@ -104,7 +104,17 @@ export function HouseholdAnalyzer({ onOpen }: { onOpen: (p: Policy | EligiblePol
                   {RELATIONS.map((r) => <option key={r}>{r}</option>)}
                 </select>
                 <label className="text-xs text-muted-foreground flex items-center gap-1">만
-                  <input type="number" min={0} max={120} value={m.age} onChange={(e) => update(m.id, { age: +e.target.value })} className="w-16 rounded-lg border border-sprout-100 px-2 py-1 text-sm" />세
+                  <input
+                    type="number" min={0} max={120} value={m.age}
+                    onChange={(e) => {
+                      // 빈 값을 0(신생아)으로 저장하지 않는다 — 지우고 다시 입력하는 중엔 이전 나이를 유지(ProfileWizard와 동일 가드).
+                      const v = e.target.value
+                      if (v === '') return
+                      const n = parseInt(v, 10)
+                      if (!Number.isNaN(n)) update(m.id, { age: Math.max(0, Math.min(120, n)) })
+                    }}
+                    onBlur={(e) => { if (e.currentTarget.value === '') e.currentTarget.value = String(m.age) }}
+                    className="w-16 rounded-lg border border-sprout-100 px-2 py-1 text-sm" />세
                 </label>
                 {(['disability', 'is_pregnant', 'unemployed'] as const).map((k) => (
                   <button key={k} onClick={() => update(m.id, { [k]: !m[k] })} className={cn('rounded-lg px-2.5 py-1 text-[11px] font-semibold border', m[k] ? 'bg-sprout-700 border-sprout-700 text-white' : 'bg-white border-sprout-100 text-muted-foreground')}>
