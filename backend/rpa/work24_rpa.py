@@ -4,13 +4,15 @@
 - 간편인증 로그인 → 개인서비스 → 피보험자격이력내역서 발급
 """
 import asyncio
+import re
 from rpa.base import (
     take_screenshot, wait_for_login,
     click_first_matching, make_browser_context_args,
     click_provider_in_anyid, provider_display, detect_auth_form, AUTH_FORM_USER_GUIDE,
-    get_launch_options, launch_browser,
+    get_launch_options, launch_browser, wait_any_visible, AUTH_FORM_SELECTORS,
     check_cancel, cancellable_sleep, CancelledByUser, NO_PRINT_SCRIPT,
 )
+from rpa.auth_autofill import autofill_easy_auth, request_easy_auth
 
 WORK24_MAIN = "https://www.work24.go.kr/cm/main.do"
 # 로그인 페이지 (간편인증 포함)
@@ -176,10 +178,39 @@ async def run_work24_rpa(task, user_info: dict = None) -> None:
             kakao_clicked = await click_provider_in_anyid(page, provider)
 
             await asyncio.sleep(1)
+
+            # 🧠 본인인증 폼 자동입력(2026-07-20 신설) — 4개 사이트 중 유일하게 수동이던 곳.
+            #    같은 anyid 위젯이라 공용 오토필(고정 ID 1순위 + ai_fill 의미 인식 폴백, 키 불필요·
+            #    프레임 순회) 재사용. '인증 요청'은 gov24와 동일 게이트(제공자 클릭 trusted +
+            #    생년월일 존재)에서만 자동 — 어르신은 폰에서 [인증 허용]만 누르면 된다(HITL 불변).
+            autofilled = False
+            requested = False
+            _uv = user_info or {}
+            if _uv.get("user_name") or _uv.get("name"):
+                await wait_any_visible(page, AUTH_FORM_SELECTORS, 8)  # 폼 렌더 대기(조기 탈출형)
+                _af = await autofill_easy_auth(page, _uv)
+                autofilled = bool(_af["name"] and _af["birth"] and _af["phone"])
+                if autofilled and kakao_clicked == "trusted" and re.sub(r"[^0-9]", "", str(_uv.get("birth_date") or "")):
+                    requested = await request_easy_auth(page)
+
             ss = await take_screenshot(page)
 
-            # 본인인증 폼이 열렸는지 감지
-            if await detect_auth_form(page):
+            # 자동입력 결과에 따라 안내를 가른다 — 부분 성공은 '완료'로 과장하지 않는다(3키 전부일 때만)
+            if autofilled and requested:
+                task.update(
+                    "waiting_login",
+                    "✅ 정보 자동입력 + '인증 요청'까지 완료했어요.\n"
+                    f"📱 휴대폰 {pv} 알림에서 [인증 허용]만 누르시면 됩니다.",
+                    ss,
+                )
+            elif autofilled:
+                task.update(
+                    "waiting_login",
+                    "✅ 이름·생년월일·휴대폰을 자동 입력했어요.\n"
+                    f"화면에서 '인증 요청'을 누른 뒤, 📱 {pv} 알림에서 [인증 허용]을 눌러 주세요.",
+                    ss,
+                )
+            elif await detect_auth_form(page):
                 task.update("waiting_login", AUTH_FORM_USER_GUIDE, ss)
             elif kakao_clicked or easy_auth_clicked:
                 task.update(

@@ -524,6 +524,18 @@ async def run_nhis_rpa(task, user_info: dict = None) -> None:
 
                             # ⑤ 폼 입력
                             filled = await _wait_and_fill_form(page, name, birth, prefix, suffix, task)
+                            if not filled:
+                                # 🧠 고정 ID(#oacx_*)가 안 잡히는 위젯(개편·다른 마크업) — 공용 오토필
+                                #    (ID 재시도 + ai_fill 의미 인식 폴백, 키 불필요·프레임 순회)로 한 번 더.
+                                #    부분 성공은 완료로 안 친다(3키 전부 True일 때만 — 과장 금지).
+                                from rpa.auth_autofill import autofill_easy_auth
+                                _fb = await autofill_easy_auth(
+                                    page, {"user_name": name, "birth_date": birth, "phone": prefix + suffix})
+                                filled = bool(_fb["name"] and _fb["birth"] and _fb["phone"])
+                                if filled:
+                                    task.update("running",
+                                                "의미 인식 폴백으로 이름·생년월일·연락처를 입력했어요.",
+                                                await take_screenshot(page))
 
                             if filled:
                                 # ⑥ 인증 요청
