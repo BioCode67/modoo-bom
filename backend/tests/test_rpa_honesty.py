@@ -91,6 +91,34 @@ def test_work24_reports_incomplete_when_button_not_reached():
     assert '"success": False' in src
 
 
+def test_work24_unissued_paths_report_error_not_done():
+    """work24 미발급 경로(후보 클릭했으나 결과 미확인 / 발급버튼 미도달)는 status='error'로 보고한다.
+    done/completed 는 프론트(DocumentCenter)가 '✅ 발급 완료' 배지를 띄우므로, 미발급(success:False)을
+    done 으로 두면 거짓 완료 신호가 된다(nhis 미완료가 error 인 것과 파리티, 감사 확정)."""
+    src = open("rpa/work24_rpa.py", encoding="utf-8").read()
+    for msg in ("고용보험 이력내역서 발급 화면까지 진행했어요",
+                "발급 버튼까지 도달하지 못했어요"):
+        i = src.index(msg)
+        # 이 안내문 직전의 task.update(...) 상태 인자 — 들여쓰기 무관하게 마지막 호출만 잘라 확인
+        status_arg = src[i - 200:i].split("task.update(")[-1]
+        assert '"error"' in status_arg, f"{msg}: error 로 보고해야 함"
+        assert '"done"' not in status_arg, f"{msg}: done 이면 거짓 '발급 완료' 배지"
+
+
+def test_efamily_does_not_blindly_submit_on_auth_timeout():
+    """가족관계증명서(efamily): 8분 내 폰 승인이 확인되지 않으면(auth_done False) 맹목적으로 [신청하기]로
+    진행하지 않고 error 로 정직 보고한다 — 로그인 대기 타임아웃을 error 로 보고하는 _login_on_www_gov 와
+    대칭(맹목 클릭·거짓 성공 방지, 감사 확정)."""
+    src = open("rpa/gov24_rpa.py", encoding="utf-8").read()
+    assert "auth_done = False" in src   # 루프 진입 전 초기화
+    assert "auth_done = True" in src    # 신청 폼(인증 완료 화면) 도달에서만 True
+    assert "if not auth_done:" in src   # 타임아웃 가드
+    # 가드 블록은 success=False + error 로 종결(맹목 신청 대신)
+    guard = src[src.index("if not auth_done:"):][:600]
+    assert '"success": False' in guard
+    assert '"error"' in guard
+
+
 def test_nhis_success_gates_on_completion_not_save():
     """nhis 성공 판정이 '저장(saved)'이 아니라 '완료 신호(completed)'로만 이뤄지는지 계약 고정.
     save_document 는 어떤 화면이든 저장(스샷 폴백)하므로, 저장 성공을 발급 성공으로 쓰면 미발급 화면도
