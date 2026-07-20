@@ -104,7 +104,7 @@ export function DemoAutomation() {
           <div className="grid gap-3 sm:grid-cols-2">
             {shots.map((s, i) => (
               <figure key={i} className="overflow-hidden rounded-xl border border-border/60">
-                <img src={`data:image/jpeg;base64,${s.img}`} alt={s.step} className="w-full" loading="lazy" />
+                <img src={`data:image/jpeg;base64,${s.img}`} alt={s.step} className="w-full" loading="lazy" decoding="async" />
                 <figcaption className="bg-sprout-50 px-2 py-1 text-[11px] text-sprout-800">{s.step}</figcaption>
               </figure>
             ))}

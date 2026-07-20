@@ -361,7 +361,12 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
             </div>
           )}
           {run.shot && (
-            <img src={`data:image/jpeg;base64,${run.shot}`} alt="에이전트 진행 화면" className="mt-2 w-full rounded-xl border border-sprout-100" />
+            // 고정 높이 박스 + decoding=async — 자동신청 진행 중 스크린샷이 폴링마다 갱신될 때 높이 변동(리플로우)·
+            //   메인스레드 디코드 잔버벅·스왑 블랭크 플래시를 없애 매끄럽게 보이게(성능 전용·로직 무변경, 팀원 확인 요망).
+            <div className="mt-2 h-48 w-full overflow-hidden rounded-xl border border-sprout-100 bg-slate-50/60">
+              <img src={`data:image/jpeg;base64,${run.shot}`} alt="에이전트 진행 화면"
+                decoding="async" draggable={false} className="h-full w-full object-contain" />
+            </div>
           )}
           {prepared && (
             <div className="mt-2">

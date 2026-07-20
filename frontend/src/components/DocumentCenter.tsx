@@ -821,29 +821,35 @@ export function DocumentCenter() {
           </button>
           {pickMsg && <p className="mt-1 text-[11px] font-semibold text-rose-600">{pickMsg}</p>}
           <p className="mt-1 text-[11px] text-muted-foreground">📱 각 서류 차례에 인증 요청이 오면 승인만 해주세요 · 발급물은 🗂 서류함에 모여요</p>
-          {/* 담은 정책 카드 밖 서류의 진행 상태 — 카드가 없으므로 여기서 그대로 보여준다(침묵 금지) */}
-          {localDocs.filter((d) => rpa[d] && !docs.includes(d)).map((d) => {
-            const st = rpa[d]!
-            const done = ['done', 'completed'].includes(st.status)
-            return (
-              <div key={d} className="mt-1">
-                <p className={`text-[11px] font-semibold ${st.status === 'error' ? 'text-rose-600' : done ? 'text-sprout-700' : st.status === 'cancelled' ? 'text-muted-foreground' : 'text-sky2-700'}`}>
-                  {done ? '✅' : st.status === 'error' ? '⚠️' : st.status === 'cancelled' ? '⏹' : '⏳'} {d} — {String(st.step || st.status).split('\n')[0]}
-                </p>
-                {/* 진행 실화면 파리티 — 카드가 없는 자유 발급 서류도 지금 브라우저 화면이 보이게(단건 카드와 동일 신뢰 장치) */}
-                {st.shot && !done && st.status !== 'error' && st.status !== 'cancelled' && (
-                  <img src={`data:image/jpeg;base64,${st.shot}`} alt={`${d} 진행 화면`}
-                    className="mt-1 max-h-36 w-auto rounded-lg border border-sky2-100" />
-                )}
-              </div>
-            )
-          })}
           {/* 🔎 커버리지 실측 추가 — 서류명 하나로 정부24 실측→통과 시 재시작 없이 β 합류(본인 PC 전용) */}
           {vaultOn && (
             <ProbeCoverage onExpanded={(s, b) => { setLocalRpaDocs(s, b); setLocalDocs(s) }} />
           )}
         </div>
       )}
+      {/* 담은 정책 카드 밖(자유 선택) 서류의 진행 상태 — 패널 여닫음과 무관하게 '항상' 여기서 보여준다.
+          ⚠️ 과거엔 이 진행 표시가 패널(pickOpen) 안에만 있어, 패널을 닫으면 아래 '자동신청' 섹션이
+          유일한 표시가 되며 발급 서류가 '📨 자동신청'으로 오표시되고 성공을 실패로 보이게 했다(감사 #1). */}
+      {localDocs.filter((d) => rpa[d] && !docs.includes(d)).map((d) => {
+        const st = rpa[d]!
+        const done = ['done', 'completed'].includes(st.status)
+        return (
+          <div key={d} className="mt-1">
+            <p className={`text-[11px] font-semibold ${st.status === 'error' ? 'text-rose-600' : done ? 'text-sprout-700' : st.status === 'cancelled' ? 'text-muted-foreground' : 'text-sky2-700'}`}>
+              {done ? '✅' : st.status === 'error' ? '⚠️' : st.status === 'cancelled' ? '⏹' : '⏳'} {d} — {String(st.step || st.status).split('\n')[0]}
+            </p>
+            {/* 진행 실화면 파리티 — 카드가 없는 자유 발급 서류도 지금 브라우저 화면이 보이게(단건 카드와 동일 신뢰 장치) */}
+            {st.shot && !done && st.status !== 'error' && st.status !== 'cancelled' && (
+              // 고정 박스 + object-contain로 프레임마다 크기 변동(리플로우) 차단, decoding=async로 메인스레드
+              //   디코드 잔버벅·스왑 순간 블랭크 플래시 제거 — 폴링마다 새 스크린샷이 매끄럽게 갱신된다(버벅임 제거).
+              <div className="mt-1 h-36 w-full max-w-[20rem] overflow-hidden rounded-lg border border-sky2-100 bg-slate-50/60">
+                <img src={`data:image/jpeg;base64,${st.shot}`} alt={`${d} 진행 화면`}
+                  decoding="async" draggable={false} className="h-full w-full object-contain" />
+              </div>
+            )}
+          </div>
+        )
+      })}
     </div>
   ) : null
 
@@ -1138,8 +1144,11 @@ export function DocumentCenter() {
                   )}
                   {/* 진행 실화면(토큰 인가) — 에이전트가 지금 보고 있는 정부 페이지를 그대로(멈춤 오인 해소) */}
                   {st.shot && !['done', 'completed', 'error'].includes(st.status) && (
-                    <img src={`data:image/jpeg;base64,${st.shot}`} alt="발급 진행 화면"
-                      className="mt-1.5 w-full max-h-44 object-cover object-top rounded-lg border border-sprout-100" />
+                    // 고정 높이 박스 + decoding=async — 스크린샷 갱신 시 리플로우·디코드 잔버벅·블랭크 플래시 제거(버벅임 제거).
+                    <div className="mt-1.5 h-44 w-full overflow-hidden rounded-lg border border-sprout-100 bg-slate-50/60">
+                      <img src={`data:image/jpeg;base64,${st.shot}`} alt="발급 진행 화면"
+                        decoding="async" draggable={false} className="h-full w-full object-cover object-top" />
+                    </div>
                   )}
                   {/* 발급 완료 + 서버에 문서 저장됨 → 내 브라우저로 바로 받기(확장 없이 인증만 하면 내 손에). 토큰(?t=)으로 인가 */}
                   {(st.status === 'done' || st.status === 'completed') && st.saved && st.taskId && st.downloadToken && (
@@ -1258,8 +1267,10 @@ export function DocumentCenter() {
       </div>
 
       {/* 📨 여정의 '자동신청' 단계 카드 — 서류 카드가 없는 apply 단계(청년월세지원 등)의 진행/결과 가시화.
-          (pollJourney가 모든 단계를 rpa 맵에 쓰므로, 서류 목록에 없는 키 = 신청 단계) */}
-      {Object.entries(rpa).filter(([k, v]) => v && !docs.includes(k)).map(([svc, st]) => (
+          ⚠️ '서류 목록(docs)에 없는 키'만으론 부족 — 자유 선택 발급 서류(localDocs, 담은 정책 밖)도
+          docs엔 없어 여기로 새어 '📨 자동신청'으로 오표시되고 성공을 실패로 보이게 했다(감사 #1).
+          apply 단계는 '서비스명'이라 지원 서류 목록(localDocs)에 절대 없으므로 그걸로 배제한다. */}
+      {Object.entries(rpa).filter(([k, v]) => v && !docs.includes(k) && !localDocs.includes(k)).map(([svc, st]) => (
         <div key={svc} className={cn('mt-3 flex items-start gap-3 rounded-2xl border-2 p-3.5',
           ['done', 'completed'].includes(st!.status) && st!.success !== true
             ? 'border-amber-200 bg-amber-50/50'
