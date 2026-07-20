@@ -917,6 +917,24 @@ function queryTopicBoost(text: string, query: string): number {
   return Math.min(boost, 8) // 대표 현금급여(기초연금 rel≈9~13)를 덮지 않도록 상한 하향
 }
 
+/**
+ * 자녀 나이에 따라 월액이 다른 급여를 사용자 자녀 나이에 맞게 개인화한다(감사 실결함 수정).
+ * 부모급여(POL-005)는 0세 월 100만·1세 월 50만인데, parseMonthly는 첫 매칭(0세 100만)만 잡아
+ * '1세만 있는 부모'에게 50만을 100만으로 과대계상했다. 적용 나이대 금액을 문구 앞에 세우면
+ * parseMonthly를 쓰는 모든 소비처(카드 배지·헤드라인 합계·차트·비교·인쇄)가 일괄 정확해진다.
+ * (⚠️ 하드코딩 금액은 data/policies.ts의 POL-005 benefit과 동기 유지 — 요율 변경 시 함께 갱신)
+ */
+function personalizeBenefit(policy: Policy, p: UserProfile): string {
+  if (policy.id === 'POL-005') {
+    const infant = (p.children_ages || []).filter((a) => typeof a === 'number' && a >= 0 && a <= 1)
+    // 0세가 없고 1세만 있으면 1세 요율(50만)을 앞세운다. 0세가 있으면 원문(100만 우선) 유지.
+    if (infant.length && !infant.includes(0)) {
+      return '1세 월 50만원 (0세는 월 100만원, 어린이집 이용 시 보육료 바우처로 지급, 차액 현금 지급)'
+    }
+  }
+  return policy.benefit
+}
+
 export function getEligiblePolicies(p: UserProfile): EligiblePolicy[] {
   const userSido = sidoOf(p.region)
   const precise: EligiblePolicy[] = []
@@ -939,7 +957,7 @@ export function getEligiblePolicies(p: UserProfile): EligiblePolicy[] {
     if (!policy.id.startsWith('PRV-') && !policy.id.startsWith('LOC-') && !policy.id.startsWith('FIN-')) {
       const c = checkPolicy(policy, p)
       if (c.eligible) {
-        precise.push({ ...policy, reason: c.reason, priority: c.priority, confidence: c.confidence })
+        precise.push({ ...policy, benefit: personalizeBenefit(policy, p), reason: c.reason, priority: c.priority, confidence: c.confidence })
         continue
       }
     }

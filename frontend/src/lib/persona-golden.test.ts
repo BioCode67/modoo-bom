@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { runAnalysis, type UserProfile, type EligiblePolicy } from '@/lib/welfare-engine'
+import { parseMonthly } from '@/lib/format'
 
 /**
  * 페르소나 골든 테스트 — 대회 취지(복지 사각지대 해소)의 5대 대표 페르소나에 대해
@@ -225,6 +226,14 @@ describe('추천 품질 감사 회귀 — 대표 급여 상위·오노출 제거
       const hit = runAnalysis(P({ age: 24, employment_status: st, income_percentile: 45 })).eligible_policies.find((p) => /일경험/.test(p.name))
       expect(hit && hit.priority !== 'high').toBe(true)                            // 강력추천 아님(경쟁형 medium)
     }
+  })
+
+  it('부모급여 월액은 자녀 나이에 맞게 개인화(1세만 있는 부모는 50만 — 100만 과대계상 방지, 감사)', () => {
+    const p005 = (prof: UserProfile) => runAnalysis(prof).eligible_policies.find((p) => p.id === 'POL-005')
+    // 0세 → 100만(원문 유지), 1세만 → 50만(개인화), 0·1세 동반 → 100만(0세 기준 유지)
+    expect(parseMonthly(p005(P({ age: 32, has_children: true, children_ages: [0] }))!.benefit)).toBe(1000000)
+    expect(parseMonthly(p005(P({ age: 32, has_children: true, children_ages: [1] }))!.benefit)).toBe(500000)
+    expect(parseMonthly(p005(P({ age: 32, has_children: true, children_ages: [0, 1] }))!.benefit)).toBe(1000000)
   })
 
   it('여성청소년 생리용품은 남성에게 오노출 안 됨(성별 누수 차단)', () => {
