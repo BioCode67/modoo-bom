@@ -408,12 +408,33 @@ async def _select_doc_form_options(page, doc_name: str) -> None:
                 if (el) el.click();
             }""")
             await asyncio.sleep(0.4)
-        # 미선택(0번=대개 '선택하세요') 필수 select 를 첫 '유효' 옵션(값 있고 안내문구 아님)으로.
+        # 미선택(0번=대개 '선택하세요') 필수 select 를 '의미에 맞는' 옵션으로 채운다(첫 유효는 최후 폴백).
+        #   ⚠️ 발급목적/용도는 첫 옵션이 아니라 '제출용/관공서'가 정답, 귀속연도는 최신 연도가 정답 —
+        #   접근성 이름(라벨·tr>th)과 옵션 텍스트를 함께 보고 똑똑하게 고른다(2026 의미 인지 적용).
         await page.evaluate("""() => {
+            const txt = (n) => (n && (n.innerText || n.textContent) || '').replace(/\\s+/g, ' ').trim();
+            const nameOf = (s) => {
+                const al = s.getAttribute('aria-label'); if (al) return al;
+                if (s.id) { try { const l = document.querySelector('label[for=\"' + CSS.escape(s.id) + '\"]'); if (l) return txt(l); } catch (e) {} }
+                const wl = s.closest('label'); if (wl) return txt(wl);
+                const row = s.closest('tr'); if (row) { const th = row.querySelector('th'); if (th) return txt(th); }
+                return '';
+            };
             for (const s of document.querySelectorAll('select')) {
                 if (s.disabled || s.selectedIndex > 0) continue;
-                const opt = [...s.options].find((o, i) => i > 0 && o.value && !/선택|choose|=선택/i.test(o.text));
-                if (opt) { s.value = opt.value; s.dispatchEvent(new Event('change', { bubbles: true })); }
+                const opts = [...s.options].map((o, i) => ({o, i, t: (o.text || '').trim()}))
+                    .filter(x => x.i > 0 && x.o.value && !/^\\s*(선택|choose|select)/i.test(x.t));
+                if (!opts.length) continue;
+                const label = (nameOf(s) + ' ' + opts.map(x => x.t).join(' '));
+                let pick = null;
+                if (/목적|용도/.test(label)) {
+                    pick = opts.find(x => /제출|관공서|기관|행정|제출용/.test(x.t)) || null;  // 복지 신청 제출 표준
+                } else if (/연도|귀속|년도/.test(label)) {
+                    const ys = opts.filter(x => /(19|20)\\d\\d/.test(x.t));
+                    if (ys.length) pick = ys.sort((a, b) => (b.t.match(/\\d{4}/)||[0])[0] - (a.t.match(/\\d{4}/)||[0])[0])[0];  // 최신 연도
+                }
+                const chosen = pick || opts[0];  // 의미 매칭 실패 시 첫 유효 옵션(기존 동작)
+                s.value = chosen.o.value; s.dispatchEvent(new Event('change', { bubbles: true }));
             }
         }""")
         await asyncio.sleep(0.4)

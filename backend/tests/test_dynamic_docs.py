@@ -4,9 +4,52 @@
 정직성 계약: enabled=True + 코드 형식(영숫자 6~20) 통과분만 병합, 내장 서류는 항상 우선,
 손상 파일은 부팅을 깨지 않고 무시. manager 지원목록·URL 맵·발급 라우팅(gov24)까지 전파.
 """
+import glob
 import importlib
 import json
 import sys
+
+import pytest
+
+
+def _chromium_path():
+    hits = glob.glob("/opt/pw-browsers/chromium-*/chrome-linux/chrome")
+    return hits[0] if hits else None
+
+
+@pytest.mark.skipif(_chromium_path() is None, reason="컨테이너 chromium 없음 — 실브라우저 e2e 스킵")
+def test_doc_form_options_semantic_real_browser():
+    """🧠 서류 발급 폼 옵션 의미 선택(실Chromium) — 발급목적은 '관공서 제출용', 귀속연도는 최신,
+    의미 규칙 없는 select는 첫 유효 옵션. 다른 서류(소득금액증명·지방세·국세납세 등) 발급 완결 강화."""
+    import asyncio
+    from rpa.gov24_rpa import _select_doc_form_options
+    from playwright.async_api import async_playwright
+
+    HTML = ("<!doctype html><meta charset=utf-8><body><table>"
+            "<tr><th>발급 목적</th><td><select id=purpose><option>선택하세요</option>"
+            "<option>본인확인용</option><option>관공서 제출용</option><option>은행 제출용</option></select></td></tr>"
+            "<tr><th>귀속 연도</th><td><select id=year><option>선택</option>"
+            "<option>2022년</option><option>2024년</option><option>2023년</option></select></td></tr>"
+            "<tr><th>증명 구분</th><td><select id=kind><option>선택</option>"
+            "<option>일반</option><option>상세</option></select></td></tr></table></body>")
+
+    async def run():
+        async with async_playwright() as pw:
+            b = await pw.chromium.launch(executable_path=_chromium_path())
+            pg = await (await b.new_context()).new_page()
+            await pg.set_content(HTML)
+            await _select_doc_form_options(pg, "소득금액증명")
+            v = await pg.evaluate(
+                "() => ({purpose: document.getElementById('purpose').selectedOptions[0].text,"
+                " year: document.getElementById('year').selectedOptions[0].text,"
+                " kind: document.getElementById('kind').selectedOptions[0].text})")
+            await b.close()
+            return v
+
+    v = asyncio.new_event_loop().run_until_complete(run())
+    assert "관공서" in v["purpose"], f"발급목적 오선택: {v['purpose']}"   # 첫 옵션(본인확인용) 아님
+    assert "2024" in v["year"], f"귀속연도 최신 아님: {v['year']}"          # 최신 연도
+    assert v["kind"] == "일반"                                              # 의미 규칙 없음 → 첫 유효
 
 
 def test_load_extra_validation(tmp_path, monkeypatch):
