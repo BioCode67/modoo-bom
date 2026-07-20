@@ -144,6 +144,42 @@ def test_privacy_masking_env_valve_and_result():
         del os.environ["RPA_PRIVACY_MASK"]
 
 
+def test_fill_registered_address_contract():
+    """🏠 주민등록상 주소 자동 선택 계약 — 실제 선택된 것만 True(dict), 입력 없으면 시도 자체를 안 함.
+    신형 등본 폼(시도/시군구 2단 드롭다운, 2026-07-20 실측) 대응 — 호출부는 사실만 안내한다."""
+    import asyncio
+    from rpa.gov24_rpa import _fill_registered_address
+
+    class _Page:
+        def __init__(self, results):
+            self._results = list(results)
+            self.calls = 0
+        async def evaluate(self, _js, *args):
+            self.calls += 1
+            r = self._results.pop(0) if self._results else False
+            if isinstance(r, Exception):
+                raise r
+            return r
+
+    def run(page, ui):
+        loop = asyncio.new_event_loop()
+        try:
+            return loop.run_until_complete(_fill_registered_address(page, ui))
+        finally:
+            loop.close()
+
+    # 시도+시군구 모두 1회차에 성공
+    assert run(_Page([True, True]), {"sido": "경상북도", "sigungu": "구미시"}) == {"sido": True, "sigungu": True}
+    # 시군구만 제공 — 시도 평가 없이 시군구만
+    pg = _Page([True])
+    assert run(pg, {"sigungu": "구미시"}) == {"sido": False, "sigungu": True}
+    assert pg.calls == 1
+    # 입력 없음 — 아무 것도 하지 않음(evaluate 0회)
+    pg2 = _Page([])
+    assert run(pg2, {}) == {"sido": False, "sigungu": False}
+    assert pg2.calls == 0
+
+
 def test_fill_income_cert_form_contract():
     """🧾 소득금액증명 폼 채움 계약 — 기간은 직전 과세연도, 실제 한 것만 보고(dict),
     용도 검색 버튼이 없으면 purpose=False 로 침묵(무해·막힘 유예가 커버)."""

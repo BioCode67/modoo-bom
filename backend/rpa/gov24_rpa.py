@@ -421,10 +421,76 @@ async def _select_doc_form_options(page, doc_name: str) -> None:
         pass
 
 
+async def _fill_registered_address(page, user_info: dict) -> dict:
+    """🏠 '주민등록상 주소 확인' 시도·시군구 드롭다운 자동 선택 — 신형 등본 폼 실측(2026-07-20 스크린샷).
+    실사용 3약점 보완: ① 신청 내용 섹션이 늦게 렌더 → 셀렉트가 나타날 때까지 폴링(최대 8초)
+    ② '경북'→'경상북도', '광주광역시'→'전남광주통합특별시'(2026 개편) 같은 표기차 → 축약키 관용 매칭
+    ③ 시군구 옵션은 시도 선택 후 비동기 로드 → 옵션이 생길 때까지 재시도(최대 6초).
+    반환 {"sido": bool, "sigungu": bool} — 실제 선택된 것만 True(호출부는 사실만 안내)."""
+    sido = str((user_info or {}).get("sido") or "").strip()
+    sigungu = str((user_info or {}).get("sigungu") or "").strip()
+    out = {"sido": False, "sigungu": False}
+    if not (sido or sigungu):
+        return out
+    js_sido = """(v) => {
+        const norm = (s) => String(s || '').replace(/\\s+/g, '');
+        const keyOf = (s) => {
+            const t = norm(s);
+            const pairs = [['충청북','충북'],['충청남','충남'],['전라북','전북'],['전라남','전남'],['경상북','경북'],['경상남','경남']];
+            for (const [full, sh] of pairs) { if (t.startsWith(full) || t.startsWith(sh)) return sh; }
+            return t.slice(0, 2);  // 서울/부산/대구/인천/광주/대전/울산/세종/경기/강원/제주 등
+        };
+        const ss = [...document.querySelectorAll('select')];
+        const sel = ss.find(s => [...s.options].some(o => /서울특별시|경상북도|경기도/.test(o.text)));
+        if (!sel) return false;
+        const k = keyOf(v);
+        const o = [...sel.options].find(o => norm(o.text).includes(norm(v)) || keyOf(o.text) === k || norm(o.text).includes(k));
+        if (!o) return false;
+        if (sel.value !== o.value) { sel.value = o.value; sel.dispatchEvent(new Event('change', {bubbles: true})); }
+        return true;
+    }"""
+    js_sgg = """(v) => {
+        const norm = (s) => String(s || '').replace(/\\s+/g, '');
+        const ss = [...document.querySelectorAll('select')];
+        // 시도 셀렉트는 제외(시도 목록에 시군구 이름이 없어 자연 배제되지만, 안전하게 명시 배제)
+        for (const sel of ss) {
+            if ([...sel.options].some(o => /서울특별시|경상북도/.test(o.text))) continue;
+            const o = [...sel.options].find(o => norm(o.text).includes(norm(v)) || norm(v).includes(norm(o.text)) && norm(o.text).length >= 2);
+            if (o) {
+                if (sel.value !== o.value) { sel.value = o.value; sel.dispatchEvent(new Event('change', {bubbles: true})); }
+                return true;
+            }
+        }
+        return false;
+    }"""
+    for _ in range(8):  # 섹션 늦은 렌더 폴링
+        if sido and not out["sido"]:
+            try:
+                out["sido"] = bool(await page.evaluate(js_sido, sido))
+            except Exception:
+                pass
+        if out["sido"] or not sido:
+            break
+        await asyncio.sleep(1.0)
+    if out["sido"]:
+        await asyncio.sleep(1.0)  # 시군구 옵션 로드 시작 여유
+    if sigungu:
+        for _ in range(6):  # 시군구 옵션 비동기 로드 폴링
+            try:
+                out["sigungu"] = bool(await page.evaluate(js_sgg, sigungu))
+            except Exception:
+                pass
+            if out["sigungu"]:
+                break
+            await asyncio.sleep(1.0)
+    return out
+
+
 async def _select_privacy_masking(page) -> dict:
     """🔒 발급 폼 개인정보 최소화(사용자 요청) — 두 가지를 best-effort로 선택하고 실제 한 것만 보고한다.
-    ① 표시 방식: '전체표시' 라디오 그룹이 있으면 '선택표시'로 전환(등본류 — 필요한 항목만 싣게).
-       '전체표시'가 존재하는 화면에서만 동작해 무관한 '선택…' 라디오 오클릭을 방지한다.
+    ① 표시/발급 형태: '전체표시(구화면)·전체 발급(신형 폼)' 라디오 그룹이 있으면
+       '선택표시·선택 발급'으로 전환(등본류 — 필요한 항목만 싣게, 신형 문구는 2026-07-20 실측).
+       '전체…'가 존재하는 화면에서만 동작해 무관한 '선택…' 라디오 오클릭을 방지한다.
     ② 주민등록번호 뒷자리: '주민등록번호'가 언급된 행에서만 미포함/미표시/비공개 선택.
     반환: {"display": ①수행 여부, "rrn": ②수행 여부}. 폼에 해당 옵션이 없으면 조용히 넘어간다(무해).
     RPA_PRIVACY_MASK=0 안전밸브(기관이 전체표시·뒷자리 포함본을 요구하는 예외 대비).
@@ -447,10 +513,11 @@ async def _select_privacy_masking(page) -> dict:
                     t = r.parentElement.innerText || '';
                 return String(t).replace(/\\s+/g, '');
             };
-            if (!radios.some(r => labOf(r).includes('전체표시'))) return false;
+            // 구화면 '전체표시/선택표시' + 신형 등본 폼(2026-07-20 실측) '전체 발급/선택 발급' 두 문구 모두 대응
+            if (!radios.some(r => { const l = labOf(r); return l.includes('전체표시') || l.includes('전체발급'); })) return false;
             for (const r of radios) {
                 const l = labOf(r);
-                if (l.includes('선택표시') && !l.includes('전체표시')) { if (!r.checked) r.click(); return true; }
+                if ((l.includes('선택표시') || l.includes('선택발급')) && !l.includes('전체')) { if (!r.checked) r.click(); return true; }
             }
             return false;
         }""")
@@ -1120,32 +1187,22 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None, session=Non
                 except Exception:
                     return ""
 
-            # 주소 자동 선택 — 회원정보 주소가 실제 주민등록과 다를 때, 제공된 시도·시군구로 자동 정정(헤드리스에서도 동작)
+            # 🏠 주민등록상 주소 확인(필수) — 앱에 입력한 시도·시군구로 자동 선택(늦은 렌더·표기차·옵션 로드 폴링).
+            #   실제 선택된 것만 안내(과거: 못 채워도 '설정했어요'라고 보고하던 정직성 결함 수정, 실사용 제보).
             sido = str((user_info or {}).get("sido") or "").strip()
             sigungu = str((user_info or {}).get("sigungu") or "").strip()
             if sido or sigungu:
-                try:
-                    if sido:
-                        await page.evaluate(
-                            """(v) => {
-                                const ss = [...document.querySelectorAll('select')];
-                                const sel = ss.find(s => [...s.options].some(o => o.text.includes('경상북도') || o.text.includes('서울특별시')));
-                                if (sel) { const o = [...sel.options].find(o => o.text.includes(v)); if (o) { sel.value = o.value; sel.dispatchEvent(new Event('change', {bubbles:true})); } }
-                            }""", sido,
-                        )
-                        await asyncio.sleep(1.5)  # 시군구 옵션 로드 대기
-                    if sigungu:
-                        await page.evaluate(
-                            """(v) => {
-                                const ss = [...document.querySelectorAll('select')];
-                                const sel = ss.find(s => [...s.options].some(o => o.text.includes(v)));
-                                if (sel) { const o = [...sel.options].find(o => o.text.includes(v)); if (o) { sel.value = o.value; sel.dispatchEvent(new Event('change', {bubbles:true})); } }
-                            }""", sigungu,
-                        )
-                        await asyncio.sleep(0.8)
-                    task.update("running", f"주민등록상 주소를 {sido} {sigungu}(으)로 설정했어요.", await take_screenshot(page))
-                except Exception:
-                    pass
+                addr = await _fill_registered_address(page, user_info)
+                _addr_done = " ".join(x for x in [sido if addr.get("sido") else "", sigungu if addr.get("sigungu") else ""] if x)
+                if _addr_done:
+                    task.update("running", f"🏠 주민등록상 주소를 '{_addr_done}'(으)로 선택했어요.", await take_screenshot(page))
+                else:
+                    task.update(
+                        "running",
+                        "🏠 주소 선택칸을 아직 찾지 못했어요 — 화면에서 시도·시군구를 직접 선택해 주세요.\n"
+                        "(선택하시면 이어서 자동으로 진행돼요)",
+                        await take_screenshot(page),
+                    )
 
             # ③.5 발급 폼의 유형/발급목적/귀속연도 등 필수 선택(가족관계 '일반' + 미선택 select 기본값).
             #   소득금액증명·지방세·기초생활수급자·한부모 등은 발급목적/연도 미선택이면 신청이 안 넘어가 발급이 미완됨.
@@ -1155,7 +1212,7 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None, session=Non
             if _priv.get("display") or _priv.get("rrn"):
                 _done = []
                 if _priv.get("display"):
-                    _done.append("표시 방식을 '선택표시'로")
+                    _done.append("발급 형태를 '선택 발급(선택표시)'으로")
                 if _priv.get("rrn"):
                     _done.append("주민등록번호 뒷자리를 '비공개(미포함)'로")
                 task.update(
