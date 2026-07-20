@@ -216,6 +216,17 @@ describe('추천 품질 감사 회귀 — 대표 급여 상위·오노출 제거
     const normal = runAnalysis(P({ age: 33, gender: 'female', income_percentile: 40 })).eligible_policies
     expect(normal.some((p) => /가정폭력|폭력\s*피해/.test(p.name))).toBe(false)
   })
+  it('일경험(미취업 전용)은 재직자엔 미노출·학생/미상엔 강력추천 아님(경쟁형 medium — 감사 실결함)', () => {
+    // 미취업 조건이 있는 경쟁·선발형 프로그램(SUP-020)이 나이만으로 high로 잡혀 학생·미상 24세에게
+    //   강력추천으로 오노출되던 것을 회귀로 고정. 재직자는 제외, 그 외는 medium까지만.
+    const emp = runAnalysis(P({ age: 24, employment_status: 'employed', income_percentile: 45 })).eligible_policies
+    expect(emp.some((p) => /일경험/.test(p.name))).toBe(false)                    // 재직자 제외
+    for (const st of ['student', ''] as const) {
+      const hit = runAnalysis(P({ age: 24, employment_status: st, income_percentile: 45 })).eligible_policies.find((p) => /일경험/.test(p.name))
+      expect(hit && hit.priority !== 'high').toBe(true)                            // 강력추천 아님(경쟁형 medium)
+    }
+  })
+
   it('여성청소년 생리용품은 남성에게 오노출 안 됨(성별 누수 차단)', () => {
     const male = runAnalysis(P({ age: 21, gender: 'male', employment_status: 'student', income_percentile: 50 })).eligible_policies
     expect(male.some((p) => /생리용품/.test(p.name))).toBe(false)

@@ -246,6 +246,17 @@ function checkPolicyDoc(doc: string, name: string, p: UserProfile): CheckResult 
       confidence: cashType ? 0.85 : 0.75,
     }
   }
+  // ── 일경험·미취업 전용 경쟁형 청년 프로그램(예: 미래내일 일경험 SUP-020) ──
+  //   ⚠️ '만 15~34세' 나이 분기보다 먼저 — 안 그러면 나이만으로 high가 잡혀 '미취업 조건'이 무시된다(감사 실결함:
+  //   학생·미상 24세에게 미취업 전용 일경험이 강력추천으로 오노출). '미취업'을 명시한 일경험 계열은:
+  //   재직/자영/은퇴는 대상 아님(NO), 그 외(미취업·학생·미상)는 경쟁·선발형이라 과장 없이 medium으로만 노출.
+  //   (국민취업지원·구직촉진 계열은 위 취업지원 게이트에서 이미 처리되어 여기 오지 않는다.)
+  if (/일경험/.test(doc) && /미취업/.test(doc)) {
+    if (['employed', 'self', 'retired'].includes(p.employment_status)) return NO
+    if (p.age >= 15 && p.age <= 39)
+      return { eligible: true, reason: `만 ${p.age}세 미취업 청년 대상 (일경험·경쟁 선발형)`, priority: 'medium', confidence: 0.7 }
+    return NO
+  }
   // ── 청년 계열 ──
   // 만 19~20세 전용(예: 청년 문화예술패스) — 넓은 청년 룰보다 먼저 정밀 판정(21~34세 오노출 방지)
   if (anyIn(doc, ['만 19~20세', '19~20세', '만 19세·20세'])) {
