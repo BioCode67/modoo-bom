@@ -1041,7 +1041,9 @@ async def _issue_family_cert_efamily(page, task, context, user_info: dict = None
                 await loc.click()
                 await page.keyboard.press("Control+a")
                 await page.keyboard.press("Delete")
-                await page.keyboard.type(parent_name, delay=60)
+                # ⚠️ 실사용 확정(RLATKDTLR): 자동화 브라우저엔 한글 IME가 없어 키 타이핑은 한글을
+                #    '자판 위치의 영문'으로 쳐버린다(김상식→rlatkdtlr). 한글은 IME 확정 텍스트 삽입으로.
+                await page.keyboard.insert_text(parent_name)
                 await asyncio.sleep(0.7)  # 사이트 핸들러가 지울 시간을 준 '뒤에' 검증해야 진짜다
                 if await page.evaluate(_js_check_parent):
                     _parent_ok = True
@@ -1049,6 +1051,16 @@ async def _issue_family_cert_efamily(page, task, context, user_info: dict = None
             except Exception:
                 pass
             await asyncio.sleep(0.5)
+        # 🤖 규칙 엔진이 못 채운 경우에만 AI 채움(β) 보완 — 화면 '구조'만 LLM에 보내 칸을 고르고,
+        #    값 입력은 로컬 실키 타이핑(프라이버시 계약: 값·이름은 절대 미전송). 키 없으면 무동작.
+        if not _parent_ok:
+            try:
+                from rpa.ai_fill import ai_fill
+                _ai = await ai_fill(page, page, {"parent_name": parent_name},
+                                    page_hint="대법원 efamily 가족관계등록부 신청인 정보 조회", task=task)
+                _parent_ok = bool(_ai.get("parent_name"))
+            except Exception:
+                pass
     # 🔍 실패 시 행 구조 진단(PII 무포함: 타입·값 유무만) — 다음 제보 한 번으로 정확 조준
     _parent_diag = ""
     if parent_name and not _parent_ok:
@@ -1223,6 +1235,16 @@ async def _issue_family_cert_efamily(page, task, context, user_info: dict = None
                     except Exception:
                         pass
                     await asyncio.sleep(0.4)
+                # 🤖 규칙 타이핑이 실패했을 때만 AI 채움(β) — 인증창 '구조'만 LLM에, 번호는 로컬 실키
+                if not _phone_ok:
+                    try:
+                        from rpa.ai_fill import ai_fill
+                        _ai = await ai_fill(ctx, page,
+                                            {"phone_tail": _modal_vals["tail"], "phone_head": _modal_vals["head"]},
+                                            page_hint="간편인증 본인인증 정보 입력 창", task=task)
+                        _phone_ok = bool(_ai.get("phone_tail"))
+                    except Exception:
+                        pass
             # 주민번호 뒷자리가 아직 비어 있으면('-' 초기값 포함, 승계 안 되는 변형) 뒷자리도 실타이핑
             if rrn7:
                 try:
@@ -1585,6 +1607,16 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None, session=Non
             sigungu = str((user_info or {}).get("sigungu") or "").strip()
             if sido or sigungu:
                 addr = await _fill_registered_address(page, user_info)
+                # 🤖 규칙 매칭이 전부 빗나간 경우에만 AI 채움(β) — 드롭다운 '구조·옵션 텍스트'만 LLM에
+                if not (addr.get("sido") or addr.get("sigungu")):
+                    try:
+                        from rpa.ai_fill import ai_fill
+                        _ai = await ai_fill(page, page, {"sido": sido, "sigungu": sigungu},
+                                            page_hint="정부24 주민등록표 등본(초본) 발급 — 주민등록상 주소 확인", task=task)
+                        addr = {"sido": addr.get("sido") or bool(_ai.get("sido")),
+                                "sigungu": addr.get("sigungu") or bool(_ai.get("sigungu"))}
+                    except Exception:
+                        pass
                 _addr_done = " ".join(x for x in [sido if addr.get("sido") else "", sigungu if addr.get("sigungu") else ""] if x)
                 if _addr_done:
                     task.update("running", f"🏠 주민등록상 주소를 '{_addr_done}'(으)로 선택했어요.", await take_screenshot(page))
