@@ -421,6 +421,45 @@ async def _select_doc_form_options(page, doc_name: str) -> None:
         pass
 
 
+async def _describe_unfilled_fields(page) -> str:
+    """발급 폼에서 아직 비어 있는 '필수 선택/입력' 항목의 라벨을 읽어 이름으로 돌려준다(읽기 전용).
+    자동 입력만으로 다음 단계로 못 넘어갈 때 '어느 칸'을 고쳐야 하는지 사람이 알 수 있게 짚어 주기 위함.
+    - 미선택(selectedIndex 0)이면서 유효 옵션이 있는 보이는 select
+    - 용도·발급목적·귀속연도·기간·세목 등 아직 빈 텍스트 입력(대개 [검색] 팝업으로 채우는 칸)
+    클릭·값 변경은 절대 하지 않으며(막힘 안내 전용), 실패해도 무해하게 빈 문자열을 돌려준다."""
+    try:
+        labels = await page.evaluate(r"""() => {
+            const out = [], seen = new Set();
+            const clean = (t) => String(t || '').replace(/[\s*]+/g, ' ').trim().slice(0, 24);
+            const labelFor = (el) => {
+                let t = '';
+                if (el.id) { const l = document.querySelector('label[for="' + el.id + '"]'); if (l) t = l.innerText; }
+                if (!t) { const l = el.closest('label'); if (l) t = l.innerText; }
+                if (!t) { const row = el.closest('tr'); if (row) { const h = row.querySelector('th'); if (h) t = h.innerText; } }
+                if (!t) { const dd = el.closest('dd'); if (dd && dd.previousElementSibling) t = dd.previousElementSibling.innerText; }
+                if (!t && el.previousElementSibling) t = el.previousElementSibling.innerText || '';
+                return clean(t || el.name || el.id);
+            };
+            const visible = (el) => el.offsetParent !== null && !el.disabled;
+            for (const s of document.querySelectorAll('select')) {
+                if (!visible(s) || s.selectedIndex > 0) continue;
+                const opt = [...s.options].find((o, i) => i > 0 && o.value && !/선택|choose/i.test(o.text));
+                if (!opt) continue;                 // 유효 옵션이 없으면 필수 선택 아님(무시)
+                const lab = labelFor(s);
+                if (lab && !seen.has(lab)) { seen.add(lab); out.push(lab); }
+            }
+            for (const inp of document.querySelectorAll('input[type=text], input:not([type])')) {
+                if (!visible(inp) || String(inp.value || '').trim()) continue;
+                const lab = labelFor(inp);
+                if (/용도|목적|연도|기간|사유|제출처|세목/.test(lab) && !seen.has(lab)) { seen.add(lab); out.push(lab); }
+            }
+            return out.slice(0, 5);
+        }""")
+        return ", ".join([l for l in (labels or []) if l])
+    except Exception:
+        return ""
+
+
 async def _select_privacy_masking(page) -> dict:
     """🔒 발급 폼 개인정보 최소화(사용자 요청) — 두 가지를 best-effort로 선택하고 실제 한 것만 보고한다.
     ① 표시 방식: '전체표시' 라디오 그룹이 있으면 '선택표시'로 전환(등본류 — 필요한 항목만 싣게).
@@ -1172,6 +1211,7 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None, session=Non
             submitted = False
             addr_warned = False
             fix_hinted = False   # '폼을 직접 확인/선택' 안내를 이미 띄웠는지(중복 안내 방지)
+            fix_fields = ""      # 막힘 시 읽어 둔 '고쳐야 할 칸' 이름(있으면 안내에 구체적으로 표시)
             stuck = 0            # 진행 신호 없이 헛돈 횟수 — 일정 이상이면 사용자 수정 유예 부여
             task.update("running", "신청 버튼을 눌러 발급을 진행하고 있어요…", await take_screenshot(page))
             # 폼 진입 직후 팝업 확인 — 점검(연계기관 야간)·전자문서지갑 필요는 헛돌지 않고 즉시 정직 안내.
@@ -1196,9 +1236,12 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None, session=Non
                             await take_screenshot(page),
                         )
                     elif fix_hinted:
+                        _need = (f"화면 폼에서 '{fix_fields}' 항목을 선택/입력해 주세요.\n"
+                                 if fix_fields else
+                                 "화면 폼에서 필요한 항목(대상자·발급목적·유형 등)이 있으면 직접 확인/선택해 주세요.\n")
                         task.update(
                             "waiting_login",
-                            "⚠️ 화면 폼에서 필요한 항목(대상자·발급목적·유형 등)이 있으면 직접 확인/선택해 주세요.\n"
+                            "⚠️ " + _need +
                             "고치면 잠시 후 자동으로 다시 신청합니다. (계속 기다리는 중…)",
                             await take_screenshot(page),
                         )
@@ -1257,10 +1300,16 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None, session=Non
                         continue
                 if stuck >= 2:
                     if not fix_hinted:
+                        # 어떤 칸이 막고 있는지 읽어(읽기 전용) 구체적으로 짚어 준다 — 막다른 안내를
+                        #   '어디를 고치면 되는지'로 바꿔 준다(지방세·국세 납세증명 등 서류별 필수항목 대응).
+                        fix_fields = await _describe_unfilled_fields(page)
+                        _need = (f"화면 폼에서 '{fix_fields}' 항목을 선택/입력해 주세요.\n"
+                                 if fix_fields else
+                                 "화면 폼에서 필요한 항목(대상자·발급목적·유형 등)을 직접 확인/선택해 주세요.\n")
                         task.update(
                             "waiting_login",
                             "⚠️ 자동 입력만으로는 다음 단계로 넘어가지 못했어요.\n"
-                            "화면 폼에서 필요한 항목(대상자·발급목적·유형 등)을 직접 확인/선택해 주세요.\n"
+                            + _need +
                             "고치면 잠시 후 자동으로 다시 신청합니다. (기다리는 중…)",
                             await take_screenshot(page),
                         )
