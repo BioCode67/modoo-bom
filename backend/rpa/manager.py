@@ -11,6 +11,7 @@
 import asyncio
 import hmac
 import os
+import re
 import secrets
 import uuid
 from contextlib import asynccontextmanager
@@ -32,14 +33,33 @@ def token_ok(t, token) -> bool:
 # 상태 응답에서 토큰 미인가 시 제거할 민감 필드(정부 페이지 스샷·실명·민감 서류종).
 _SENSITIVE_STATUS_FIELDS = ("screenshot_b64", "user_name", "doc_name")
 
+# 진행 문구(current_step/steps)에 '이름: 값'처럼 원시 PII가 섞였을 때 미인가 폴러에게 새지 않도록
+#   걸러낼 라벨 패턴('라벨:' 또는 '라벨=' 형태만 — '이름·생년월일 입력' 같은 안내 문구는 값이 없어 유지).
+_PII_LABEL_RE = re.compile(r"(이름|성명|생년월일|주민등록번호|주민번호|전화|휴대폰|연락처)\s*[:=]\s*\S")
+
+
+def _strip_pii_lines(text: str) -> str:
+    """'라벨: 값' 형태의 PII 줄만 제거하고 비민감 진행/안내 문구는 보존한다."""
+    return "\n".join(ln for ln in str(text).split("\n") if not _PII_LABEL_RE.search(ln))
+
 
 def redact_status(d: dict, authorized: bool) -> dict:
-    """상태 dict 를 응답용으로 정제 — download_token 은 항상 제거, 미인가면 PII 필드도 제거."""
+    """상태 dict 를 응답용으로 정제 — download_token 은 항상 제거, 미인가면 PII 필드도 제거.
+    ⚠️ 미인가면 current_step/steps 텍스트에 섞인 원시 PII 줄('이름: …')까지 심층 제거한다
+    (소스단은 이미 값 대신 사실만 담지만, RPA_SHARED 무토큰 폴러 유출을 이중 방어 — 감사 실결함)."""
     d = dict(d)
     d.pop("download_token", None)  # 인가 비밀은 어떤 경우에도 노출 금지
     if not authorized:
         for k in _SENSITIVE_STATUS_FIELDS:
             d.pop(k, None)
+        if isinstance(d.get("current_step"), str):
+            d["current_step"] = _strip_pii_lines(d["current_step"])
+        if isinstance(d.get("steps"), list):
+            d["steps"] = [
+                {**s, "msg": _strip_pii_lines(s["msg"])}
+                if isinstance(s, dict) and isinstance(s.get("msg"), str) else s
+                for s in d["steps"]
+            ]
     return d
 
 

@@ -253,9 +253,11 @@ async def _wait_and_fill_form(page, name, birth, prefix, suffix, task) -> bool:
             result = await page.evaluate(_JS_FILL_FORM, args)
             if result:
                 ss = await take_screenshot(page)
+                # ⚠️ 상태 메시지에 원시 PII(이름·생년월일·전화)를 담지 않는다 — RPA_SHARED(터널) 모드에서
+                #   무토큰 폴러가 current_step으로 PII를 볼 수 있던 실결함(gov24·apply와 동일하게 값 대신 사실만).
                 task.update("running",
                     f"폼 입력 완료 ({result})\n"
-                    f"이름={name} / 생년월일={birth} / 전화={prefix}-{suffix}",
+                    "이름·생년월일·연락처를 입력했어요.",
                     ss,
                 )
                 return True
@@ -541,16 +543,14 @@ async def run_nhis_rpa(task, user_info: dict = None) -> None:
                             else:
                                 ss = await take_screenshot(page)
                                 task.update("waiting_login",
-                                    f"⚠️ 폼 자동 입력 실패.\n"
-                                    f"브라우저에서 직접 입력해주세요:\n"
-                                    f"이름: {name} / 생년월일: {birth} / 전화: {prefix}-{suffix}\n\n"
+                                    "⚠️ 폼 자동 입력 실패.\n"
+                                    "브라우저에서 이름·생년월일·전화번호를 직접 입력해주세요.\n\n"
                                     "입력 후 '인증 요청' → 카카오 알림 승인 → 자동 계속", ss)
                         else:
                             ss = await take_screenshot(page)
                             task.update("waiting_login",
                                 "⚠️ 카카오톡 자동 클릭 실패.\n"
-                                "브라우저에서 카카오톡을 선택하고 아래 정보를 입력해주세요:\n\n"
-                                f"이름: {name} / 생년월일: {birth} / 전화: {prefix}-{suffix}\n\n"
+                                "브라우저에서 카카오톡을 선택하고 이름·생년월일·전화번호를 직접 입력해주세요.\n\n"
                                 "입력 후 '인증 요청' → 카카오 알림 승인", ss)
                 else:
                     ss = await take_screenshot(page)

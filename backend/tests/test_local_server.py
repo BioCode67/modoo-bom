@@ -258,6 +258,27 @@ def test_status_redacts_pii_without_token():
         manager._rpa_tasks.pop("pii1", None)
 
 
+def test_status_scrubs_pii_lines_in_current_step_without_token():
+    """진행 문구(current_step/steps)에 '이름: 값'처럼 원시 PII가 섞여도 무토큰 폴러에겐 그 줄만 제거되고
+    비민감 안내/진행 문구는 유지된다(RPA_SHARED 무토큰 유출 이중 방어 — 감사 실결함 회귀 락)."""
+    from rpa import manager
+    step = ("폼 입력 완료\n이름: 홍길동 / 생년월일: 19900101 / 전화: 010-1234-5678\n"
+            "다음: 인증 요청 → 카카오 승인")
+    manager._rpa_tasks["pii2"] = {"status": "running", "download_token": "tok2", "current_step": step,
+                                  "steps": [{"time": "12:00:00", "msg": "이름: 홍길동 / 생년월일: 19900101"}]}
+    try:
+        d = client.get("/api/documents/rpa-status/pii2").json()
+        cs = d.get("current_step", "")
+        assert "홍길동" not in cs and "19900101" not in cs and "010-1234-5678" not in cs  # PII 줄 제거
+        assert "폼 입력 완료" in cs and "인증 요청" in cs  # 비민감 진행/안내 문구는 유지
+        assert all("홍길동" not in s.get("msg", "") for s in d.get("steps", []))  # steps도 심층 스크럽
+        # 토큰 있으면(본인) 원문 유지 — 소유자 편의 보존
+        d2 = client.get("/api/documents/rpa-status/pii2?t=tok2").json()
+        assert "홍길동" in d2.get("current_step", "")
+    finally:
+        manager._rpa_tasks.pop("pii2", None)
+
+
 # ── '내 서류함' 사용자 서류 등록(/api/documents/register) ──
 #   자동발급 불가 서류(임대차계약서·신분증 등)를 발급 폴더에 발급물과 같은 이름 규칙으로 저장 →
 #   복지 신청의 자동첨부가 함께 찾도록. multipart 파서 필요 → 미설치 환경은 스킵(실행환경엔 설치됨).
