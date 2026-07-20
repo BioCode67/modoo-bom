@@ -119,6 +119,20 @@ def test_efamily_does_not_blindly_submit_on_auth_timeout():
     assert '"error"' in guard
 
 
+def test_gov24_unissued_else_paths_report_error_not_done():
+    """gov24 미발급/미저장 else 경로가 status='error'로 보고한다 — 본류(등본·초본 등 really_issued False)와
+    efamily(β 저장 실패) 모두. done/completed 는 프론트(titleBadge)가 '✅ 발급 완료' 배지를 띄우므로
+    미발급(success:False)을 done 으로 두면 거짓 완료 신호(work24·nhis 미완료가 error 인 것과 파리티, 감사 확정).
+    여정에선 이 error 가 '문서 단계 1회 자동 재시도'(자가 치유)까지 발동 — 미발급 else 라 이중발급 없음."""
+    src = open("rpa/gov24_rpa.py", encoding="utf-8").read()
+    for msg in ("아직 발급이 '완료되지 않았어요'",       # 본류(run_gov24_rpa) else
+                "자동 저장까지는 확인하지 못했어요"):        # efamily else
+        i = src.index(msg)
+        status_arg = src[i - 260:i].split("task.update(")[-1]
+        assert '"error"' in status_arg, f"{msg}: error 로 보고해야 함"
+        assert '"done"' not in status_arg, f"{msg}: done 이면 거짓 '발급 완료' 배지"
+
+
 def test_nhis_success_gates_on_completion_not_save():
     """nhis 성공 판정이 '저장(saved)'이 아니라 '완료 신호(completed)'로만 이뤄지는지 계약 고정.
     save_document 는 어떤 화면이든 저장(스샷 폴백)하므로, 저장 성공을 발급 성공으로 쓰면 미발급 화면도

@@ -1653,9 +1653,12 @@ async def _issue_family_cert_efamily(page, task, context, user_info: dict = None
         )
         task.result = {"success": True, "doc_name": "가족관계증명서", "saved_path": saved}
     else:
-        # 저장까지 확인 못 함 — 화면은 그대로 두고 사람이 마무리(β 정직성: 성공 날조 금지)
+        # 저장까지 확인 못 함 — 화면은 그대로 두고 사람이 마무리(β 정직성: 성공 날조 금지).
+        # ⚠️ status를 'done'이 아닌 'error'로 — done/completed 는 프론트(titleBadge)가 '✅ 발급 완료' 배지를
+        #    띄우므로, 미발급(really 미충족)·미저장(success:False, saved_path 없음)을 done 으로 두면 거짓 완료
+        #    신호가 된다(work24 미발급·nhis 미완료가 error 인 것과 파리티). 서류함에 파일도 없어 '⚠️ 확인 필요'가 정직.
         task.update(
-            "done",
+            "error",
             "⚠️ 가족관계증명서(β) — 자동 저장까지는 확인하지 못했어요.\n"
             + ("화면에 증명서가 떠 있으면 [출력/저장]으로 마무리해 주세요.\n" if ("증명서" in body_now or "출력" in body_now) else "화면 안내대로 남은 단계를 마무리해 주세요.\n")
             + "브라우저는 60초 후 자동 종료됩니다.",
@@ -2019,8 +2022,12 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None, session=Non
             else:
                 # 발급이 확인되지 않음 — 위에서 미발급 화면은 저장하지 않았다(saved=""). 신청 자동첨부·
                 #   여정 saved_docs 에 미발급 화면이 섞일 여지 자체를 없앤다.
+                # ⚠️ status를 'done'이 아닌 'error'로(work24 미발급·nhis 미완료와 파리티) — done/completed 는
+                #    프론트(titleBadge)가 '✅ 발급 완료' 배지를 띄우므로 미발급(really_issued False)을 done 으로
+                #    두면 거짓 완료 신호가 된다. 여정에선 이 error 가 '문서 단계 1회 자동 재시도'(자가 치유)를
+                #    발동 — 미발급 else 라 재실행이 이중발급을 만들지 않고, 여정 성공은 result.success 로 세므로 무영향.
                 task.update(
-                    "done",
+                    "error",
                     f"⚠️ {doc_name}은(는) 아직 발급이 '완료되지 않았어요'.\n"
                     "화면에서 주소·본인인증을 확인하고 '문서출력'까지 눌러 저장을 마무리해 주세요.\n"
                     "브라우저는 60초 후 자동 종료됩니다.",
