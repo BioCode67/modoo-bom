@@ -502,6 +502,17 @@ export function DocumentCenter() {
         break
       }
     }
+    // 폴링 상한 소진(백엔드 종결 신호를 끝내 못 받음) — 좀비 스피너로 남기지 않고 정직하게 종결한다
+    //   (pollJourney 의 markRemainingStuck 과 동일 원칙 — 감사 확정: pollDocTask 만 상한 처리가 없었음).
+    if (mountedRef.current) {
+      forgetLive('doc', doc)
+      setRpa((s) => {
+        const cur = s[doc]
+        return (cur && !['done', 'completed', 'error', 'cancelled'].includes(cur.status))
+          ? { ...s, [doc]: { ...cur, status: 'error', step: '발급 확인이 오래 걸려 자동 확인을 멈췄어요 — 브라우저 화면을 확인하거나 다시 시도해 주세요.' } }
+          : s
+      })
+    }
   }
 
   // 🚀 연쇄 자동발급 — 지원 서류 전부를 한 흐름으로(정부24는 한 번 로그인으로 이어짐)
