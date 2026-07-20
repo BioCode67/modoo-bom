@@ -351,3 +351,31 @@ def test_auth_confirm_click_reaches_child_frame():
     assert main_only == 0            # 메인 page 로케이터로는 자식 프레임 버튼이 안 잡힘(기존 갭 재현)
     assert ok is True                # 형제 프레임 순회로 눌렀다
     assert title == "clicked"        # 실제로 그 버튼이 클릭됨
+
+
+@pytest.mark.skipif(_chromium_path() is None, reason="컨테이너 chromium 없음 — 실브라우저 e2e 스킵")
+def test_detect_auth_form_sees_child_frame():
+    """인증 폼이 자식 프레임에 있어도 감지된다 — work24 처럼 폼 자동입력이 없는 모듈이 '폼 있음'을 알고
+    올바른 안내(폼을 채우세요)를 띄우게 하는 근거(신형 plus.gov.kr 프레임 분리 대응)."""
+    from playwright.async_api import async_playwright
+
+    async def run():
+        async with async_playwright() as pw:
+            b = await pw.chromium.launch(executable_path=_chromium_path())
+            pg = await (await b.new_context()).new_page()
+            # 메인엔 인증 폼 요소가 전혀 없고(체크박스 포함 X), 자식 프레임에만 '이름' 입력칸이 있다
+            await pg.set_content('<h1>간편인증</h1><iframe id="f" src="about:blank" width="360" height="160"></iframe>')
+            for _ in range(20):
+                if len(pg.frames) > 1:
+                    break
+                await asyncio.sleep(0.1)
+            child = pg.frames[1]
+            await child.set_content("<input placeholder='이름'><input placeholder='생년월일'>")
+            main_only = await pg.locator("input[placeholder*='이름']").first.count()
+            detected = await base.detect_auth_form(pg)
+            await b.close()
+            return main_only, detected
+
+    main_only, detected = _run(run())
+    assert main_only == 0     # 메인 page 로케이터로는 자식 프레임 입력칸이 안 잡힘(기존 갭 재현)
+    assert detected is True   # 형제 프레임 순회로 폼을 감지

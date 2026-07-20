@@ -653,14 +653,20 @@ async def click_kakaotalk_in_anyid(page) -> bool:
 
 
 async def detect_auth_form(page) -> bool:
-    """본인인증 정보 입력 폼이 열렸는지 감지"""
-    for sel in AUTH_FORM_SELECTORS:
-        try:
-            el = page.locator(sel).first
-            if await el.count() > 0:
-                return True
-        except Exception:
-            continue
+    """본인인증 정보 입력 폼이 열렸는지 감지 — 메인뿐 아니라 형제 프레임·창까지 살핀다.
+
+    ⚠️ 신형 plus.gov.kr 등은 인증 폼이 '자식 프레임'에 렌더된다(제공자 클릭·'인증 완료' 클릭과 같은
+    프레임 분리 갭). 메인 page 만 보던 기존 판정은 그 화면에서 폼을 '없음'으로 오판해, 폼을 채워야 하는
+    사용자에게 '폰 승인만 하세요'라는 잘못된 안내를 띄웠다(work24는 폼 자동입력이 없어 특히 치명적 —
+    어르신이 빈 폼을 두고 승인부터 시도). page 를 맨 앞에 두므로 폼이 메인에 있으면 동작 불변(순수 확장).
+    gov24/apply 는 이미 프레임 인지 컨텍스트를 넘겨 결과 불변, work24(bare page)만 실제로 교정된다."""
+    for ctx in _sibling_contexts(page):
+        for sel in AUTH_FORM_SELECTORS:
+            try:
+                if await ctx.locator(sel).first.count() > 0:
+                    return True
+            except Exception:
+                continue
     return False
 
 
