@@ -652,34 +652,46 @@ async def _wait_auth_form_ready(ctx, timeout_sec: int = 5) -> None:
         await asyncio.sleep(0.5)
 
 
-async def _wait_document_rendered(page, timeout_sec: int = 12) -> None:
+async def _wait_document_rendered(page, timeout_sec: int = 20) -> bool:
     """문서출력 뷰어의 '본문'이 실제로 렌더될 때까지 대기 — 빈 PDF 저장 방지.
-    ⚠️ 실사용 제보: 발급은 되는데 너무 빨리 캡처해 '헤더만 있고 본문 빈' PDF가 저장됐다.
-       네트워크 안정화 후, 문서 뷰어가 그린 캔버스/이미지/embed 또는 충분한 본문 텍스트가
-       나타날 때까지 폴링한다. 못 찾아도 최대 대기 후 진행(어떤 경우든 캡처는 한다)."""
+    ⚠️ 실사용 제보 2건: ① 너무 빨리 캡처해 '헤더만 있고 본문 빈' PDF ② (시연 아침) 그래도 재발 —
+       원인은 가짜 준비 신호였다: 문서출력 껍데기는 처음부터 큰 iframe/embed 를 갖고 있어
+       '큰 embed 존재'를 렌더 완료로 오판했고, 페이지 이미지(예: 10쪽)는 아직 0장이었다.
+    → 신호를 '실제 그려진 본문'으로 한정: 로드 완료(complete)된 큰 이미지·캔버스 개수 또는 충분한
+      본문 텍스트를 **모든 프레임**에서 세고, 두 번 연속 같은 개수(증가 멈춤 = 로드 안정)일 때만 통과.
+      배터리 절전 등 느린 PC를 위해 기본 대기도 20초로. 끝내 못 잡으면 False 반환 후 진행(캡처는 한다)."""
     try:
-        await page.wait_for_load_state("networkidle", timeout=timeout_sec * 1000)
+        await page.wait_for_load_state("networkidle", timeout=min(timeout_sec, 10) * 1000)
     except Exception:
         pass
     js = (
         "() => {"
-        "  const big = el => el && el.getBoundingClientRect().width > 120 && el.getBoundingClientRect().height > 120;"
-        "  const hasCanvas = [...document.querySelectorAll('canvas')].some(c => c.width > 120 && c.height > 120);"
-        "  const hasImg = [...document.querySelectorAll('img')].some(i => i.naturalWidth > 120 && i.naturalHeight > 120);"
-        "  const hasEmbed = big(document.querySelector('embed, object, iframe'));"
-        "  const textLen = (document.body ? document.body.innerText : '').replace(/\\s/g,'').length;"
-        "  return hasCanvas || hasImg || hasEmbed || textLen > 300;"
+        "  const cv = [...document.querySelectorAll('canvas')].filter(c => c.width > 150 && c.height > 150).length;"
+        "  const im = [...document.querySelectorAll('img')].filter(i => i.complete && i.naturalWidth > 150 && i.naturalHeight > 150).length;"
+        "  const tx = (document.body ? document.body.innerText : '').replace(/\\s/g,'').length;"
+        "  return cv + im + (tx > 300 ? 1 : 0);"
         "}"
     )
+    prev = None
     for _ in range(max(1, timeout_sec * 2)):
-        try:
-            if await page.evaluate(js):
-                await asyncio.sleep(2.0)  # 렌더/페인트 완료 여유 — 캡처가 본문을 담게
-                return
-        except Exception:
-            pass
+        ready = False
+        cur = 0
+        for fr in [page] + list(getattr(page, "frames", None) or []):
+            try:
+                r = await fr.evaluate(js)
+            except Exception:
+                continue
+            if r is True:
+                ready = True  # 불리언 계약(구형 페이크/단순 뷰) — 즉시 준비로 간주
+            elif isinstance(r, (int, float)):
+                cur += int(r)
+        if ready or (cur > 0 and prev == cur):
+            await asyncio.sleep(2.0)  # 렌더/페인트 완료 여유 — 캡처가 본문을 담게
+            return True
+        prev = cur if cur > 0 else None
         await asyncio.sleep(0.5)
     await asyncio.sleep(2.0)  # 신호 못 잡아도 최소 여유 후 캡처(빈 화면보다 늦더라도 담기게)
+    return False
 
 
 def _pick_result_page(context, fallback):

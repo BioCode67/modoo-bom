@@ -284,8 +284,43 @@ def _looks_valid_doc(path: pathlib.Path) -> bool:
         return False
 
 
+async def _probe_content_frames(page):
+    """프레임별 '실제 그려진 본문' 크기 — (메인 프레임 면적, 최대 자식 프레임, 그 면적).
+    면적 = 로드 완료(complete)된 큰 이미지·캔버스의 픽셀 면적 합. 실패는 0/None(무해)."""
+    js = (
+        "() => [...document.querySelectorAll('img,canvas')]"
+        ".filter(e => (e.tagName === 'CANVAS') ? (e.width > 150 && e.height > 150)"
+        " : (e.complete && e.naturalWidth > 150 && e.naturalHeight > 150))"
+        ".reduce((s, e) => s + ((e.naturalWidth || e.width || 0) * (e.naturalHeight || e.height || 0)), 0)"
+    )
+    main_area = 0
+    try:
+        r = await page.evaluate(js)
+        main_area = int(r) if isinstance(r, (int, float)) else 0
+    except Exception:
+        pass
+    best_fr, best_area = None, 0
+    try:
+        for fr in list(getattr(page, "frames", None) or []):
+            if fr is getattr(page, "main_frame", None):
+                continue
+            try:
+                r = await fr.evaluate(js)
+                a = int(r) if isinstance(r, (int, float)) else 0
+            except Exception:
+                continue
+            if a > best_area:
+                best_fr, best_area = fr, a
+    except Exception:
+        pass
+    return main_area, best_fr, best_area
+
+
 async def save_document(page, name: str, user_name: str = "") -> Optional[str]:
     """발급된 서류 페이지를 파일로 '반드시' 저장한다.
+    0순위: 본문이 '자식 프레임에만' 그려진 문서출력 창은 그 iframe 요소를 스크린샷(PNG).
+      ⚠️ 실사용 확정(시연 아침, 등본 빈 PDF): printToPDF 는 교차출처 iframe 을 빈 종이로 찍는다 —
+      스크린샷은 합성(컴포지터) 기반이라 교차출처여도 화면 픽셀 그대로 담긴다.
     1순위 PDF(CDP Page.printToPDF — headed에서도 시도), 실패 시 전체 스크린샷(PNG) 폴백.
     저장 후 무결성(_looks_valid_doc)까지 통과해야 성공 — 깨진 PDF는 지우고 PNG로 폴백.
     저장 경로를 반환하고, 완전 실패 시 None.
@@ -298,6 +333,18 @@ async def save_document(page, name: str, user_name: str = "") -> Optional[str]:
     if base.with_suffix(".pdf").exists() or base.with_suffix(".png").exists():
         # 같은 분(分)에 재발급 — 초를 붙여 덮어쓰기 방지
         base = DOCS_DIR / f"{base.name}_{datetime.now().strftime('%S')}"
+    # 0) 본문이 자식 프레임에만 있으면 iframe 요소 스크린샷이 유일하게 '내용이 담기는' 캡처다
+    try:
+        main_area, child_fr, child_area = await _probe_content_frames(page)
+        if child_fr is not None and child_area >= 200 * 200 and main_area < 200 * 200:
+            el = await child_fr.frame_element()
+            out = base.with_suffix(".png")
+            await el.screenshot(path=str(out))
+            if _looks_valid_doc(out):
+                return str(out)
+            out.unlink(missing_ok=True)
+    except Exception:
+        pass
     # 1) PDF (Chrome DevTools Protocol)
     try:
         client = await page.context.new_cdp_session(page)
