@@ -1242,6 +1242,7 @@ async def _issue_family_cert_efamily(page, task, context, user_info: dict = None
 
     modal_ready = False
     _info_err_notified = False
+    auth_done = False  # 인증 완료(신청 폼 도달)로 루프를 나갔는지 — 타임아웃과 구분해 맹목 진행 방지
     for _w in range(240):  # 최대 ~8분(약관·정보 입력 + 인증까지 사람 속도)
         check_cancel(task, context)
         try:
@@ -1251,6 +1252,7 @@ async def _issue_family_cert_efamily(page, task, context, user_info: dict = None
         # 인증 완료 후 화면(신청 폼)으로 이미 넘어갔으면 ④로
         if ("신청하기" in body or "일반증명서" in body) and "인증 요청" not in body:
             modal_ready = False
+            auth_done = True  # 인증 완료 화면(신청 폼) 도달 — ④로 진행
             break
         # ⚠️ '입력하신 정보로 인증을 진행할 수 없습니다' 안내(정보 불일치·미입력, 실사용 스크린샷) —
         #    [확인]을 눌러 닫고, 사람이 정보를 고쳐 직접 [인증 요청]할 때까지 기다린다(사용자 요청).
@@ -1490,6 +1492,20 @@ async def _issue_family_cert_efamily(page, task, context, user_info: dict = None
         if _w and _w % 15 == 0:
             task.update("waiting_login", f"진행을 기다리는 중이에요… ({_w * 2}초) 폰에서 [인증 허용]만 누르면 나머진 자동이에요.", await take_screenshot(page))
         await asyncio.sleep(2)
+
+    # ⚠️ 8분 내 본인인증(폰 승인)이 확인되지 않으면 맹목적으로 [신청하기]를 누르지 않는다(감사 확정 MED) —
+    #    로그인 대기 타임아웃을 error로 정직 보고하는 것(_login_on_www_gov)과 대칭. 브라우저는 호출부가 잠시
+    #    열어둬(단독 60초) 사용자가 화면에서 직접 마칠 수 있다(세션 파괴+맹목 클릭 대신 이어서 완료 가능).
+    if not auth_done:
+        ss = await take_screenshot(page)
+        task.update(
+            "error",
+            "가족관계증명서 본인인증이 시간 안에 완료되지 않았어요(폰 승인 미확인).\n"
+            "브라우저 화면에서 인증을 마치고 [신청하기]로 직접 발급해 주세요. 필요하면 [다시 시작]을 눌러 주세요.",
+            ss,
+        )
+        task.result = {"success": False, "doc_name": "가족관계증명서", "saved_path": None}
+        return
 
     # ④ 인증 후 '가족관계등록부 열람/발급 신청' 화면(실측: PtFrrpReadIssTrgtInfoW.do, 사용자 스크린샷).
     #    1~4번은 기본 선택이 이미 올바름: 본인·가족관계증명서·일반증명서·주민번호 뒷부분 '전부 비공개'

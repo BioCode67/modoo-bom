@@ -352,8 +352,10 @@ async def run_work24_rpa(task, user_info: dict = None) -> None:
                 task.result = {"success": True, "doc_name": "고용보험 피보험자격 이력내역서"}
             elif clicked_any:
                 # 발급 후보를 눌렀지만 발급 결과(팝업/완료)를 확인하지 못함 — 가짜 '완료' 대신 정직하게 안내(감사 :252)
+                # ⚠️ status를 'done'이 아닌 'error'로 — done/completed 는 프론트가 '✅ 발급 완료' 배지를 띄우므로,
+                #    미발급(success:False)을 done 으로 두면 거짓 완료 신호가 된다(nhis 미완료가 error 인 것과 파리티).
                 task.update(
-                    "done",
+                    "error",
                     "📄 고용보험 이력내역서 발급 화면까지 진행했어요.\n"
                     "화면에서 [발급]/[출력] 버튼을 눌러 조회 결과를 확인하고 Ctrl+P(⌘+P)로 저장해 주세요.\n"
                     "브라우저는 60초 후 자동 종료됩니다.",
@@ -368,7 +370,7 @@ async def run_work24_rpa(task, user_info: dict = None) -> None:
                                         tried=["DOC_MENU_SELECTORS", "SEARCH_SELECTORS", "ISSUE_SELECTORS"],
                                         note="로그인 후 발급/출력 버튼 미도달")
                 task.update(
-                    "done",
+                    "error",  # 미발급 — done 이면 프론트가 '✅ 발급 완료' 배지를 띄운다(거짓 완료 신호 제거)
                     "⚠️ 고용보험 이력내역서 '발급 버튼까지 도달하지 못했어요'.\n"
                     "로그인·조회가 됐는지 화면에서 확인하고, 발급/출력 버튼을 직접 눌러 저장해 주세요.\n"
                     f"브라우저는 60초 후 자동 종료됩니다.\n{_saved}".rstrip(),
