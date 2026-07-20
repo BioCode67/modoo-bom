@@ -58,6 +58,26 @@ describe('페르소나 골든 — 결과 품질 고정', () => {
     expect(names(pol)).not.toMatch(/기초연금|노인일자리|영유아|보육료/) // 청년에게 노인·영유아 누수 0
   })
 
+  it('🎬 시연 페르소나(24세 남·근로·1인가구·중위45%): 청년월세지원 high + 비학생이라 국가장학금 미노출', () => {
+    // 사용자가 실제 시연영상에서 쓰는 페르소나(24세 남·근로 중·월세·무주택). 데모의 핵심 순간
+    //   (추천→청년월세지원 자동신청)이 정확히 뜨는지를 '나이 24'로 고정(기존 골든은 27세만 커버).
+    const r = runAnalysis({ ...base, age: 24, gender: 'male', household_type: '1인가구', income_percentile: 45, employment_status: 'employed', region: '서울' })
+    const pol = r.eligible_policies.filter((p) => p.id.startsWith('POL-'))
+    const p009 = pol.find((p) => p.id === 'POL-009')
+    expect(p009).toBeTruthy()             // 청년월세지원 = 자동신청 데모 타깃
+    expect(p009?.priority).toBe('high')   // 상단 노출(발견성)
+    expect(names(pol)).not.toMatch(/국가장학금/)  // 근로자(비학생)에겐 장학금 오노출 0
+    expect(names(pol)).not.toMatch(/기초연금|노인일자리|영유아|보육료|생리용품/) // 인구통계 누수 0
+  })
+
+  it('🎬 시연 페르소나(24세 남·대학 재학·1인가구·중위45%): 청년월세지원 high + 학생이라 국가장학금 high', () => {
+    // 같은 24세라도 '대학 재학 중'이면 국가장학금이 함께 떠야 한다(근로 페르소나와 대비 — 상태 반영 검증).
+    const r = runAnalysis({ ...base, age: 24, gender: 'male', household_type: '1인가구', income_percentile: 45, employment_status: 'student', region: '서울' })
+    const pol = r.eligible_policies.filter((p) => p.id.startsWith('POL-'))
+    expect(pol.find((p) => p.id === 'POL-009')?.priority).toBe('high') // 청년월세지원 여전히 high
+    expect(pol.some((p) => /국가장학금/.test(p.name) && p.priority === 'high')).toBe(true) // 학생 → 장학금 high
+  })
+
   it('👶 출산 가정(0세 자녀): 아동수당+부모급여 high + 60일 소급 알림', () => {
     const r = runAnalysis({ ...base, age: 32, has_children: true, children_ages: [0], life_events: ['출산'] })
     const pol = r.eligible_policies.filter((p) => p.id.startsWith('POL-'))
