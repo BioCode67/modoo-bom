@@ -1199,19 +1199,24 @@ async def _issue_family_cert_efamily(page, task, context, user_info: dict = None
             #    실사용 확정('인증 요청' 후 "휴대폰번호를 입력하여 주십시오"): JS 주입은 이 위젯에 등록되지 않는다.
             _phone_ok = not _modal_vals.get("tail")  # 번호가 없으면 판정 대상 아님
             if _modal_vals.get("tail"):
+                # 입력칸을 '직접' 스캔 — 컨테이너 우선 탐색은 숨은 중복 행을 먼저 잡을 수 있다(보이는 것만).
                 _js_mark_phone = """() => {
-                    for (const tr of document.querySelectorAll('tr, li, div')) {
-                        const t = (tr.innerText || '').trim();
-                        if (t.length > 80) continue;
-                        if (t.includes('휴대폰') || t.includes('핸드폰')) {
-                            const el = [...tr.querySelectorAll("input[type=text], input[type=tel], input[type=number], input:not([type])")]
-                                .filter(i => !i.disabled && !i.readOnly).pop();
-                            if (!el) return false;
-                            el.setAttribute('data-modoobom', 'phone');
-                            return true;
+                    const rowOf = (e) => {
+                        let n = e.parentElement;
+                        for (let i = 0; i < 5 && n; i++) {
+                            const t = (n.innerText || '').trim();
+                            if (t.length > 0 && t.length <= 60) return t;
+                            n = n.parentElement;
                         }
-                    }
-                    return false;
+                        return '';
+                    };
+                    const cands = [...document.querySelectorAll("input[type=text], input[type=tel], input[type=number], input:not([type])")]
+                        .filter(e => e.offsetParent !== null && !e.disabled && !e.readOnly)
+                        .filter(e => /휴대폰|핸드폰/.test(rowOf(e)));
+                    if (!cands.length) return false;
+                    const el = cands[cands.length - 1];
+                    el.setAttribute('data-modoobom', 'phone');
+                    return true;
                 }"""
                 # 검증: 우리가 친 번호 '그대로' 남아있어야 성공(placeholder·잔값 오인 차단, 값 비교는 브라우저 안에서만)
                 _js_check_phone = """(t) => {
@@ -1224,13 +1229,26 @@ async def _issue_family_cert_efamily(page, task, context, user_info: dict = None
                             await asyncio.sleep(0.8)
                             continue
                         _ploc = ctx.locator("[data-modoobom='phone']")
-                        await _ploc.click()
-                        await page.keyboard.press("Control+a")
-                        await page.keyboard.press("Delete")
-                        await page.keyboard.type(_modal_vals["tail"], delay=45)
-                        await asyncio.sleep(0.6)  # 위젯이 지울 시간을 준 '뒤' 검증해야 진짜
-                        if await ctx.evaluate(_js_check_phone, _modal_vals["tail"]):
-                            _phone_ok = True
+                        # 입력 파이프라인 3단 폴백 — 위젯마다 인정하는 방식이 달라(실사용),
+                        # 실키 → IME 삽입 → CDP fill 순으로 시도하고 각각 '지연 후' 검증한다.
+                        for _method in ("type", "insert", "fill"):
+                            try:
+                                await _ploc.click(timeout=4000)
+                                await page.keyboard.press("Control+a")
+                                await page.keyboard.press("Delete")
+                                if _method == "type":
+                                    await page.keyboard.type(_modal_vals["tail"], delay=45)
+                                elif _method == "insert":
+                                    await page.keyboard.insert_text(_modal_vals["tail"])
+                                else:
+                                    await _ploc.fill(_modal_vals["tail"], timeout=4000)
+                                await asyncio.sleep(0.6)  # 위젯이 지울 시간을 준 '뒤' 검증해야 진짜
+                                if await ctx.evaluate(_js_check_phone, _modal_vals["tail"]):
+                                    _phone_ok = True
+                                    break
+                            except Exception:
+                                continue
+                        if _phone_ok:
                             break
                     except Exception:
                         pass

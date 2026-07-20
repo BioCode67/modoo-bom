@@ -65,8 +65,40 @@ _COLLECT_JS = """() => {
 }"""
 
 
+_ENV_LOADED = False
+
+
+def _load_env_file():
+    """backend/.env를 직접 읽어 '없는 키만' 주입 — 데스크탑 경량 서버(local_server)는 dotenv를
+    안 부르므로(사용자가 .env에 넣어둔 GEMINI_API_KEY가 안 보이던 실사용 원인) 무의존 파서로 보강.
+    값은 로그·메시지에 절대 노출하지 않는다."""
+    global _ENV_LOADED
+    if _ENV_LOADED:
+        return
+    _ENV_LOADED = True
+    try:
+        import pathlib
+        env_path = pathlib.Path(__file__).resolve().parents[1] / ".env"
+        if not env_path.exists():
+            return
+        wanted = {"GEMINI_API_KEY", "GOOGLE_API_KEY", "GROQ_API_KEY", "ANTHROPIC_API_KEY",
+                  "RPA_AI_FILL", "CLAUDE_MODEL"}
+        for line in env_path.read_text(encoding="utf-8", errors="ignore").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            k, _, v = line.partition("=")
+            k = k.strip()
+            v = v.strip().strip('"').strip("'")
+            if k in wanted and v and k not in os.environ:
+                os.environ[k] = v
+    except Exception:
+        pass
+
+
 def _pick_provider():
-    """사용 가능한 LLM 키 — 없으면 None(기능 전체 무동작)."""
+    """사용 가능한 LLM 키 — 없으면 None(기능 전체 무동작). backend/.env 백스톱 로드 포함."""
+    _load_env_file()
     g = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
     if g:
         return ("gemini", g)
