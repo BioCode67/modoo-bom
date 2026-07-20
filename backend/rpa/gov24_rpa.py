@@ -387,7 +387,11 @@ async def _login_on_www_gov(page, task, user_info: dict = None) -> bool:
 
     if not login_ok:
         ss = await take_screenshot(page)
-        task.update("error", "로그인 대기 시간 초과 (8분). 다시 시도해주세요.", ss)
+        # 🔬 로그인을 감지 못한 실화면 구조를 남긴다 — 인증은 됐는데 감지만 놓친 경우(로그아웃 링크·URL
+        #    패턴 변화)를 실측으로 구분해 wait_for_login 을 보정. 개발 환경에서 못 보는 그 화면을 이 파일로.
+        _saved = await _dump_diag(page, "정부24-로그인미감지",
+                                  tried=["wait_for_login: URL·로그아웃 링크 감지"], note="8분 내 로그인 완료 미감지")
+        task.update("error", f"로그인 대기 시간 초과 (8분). 다시 시도해주세요.\n{_saved}".rstrip(), ss)
         return False
 
     ss = await take_screenshot(page)

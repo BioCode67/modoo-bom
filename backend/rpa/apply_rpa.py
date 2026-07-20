@@ -352,7 +352,16 @@ async def _login_bokjiro(page, task, provider: str = "kakao", user_info: dict = 
 
     login_ok = await wait_for_login(page, task, timeout_sec=300, login_url=login_url)
     if not login_ok:
-        task.update("error", "로그인 대기 시간 초과 (5분). 다시 시도해주세요.")
+        # 🔬 로그인 미감지 실화면 구조를 남긴다(팀원 확인 요망) — 복지로 간편인증은 됐는데 감지만 놓친
+        #    경우를 실측 구분해 wait_for_login 을 보정. 개발 환경에서 못 보는 그 화면을 이 파일로.
+        _saved = ""
+        try:
+            from rpa import diagnostics as _dg
+            _saved = await _dg.dump(page, "복지로신청-로그인미감지",
+                                    tried=["wait_for_login: URL·로그아웃 링크"], note="5분 내 로그인 미감지")
+        except Exception:
+            pass
+        task.update("error", f"로그인 대기 시간 초과 (5분). 다시 시도해주세요.\n{_saved}".rstrip())
         return False
 
     ss = await take_screenshot(page)

@@ -566,7 +566,12 @@ async def run_nhis_rpa(task, user_info: dict = None) -> None:
                 login_ok = await _wait_login(page, task, timeout=300)
                 if not login_ok:
                     ss = await take_screenshot(page)
-                    task.update("error", "로그인 대기 시간 초과 (5분). 다시 시도해주세요.", ss)
+                    # 🔬 로그인 미감지 실화면 구조를 남긴다 — 카카오 인증은 됐는데 감지만 놓친 경우(로그아웃
+                    #    링크·URL 변화)를 실측 구분해 _wait_login 을 보정. 개발 환경에서 못 보는 그 화면을 이 파일로.
+                    from rpa import diagnostics as _dg
+                    _saved = await _dg.dump(page, "건강보험자격득실-로그인미감지",
+                                            tried=["_wait_login: CERT_KEYWORD URL·로그아웃 링크"], note="5분 내 로그인 미감지")
+                    task.update("error", f"로그인 대기 시간 초과 (5분). 다시 시도해주세요.\n{_saved}".rstrip(), ss)
                     await browser.close()
                     return
 
