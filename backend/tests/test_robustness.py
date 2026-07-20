@@ -275,6 +275,37 @@ def test_resolve_apply_url_known_service_ignores_deeplink():
     assert resolve_apply_url("아동수당", {"applyUrl": other}) == SERVICE_APPLY_URLS["아동수당"]
 
 
+def test_landed_matches_guard():
+    # 착지 대조 가드: 다른 서비스 상세로 열리면(복지로 ID 재배정) 자동 클릭을 멈추기 위한 판정.
+    from rpa.apply_rpa import _landed_matches
+    page_wolse = "복지서비스 상세 청년월세 한시 특별지원 신청하기 저소득 청년에게 월세를 지원"
+    assert _landed_matches(page_wolse, "청년월세지원")            # 표기 변형은 접두 매칭으로 흡수
+    assert _landed_matches("기초연금 상세 안내 신청하기", "기초연금")  # 정확 일치
+    assert not _landed_matches("아동수당 상세 안내", "기초연금")      # 딴 서비스 → 자동 클릭 중지
+    assert _landed_matches("", "기초연금")                          # 판독 실패(빈 본문)는 통과 — 과차단 금지
+    assert _landed_matches("아무 페이지", "")
+
+
+def test_frontend_backend_apply_deeplink_parity():
+    # 프론트 quickApply.KNOWN_APPLY_URLS ↔ 백엔드 SERVICE_APPLY_URLS 의 같은 서비스명은 같은
+    # wlfareInfoId 여야 한다 — 어긋나면 버튼과 RPA가 서로 다른 정책 페이지로 이동한다(오신청 위험).
+    import pathlib, re as _re
+    from rpa.apply_rpa import SERVICE_APPLY_URLS
+    ts = (pathlib.Path(__file__).resolve().parents[2] / "frontend" / "src" / "lib" / "quickApply.ts")
+    if not ts.exists():
+        return  # 백엔드 단독 배포(번들)에는 프론트 소스가 없다 — 소스트리에서만 검증
+    text = ts.read_text(encoding="utf-8")
+    fe = {}
+    for m in _re.finditer(r"^\s*'?([^'\n:]+?)'?\s*:\s*`\$\{BOKJIRO\}(WLF\d+)`", text, _re.M):
+        fe[m.group(1).strip()] = m.group(2)
+    assert len(fe) >= 20, f"프론트 딥링크 맵 파싱 실패(발견 {len(fe)}건) — 정규식/파일 구조 확인"
+    for name, url in SERVICE_APPLY_URLS.items():
+        be_id = _re.search(r"(WLF\d+)", url).group(1)
+        if name in fe:
+            assert fe[name] == be_id, f"'{name}' 딥링크 불일치: 프론트 {fe[name]} ≠ 백엔드 {be_id}"
+    assert fe.get("청년월세지원") == "WLF00004661"  # 데모 핵심 서비스 고정
+
+
 def test_gov24_form_options_helper_exists():
     # #1 회귀: 폼 옵션 선택 헬퍼가 존재(가족관계 유형·발급목적/연도 미선택 보완). 실동작은 Playwright 필요.
     from rpa import gov24_rpa

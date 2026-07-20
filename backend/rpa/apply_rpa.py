@@ -487,6 +487,21 @@ def _valid_bokjiro_url(url: str) -> bool:
         return False
 
 
+def _landed_matches(body_text: str, service_name: str) -> bool:
+    """(추가형) 착지 페이지가 요청 서비스의 상세인지 이름 대조 — 공백 무시 + 접두 60% 관용.
+    복지로 wlfareInfoId 는 과거 타 서비스로 재배정된 전례가 있어(상단 주석), 다른 서비스
+    상세에 자동 신청을 진행하는 오신청을 막는다. 표기 변형('청년월세지원' ↔ 복지로 표기
+    '청년월세 한시 특별지원')은 접두 매칭으로 흡수. 빈 본문·빈 이름은 True(과차단 금지)."""
+    key = re.sub(r"\s+", "", service_name or "")
+    body = re.sub(r"\s+", "", body_text or "")
+    if not key or not body:
+        return True
+    if key in body:
+        return True
+    head = key[: max(3, round(len(key) * 0.6))]
+    return head in body
+
+
 def resolve_apply_url(service_name: str, profile: dict) -> str:
     """신청 URL 결정 — ① 알려진 6종은 실측검증 하드코딩 URL 우선(딥링크가 서비스와 불일치하거나
     journey에서 여러 신청에 같은 프로필 apply_url이 잘못 재사용되는 것 방지) ② 그 밖은 프로필의
@@ -554,6 +569,22 @@ async def run_apply_rpa(task, service_name: str, profile: dict) -> None:
                 await page.goto(service_url, wait_until="domcontentloaded", timeout=30000)
                 await wait_any_visible(page, APPLY_BUTTON_SELECTORS, 3)
 
+            # ③.5 (추가형) 착지 대조 — 열린 상세가 요청 서비스와 다르면(복지로 ID 재배정 등)
+            #     자동 클릭을 멈추고 사람이 화면을 확인하게 한다(다른 복지에 오신청 방지).
+            landed_ok = True
+            try:
+                _body0 = await page.evaluate("() => document.body ? document.body.innerText : ''")
+                landed_ok = _landed_matches(_body0, service_name)
+            except Exception:
+                landed_ok = True  # 판독 실패는 기존 흐름 유지(과차단 금지)
+            if not landed_ok:
+                task.update(
+                    "waiting_login",
+                    f"⚠️ 열린 페이지에서 '{service_name}' 이름을 확인하지 못했어요(복지로 페이지 변경 가능성).\n"
+                    "화면을 확인해 주세요 — 맞는 서비스라면 [신청하기]를 직접 눌러 주세요. 이어서 자동 작성합니다.",
+                    await take_screenshot(page),
+                )
+
             # ④ 신청하기 버튼 클릭
             ss = await take_screenshot(page)
             task.update("running", "신청하기 버튼 탐색 중...", ss)
@@ -564,17 +595,18 @@ async def run_apply_rpa(task, service_name: str, profile: dict) -> None:
             before_state = await _scan_apply_state(before_contexts)
 
             apply_clicked = False
-            for candidate in before_contexts:
-                if await click_first_matching(candidate, APPLY_BUTTON_SELECTORS):
-                    apply_clicked = True
-                    break
-            if not apply_clicked:
-                # 복지로 '신청하기'는 eForm(clipsoft) 위젯 — 합성 클릭에 무반응이라 좌표 기반 신뢰 클릭으로 폴백
+            if landed_ok:  # 착지 불일치 시 자동 클릭 생략 — 사람이 확인·클릭하면 아래 감지 루프가 이어받는다
                 for candidate in before_contexts:
-                    if (await click_eform_button(candidate, "신청하기")
-                            or await click_eform_button(candidate, "신청")):
+                    if await click_first_matching(candidate, APPLY_BUTTON_SELECTORS):
                         apply_clicked = True
                         break
+                if not apply_clicked:
+                    # 복지로 '신청하기'는 eForm(clipsoft) 위젯 — 합성 클릭에 무반응이라 좌표 기반 신뢰 클릭으로 폴백
+                    for candidate in before_contexts:
+                        if (await click_eform_button(candidate, "신청하기")
+                                or await click_eform_button(candidate, "신청")):
+                            apply_clicked = True
+                            break
 
             form_detected = False
             form_contexts = before_contexts
