@@ -124,7 +124,11 @@ export function DocumentCenter() {
   }
   // 언마운트 후 폴링이 계속 setState/fetch 하지 않도록 하는 가드('나의 복지'를 떠나면 중단)
   const mountedRef = useRef(true)
-  useEffect(() => () => { mountedRef.current = false }, [])
+  // ⚠️ 마운트마다 true 로 되돌린다 — React 18 StrictMode(dev)의 mount→cleanup→mount 뒤 mountedRef 가
+  //   영구 false 로 굳어 모든 폴링 루프가 첫 틱에 즉시 return, UI가 '시작 중…'에 정지하던 갭(감사 확정, dev 한정).
+  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false } }, [])
+  // 🚧 발급 기동 중 서류 집합 — 같은 서류의 중복 기동(챗 브리지·재발급·reissue)을 원자적으로 막는다(감사 확정).
+  const startingRef = useRef<Set<string>>(new Set())
   // 진행 중 여정 id/토큰 — [중단] 버튼이 여정 전체를 취소할 수 있게 보관(단건은 taskId로 취소)
   const journeyRef = useRef<{ id: string; running: boolean } | null>(null)
   // 여정 수준 진행률(n/m·현재 단계·인증 대기 여부) — 카드별 상태만으론 전체 흐름이 안 보이던 갭(감사). null=여정 없음.
@@ -360,8 +364,10 @@ export function DocumentCenter() {
   }
 
   const startRpa = async (doc: string) => {
+    if (startingRef.current.has(doc)) return  // 🚧 이미 기동 중 — 중복 태스크·브라우저·발급 슬롯 방지
     // 본인인증 자동입력엔 실명·생년월일·휴대폰이 필요 — 비어 있으면 시작 전에 안내하고
     // 사용자를 '첫 빈 칸'으로 바로 데려간다(스크롤+포커스) → 어디에 뭘 넣는지 헤매지 않게.
+    // (검증 실패 return 은 startingRef 표시 '전'이라 값을 채운 뒤 재시도가 막히지 않는다)
     if (!rpaInfo.name?.trim() || !rpaInfo.birth_date?.trim() || !rpaInfo.phone?.trim()) {
       setRpa((s) => ({ ...s, [doc]: { status: 'error', step: '실명·생년월일·휴대폰만 넣으면 본인인증 화면까지 자동으로 채워드려요. 아래 칸에 입력해 주세요 👇 (내 기기에만 저장)', at: Date.now() } }))
       const missingIdx = !rpaInfo.name?.trim() ? 0 : !rpaInfo.birth_date?.trim() ? 1 : 2 // 이름·생년월일·휴대폰 순
@@ -373,6 +379,7 @@ export function DocumentCenter() {
       }, 80)
       return
     }
+    startingRef.current.add(doc)  // 이 지점부터 '기동 중' — 아래 모든 종료 경로에서 delete 로 해제
     setRpa((s) => ({ ...s, [doc]: { status: 'running', step: '시작 중…', at: Date.now() } }))
     // 채널 라우팅: 로컬 백엔드는 15종 지원(officialLinks.LOCAL_RPA_DOCS) — 로컬이 못 하는 서류는 확장으로(있으면), 둘 다 안 되면 정직한 안내
     const localOk = isRpaSupported(doc, 'local')
@@ -384,10 +391,12 @@ export function DocumentCenter() {
         auth_provider: rpaInfo.auth_provider || 'kakao', // 선택한 인증수단(PASS 등)을 확장에도 전달
       })
       if (!r.ok) setRpa((s) => ({ ...s, [doc]: { status: 'error', step: r.error || '확장이 이 서류를 지원하지 않아요.', at: Date.now() } }))
+      startingRef.current.delete(doc)
       return
     }
     if (localAgent && !localOk) {
       setRpa((s) => ({ ...s, [doc]: { status: 'error', step: '이 서류는 로컬 에이전트가 자동발급을 지원하지 않아요 — 옆의 발급 버튼으로 공식 사이트에서 직접 발급하세요.', at: Date.now() } }))
+      startingRef.current.delete(doc)
       return
     }
     try {
@@ -414,6 +423,8 @@ export function DocumentCenter() {
       await pollDocTask(doc, task_id, downloadToken)
     } catch (e) {
       setRpa((s) => ({ ...s, [doc]: { status: 'error', step: e instanceof Error ? e.message : '실패' } }))
+    } finally {
+      startingRef.current.delete(doc)  // 정상 완료·오류 모두 '기동 중' 해제(main 경로)
     }
   }
 
@@ -551,18 +562,36 @@ export function DocumentCenter() {
     const started = await res.json()
     const journey_id = started.journey_id
     const jtok = started.download_token || ''  // 스크린샷/경로 열람 인가 토큰(시작자에게만)
+    // 🔁 서버가 '이미 진행 중인 여정'을 돌려주면(재클릭·sessionStorage 복원 유실 등) 그 여정을 이어서
+    //   보여준다 — 방금 요청한 서류를 '대상이 아니에요'로 오표시하지 않고(그 여정에 없을 뿐), 이미 이
+    //   여정을 폴링 중이면 중복 폴러를 붙이지 않는다(감사 확정: already_running 거짓 오류 + 이중 폴링).
+    const resuming = started.status === 'already_running'
+    if (resuming && journeyRef.current?.id === journey_id && journeyRef.current?.running) {
+      const busyMsg = '이미 연쇄 자동발급이 진행 중이에요 — 진행 중인 발급이 끝난 뒤 이어서 시도해 주세요.'
+      const notIn = [...docList.filter((d) => !(started.docs || []).includes(d)),
+                     ...svcList.filter((sv) => !(started.services || []).includes(sv))]
+      if (notIn.length) setRpa((s) => ({ ...s, ...Object.fromEntries(notIn.map((k) => [k, { status: 'error', step: busyMsg, at: Date.now() }])) }))
+      return  // 이미 이 여정을 추적·폴링 중 — 중복 폴러 미부착
+    }
     journeyRef.current = { id: journey_id, running: true }  // [중단]이 여정 전체를 취소할 수 있게
     // 지원목록 밖 서류는 여정에서 제외되므로, 서버가 실제로 받은 서류만 추적한다(나머지 카드가 스피너로 영구고정되지 않게).
     const accepted: string[] = Array.isArray(started.docs) ? started.docs : docList
     const dropped = docList.filter((d) => !accepted.includes(d))
     if (dropped.length) {
-      setRpa((s) => ({ ...s, ...Object.fromEntries(dropped.map((d) => [d, { status: 'error', step: '이 서류는 자동발급 대상이 아니에요 — 옆의 발급 버튼으로 진행해 주세요.', at: Date.now() }])) }))
+      // resuming이면 '대상 아님'이 아니라 '진행 중이라 이번엔 제외'로 정직하게(서버가 다른 여정의 목록을 준 것)
+      const msg = resuming
+        ? '이미 연쇄 자동발급이 진행 중이에요 — 진행 중인 발급이 끝난 뒤 이어서 시도해 주세요.'
+        : '이 서류는 자동발급 대상이 아니에요 — 옆의 발급 버튼으로 진행해 주세요.'
+      setRpa((s) => ({ ...s, ...Object.fromEntries(dropped.map((d) => [d, { status: 'error', step: msg, at: Date.now() }])) }))
     }
     // 요청한 '자동신청까지'가 여정에서 탈락했으면 침묵하지 않는다 — 사용자는 신청까지 이어진다고 알고 있음(정직성)
     const acceptedSvcs: string[] = Array.isArray(started.services) ? started.services : []
     const droppedSvcs = svcList.filter((sv) => !acceptedSvcs.includes(sv))
     if (droppedSvcs.length) {
-      setRpa((s) => ({ ...s, ...Object.fromEntries(droppedSvcs.map((sv) => [sv, { status: 'error', step: '이 서비스는 자동신청 연쇄에 포함되지 못했어요 — 발급이 끝나면 정책 상세의 에이전트 신청이나 공식 페이지에서 이어 주세요.', at: Date.now() }])) }))
+      const smsg = resuming
+        ? '이미 연쇄 자동발급이 진행 중이에요 — 그 여정이 끝난 뒤 정책 상세에서 이어 주세요.'
+        : '이 서비스는 자동신청 연쇄에 포함되지 못했어요 — 발급이 끝나면 정책 상세의 에이전트 신청이나 공식 페이지에서 이어 주세요.'
+      setRpa((s) => ({ ...s, ...Object.fromEntries(droppedSvcs.map((sv) => [sv, { status: 'error', step: smsg, at: Date.now() }])) }))
     }
     rememberLive('journey', 'current', { taskId: journey_id, token: jtok, docs: accepted }) // 새로고침 복원용
     await pollJourney(journey_id, jtok, accepted)

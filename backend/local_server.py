@@ -957,7 +957,16 @@ async def journey_status(journey_id: str, t: str = ""):
 
 @app.exception_handler(Exception)
 async def _unhandled(request, exc):
-    return JSONResponse(status_code=500, content={"detail": "로컬 에이전트에서 문제가 발생했어요. 잠시 후 다시 시도해 주세요."})
+    # ⚠️ 최외곽 예외 핸들러 응답은 CORSMiddleware를 거치지 않아 CORS 헤더가 없다 — gh-pages→로컬 에이전트
+    #   브릿지에서 미처리 500이 나면 브라우저가 응답을 차단해 프론트가 detail(안내 문구)을 못 읽고 네트워크
+    #   오류(failStreak)로만 처리하던 갭(감사 확정). 허용 오리진이면 CORS 헤더를 실어 프론트가 문구를 읽게 한다.
+    origin = request.headers.get("origin")
+    headers = {}
+    if origin in _ALLOWED_ORIGINS:
+        headers = {"Access-Control-Allow-Origin": origin, "Access-Control-Allow-Credentials": "true", "Vary": "Origin"}
+    return JSONResponse(status_code=500,
+                        content={"detail": "로컬 에이전트에서 문제가 발생했어요. 잠시 후 다시 시도해 주세요."},
+                        headers=headers)
 
 
 # ── 프론트(dist-app) 동일 출처 서빙 — API 라우트 등록 뒤 '/'에 마운트(우선순위 보장) ──
