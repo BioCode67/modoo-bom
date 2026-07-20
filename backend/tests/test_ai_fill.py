@@ -74,6 +74,24 @@ def test_deterministic_semantic_match():
     assert all(p["idx"] != 5 and p["idx"] != 6 for p in plan)
 
 
+def test_deterministic_skips_other_person_fields():
+    """🚫 다중 인물 신청서(신청인·배우자·대리인·자녀)에서 신청인 값이 '타인 칸'에 오입력되지 않는지.
+    복지로 신청서 실측 위험 — '배우자 성명'이 신청인 '성명'보다 앞서 있어도 신청인 성명 칸을 골라야 한다."""
+    fields = [
+        {"idx": 0, "role": "textbox", "name": "배우자 성명", "filled": False, "ro": False},   # 타인 — 제외
+        {"idx": 1, "role": "textbox", "name": "대리인 휴대폰", "filled": False, "ro": False}, # 타인 — 제외
+        {"idx": 2, "role": "textbox", "name": "신청인 성명", "filled": False, "ro": False},   # 정답
+        {"idx": 3, "role": "textbox", "name": "휴대폰 번호", "filled": False, "ro": False},    # 정답
+    ]
+    plan = af._deterministic_plan(fields, ["name", "phone_tail"])
+    by_key = {p["key"]: p for p in plan}
+    assert by_key["name"]["idx"] == 2        # '배우자 성명'(idx 0) 건너뛰고 '신청인 성명'
+    assert by_key["phone_tail"]["idx"] == 3  # '대리인 휴대폰'(idx 1) 건너뛰고 신청인 휴대폰
+    # 타인 칸만 존재하면(신청인 칸 없음) 아무것도 채우지 않는다(오입력보다 미입력이 안전)
+    only_other = [{"idx": 0, "role": "textbox", "name": "자녀 성명", "filled": False, "ro": False}]
+    assert af._deterministic_plan(only_other, ["name"]) == []
+
+
 def test_click_guard_allow_and_deny():
     # 클릭 안전 가드 — 진행성 버튼만 허용, 제출/결제류는 어떤 경우에도 거부(HITL 불변)
     assert af.click_text_allowed("간편인증")

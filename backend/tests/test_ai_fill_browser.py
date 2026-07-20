@@ -10,6 +10,7 @@ import pytest
 
 _HTML = """<!doctype html><meta charset="utf-8"><body>
 <table>
+<tr><th>배우자 성명</th><td><input id="spouse" type="text"></td></tr>
 <tr><th>성명</th><td><input id="nm" type="text"></td></tr>
 <tr><th>주민등록번호</th><td><input id="b" type="text"> - <input id="r" type="password"></td></tr>
 <tr><th>휴대폰 번호</th><td>
@@ -42,7 +43,8 @@ def test_ai_fill_accessible_name_deterministic_real_browser(monkeypatch):
                                 page_hint="합성 정부폼")
             vals = await pg.evaluate(
                 "() => ({nm: document.getElementById('nm').value, b: document.getElementById('b').value,"
-                " p: document.getElementById('p').value, sido: document.getElementById('sido').value})")
+                " p: document.getElementById('p').value, sido: document.getElementById('sido').value,"
+                " spouse: document.getElementById('spouse').value})")
             await b.close()
             return out, vals
 
@@ -52,3 +54,4 @@ def test_ai_fill_accessible_name_deterministic_real_browser(monkeypatch):
     assert vals["b"] == "010601"            # 주민번호 '첫' textbox(앞자리)
     assert vals["p"] == "12345678"          # 휴대폰 뒷자리 input (앞자리 010 select 아님)
     assert vals["sido"] == "경상북도"        # 주소 select에서 실제 옵션 선택(placeholder 아님)
+    assert vals["spouse"] == ""             # 🚫 '배우자 성명'(신청인 앞) 칸엔 신청인 이름이 안 들어감

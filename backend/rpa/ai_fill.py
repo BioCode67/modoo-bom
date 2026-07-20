@@ -440,10 +440,21 @@ _INTENT_PATTERNS = {
     "sigungu": (["시군구", "시·군·구", "군구"], "combobox"),
 }
 
+# 🚫 '타인 지시어' — 접근성 이름에 아래 말이 들어간 칸은 후보에서 제외한다.
+#   복지로 신청서는 한 화면에 신청인·대리인·배우자·보호자·자녀 섹션이 함께 있어, '성명' 부분일치만으로
+#   고르면 신청인 값이 배우자/대리인 칸에 잘못 들어갈 수 있다(실측 위험). 신청인 값(name/birth6/phone)은
+#   명백한 '다른 사람' 칸을 건너뛴다. ⚠️ '세대주'는 신청인 본인인 경우가 흔해 제외하지 않는다(과잉 배제 방지).
+_INTENT_NEG = {
+    "name": ("대리인", "배우자", "보호자", "담당자", "상담", "부성명", "모성명", "자녀", "아동"),
+    "birth6": ("대리인", "배우자", "보호자", "자녀", "아동"),
+    "phone_tail": ("대리인", "담당자", "기관", "회사", "직장"),
+    "phone_head": ("대리인", "담당자", "기관", "회사", "직장"),
+}
+
 
 def _deterministic_plan(fields: list, keys) -> list:
     """접근성 이름 기반 결정론 계획 — LLM 없이 값 키↔요소를 매칭. 같은 이름 여럿이면 '선호 role' 우선
-    → 문서순. 입력 role(textbox/combobox/spinbutton)만, filled/ro/이름없음/중복 idx 제외."""
+    → 문서순. 입력 role(textbox/combobox/spinbutton)만, filled/ro/이름없음/중복 idx/타인 칸 제외."""
     plan = []
     used = set()
     _norm = lambda s: str(s or "").replace(" ", "")
@@ -452,6 +463,7 @@ def _deterministic_plan(fields: list, keys) -> list:
         if not spec:
             continue
         pats, pref = spec
+        neg = _INTENT_NEG.get(key, ())
         cands = []
         for f in fields:
             if f.get("idx") in used or f.get("ro") or f.get("filled"):
@@ -462,6 +474,8 @@ def _deterministic_plan(fields: list, keys) -> list:
             nm = _norm(f.get("name"))
             if not nm or not any(_norm(p) in nm for p in pats):
                 continue
+            if neg and any(_norm(n) in nm for n in neg):
+                continue  # 타인(대리인·배우자·자녀 등) 칸 — 신청인 값 오입력 방지
             cands.append(f)
         if not cands:
             continue
