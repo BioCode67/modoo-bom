@@ -285,6 +285,13 @@ async def run_work24_rpa(task, user_info: dict = None) -> None:
             issue_reached = False
             clicked_any = False
             spent_sels: set = set()
+            # 🪟 발급 전 창 집합 — '이번 발급으로 새로 열린' 결과 팝업만 신호로(로그인 중 간편인증 오클릭 잔탭을
+            #    '발급 완료 팝업'으로 오인하던 절대 len>1 판정을 baseline 대비로 교정 — 감사 확정).
+            _base_ids = {id(p) for p in context.pages}
+
+            def _has_new_page():
+                return any(id(p) not in _base_ids and not p.is_closed() for p in context.pages)
+
             for _w24 in range(90):
                 check_cancel(task, context)  # [중단]·창닫힘 즉시 탈출
                 # 침묵 90초 방지 — 30초마다 진행 화면과 함께 살아있음 갱신(멈춤 오인 방지)
@@ -294,8 +301,8 @@ async def run_work24_rpa(task, user_info: dict = None) -> None:
                     except Exception:
                         pass
                 try:
-                    # 결과 팝업이 이미 떠 있으면 그것이 가장 확실한 발급 신호
-                    if len(context.pages) > 1:
+                    # 이번 발급으로 새로 열린 결과 팝업이 있으면 그것이 가장 확실한 발급 신호
+                    if _has_new_page():
                         popup = context.pages[-1]
                         await popup.bring_to_front()
                         ss = await take_screenshot(popup)
@@ -314,8 +321,8 @@ async def run_work24_rpa(task, user_info: dict = None) -> None:
                             clicked_any = True
                             spent_sels.add(sel)
                             await asyncio.sleep(2)
-                            # 클릭이 실제 발급 결과로 이어졌는지 검증 — 팝업 개창 또는 완료 텍스트가 있어야 성공 확정
-                            if len(context.pages) > 1:
+                            # 클릭이 실제 발급 결과로 이어졌는지 검증 — 새 팝업 개창 또는 완료 텍스트가 있어야 성공 확정
+                            if _has_new_page():
                                 issue_reached = True
                                 break
                             try:

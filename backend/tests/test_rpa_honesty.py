@@ -96,7 +96,11 @@ def test_nhis_success_gates_on_completion_not_save():
     save_document 는 어떤 화면이든 저장(스샷 폴백)하므로, 저장 성공을 발급 성공으로 쓰면 미발급 화면도
     '발급 완료!'로 오보된다(감사 HIGH). 성공 게이트는 completed(출력/완료화면) 단독이어야 한다."""
     src = open("rpa/nhis_rpa.py", encoding="utf-8").read()
-    assert "completed = printed or len(context.pages) > 1" in src
+    # 성공 게이트는 completed(=printed) 단독 — printed 는 _wait_print 가 baseline 대비 '새 창'·출력
+    #   다이얼로그·완료텍스트 등 genuine 신호일 때만 True(버튼 클릭·절대 len>1 잔탭 오탐 제거, 감사 확정).
+    assert "completed = printed\n" in src
+    assert "_base_ids = {id(p) for p in context.pages}" in src
+    assert "completed = printed or len(context.pages) > 1" not in src  # 옛 절대 len>1 판정 제거 확인
     assert "if completed:" in src
     # 옛 'if saved:' 성공 분기(저장만으로 성공 오보)가 남아있으면 안 된다
     assert "if saved:" not in src
