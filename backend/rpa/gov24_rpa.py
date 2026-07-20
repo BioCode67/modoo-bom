@@ -1016,6 +1016,37 @@ async def _issue_family_cert_efamily(page, task, context, user_info: dict = None
                     break
             except Exception:
                 pass
+    # ⌨️ 실사용 확정(인증 요청 후 '휴대폰번호를 입력하여 주십시오'): JS 값 주입을 이 사이트가
+    #    등록하지 않는 입력이 있다 — 부/모 성명은 '진짜 키보드 타이핑'으로 다시 입력한다.
+    #    (대상 입력에 data-modoobom 마킹 → 클릭·전체선택 후 실제 키 이벤트로 타이핑)
+    if parent_name and not _parent_ok:
+        try:
+            marked = await page.evaluate(
+                """() => {
+                    for (const tr of document.querySelectorAll('tr')) {
+                        const head = ((tr.querySelector('th, td') || {}).innerText || '').trim();
+                        if (!/^추가정보확인/.test(head)) continue;
+                        const ins = [...tr.querySelectorAll("input[type=text], input[type=password], input:not([type])")]
+                            .filter(i => !i.disabled);
+                        const el = ins[ins.length - 1];
+                        if (!el) return false;
+                        el.setAttribute('data-modoobom', 'parent');
+                        return true;
+                    }
+                    return false;
+                }"""
+            )
+            if marked:
+                loc = page.locator("[data-modoobom='parent']")
+                await loc.click()
+                await page.keyboard.press("Control+a")
+                await page.keyboard.type(parent_name, delay=35)
+                await asyncio.sleep(0.3)
+                _parent_ok = bool(await page.evaluate(
+                    "() => { const e = document.querySelector(\"[data-modoobom='parent']\"); return !!(e && e.value); }"
+                ))
+        except Exception:
+            pass
     # 🔍 실패 시 행 구조 진단(PII 무포함: 타입·값 유무만) — 다음 제보 한 번으로 정확 조준
     _parent_diag = ""
     if parent_name and not _parent_ok:
@@ -1143,6 +1174,59 @@ async def _issue_family_cert_efamily(page, task, context, user_info: dict = None
                 await ctx.evaluate(_modal_fill_js, _modal_vals)  # 재렌더로 지워진 빈 칸만 재기입(멱등)
             except Exception:
                 pass
+            # ⌨️ 실사용 확정('인증 요청' 후 "휴대폰번호를 입력하여 주십시오"): 이 위젯은 JS 값 주입을
+            #    등록하지 않는다 — 휴대폰은 '진짜 키보드 타이핑'(클릭→전체선택→실키 입력)으로 확정한다.
+            if _modal_vals.get("tail"):
+                try:
+                    _mk = await ctx.evaluate(
+                        """() => {
+                            for (const tr of document.querySelectorAll('tr, li, div')) {
+                                const t = (tr.innerText || '').trim();
+                                if (t.length > 80) continue;
+                                if (t.includes('휴대폰') || t.includes('핸드폰')) {
+                                    const el = [...tr.querySelectorAll("input[type=text], input[type=tel], input[type=number], input:not([type])")].pop();
+                                    if (!el) return false;
+                                    el.setAttribute('data-modoobom', 'phone');
+                                    return true;
+                                }
+                            }
+                            return false;
+                        }"""
+                    )
+                    if _mk:
+                        _ploc = ctx.locator("[data-modoobom='phone']")
+                        await _ploc.click()
+                        await page.keyboard.press("Control+a")
+                        await page.keyboard.type(_modal_vals["tail"], delay=30)
+                        await asyncio.sleep(0.2)
+                except Exception:
+                    pass
+            # 주민번호 뒷자리가 아직 비어 있으면(승계 안 되는 변형) 뒷자리도 실타이핑
+            if rrn7:
+                try:
+                    _need = await ctx.evaluate(
+                        """() => {
+                            for (const tr of document.querySelectorAll('tr, li, div')) {
+                                const t = (tr.innerText || '').trim();
+                                if (t.length > 80) continue;
+                                if (t.includes('주민등록번호')) {
+                                    const ins = [...tr.querySelectorAll("input[type=text], input[type=password], input[type=tel], input[type=number], input:not([type])")];
+                                    const el = ins[ins.length - 1];
+                                    if (!el || el.value) return false;
+                                    el.setAttribute('data-modoobom', 'rrnb');
+                                    return true;
+                                }
+                            }
+                            return false;
+                        }"""
+                    )
+                    if _need:
+                        _rloc = ctx.locator("[data-modoobom='rrnb']")
+                        await _rloc.click()
+                        await page.keyboard.type(rrn7, delay=30)
+                        await asyncio.sleep(0.2)
+                except Exception:
+                    pass
             await _check_agree_all(ctx)  # 전체동의는 제공자 선택 뒤 '마지막에'(동의 리셋 방지 — 정부24와 동일 순서)
             # 🔍 휴대폰 칸이 실제로 채워졌는지 확인 — 실패 시 행 구조 진단(타입·값 유무만, PII 무포함)
             _phone_note = ""
