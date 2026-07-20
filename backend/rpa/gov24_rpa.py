@@ -1151,6 +1151,7 @@ async def _issue_family_cert_efamily(page, task, context, user_info: dict = None
         return pg
 
     modal_ready = False
+    _info_err_notified = False
     for _w in range(240):  # 최대 ~8분(약관·정보 입력 + 인증까지 사람 속도)
         check_cancel(task, context)
         try:
@@ -1161,6 +1162,26 @@ async def _issue_family_cert_efamily(page, task, context, user_info: dict = None
         if ("신청하기" in body or "일반증명서" in body) and "인증 요청" not in body:
             modal_ready = False
             break
+        # ⚠️ '입력하신 정보로 인증을 진행할 수 없습니다' 안내(정보 불일치·미입력, 실사용 스크린샷) —
+        #    [확인]을 눌러 닫고, 사람이 정보를 고쳐 직접 [인증 요청]할 때까지 기다린다(사용자 요청).
+        #    같은 정보로 자동 재요청하면 같은 오류만 반복되므로 재요청은 하지 않는다.
+        if ("인증을 진행할 수 없습니다" in body) or ("사용자 정보" in body and "다시 시도" in body):
+            try:
+                _ctx_err = await _modal_ctx(page)
+                await click_by_text(_ctx_err, ["확인"])
+            except Exception:
+                pass
+            if not _info_err_notified:
+                _info_err_notified = True
+                task.update(
+                    "waiting_login",
+                    "⚠️ 인증 창이 '입력 정보로 진행할 수 없다'고 안내해 [확인]을 눌러 닫아뒀어요.\n"
+                    "화면에서 이름·생년월일·주민번호·휴대폰 번호를 확인/수정하신 뒤 [인증 요청]을 직접 눌러 주세요.\n"
+                    "이후는 자동으로 이어집니다(폰 승인 → '인증 완료' 자동 클릭). 여기서 기다릴게요.",
+                    await take_screenshot(page),
+                )
+            await asyncio.sleep(2)
+            continue
         if (not modal_ready) and (("인증 요청" in body or "인증요청" in body) and "전체동의" in body):
             modal_ready = True
             ctx = await _modal_ctx(page)  # 모달이 iframe이면 그 프레임에 직접 입력(실사용: 휴대폰 미입력 원인)
@@ -1241,19 +1262,31 @@ async def _issue_family_cert_efamily(page, task, context, user_info: dict = None
                             await asyncio.sleep(0.8)
                             continue
                         _ploc = ctx.locator("[data-modoobom='phone']")
-                        # 입력 파이프라인 3단 폴백 — 위젯마다 인정하는 방식이 달라(실사용),
-                        # 실키 → IME 삽입 → CDP fill 순으로 시도하고 각각 '지연 후' 검증한다.
-                        for _method in ("type", "insert", "fill"):
+                        # 입력 파이프라인 4단 폴백 — ⚠️ 실사용 확정(휴대폰만 지속 미입력): 모달 오버레이가
+                        # Playwright '클릭'을 가로채면 클릭 의존 방식은 시작조차 못 한다. 그래서
+                        # ① JS focus+select 후 실키 ② JS focus 후 IME 삽입(클릭 무관 — 키는 포커스로 간다)
+                        # ③ 클릭+실키 ④ CDP fill 순. 각 방식마다 '지연 후 값 일치' 검증.
+                        _js_focus_phone = (
+                            "(s) => { const e = document.querySelector(s); if (!e) return false;"
+                            " e.focus(); try { e.select(); } catch (err) {}"
+                            " return document.activeElement === e; }"
+                        )
+                        for _method in ("focus_type", "focus_insert", "click_type", "cdp_fill"):
                             try:
-                                await _ploc.click(timeout=4000)
-                                await page.keyboard.press("Control+a")
-                                await page.keyboard.press("Delete")
-                                if _method == "type":
+                                if _method in ("focus_type", "focus_insert"):
+                                    if not await ctx.evaluate(_js_focus_phone, "[data-modoobom='phone']"):
+                                        continue
+                                    if _method == "focus_type":
+                                        await page.keyboard.type(_modal_vals["tail"], delay=45)
+                                    else:
+                                        await page.keyboard.insert_text(_modal_vals["tail"])
+                                elif _method == "click_type":
+                                    await _ploc.click(timeout=3000)
+                                    await page.keyboard.press("Control+a")
+                                    await page.keyboard.press("Delete")
                                     await page.keyboard.type(_modal_vals["tail"], delay=45)
-                                elif _method == "insert":
-                                    await page.keyboard.insert_text(_modal_vals["tail"])
                                 else:
-                                    await _ploc.fill(_modal_vals["tail"], timeout=4000)
+                                    await _ploc.fill(_modal_vals["tail"], timeout=3000)
                                 await asyncio.sleep(0.6)  # 위젯이 지울 시간을 준 '뒤' 검증해야 진짜
                                 if await ctx.evaluate(_js_check_phone, _modal_vals["tail"]):
                                     _phone_ok = True
