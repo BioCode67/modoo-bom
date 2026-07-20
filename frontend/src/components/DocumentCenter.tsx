@@ -5,7 +5,7 @@ import { getPolicyMap } from '@/data/catalog'
 import { useAppStore } from '@/store/useAppStore'
 import { docLink, isRpaSupported, isCertIssuable, certKind, CERT_WALLET, isApplyAutomatable, LOCAL_RPA_DOCS, setLocalRpaDocs, isLocalBetaDoc } from '@/lib/officialLinks'
 import { issuableCanonical, substituteIssuableDoc } from '@/lib/docAliases'
-import { isBokjiroApplyable } from '@/lib/quickApply'
+import { isBokjiroApplyable, bestApplyUrl } from '@/lib/quickApply'
 import { getRpaBase } from '@/lib/backend'
 import { useBackend } from '@/lib/useBackend'
 import { detectExtension, issueViaExtension, issueManyViaExtension, getExtensionTrace, onExtensionStatus, sameDocName } from '@/lib/extension'
@@ -529,7 +529,18 @@ export function DocumentCenter() {
         sido: rpaInfo.sido, sigungu: rpaInfo.sigungu, // 연쇄발급에서도 주민등록 주소 자동정정
         // 🔒 가족관계(efamily)용 — 여정에 가족관계가 포함되면 인증 요청까지 자동(서버 미저장)
         rrn_back: rpaInfo.rrn_back || '', parent_kind: rpaInfo.parent_kind || '부', parent_name: rpaInfo.parent_name || '',
-        profile: { ...(profile || {}) }, // 신청 단계 자동입력·일반화 딥링크 판단에 사용
+        // 신청 단계 자동입력 + 일반화 딥링크: 단일 서비스 여정이면 해석된 복지로 딥링크를 동봉 —
+        //   단건 신청(AgentSubmitButton)과 능력 파리티. 내장 검증 서비스는 백엔드가 이름 우선이라 무시하고,
+        //   다중 서비스 여정엔 백엔드가 아예 안 쓰므로(한 URL 오재사용 방지 설계) 동봉해도 무해.
+        profile: {
+          ...(profile || {}),
+          ...(() => {
+            if (svcList.length !== 1) return {}
+            const p = Object.values(getPolicyMap()).find((x) => x.name === svcList[0])
+            const u = p ? bestApplyUrl(p.application, p.name, p.id) : ''
+            return /bokjiro\.go\.kr/.test(u) ? { apply_url: u } : {}
+          })(),
+        },
       }),
     })
     if (!res.ok) {

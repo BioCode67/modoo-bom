@@ -44,6 +44,8 @@ SERVICE_APPLY_URLS = {
     "청년 내일저축계좌": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000060",
     "첫만남이용권": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00004656",
     "기초생활 생계급여": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001132",
+    # 시드 정책 표기(프론트 quickApply와 동일 ID) — 여정 다중 서비스에서 생계급여가 이름 차이로 탈락하지 않게
+    "국민기초생활보장 생계급여": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001132",
     # 데모 핵심 서비스 — 온라인 신청 확실, 필요서류(등본·가족관계·소득금액증명) 대부분 자동발급 가능.
     #   프론트 quickApply.KNOWN_APPLY_URLS(WLF00004661)와 동일. 표기변형 2종 모두 고정(프로필 apply_url 의존 제거).
     "청년월세지원": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00004661",
