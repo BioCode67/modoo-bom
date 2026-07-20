@@ -182,6 +182,17 @@ def test_portfolio_estimate_comma_only():
     assert _estimate_monthly_benefit("기초연금", "월 30만원") == 300000
 
 
+def test_portfolio_annual_amount_excluded_from_monthly_sum():
+    """연/1회성 금액(장학금 '연 500만원' 등)은 '월 합계'에서 제외한다(감사: catalog amount_krw를 그대로
+    월로 더해 12배 과대계상하던 것). 월 지속 신호가 함께 있으면(연 환산 병기) 월액으로 인정."""
+    from agents.nodes.portfolio_manager import _is_annual_or_onetime as f
+    assert f("연 500만원 장학금") is True and f("1회 300만원 지급") is True
+    assert f("출산 시 일시금 200만원") is True and f("분기별 50만원") is True
+    assert f("월 30만원") is False and f("매월 20만원") is False
+    assert f("월 100만원 (연 1200만원 상당)") is False  # 월 신호 우선(연 환산 병기)
+    assert f("") is False
+
+
 def test_guide_generator_survives_malformed_llm_guides(monkeypatch):
     """LLM이 스키마를 어겨 guides를 '문자열 리스트'로 줘도 노드가 크래시 없이 완료된다
     (과거 try/except 밖 g.get 루프가 AttributeError로 분석 전체를 중단시키던 잠재 결함 — 감사)."""

@@ -18,6 +18,15 @@ def _is_cash_benefit(benefit_text: str, context: str = "") -> bool:
     return True
 
 
+def _is_annual_or_onetime(benefit_text: str) -> bool:
+    """'월 합계'에 넣으면 안 되는 연/1회성 금액인지 — 연·회차·일시금 신호가 있고 월 지속 신호가 없을 때만.
+    (catalog amount_krw는 기간 정보가 없어 연 금액을 그대로 월로 더하면 12배 과대계상됐다 — 감사)."""
+    t = benefit_text or ""
+    if re.search(r"월\s*\d|매월|월\s*최대|월\s*약", t):
+        return False  # 월 지속 신호가 있으면 월액으로 본다(연 환산 병기여도)
+    return bool(re.search(r"연\s*\d|연간|1회|1회성|일시금|한\s*번|회차|분기", t))
+
+
 def _estimate_monthly_benefit(policy_name: str, benefit_text: str) -> int:
     """benefit 텍스트에서 월 금액 추출 (원 단위). 없으면 0."""
     # "월 최대 N원" / "월 N만원" 패턴
@@ -70,7 +79,9 @@ async def portfolio_manager_node(state: AgentState) -> dict:
         amt = cat.get("amount_krw") or _estimate_monthly_benefit(p.get("name", ""), benefit_text)
         # 정직한 합산: 현금성만(프론트와 동일 원칙) — 바우처·대출·납입형이 섞이면 비현실 합계가 된다
         is_cash = bool(cat.get("is_cash")) or _is_cash_benefit(benefit_text, p.get("name", ""))
-        if is_cash and amt:
+        # ⚠️ '월 합계'이므로 연/1회성 금액(장학금 '연 500만원' 등)은 더하지 않는다 — catalog amount_krw는
+        #   기간 정보가 없어 그대로 더하면 12배 과대계상됐다(감사). 정책 목록엔 그대로 노출(누락 아님).
+        if is_cash and amt and not _is_annual_or_onetime(benefit_text):
             total_monthly += amt
             cash_count += 1
 
