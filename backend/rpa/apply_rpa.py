@@ -206,12 +206,22 @@ async def _autofill_bokjiro_auth(contexts, page, user_info) -> dict:
                 continue
         return False
 
+    phone_head = phone[:3] if phone.startswith("01") and len(phone) >= 10 else ""
     for ctx_ in contexts:
         if name and not out["name"]:
             out["name"] = await _fill(ctx_, "name", name, numeric=False)
         if birth and not out["birth"]:
             out["birth"] = await _fill(ctx_, "birth", birth, numeric=True)
         if phone_tail and not out["phone"]:
+            # 휴대폰 앞자리(010 등) 셀렉트 지정 — 기본이 010이 아닐 때 대비(011/016 등)
+            if phone_head:
+                try:
+                    await ctx_.evaluate(
+                        """(h) => { for(const s of document.querySelectorAll('select')){
+                            const o=[...s.options].find(o=>(o.text||'').trim()===h);
+                            if(o){ if(s.value!==o.value){ s.value=o.value; s.dispatchEvent(new Event('change',{bubbles:true})); } return true; } } return false; }""", phone_head)
+                except Exception:
+                    pass
             out["phone"] = await _fill(ctx_, "phone", phone_tail, numeric=True)
         if rrn7:  # 뒷자리는 있을 때만(민감정보) — 검증은 생략(마스킹 입력이라 값 확인 어려움)
             try:
@@ -227,13 +237,25 @@ async def _autofill_bokjiro_auth(contexts, page, user_info) -> dict:
                     await page.keyboard.type(rrn7, delay=40)
             except Exception:
                 pass
-    # 전체동의는 '제공자 선택 뒤 마지막에'(정부24와 동일 — 제공자 선택이 동의를 리셋)
+    # 전체동의는 '제공자 선택 뒤 마지막에'(정부24와 동일 — 제공자 선택이 동의를 리셋).
+    #   ⚠️ 문서순 첫 매칭은 섹션 전체를 감싼 바깥 div('서비스 이용에 대한 동의 … 전체동의')를 잡아
+    #   무효 클릭이 된다(gov24 제공자 클릭과 동일 교훈) → ① '전체동의' 행의 실제 체크박스/라디오 우선
+    #   ② 없으면 '전체동의' 텍스트를 가진 '가장 작은' 요소(라벨/스팬)를 클릭.
+    _agree_js = """() => {
+        const rowOf=(e)=>{let n=e; for(let i=0;i<4&&n;i++){ const t=(n.innerText||'').replace(/\\s+/g,''); if(t.includes('전체동의')&&t.length<=40) return true; n=n.parentElement;} return false;};
+        for(const cb of document.querySelectorAll("input[type=checkbox],input[type=radio]")){
+            if(cb.offsetParent!==null && rowOf(cb)){ if(!cb.checked) cb.click(); return true; }
+        }
+        const cands=[...document.querySelectorAll("label,span,a,button")]
+            .filter(e=>e.offsetParent!==null && (e.innerText||'').replace(/\\s+/g,'').includes('전체동의'))
+            .sort((a,b)=>(a.innerText||'').length-(b.innerText||'').length);
+        if(cands.length){ cands[0].click(); return true; }
+        return false;
+    }"""
     for ctx_ in contexts:
         try:
-            await ctx_.evaluate(
-                """() => { for(const el of document.querySelectorAll("input[type=checkbox],input[type=radio],label,button,a,span,div")){
-                    const t=(el.innerText||el.value||'').replace(/\\s+/g,''); if(t.includes('전체동의')){ el.click(); return true; } } return false; }"""
-            )
+            if await ctx_.evaluate(_agree_js):
+                break
         except Exception:
             pass
     return out

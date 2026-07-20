@@ -318,6 +318,39 @@ def test_bokjiro_autofill_local_typing():
     assert ("type", "김주형") not in typed         # 한글을 키 타이핑하지 않음
 
 
+def test_bokjiro_autofill_partial_and_empty():
+    """부분 정보/빈 정보 계약 — 값 없는 필드는 '판정 대상 아님'(True)으로 처리, 실패는 무해."""
+    import asyncio
+    from rpa.apply_rpa import _autofill_bokjiro_auth
+
+    class _Ctx:
+        async def evaluate(self, js, *a):
+            return 0  # 모든 마킹 실패(폼 못 찾음) — 실패 경로
+        def locator(self, sel):
+            class _L:
+                async def click(self, timeout=None): pass
+                async def fill(self, v, timeout=None): pass
+            return _L()
+
+    class _Page:
+        class keyboard:
+            @staticmethod
+            async def type(t, delay=0): pass
+            @staticmethod
+            async def insert_text(t): pass
+            @staticmethod
+            async def press(k): pass
+
+    # 값이 아예 없으면 전부 '대상 아님'(True) — 호출부의 _all_filled 판정이 오작동 안 하게
+    out = asyncio.new_event_loop().run_until_complete(
+        _autofill_bokjiro_auth([_Ctx()], _Page(), {}))
+    assert out == {"name": True, "birth": True, "phone": True}
+    # 값이 있는데 폼을 못 찾으면 해당 필드만 False(정직) — 사용자 직접 입력 폴백
+    out2 = asyncio.new_event_loop().run_until_complete(
+        _autofill_bokjiro_auth([_Ctx()], _Page(), {"name": "김주형", "phone": "01011112222"}))
+    assert out2["name"] is False and out2["phone"] is False and out2["birth"] is True
+
+
 def test_landed_matches_guard():
     # 착지 대조 가드: 다른 서비스 상세로 열리면(복지로 ID 재배정) 자동 클릭을 멈추기 위한 판정.
     from rpa.apply_rpa import _landed_matches
