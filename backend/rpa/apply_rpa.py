@@ -818,6 +818,24 @@ async def run_apply_rpa(task, service_name: str, profile: dict) -> None:
             # ⑥ 기본 양식 자동 작성 (이름·생년월일·연락처)
             name = str((profile or {}).get("name", "") or "")
             filled_fields = await _fill_profile_fields(form_contexts, profile) if form_detected else []
+            # 🧠 의미 계층 보강 — 하드코딩 셀렉터가 못 잡은 신청인 칸을 접근성 이름으로 채운다(멱등·빈 칸만).
+            #    이름·휴대폰만(명확) 라우팅해 오입력 위험 없이 자동신청 폼 완성도를 높인다.
+            if form_detected:
+                try:
+                    from rpa.ai_fill import ai_fill
+                    _ph = re.sub(r"[^0-9]", "", str((profile or {}).get("phone", "")))
+                    _av = {}
+                    if name:
+                        _av["name"] = name
+                    if _ph:
+                        _av["phone_tail"] = _ph[3:] if _ph.startswith("01") and len(_ph) >= 10 else _ph
+                    if _av:
+                        _fc = form_contexts[-1] if len(form_contexts) > 1 else page
+                        _got = await ai_fill(_fc, page, _av, page_hint="복지로 복지서비스 신청 양식(신청인 정보)")
+                        if _got.get("name") and "이름" not in filled_fields:
+                            filled_fields.append("이름")
+                except Exception:
+                    pass
 
             # ⑦ 발급 서류 '자동 첨부' — 첨부칸 주변 문맥(라벨·행 텍스트)과 발급 서류명이 일치하는
             #    '확신 매칭'만 자동으로 붙인다(오첨부 방지). 단일 첨부칸+단일 발급서류처럼 모호성이
