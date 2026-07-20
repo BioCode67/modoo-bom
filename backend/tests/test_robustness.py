@@ -182,6 +182,38 @@ def test_portfolio_estimate_comma_only():
     assert _estimate_monthly_benefit("기초연금", "월 30만원") == 300000
 
 
+def test_guide_generator_survives_malformed_llm_guides(monkeypatch):
+    """LLM이 스키마를 어겨 guides를 '문자열 리스트'로 줘도 노드가 크래시 없이 완료된다
+    (과거 try/except 밖 g.get 루프가 AttributeError로 분석 전체를 중단시키던 잠재 결함 — 감사)."""
+    import asyncio
+    from agents.nodes import guide_generator as gg
+    from agents.state import AgentState
+
+    class _Resp:
+        content = '{"guides": ["엉터리 문자열", "또 다른 문자열"]}'
+
+    class _LLM:
+        async def ainvoke(self, msgs):
+            return _Resp()
+
+    monkeypatch.setattr(gg, "is_mock_mode", lambda: False)
+    monkeypatch.setattr(gg, "get_chat_llm", lambda **k: _LLM())
+    state = AgentState(eligible_policies=[{"id": "POL-001", "name": "기초연금", "eligible": True, "confidence": 0.9}])
+    out = asyncio.new_event_loop().run_until_complete(gg.guide_generator_node(state))
+    assert "application_guides" in out and out.get("required_docs") == []  # 예외 없이 반환·비-dict는 스킵
+
+
+def test_portfolio_estimate_no_false_manwon_on_comma_number():
+    """콤마 있는 금액 앞에 무관한 '만'(만 8세 등)이 있어도 1만배 과대계상하지 않는다(감사 실결함).
+    과거엔 콤마 제거 전 원문에서 위치를 찾아(find→-1) 문장 앞의 '만'을 오검출했다."""
+    from agents.nodes.portfolio_manager import _estimate_monthly_benefit as f
+    assert f("", "만 8세 미만 아동에게 100,000원 지급") == 100000       # 10억 아님
+    assert f("", "만 65세 이상에게 1,200원 지급") == 1200
+    # 정상 '만원' 표기는 그대로 환산(회귀 없음)
+    assert f("", "월 20만원") == 200000
+    assert f("", "월 최대 500,000원") == 500000
+
+
 # ── #2 rate_limit: 상한 초과 시 만료 버킷 청소(무한증가 방지) ──
 def test_rate_limit_evicts_expired():
     import api.rate_limit as rl

@@ -50,12 +50,18 @@ async def guide_generator_node(state: AgentState) -> dict:
             print(f"[guide_generator] LLM 실패 → 규칙 폴백: {e}")
             result = mock_guides(eligible)
 
-    guides = result.get("guides", [])
+    # LLM이 스키마를 어겨 guides를 문자열 리스트/None/비-리스트로 줘도 분석 전체가 죽지 않게 방어
+    #   (이 루프는 try/except 밖이라 g.get AttributeError가 astream을 중단시키던 잠재 결함 — 감사).
+    guides = result.get("guides") or []
+    if not isinstance(guides, list):
+        guides = []
 
     from rag.sample_data import WELFARE_POLICIES
     policy_map = {p["id"]: p for p in WELFARE_POLICIES}
     all_docs: list[str] = []
     for g in guides:
+        if not isinstance(g, dict):
+            continue  # 문자열 등 비-dict 항목은 건너뛴다(g.get 크래시 방지)
         pid = g.get("policy_id")
         if pid in policy_map:
             all_docs.extend(policy_map[pid].get("required_docs", []))

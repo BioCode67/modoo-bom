@@ -21,20 +21,23 @@ def _is_cash_benefit(benefit_text: str, context: str = "") -> bool:
 def _estimate_monthly_benefit(policy_name: str, benefit_text: str) -> int:
     """benefit 텍스트에서 월 금액 추출 (원 단위). 없으면 0."""
     # "월 최대 N원" / "월 N만원" 패턴
+    compact = benefit_text.replace(" ", "")  # 정규식·'만' 근접 판정을 '같은 문자열'에서 수행(위치 불일치 방지)
     patterns = [
         r"월\s*최대?\s*([\d,]+)원",
         r"월\s*([\d,]+)만?\s*원",
         r"([\d,]+)원\s*지급",
     ]
     for pat in patterns:
-        m = re.search(pat, benefit_text.replace(" ", ""))
+        m = re.search(pat, compact)
         if m:
             raw = m.group(1).replace(",", "")
             if not raw:  # 정규식이 콤마만 매칭한 경우(예: "월 ,원") — int("") ValueError 방지
                 continue
             val = int(raw)
-            # "만원" 단위 처리
-            if "만" in benefit_text[max(0, benefit_text.find(raw)-2):benefit_text.find(raw)+len(raw)+3]:
+            # "만원" 단위 처리 — 매칭된 '숫자 바로 뒤'에 '만'이 붙는지로 판정한다.
+            #   ⚠️ 과거엔 콤마 제거 전 원문에서 find(raw)로 위치를 찾아, 콤마 있는 수('100,000')는
+            #   find→-1→슬라이스가 문장 앞부분을 읽어 '만 8세…' 같은 무관한 '만'을 오검출(1만배 과대). 감사 실결함.
+            if "만" in compact[m.start(1):m.end(1) + 3]:
                 val *= 10000
             return val
     return 0
