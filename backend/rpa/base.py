@@ -337,6 +337,9 @@ KAKAO_SELECTORS = [
 KAKAOTALK_SELECTORS = [
     "a[title='카카오톡']",
     "img[alt='카카오톡']",
+    # text= 는 Playwright가 '해당 텍스트를 담는 가장 작은 요소'를 잡는다 — 신형(2026-07) 민간인증서
+    # 타일 그리드(로고+라벨 div 타일, li/a/button 아님)에서 라벨 스팬을 정확히 클릭(실사용 제보).
+    "text=카카오톡",
     "label:has-text('카카오톡')",
     "li:has-text('카카오톡')",
     "a:has-text('카카오톡')",
@@ -447,35 +450,70 @@ async def click_provider_in_anyid(page, provider: str = "kakao", attempts: int =
     return False
 
 
-async def _click_provider_once(page, provider: str = "kakao"):
-    """제공자 클릭 1회 시도 — 정확 셀렉터 → JS 토큰 매칭 → 느슨한 폴백(뱅크/페이 오클릭은 exclude로 차단)."""
-    p = AUTH_PROVIDERS.get(str(provider or "").lower(), AUTH_PROVIDERS["kakao"])
+def _sibling_contexts(ctx):
+    """주어진 컨텍스트(Page|Frame)를 맨 앞에, 같은 브라우저 컨텍스트의 다른 프레임·창을 뒤에 붙인 목록.
 
-    # 1단계: Playwright 선택자 — 카카오는 검증된 테이블, 그 외는 라벨 기반 생성
+    ⚠️ 실사용 확정(2026-07-20 시연 리허설): 신형 plus.gov.kr 로그인 간편인증 창은 '민간인증서'
+    제공자 그리드와 '본인인증 정보 입력' 폼이 **서로 다른 프레임**에 렌더된다 — 폼 프레임(auth_ctx)만
+    뒤지면 자동입력은 되는데 카카오톡 타일 클릭만 불발. 그래서 제공자 클릭은 형제 프레임(나아가
+    형제 창)까지 순서대로 탐색한다. 프레임 접근 실패·페이크 객체(테스트)는 조용히 [ctx]만 반환."""
+    out = [ctx]
+    seen = {id(ctx)}
+    try:
+        pages = []
+        pg = ctx if getattr(ctx, "frames", None) is not None else getattr(ctx, "page", None)  # Page | Frame.page
+        if pg is not None:
+            pages.append(pg)
+            bctx = getattr(pg, "context", None)  # 브라우저 컨텍스트 — 별창(팝업) 레이아웃 대응
+            for p2 in (getattr(bctx, "pages", None) or []):
+                if id(p2) not in {id(x) for x in pages}:
+                    pages.append(p2)
+        for p2 in pages:
+            try:
+                if getattr(p2, "is_closed", None) and p2.is_closed():
+                    continue
+                for fr in [p2] + list(getattr(p2, "frames", None) or []):
+                    if id(fr) not in seen:
+                        seen.add(id(fr))
+                        out.append(fr)
+            except Exception:
+                continue
+    except Exception:
+        pass
+    return out
+
+
+async def _provider_click_selectors(ctx, p):
+    """1단계: Playwright 신뢰 클릭 — 카카오는 검증 테이블, 그 외는 라벨 기반 생성."""
     if p is AUTH_PROVIDERS["kakao"]:
         selectors = KAKAOTALK_SELECTORS
     else:
         selectors = []
         for lab in p["labels"]:
             selectors += [
-                f"a[title*='{lab}']", f"img[alt*='{lab}']",
+                f"a[title*='{lab}']", f"img[alt*='{lab}']", f"text={lab}",
                 f"label:has-text('{lab}')", f"li:has-text('{lab}')",
                 f"a:has-text('{lab}')", f"button:has-text('{lab}')",
             ]
     for sel in selectors:
         try:
-            el = page.locator(sel).first
+            el = ctx.locator(sel).first
             if await el.count() > 0:
                 await el.scroll_into_view_if_needed()
                 await el.click()
                 await asyncio.sleep(1.2)
-                return "trusted"  # Playwright 신뢰 클릭 — 정부24 위젯이 실제 선택으로 등록
+                return True  # Playwright 신뢰 클릭 — 정부24 위젯이 실제 선택으로 등록
         except Exception:
             continue
+    return False
 
-    # 2단계: JS — 토큰 포함 + exclude 제외 (텍스트·alt·title·data-*·클래스 종합)
+
+async def _provider_click_tokens_js(ctx, p):
+    """2단계: JS — 토큰 포함 + exclude 제외 (텍스트·alt·title·data-*·클래스 종합).
+    후보는 텍스트 길이 오름차순(가장 안쪽 요소 우선 — 문서순 첫 후보는 그리드 전체를 감싼
+    바깥 div일 수 있어 엉뚱한 지점 클릭) 후 가까운 클릭 가능 조상으로 승격해 누른다."""
     try:
-        result = await page.evaluate("""
+        result = await ctx.evaluate("""
             (cfg) => {
                 const all = [...document.querySelectorAll('a, button, li, span, img, div')];
                 const candidates = all.filter(el => {
@@ -491,10 +529,9 @@ async def _click_provider_once(page, provider: str = "kakao"):
                            !cfg.exclude.some(x => text.includes(x));
                 });
                 if (candidates.length > 0) {
+                    candidates.sort((a, b) => (a.textContent || '').length - (b.textContent || '').length);
                     const el = candidates[0];
-                    const clickTarget = el.tagName === 'IMG'
-                        ? (el.closest('a') || el.closest('label') || el.closest('li') || el.closest('button') || el)
-                        : el;
+                    const clickTarget = (el.closest && el.closest('a, button, li, label, [role=button], [onclick]')) || el;
                     clickTarget.click();
                     return true;
                 }
@@ -503,13 +540,16 @@ async def _click_provider_once(page, provider: str = "kakao"):
         """, {"tokens": [t.lower() for t in p["tokens"]], "exclude": [x.lower() for x in p["exclude"]]})
         if result:
             await asyncio.sleep(1.2)
-            return "js"  # JS 클릭 — 위젯이 무시할 수 있어 '미확정'(자동 인증요청 게이트에서 제외)
+            return True  # JS 클릭 — 위젯이 무시할 수 있어 '미확정'(자동 인증요청 게이트에서 제외)
     except Exception:
         pass
+    return False
 
-    # 3단계: JS — 느슨한 매칭의 마지막 항목(위젯 목록에서 본계열이 보통 하단)
+
+async def _provider_click_loose_js(ctx, p):
+    """3단계: JS — 느슨한 매칭의 마지막 항목(위젯 목록에서 본계열이 보통 하단)."""
     try:
-        result = await page.evaluate("""
+        result = await ctx.evaluate("""
             (cfg) => {
                 const all = [...document.querySelectorAll('a, button, li')];
                 const items = all.filter(el => {
@@ -525,10 +565,28 @@ async def _click_provider_once(page, provider: str = "kakao"):
         """, {"loose": [k.lower() for k in p["loose"]], "exclude": [x.lower() for x in p["exclude"]]})
         if result:
             await asyncio.sleep(1.2)
-            return "js"  # JS 클릭 — 위젯이 무시할 수 있어 '미확정'(자동 인증요청 게이트에서 제외)
+            return True  # JS 클릭 — 위젯이 무시할 수 있어 '미확정'(자동 인증요청 게이트에서 제외)
     except Exception:
         pass
+    return False
 
+
+async def _click_provider_once(page, provider: str = "kakao"):
+    """제공자 클릭 1회 시도 — 정확 셀렉터 → JS 토큰 매칭 → 느슨한 폴백(뱅크/페이 오클릭은 exclude로 차단).
+
+    각 단계를 '주어진 컨텍스트 → 형제 프레임·창' 순으로 훑는다: 신뢰 클릭(trusted)을 모든 프레임에서
+    먼저 소진한 뒤에야 JS 폴백으로 내려간다(자동 인증요청 게이트는 trusted만 통과하므로 순서가 중요)."""
+    p = AUTH_PROVIDERS.get(str(provider or "").lower(), AUTH_PROVIDERS["kakao"])
+    ctxs = _sibling_contexts(page)
+    for c in ctxs:
+        if await _provider_click_selectors(c, p):
+            return "trusted"
+    for c in ctxs:
+        if await _provider_click_tokens_js(c, p):
+            return "js"
+    for c in ctxs:
+        if await _provider_click_loose_js(c, p):
+            return "js"
     return False
 
 
