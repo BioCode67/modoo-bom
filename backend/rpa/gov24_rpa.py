@@ -1183,34 +1183,47 @@ async def _issue_family_cert_efamily(page, task, context, user_info: dict = None
                 await ctx.evaluate(_modal_fill_js, _modal_vals)  # 재렌더로 지워진 빈 칸만 재기입(멱등)
             except Exception:
                 pass
-            # ⌨️ 실사용 확정('인증 요청' 후 "휴대폰번호를 입력하여 주십시오"): 이 위젯은 JS 값 주입을
-            #    등록하지 않는다 — 휴대폰은 '진짜 키보드 타이핑'(클릭→전체선택→실키 입력)으로 확정한다.
+            # ⌨️ 휴대폰 — 부/모 성명과 같은 '타이핑 1순위 + 지연 재검증 + 재시도' 구조(자기만족 검증 금지).
+            #    실사용 확정('인증 요청' 후 "휴대폰번호를 입력하여 주십시오"): JS 주입은 이 위젯에 등록되지 않는다.
+            _phone_ok = not _modal_vals.get("tail")  # 번호가 없으면 판정 대상 아님
             if _modal_vals.get("tail"):
-                try:
-                    _mk = await ctx.evaluate(
-                        """() => {
-                            for (const tr of document.querySelectorAll('tr, li, div')) {
-                                const t = (tr.innerText || '').trim();
-                                if (t.length > 80) continue;
-                                if (t.includes('휴대폰') || t.includes('핸드폰')) {
-                                    const el = [...tr.querySelectorAll("input[type=text], input[type=tel], input[type=number], input:not([type])")].pop();
-                                    if (!el) return false;
-                                    el.setAttribute('data-modoobom', 'phone');
-                                    return true;
-                                }
-                            }
-                            return false;
-                        }"""
-                    )
-                    if _mk:
+                _js_mark_phone = """() => {
+                    for (const tr of document.querySelectorAll('tr, li, div')) {
+                        const t = (tr.innerText || '').trim();
+                        if (t.length > 80) continue;
+                        if (t.includes('휴대폰') || t.includes('핸드폰')) {
+                            const el = [...tr.querySelectorAll("input[type=text], input[type=tel], input[type=number], input:not([type])")]
+                                .filter(i => !i.disabled && !i.readOnly).pop();
+                            if (!el) return false;
+                            el.setAttribute('data-modoobom', 'phone');
+                            return true;
+                        }
+                    }
+                    return false;
+                }"""
+                # 검증: 우리가 친 번호 '그대로' 남아있어야 성공(placeholder·잔값 오인 차단, 값 비교는 브라우저 안에서만)
+                _js_check_phone = """(t) => {
+                    const e = document.querySelector("[data-modoobom='phone']");
+                    return !!(e && e.value && e.value.replace(/[^0-9]/g, '') === t);
+                }"""
+                for _pa in range(2):
+                    try:
+                        if not await ctx.evaluate(_js_mark_phone):
+                            await asyncio.sleep(0.8)
+                            continue
                         _ploc = ctx.locator("[data-modoobom='phone']")
                         await _ploc.click()
                         await page.keyboard.press("Control+a")
-                        await page.keyboard.type(_modal_vals["tail"], delay=30)
-                        await asyncio.sleep(0.2)
-                except Exception:
-                    pass
-            # 주민번호 뒷자리가 아직 비어 있으면(승계 안 되는 변형) 뒷자리도 실타이핑
+                        await page.keyboard.press("Delete")
+                        await page.keyboard.type(_modal_vals["tail"], delay=45)
+                        await asyncio.sleep(0.6)  # 위젯이 지울 시간을 준 '뒤' 검증해야 진짜
+                        if await ctx.evaluate(_js_check_phone, _modal_vals["tail"]):
+                            _phone_ok = True
+                            break
+                    except Exception:
+                        pass
+                    await asyncio.sleep(0.4)
+            # 주민번호 뒷자리가 아직 비어 있으면('-' 초기값 포함, 승계 안 되는 변형) 뒷자리도 실타이핑
             if rrn7:
                 try:
                     _need = await ctx.evaluate(
@@ -1221,7 +1234,7 @@ async def _issue_family_cert_efamily(page, task, context, user_info: dict = None
                                 if (t.includes('주민등록번호')) {
                                     const ins = [...tr.querySelectorAll("input[type=text], input[type=password], input[type=tel], input[type=number], input:not([type])")];
                                     const el = ins[ins.length - 1];
-                                    if (!el || el.value) return false;
+                                    if (!el || (el.value && el.value.trim() !== '-')) return false;
                                     el.setAttribute('data-modoobom', 'rrnb');
                                     return true;
                                 }
@@ -1232,14 +1245,16 @@ async def _issue_family_cert_efamily(page, task, context, user_info: dict = None
                     if _need:
                         _rloc = ctx.locator("[data-modoobom='rrnb']")
                         await _rloc.click()
+                        await page.keyboard.press("Control+a")
+                        await page.keyboard.press("Delete")
                         await page.keyboard.type(rrn7, delay=30)
                         await asyncio.sleep(0.2)
                 except Exception:
                     pass
             await _check_agree_all(ctx)  # 전체동의는 제공자 선택 뒤 '마지막에'(동의 리셋 방지 — 정부24와 동일 순서)
-            # 🔍 휴대폰 칸이 실제로 채워졌는지 확인 — 실패 시 행 구조 진단(타입·값 유무만, PII 무포함)
+            # 🔍 휴대폰 미확인 시 행 구조 진단(타입·값 유무만, PII 무포함) — 인증요청은 확인된 경우에만 자동
             _phone_note = ""
-            if phone:
+            if phone and not _phone_ok:
                 try:
                     _pchk = await ctx.evaluate(
                         """() => {
@@ -1247,20 +1262,20 @@ async def _issue_family_cert_efamily(page, task, context, user_info: dict = None
                                 const t = (tr.innerText || '').trim();
                                 if (t.length > 80) continue;
                                 if (t.includes('휴대폰') || t.includes('핸드폰')) {
-                                    const ins = [...tr.querySelectorAll('input')].map(i => (i.type || '?') + (i.value ? 'V' : ''));
-                                    return {row: true, ins: ins, filled: ins.some(s => s.endsWith('V'))};
+                                    const ins = [...tr.querySelectorAll('input')].map(i => (i.type || '?') + (i.disabled ? 'D' : '') + (i.readOnly ? 'R' : '') + (i.value ? 'V' : ''));
+                                    return {row: true, ins: ins};
                                 }
                             }
-                            return {row: false, ins: [], filled: false};
+                            return {row: false, ins: []};
                         }"""
                     )
-                    if isinstance(_pchk, dict) and not _pchk.get("filled"):
-                        _phone_note = ("\n⚠️ 휴대폰 칸은 채움 확인이 안 됐어요 — 화면에서 확인·입력해 주세요."
-                                       f"\n🔍 진단: {'행발견 input' + str(_pchk.get('ins')) if _pchk.get('row') else '휴대폰 행 미발견'}")
+                    _phone_note = ("\n⚠️ 휴대폰 칸은 채움 확인이 안 됐어요 — 화면에서 직접 입력 후 [인증 요청]을 눌러 주세요."
+                                   f"\n🔍 진단: {'행발견 input' + str(_pchk.get('ins')) if isinstance(_pchk, dict) and _pchk.get('row') else '휴대폰 행 미발견'}")
                 except Exception:
-                    pass
-            if rrn7:
-                # 전부 채웠으니 [인증 요청]까지 자동 — 본인은 폰에서 [인증 허용]만(HITL 유지)
+                    _phone_note = "\n⚠️ 휴대폰 칸은 채움 확인이 안 됐어요 — 화면에서 직접 입력 후 [인증 요청]을 눌러 주세요."
+            if rrn7 and (_phone_ok or not phone):
+                # 전부 채웠으니 [인증 요청]까지 자동 — 본인은 폰에서 [인증 허용]만(HITL 유지).
+                #   휴대폰이 미확인이면 자동 요청하지 않는다(사이트 오류 팝업 반복 방지 — 사람이 채운 뒤 직접).
                 await asyncio.sleep(0.5)
                 await _request_auth(ctx)
                 task.update(
@@ -1270,10 +1285,16 @@ async def _issue_family_cert_efamily(page, task, context, user_info: dict = None
                     await take_screenshot(page),
                 )
             else:
+                # 남은 항목을 '사실대로' 나열 — 뒷자리 없음/휴대폰 미확인 어느 쪽이든 정확히 안내
+                _todo = []
+                if not rrn7:
+                    _todo.append("주민등록번호 뒷자리")
+                if phone and not _phone_ok:
+                    _todo.append("휴대폰 번호")
                 task.update(
                     "waiting_login",
-                    "📱 인증창을 채웠어요(카카오톡·휴대폰·전체동의).\n"
-                    "🔒 **주민등록번호 뒷자리**만 직접 입력하고 [인증 요청]을 누른 뒤, 폰에서 [인증 허용]을 해주세요."
+                    "📱 인증창을 채울 수 있는 만큼 채웠어요(카카오톡·전체동의 포함).\n"
+                    f"🔒 **{'·'.join(_todo) or '남은 항목'}**만 직접 입력하고 [인증 요청]을 누른 뒤, 폰에서 [인증 허용]을 해주세요."
                     + _phone_note,
                     await take_screenshot(page),
                 )

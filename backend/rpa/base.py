@@ -345,10 +345,20 @@ async def save_document(page, name: str, user_name: str = "") -> Optional[str]:
             out.unlink(missing_ok=True)
     except Exception:
         pass
-    # 1) PDF (Chrome DevTools Protocol)
+    # 1) PDF (Chrome DevTools Protocol) — 문서가 A4 폭보다 넓으면(가로 스크롤 해제 후 등)
+    #    축소 배율로 전체 폭을 담는다(실사용: 인쇄가 보이는 폭만 찍어 우측이 잘리던 것 방지).
     try:
         client = await page.context.new_cdp_session(page)
-        res = await client.send("Page.printToPDF", {"printBackground": True})
+        _pdf_params = {"printBackground": True}
+        try:
+            _w = await page.evaluate(
+                "() => Math.max(document.documentElement.scrollWidth, document.body ? document.body.scrollWidth : 0)"
+            )
+            if isinstance(_w, (int, float)) and _w > 850:  # A4 세로 ≈ 794px(96dpi)
+                _pdf_params["scale"] = max(0.35, min(1.0, 794.0 / float(_w)))
+        except Exception:
+            pass
+        res = await client.send("Page.printToPDF", _pdf_params)
         data = res.get("data")
         if data:
             out = base.with_suffix(".pdf")
