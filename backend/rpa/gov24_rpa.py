@@ -1069,7 +1069,7 @@ async def _issue_family_cert_efamily(page, task, context, user_info: dict = None
             try:
                 from rpa.ai_fill import ai_fill
                 _ai = await ai_fill(page, page, {"parent_name": parent_name},
-                                    page_hint="대법원 efamily 가족관계등록부 신청인 정보 조회", task=task)
+                                    page_hint="대법원 efamily 가족관계등록부 신청인 정보 조회", task=task, allow_clicks=True)
                 _parent_ok = bool(_ai.get("parent_name"))
             except Exception:
                 pass
@@ -1271,7 +1271,7 @@ async def _issue_family_cert_efamily(page, task, context, user_info: dict = None
                         from rpa.ai_fill import ai_fill
                         _ai = await ai_fill(ctx, page,
                                             {"phone_tail": _modal_vals["tail"], "phone_head": _modal_vals["head"]},
-                                            page_hint="간편인증 본인인증 정보 입력 창", task=task)
+                                            page_hint="간편인증 본인인증 정보 입력 창", task=task, allow_clicks=True)
                         _phone_ok = bool(_ai.get("phone_tail"))
                     except Exception:
                         pass
@@ -1644,7 +1644,7 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None, session=Non
                     try:
                         from rpa.ai_fill import ai_fill
                         _ai = await ai_fill(page, page, {"sido": sido, "sigungu": sigungu},
-                                            page_hint="정부24 주민등록표 등본(초본) 발급 — 주민등록상 주소 확인", task=task)
+                                            page_hint="정부24 주민등록표 등본(초본) 발급 — 주민등록상 주소 확인", task=task, allow_clicks=True)
                         addr = {"sido": addr.get("sido") or bool(_ai.get("sido")),
                                 "sigungu": addr.get("sigungu") or bool(_ai.get("sigungu"))}
                     except Exception:
