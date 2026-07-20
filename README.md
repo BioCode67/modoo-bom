@@ -7,6 +7,10 @@
 ### 지금 바로 체험·설치 (웹 QR + 안드로이드 앱) — https://biocode67.github.io/app.html
 ### 🧑‍⚖️ 심사위원용 실행 가이드 — [docs/제출/심사위원-실행-가이드.md](docs/제출/심사위원-실행-가이드.md) (웹 0분 · 데스크탑앱 2분 · 인증 없이 보는 코스 포함)
 
+### 시연 영상 — https://youtu.be/6bKd7eU2zk4
+
+[![모두봄 시연 영상](https://img.youtube.com/vi/6bKd7eU2zk4/hqdefault.jpg)](https://youtu.be/6bKd7eU2zk4)
+
 > 실시간 AI 백엔드도 라이브입니다 — 클라우드(Render)에 LangGraph 10노드 에이전트와 챗이 배포돼
 > 배포 사이트에서 실제 LLM 답변이 동작합니다. LLM은 Gemini 2.5 Flash이며, 실패 시 Groq·Claude로 자동 폴백하고 키가 없으면 규칙 기반으로 동작합니다.
 
