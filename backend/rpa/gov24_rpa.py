@@ -442,6 +442,42 @@ async def _select_doc_form_options(page, doc_name: str) -> None:
         pass
 
 
+async def _self_heal_doc_form(page, doc_name: str, user_info: dict = None, task=None) -> list:
+    """🧠 발급 폼이 정체할 때 '사람 개입 전' 스스로 보정 — 실패 상태에서만 호출되니 개선 아니면 무해.
+    ① 늦게 렌더된 필수 select 재선택(_select_doc_form_options·결정론·테스트됨)
+    ② LLM 키 있으면 ai_fill이 실화면을 읽고 남은 빈 입력칸을 채운다(빈칸만·값일치·타인칸 가드).
+    반환: 무엇을 보정했는지 요약 리스트(사용자 안내·회귀 테스트용). 값(이름 등)은 담지 않는다."""
+    import re as _re
+    done: list = []
+    try:
+        await _select_doc_form_options(page, doc_name)
+        done.append("필수 선택 재적용")
+    except Exception:
+        pass
+    try:
+        # ⚠️ ai_fill_enabled()(키 필요)로 게이트하지 않는다 — ai_fill의 '결정론 계층'은 키 없이도 접근성
+        #    이름으로 빈 칸을 채운다. 밸브(RPA_AI_FILL=0)만 존중(키 없어도 결정론 보정은 동작).
+        if os.environ.get("RPA_AI_FILL", "1") != "0":
+            from rpa.ai_fill import ai_fill
+            uv: dict = {}
+            nm = str((user_info or {}).get("name") or "").strip()
+            if nm:
+                uv["name"] = nm
+            b6 = _birth6((user_info or {}).get("birth_date"))
+            if b6:
+                uv["birth6"] = b6
+            ph = _re.sub(r"[^0-9]", "", str((user_info or {}).get("phone", "")))
+            if ph:
+                uv["phone_tail"] = ph[3:] if ph.startswith("01") and len(ph) >= 10 else ph
+            if uv:
+                got = await ai_fill(page, page, uv, page_hint=f"정부24 {doc_name} 발급 폼 — 진행을 막는 필수 입력칸", task=task)
+                if any(got.values()):
+                    done.append("빈 입력칸 보정")
+    except Exception:
+        pass
+    return done
+
+
 async def _page_structure_diag(page) -> str:
     """🔍 자동 채움 실패 시 진행 카드에 붙이는 '페이지 구조 진단'(PII 무포함 — 요소 개수·라벨만).
     컨테이너에서 정부 화면을 실측할 수 없어 반복 조준이 길어지던 것을 끊는다: 실패한 그 화면의
@@ -1853,29 +1889,11 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None, session=Non
                         await click_by_text(page, ["확인"])
                         task.update("running", "안내창이 진행을 막고 있어 [확인]으로 닫고 다시 시도해요…", await take_screenshot(page))
                         continue
-                    # 🧠 자가 치유 — 진행을 막는 '미선택 필수항목'을 사람 개입 전에 스스로 보정하고 재시도.
-                    #    ① 늦게 렌더된 필수 select 재선택(결정론·테스트됨) ② LLM 키 있으면 실화면을 읽고 남은
-                    #    빈 칸을 채운다(빈 칸만·값일치 검증·오입력 가드). 실패 상태에서만 도니 개선 아니면 무해.
-                    try:
-                        await _select_doc_form_options(page, doc_name)
-                        from rpa.ai_fill import ai_fill, ai_fill_enabled
-                        if ai_fill_enabled():
-                            _uv = {}
-                            _nm = str((user_info or {}).get("name") or "").strip()
-                            if _nm:
-                                _uv["name"] = _nm
-                            _b6 = _birth6((user_info or {}).get("birth_date"))
-                            if _b6:
-                                _uv["birth6"] = _b6
-                            _ph = re.sub(r"[^0-9]", "", str((user_info or {}).get("phone", "")))
-                            if _ph:
-                                _uv["phone_tail"] = _ph[3:] if _ph.startswith("01") and len(_ph) >= 10 else _ph
-                            if _uv:
-                                await ai_fill(page, page, _uv,
-                                              page_hint=f"정부24 {doc_name} 발급 폼 — 진행을 막는 필수 입력칸", task=task)
-                        task.update("running", "필수 선택·입력을 스스로 보정하고 다시 신청해요…", await take_screenshot(page))
-                    except Exception:
-                        pass
+                    # 🧠 자가 치유 — 진행을 막는 미선택/빈 칸을 사람 개입 전 스스로 보정하고 재시도.
+                    #    (헬퍼로 추출해 실Chromium 회귀 테스트로 락 — 정체 폼이 실제로 복구되는지 검증)
+                    _healed = await _self_heal_doc_form(page, doc_name, user_info, task=task)
+                    if _healed:
+                        task.update("running", f"{'·'.join(_healed)} 후 다시 신청해요…", await take_screenshot(page))
                 if stuck >= 2:
                     if not fix_hinted:
                         task.update(
