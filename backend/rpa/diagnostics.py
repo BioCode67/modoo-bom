@@ -126,3 +126,21 @@ def save(diag: dict, dirpath) -> str:
     fp = d / f"{lab}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
     fp.write_text(json.dumps(diag, ensure_ascii=False, indent=2), encoding="utf-8")
     return str(fp)
+
+
+async def dump(page, label: str = "", dirpath=None, tried=None, note: str = "") -> str:
+    """capture+save를 한 번에 묶는 편의 함수 → 사용자용 안내 문자열(실패해도 무해: "").
+
+    RPA 모듈들이 실패 지점에서 이 한 줄만 호출하면 실화면 구조가 파일로 남는다(전 모듈 공용 단일 소스).
+    dirpath 생략 시 rpa.base.DOCS_DIR에 저장. 개발 환경에서 실제 gov 사이트를 못 보는 제약을 우회 —
+    사용자가 스샷 대신 이 파일만 공유하면 개발자가 실화면 구조를 정확히 안다."""
+    try:
+        import os
+        d = await capture(page, label=label, tried=tried, note=note)
+        if dirpath is None:
+            from rpa import base as _base
+            dirpath = str(_base.DOCS_DIR)
+        path = save(d, dirpath)
+        return f"🔬 진단 저장: {os.path.basename(path)} — 서류 도우미 [🔬 진단 복사]로 공유하면 정확히 고쳐드려요"
+    except Exception:
+        return ""

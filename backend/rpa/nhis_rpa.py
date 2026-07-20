@@ -620,10 +620,16 @@ async def run_nhis_rpa(task, user_info: dict = None) -> None:
             else:
                 # 발급 완료 화면을 확인하지 못함 — 가짜 '발급 완료!' 대신 정직하게 안내(감사 HIGH :583 해소).
                 #   저장하지 않았으므로 신청서 자동첨부에 미발급 캡처가 섞일 여지도 없다.
+                # 🔬 이 실화면(발급 버튼을 못 찾은 그 화면)의 구조를 PII 없이 남긴다 — 개발 환경에서 nhis
+                #    실화면을 못 보는 제약을, 사용자의 [진단 복사] 한 번으로 메워 ISSUE_SELECTORS를 실측 보정.
+                from rpa import diagnostics as _dg
+                _saved = await _dg.dump(_dlpage, "건강보험자격득실-발급화면미확인",
+                                        tried=["ISSUE_SELECTORS 클릭", "JS 발급 키워드 폴백", "_wait_print"],
+                                        note="로그인 후 발급/출력 화면 미확인")
                 task.update("error",
                     "발급 화면을 자동으로 확인하지 못했어요.\n\n"
                     "로그인이 끝났는지 확인하고, 브라우저 화면에서 [발급] 버튼을 직접 눌러 저장해 주세요.\n"
-                    "필요하면 [다시 시작]을 눌러 주세요.", ss)
+                    f"필요하면 [다시 시작]을 눌러 주세요.\n{_saved}".rstrip(), ss)
                 task.result = {"success": False, "doc_name": doc, "saved_path": None}
                 await cancellable_sleep(60, task, context)  # headed 창을 잠시 열어둬 수동 완료 가능
 
@@ -639,4 +645,13 @@ async def run_nhis_rpa(task, user_info: dict = None) -> None:
             ss = await take_screenshot(page)
         except Exception:
             ss = None
-        task.update("error", f"자동화 오류: {str(e)[:300]}\n터미널에서 상세 로그를 확인하세요.", ss)
+        # 🔬 예기치 못한 실패 — 그 순간의 실화면 구조를 PII 없이 자동 저장(page가 아직 없거나 닫혔으면 생략).
+        _saved = ""
+        try:
+            _pg = locals().get("page")
+            if _pg is not None:
+                from rpa import diagnostics as _dg
+                _saved = await _dg.dump(_pg, "건강보험자격득실-예외", tried=["nhis flow"], note=str(e)[:120])
+        except Exception:
+            pass
+        task.update("error", f"자동화 오류: {str(e)[:300]}\n터미널에서 상세 로그를 확인하세요.\n{_saved}".rstrip(), ss)

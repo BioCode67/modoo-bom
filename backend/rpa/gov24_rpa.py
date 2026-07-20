@@ -514,16 +514,9 @@ async def _page_structure_diag(page) -> str:
 
 async def _dump_diag(page, label: str, tried=None, note: str = "") -> str:
     """실패한 실화면을 구조로 '파일 하나'에 저장(PII 없음) → 사용자용 안내 문자열. 실패해도 무해.
-    개발 환경에서 실제 gov 사이트를 못 보는 제약을 우회 — 사용자가 이 파일만 공유하면 실화면 구조를 정확히 안다."""
-    try:
-        import os as _os
-        from rpa import base as _base
-        from rpa import diagnostics as _dg
-        d = await _dg.capture(page, label=label, tried=tried, note=note)
-        path = _dg.save(d, str(_base.DOCS_DIR))
-        return f"🔬 진단 저장: {_os.path.basename(path)} — 서류 도우미 [🔬 진단 복사]로 공유하면 정확히 고쳐드려요"
-    except Exception:
-        return ""
+    공용 diagnostics.dump에 위임(전 RPA 모듈 단일 소스) — nhis·work24·apply도 같은 함수를 쓴다."""
+    from rpa import diagnostics as _dg
+    return await _dg.dump(page, label=label, tried=tried, note=note)
 
 
 async def _fill_registered_address(page, user_info: dict) -> dict:

@@ -318,11 +318,17 @@ async def run_work24_rpa(task, user_info: dict = None) -> None:
                 )
                 task.result = {"success": False, "doc_name": "고용보험 피보험자격 이력내역서", "manual_save": True}
             else:
+                # 🔬 발급 버튼을 못 찾은 그 화면의 구조를 PII 없이 남긴다 — 개발 환경에서 work24 실화면을
+                #    못 보는 제약을, 사용자의 [진단 복사] 한 번으로 메워 메뉴·조회·발급 셀렉터를 실측 보정.
+                from rpa import diagnostics as _dg
+                _saved = await _dg.dump(page, "고용보험이력-발급버튼미도달",
+                                        tried=["DOC_MENU_SELECTORS", "SEARCH_SELECTORS", "ISSUE_SELECTORS"],
+                                        note="로그인 후 발급/출력 버튼 미도달")
                 task.update(
                     "done",
                     "⚠️ 고용보험 이력내역서 '발급 버튼까지 도달하지 못했어요'.\n"
                     "로그인·조회가 됐는지 화면에서 확인하고, 발급/출력 버튼을 직접 눌러 저장해 주세요.\n"
-                    "브라우저는 60초 후 자동 종료됩니다.",
+                    f"브라우저는 60초 후 자동 종료됩니다.\n{_saved}".rstrip(),
                     ss,
                 )
                 task.result = {"success": False, "doc_name": "고용보험 피보험자격 이력내역서"}
@@ -336,4 +342,17 @@ async def run_work24_rpa(task, user_info: dict = None) -> None:
     except Exception as e:
         import traceback
         traceback.print_exc()
-        task.update("error", f"자동화 오류: {str(e)[:300]}", None)
+        try:
+            ss = await take_screenshot(page)
+        except Exception:
+            ss = None
+        # 🔬 예기치 못한 실패 — 그 순간의 실화면 구조를 PII 없이 자동 저장(page가 아직 없거나 닫혔으면 생략).
+        _saved = ""
+        try:
+            _pg = locals().get("page")
+            if _pg is not None:
+                from rpa import diagnostics as _dg
+                _saved = await _dg.dump(_pg, "고용보험이력-예외", tried=["work24 flow"], note=str(e)[:120])
+        except Exception:
+            pass
+        task.update("error", f"자동화 오류: {str(e)[:300]}\n{_saved}".rstrip(), ss)

@@ -79,3 +79,46 @@ def test_diagnostics_summarize_and_url_scrub():
     assert dg._safe_url("https://plus.gov.kr/ap/iss.do?token=SECRET&rrn=900101") == "https://plus.gov.kr/ap/iss.do"
     s = dg.summarize({"frames": [{"i": 0, "n": 5, "markers": ["카카오", "신청하기"]}]})
     assert "f0" in s and "칸5" in s and "카카오" in s
+
+
+@pytest.mark.skipif(_chromium_path() is None, reason="컨테이너 chromium 없음 — 실브라우저 e2e 스킵")
+def test_diagnostics_dump_writes_file_and_returns_message(tmp_path):
+    """dump()는 capture+save를 한 번에 — 파일로 남기고 안내 문자열(파일명 포함)을 돌려준다(값 없음).
+
+    nhis·work24·gov24·apply가 실패 지점에서 공용으로 부르는 단일 진입점 — 이 계약이 전 모듈 공유의 근거."""
+    from playwright.async_api import async_playwright
+
+    async def run():
+        async with async_playwright() as pw:
+            b = await pw.chromium.launch(executable_path=_chromium_path())
+            pg = await (await b.new_context()).new_page()
+            await pg.set_content(_HTML)
+            msg = await dg.dump(pg, label="등본-예외", dirpath=str(tmp_path),
+                                tried=["doc issue flow"], note="예기치 못한 실패")
+            await b.close()
+            return msg
+
+    msg = asyncio.new_event_loop().run_until_complete(run())
+    # 안내 문자열은 저장 파일명을 담아 사용자가 [진단 복사]로 공유하게 유도
+    assert "진단 저장" in msg and ".json" in msg
+    # 실제로 파일이 남았고, 저장 파일에 값(PII)은 없다 — 구조(라벨)만
+    files = glob.glob(str(tmp_path / "_diagnostics" / "*.json"))
+    assert files, "dump()이 진단 파일을 남기지 않았다"
+    body = open(files[0], encoding="utf-8").read()
+    assert "홍길동" not in body and "1234567" not in body and "01012345678" not in body
+    assert "성명" in body  # 구조(라벨)는 있다
+
+
+def test_diagnostics_dump_returns_empty_on_failure():
+    """저장 불가(잘못된 경로 등)여도 예외를 던지지 않고 빈 문자열 — 실패 지점에서 무해하게 호출된다.
+
+    호출부는 f'...\\n{_saved}'.rstrip() 이라 ''이면 아무것도 안 붙는다(사용자 메시지 오염 없음)."""
+    import os
+    import tempfile
+    fd, fpath = tempfile.mkstemp()  # dirpath로 '파일'을 주면 save의 mkdir가 실패
+    os.close(fd)
+    try:
+        msg = asyncio.new_event_loop().run_until_complete(dg.dump(None, label="x", dirpath=fpath))
+        assert msg == ""
+    finally:
+        os.unlink(fpath)
