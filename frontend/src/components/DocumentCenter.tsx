@@ -16,6 +16,7 @@ import { DocCameraModal } from '@/components/DocCameraModal'
 import { DocVault, notifyDocsChanged, DOCS_CHANGED_EVENT } from '@/components/DocVault'
 import { ProbeCoverage, requestProbe } from '@/components/ProbeCoverage'
 import { ISSUE_DOC_EVENT, ISSUE_ALL_EVENT, takePendingIssue, takePendingIssueAll } from '@/lib/issueBridge'
+import { copyAgentDiagnostic } from '@/lib/diag'
 import { AgentStatusStrip } from '@/components/AgentStatusStrip'
 import { rememberLive, forgetLive, listLive } from '@/lib/liveTasks'
 import { downloadDocsBundle } from '@/lib/bundleDocs'
@@ -1061,12 +1062,19 @@ export function DocumentCenter() {
       {/* 🗂 자유 선택 일괄발급(데스크탑) — 슬림 모드와 공유(정의는 return 직전) */}
       {freePickerBlock}
 
-      {/* 🔍 진단 복사 — 발급이 멈추거나 오류일 때만 노출(완료는 제외 — 성공 후에도 뜨면 오해) */}
-      {ext && Object.values(rpa).some((s) => s && (s.status === 'error' || (!['done', 'completed'].includes(s.status) && s.at && Date.now() - s.at > 30000))) && (
+      {/* 🔍 진단 복사 — 발급이 멈추거나 오류일 때만 노출(완료는 제외 — 성공 후에도 뜨면 오해).
+          확장은 브라우저 내 자동화 로그(getExtensionTrace), 데스크탑앱은 기술정보+실패 화면 구조
+          (copyAgentDiagnostic — /api/_diag + /api/_diagnostics/latest)를 복사한다. 실화면에 접속 못
+          하는 개발 환경에서, 사용자가 스샷 대신 이 한 번의 복사로 막힌 실화면을 정확히 전달하게 하는 게 핵심. */}
+      {(ext || localAgent) && Object.values(rpa).some((s) => s && (s.status === 'error' || (!['done', 'completed'].includes(s.status) && s.at && Date.now() - s.at > 30000))) && (
         <button
           onClick={async () => {
-            const t = await getExtensionTrace()
-            if (t) { try { await navigator.clipboard.writeText(t); setDiagCopied(true); setTimeout(() => setDiagCopied(false), 3000) } catch { /* noop */ } }
+            if (ext) {
+              const t = await getExtensionTrace()
+              if (t) { try { await navigator.clipboard.writeText(t); setDiagCopied(true); setTimeout(() => setDiagCopied(false), 3000) } catch { /* noop */ } }
+            } else if (await copyAgentDiagnostic()) {
+              setDiagCopied(true); setTimeout(() => setDiagCopied(false), 3000)
+            }
           }}
           className="btn-secondary w-full mt-2 !py-2 text-xs"
         >
