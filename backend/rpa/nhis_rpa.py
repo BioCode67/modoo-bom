@@ -114,7 +114,9 @@ _JS_FILL_FORM = """
     // 전화번호 앞자리 select (010)
     const prefixSel = Array.from(document.querySelectorAll('select'))
         .find(s => Array.from(s.options).some(o => o.value === '010') && s.offsetParent !== null);
-    if (prefixSel && setVal(prefixSel, prefix)) filled.push('prefix:' + prefix);
+    // ⚠️ 채운 값(전화 앞자리)을 반환 문자열에 담지 않는다 — 이 문자열이 current_step 에 실려 무토큰
+    //    폴러에게 새던 실결함(감사 확정). '무엇을 채웠는지' 사실만(값 없음).
+    if (prefixSel && setVal(prefixSel, prefix)) filled.push('prefix');
 
     // 전화번호 뒷자리
     const phoneEl = document.getElementById('oacx_phone2');

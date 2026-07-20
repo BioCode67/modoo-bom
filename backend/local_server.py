@@ -327,7 +327,7 @@ async def diagnostics():
     태스크는 상태별 '개수'와 최근 오류의 기술 문구(잘라냄)만."""
     import platform
     import sys as _sys
-    from rpa.manager import _rpa_tasks, _MAX_CONCURRENT, _active, _waiting
+    from rpa.manager import _rpa_tasks, _MAX_CONCURRENT, _active, _waiting, _strip_pii_lines, SUPPORTED_DOC_NAMES
     from rpa.base import DOCS_DIR
     from rpa.config import rpa_enabled
     from rpa.gov24_rpa import EXTRA_DOC_NAMES
@@ -339,8 +339,14 @@ async def diagnostics():
             st = str(d.get("status") or "?")
             counts[st] = counts.get(st, 0) + 1
             if st == "error":
-                # 기술 오류 문구만(발급 실패 원인) — 이름·서류명이 섞일 수 있는 안내문은 첫 줄 200자로 제한
-                last_error = str(d.get("current_step") or "")[:200]
+                # 기술 오류 문구만(발급 실패 원인) — 실명 줄·저장경로 줄을 제거하고(공용 _strip_pii_lines),
+                #   오류문에 섞인 민감 서류종(장애인·한부모 등)까지 '(서류)'로 가린 뒤 200자로 제한한다.
+                #   (공용 PC '다음 분 상담'·터널 배포에서 남의 서류종이 진단으로 새던 실결함 — 감사 확정)
+                _e = _strip_pii_lines(str(d.get("current_step") or ""))
+                for _dn in SUPPORTED_DOC_NAMES:
+                    if _dn and _dn in _e:
+                        _e = _e.replace(_dn, "(서류)")
+                last_error = _e[:200]
     except Exception:
         pass
     docs_count = 0
