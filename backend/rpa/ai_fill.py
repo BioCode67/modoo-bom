@@ -96,9 +96,17 @@ _COLLECT_JS = """() => {
             item.checked = !!el.checked;
             if (!item.name) continue;  // 이름 없는 라디오/체크는 스킵(오클릭 방지)
         } else {  // textbox/combobox/spinbutton 등 입력칸
-            item.filled = !!(el.value && el.value.trim() && el.value.trim() !== '-');
             item.ro = !!(el.readOnly || el.disabled);
-            if (tag === 'select') item.options = [...el.options].slice(0, 20).map(o => (o.text || '').trim().slice(0, 16));
+            if (tag === 'select') {
+                item.options = [...el.options].slice(0, 20).map(o => (o.text || '').trim().slice(0, 16));
+                // ⚠️ select는 placeholder 옵션('시도 선택' 등)이 기본이라 value가 truthy여도 '미선택'이다.
+                //   selectedIndex>0 이고 선택 텍스트에 '선택'이 없을 때만 filled(실제 옵션 골라짐).
+                const sel = el.options[el.selectedIndex];
+                const st = sel ? (sel.text || '').trim() : '';
+                item.filled = el.selectedIndex > 0 && st && !/선택|choose|select/i.test(st);
+            } else {
+                item.filled = !!(el.value && el.value.trim() && el.value.trim() !== '-');
+            }
         }
         // 하위호환: 기존 코드/테스트가 tag·type·label·ph 를 읽으므로 함께 채운다
         item.tag = tag; item.type = type; item.label = item.name;
@@ -420,26 +428,31 @@ async def _execute_plan(ctx, page, plan: list, want: dict, allow_clicks: bool) -
 
 # 🧭 결정론적 의미 매칭 — 접근성 이름(name)을 값 키 의도와 대조(생활어 동의어). LLM 없이도 동작.
 #   한국 정부/인증 폼의 라벨 변형을 흡수(성명↔이름, 휴대폰↔핸드폰, 주민등록번호↔생년월일 등).
+#   pref: 이 의도가 선호하는 role — 같은 이름 요소가 여럿일 때(휴대폰 행의 앞자리 select vs 뒷자리
+#   input) 값에 맞는 타입을 우선 고른다. 전화 뒷부분·이름·생년월일은 textbox, 시도/시군구는 combobox.
 _INTENT_PATTERNS = {
-    "name": ["성명", "이름", "신청인"],
-    "birth6": ["주민등록번호", "생년월일", "주민번호"],
-    "phone_tail": ["휴대폰", "핸드폰", "전화번호"],
-    "parent_name": ["추가정보", "부성명", "모성명", "부모성명"],
-    "sido": ["시도", "시·도", "특별시", "광역시", "주소"],
-    "sigungu": ["시군구", "시·군·구", "군구"],
+    "name": (["성명", "이름", "신청인"], "textbox"),
+    "birth6": (["주민등록번호", "생년월일", "주민번호"], "textbox"),
+    "phone_tail": (["휴대폰", "핸드폰", "전화번호"], "textbox"),
+    "phone_head": (["휴대폰", "핸드폰", "통신"], "combobox"),
+    "parent_name": (["추가정보", "부성명", "모성명", "부모성명"], "textbox"),
+    "sido": (["시도", "시·도", "특별시", "광역시", "주소"], "combobox"),
+    "sigungu": (["시군구", "시·군·구", "군구"], "combobox"),
 }
 
 
 def _deterministic_plan(fields: list, keys) -> list:
-    """접근성 이름 기반 결정론 계획 — LLM 없이 값 키↔요소를 매칭(같은 이름 여럿이면 문서순 첫 미사용).
-    입력 role(textbox/combobox/spinbutton)만 대상, filled/ro/이름없음은 제외. 같은 idx 중복 금지."""
+    """접근성 이름 기반 결정론 계획 — LLM 없이 값 키↔요소를 매칭. 같은 이름 여럿이면 '선호 role' 우선
+    → 문서순. 입력 role(textbox/combobox/spinbutton)만, filled/ro/이름없음/중복 idx 제외."""
     plan = []
     used = set()
     _norm = lambda s: str(s or "").replace(" ", "")
     for key in keys:
-        pats = _INTENT_PATTERNS.get(key)
-        if not pats:
+        spec = _INTENT_PATTERNS.get(key)
+        if not spec:
             continue
+        pats, pref = spec
+        cands = []
         for f in fields:
             if f.get("idx") in used or f.get("ro") or f.get("filled"):
                 continue
@@ -449,9 +462,14 @@ def _deterministic_plan(fields: list, keys) -> list:
             nm = _norm(f.get("name"))
             if not nm or not any(_norm(p) in nm for p in pats):
                 continue
-            used.add(f["idx"])
-            plan.append({"action": "select" if role == "combobox" else "fill", "idx": f["idx"], "key": key})
-            break
+            cands.append(f)
+        if not cands:
+            continue
+        # 선호 role 우선(문서순 안정) — phone_tail은 textbox, 시도는 combobox를 먼저 집는다
+        cands.sort(key=lambda f: 0 if f.get("role") == pref else 1)
+        f = cands[0]
+        used.add(f["idx"])
+        plan.append({"action": "select" if f.get("role") == "combobox" else "fill", "idx": f["idx"], "key": key})
     return plan
 
 
