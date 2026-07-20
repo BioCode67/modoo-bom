@@ -955,6 +955,31 @@ async def _issue_family_cert_efamily(page, task, context, user_info: dict = None
         )
     except Exception:
         pass
+    # ⚠️ 실사용 재제보(스크린샷): 성명·주민번호는 채워지는데 추가정보확인의 부/모 성명만 빈칸 —
+    #    드롭다운 change 핸들러가 입력칸을 새 DOM으로 갈아끼우면, 위에서 잡아둔 '옛 노드'에 넣은
+    #    값이 화면에서 사라진다. → 잠시 뒤 입력칸을 '다시 조회'해 값이 붙을 때까지 재기입(최대 4회).
+    if parent_name:
+        _js_refill_parent = """(v) => {
+            const fire = (el) => { ['input','change','keyup','blur'].forEach(n => el.dispatchEvent(new Event(n, {bubbles: true}))); };
+            for (const tr of document.querySelectorAll('tr')) {
+                const head = ((tr.querySelector('th, td') || {}).innerText || '').trim();
+                if (!/^추가정보확인/.test(head)) continue;
+                const ins = [...tr.querySelectorAll("input[type=text], input[type=password], input:not([type])")]
+                    .filter(i => !i.disabled);
+                const el = ins[ins.length - 1];
+                if (!el) return false;
+                if (!el.value) { el.value = v; fire(el); }
+                return !!el.value;
+            }
+            return false;
+        }"""
+        for _ in range(4):
+            await asyncio.sleep(0.8)
+            try:
+                if await page.evaluate(_js_refill_parent, parent_name):
+                    break
+            except Exception:
+                pass
     all_ready = bool(name and birth6 and rrn7 and parent_name)
     if all_ready:
         # 전부 채웠으면 [간편인증]까지 자동으로 연다 — 남는 건 인증창 확인·폰 승인뿐
@@ -1017,31 +1042,44 @@ async def _issue_family_cert_efamily(page, task, context, user_info: dict = None
             ctx = await _modal_ctx(page)  # 모달이 iframe이면 그 프레임에 직접 입력(실사용: 휴대폰 미입력 원인)
             await click_provider_in_anyid(ctx, provider)
             await asyncio.sleep(0.6)
-            try:
-                await ctx.evaluate(
-                    """(v) => {
-                        const fire = (el) => { el.dispatchEvent(new Event('input', {bubbles: true})); el.dispatchEvent(new Event('change', {bubbles: true})); };
-                        const put = (el, val) => { if (el && val && !el.value) { el.value = val; fire(el); } };
-                        for (const tr of document.querySelectorAll('tr, li, div')) {
-                            const t = (tr.innerText || '').trim();
-                            if (t.length > 80) continue;
-                            if (t.includes('휴대폰') || t.includes('핸드폰')) {
-                                put([...tr.querySelectorAll("input[type=text], input[type=tel], input:not([type])")].pop(), v.tail);
-                            }
-                            if (t.includes('주민등록번호')) {
-                                // 인증창의 뒷자리(placeholder '뒷자리'·password 가능) — 빈 칸에만 채운다
-                                const ins = [...tr.querySelectorAll("input[type=text], input[type=password], input[type=tel], input:not([type])")];
-                                put(ins[0], v.birth6);
-                                put(ins[ins.length - 1], v.rrn7);
-                            }
+            # ⚠️ 실사용 재제보: 휴대폰 번호가 placeholder 그대로 남음 — 숫자 전용 입력(type=number)이
+            #    선택자에 빠져 있으면 통째로 놓친다. number 포함 + 통신사(010) 셀렉트 지정 +
+            #    put은 빈 칸만 채우는 멱등이라 같은 채움을 한 번 더 돌려 재렌더로 지워진 값도 복구.
+            _modal_fill_js = """(v) => {
+                const fire = (el) => { ['input','change','keyup'].forEach(n => el.dispatchEvent(new Event(n, {bubbles: true}))); };
+                const put = (el, val) => { if (el && val && !el.value) { el.value = val; fire(el); } };
+                for (const tr of document.querySelectorAll('tr, li, div')) {
+                    const t = (tr.innerText || '').trim();
+                    if (t.length > 80) continue;
+                    if (t.includes('휴대폰') || t.includes('핸드폰')) {
+                        const sel = tr.querySelector('select');
+                        if (sel && v.head) {
+                            const o = [...sel.options].find(o => (o.text || '').trim() === v.head);
+                            if (o && sel.value !== o.value) { sel.value = o.value; sel.dispatchEvent(new Event('change', {bubbles: true})); }
                         }
-                    }""",
-                    {
-                        "tail": phone[3:] if phone.startswith("010") and len(phone) >= 10 else phone,
-                        "birth6": birth6,
-                        "rrn7": rrn7,
-                    },
-                )
+                        put([...tr.querySelectorAll("input[type=text], input[type=tel], input[type=number], input:not([type])")].pop(), v.tail);
+                    }
+                    if (t.includes('주민등록번호')) {
+                        // 인증창의 뒷자리(placeholder '뒷자리'·password 가능) — 빈 칸에만 채운다
+                        const ins = [...tr.querySelectorAll("input[type=text], input[type=password], input[type=tel], input[type=number], input:not([type])")];
+                        put(ins[0], v.birth6);
+                        put(ins[ins.length - 1], v.rrn7);
+                    }
+                }
+            }"""
+            _modal_vals = {
+                "tail": phone[3:] if phone.startswith("01") and len(phone) >= 10 else phone,
+                "head": phone[:3] if phone.startswith("01") and len(phone) >= 10 else "",
+                "birth6": birth6,
+                "rrn7": rrn7,
+            }
+            try:
+                await ctx.evaluate(_modal_fill_js, _modal_vals)
+            except Exception:
+                pass
+            await asyncio.sleep(0.6)
+            try:
+                await ctx.evaluate(_modal_fill_js, _modal_vals)  # 재렌더로 지워진 빈 칸만 재기입(멱등)
             except Exception:
                 pass
             await _check_agree_all(ctx)  # 전체동의는 제공자 선택 뒤 '마지막에'(동의 리셋 방지 — 정부24와 동일 순서)
@@ -1129,24 +1167,89 @@ async def _issue_family_cert_efamily(page, task, context, user_info: dict = None
     really = ("등록기준지" in body_now) or (final_page is not page)
     saved = ""
     if really:
-        # 🖨 열람 팝업은 크롬 PDF 뷰어(주소가 원본 PDF, 실측 ptDyna/…) — 뷰어 화면을 재인쇄하면
-        #   좌우가 잘린다(실사용 제보). 세션 쿠키로 '원본 PDF 바이트'를 그대로 내려받아 저장한다.
+        # 🖨 열람 결과가 '원본 PDF 주소'인 창이면 세션 쿠키로 바이트 직다운로드(재인쇄 잘림 원천 차단).
+        #   ⚠️ 실사용 재제보(옆 잘림): 열람이 '페이지 안 내장 뷰어(자체 가로 스크롤)'로 뜨는 경우엔
+        #   페이지 URL이 HTML이라 직다운로드가 빗나가고, 인쇄 폴백이 '보이는 영역만' 찍어 우측이 잘렸다.
+        #   → 후보 URL을 넓힌다: 페이지 URL + 모든 프레임 URL + embed/object/iframe/a 의 pdf스러운 주소.
+        cand_urls = []
         try:
-            final_url = final_page.url
-            resp = await context.request.get(final_url)
-            data = await resp.body() if resp.ok else b""
-            if data[:5] == b"%PDF-":
-                from datetime import datetime as _dt
-                from rpa.base import DOCS_DIR, doc_basename
-                DOCS_DIR.mkdir(parents=True, exist_ok=True)
-                out = DOCS_DIR / f"{doc_basename('가족관계증명서', name)}.pdf"
-                if out.exists():
-                    out = DOCS_DIR / f"{doc_basename('가족관계증명서', name)}_{_dt.now().strftime('%S')}.pdf"
-                out.write_bytes(data)
-                saved = str(out)
+            cand_urls.append(final_page.url)
         except Exception:
-            saved = ""
-        if not saved:  # 원본 다운로드가 안 되는 화면(HTML 열람 등)만 기존 캡처 폴백
+            pass
+        try:
+            for fr in list(getattr(final_page, "frames", None) or []):
+                try:
+                    u = fr.url or ""
+                    if u and u not in cand_urls:
+                        cand_urls.append(u)
+                    more = await fr.evaluate(
+                        """() => [...document.querySelectorAll('embed, object, iframe, a')]
+                            .map(e => e.src || e.data || e.href || '')
+                            .filter(u => u && /pdf|filedown|download|report/i.test(u)).slice(0, 8)"""
+                    )
+                    for u2 in (more or []):
+                        if u2 and u2 not in cand_urls:
+                            cand_urls.append(u2)
+                except Exception:
+                    continue
+        except Exception:
+            pass
+        for _u in cand_urls[:12]:
+            try:
+                resp = await context.request.get(_u)
+                data = await resp.body() if resp.ok else b""
+            except Exception:
+                data = b""
+            if data[:5] == b"%PDF-":
+                try:
+                    from datetime import datetime as _dt
+                    from rpa.base import DOCS_DIR, doc_basename
+                    DOCS_DIR.mkdir(parents=True, exist_ok=True)
+                    out = DOCS_DIR / f"{doc_basename('가족관계증명서', name)}.pdf"
+                    if out.exists():
+                        out = DOCS_DIR / f"{doc_basename('가족관계증명서', name)}_{_dt.now().strftime('%S')}.pdf"
+                    out.write_bytes(data)
+                    saved = str(out)
+                    break
+                except Exception:
+                    saved = ""
+        if not saved:
+            # 원본 PDF를 못 찾음(HTML 내장 뷰어) — 캡처 전에 '가로 스크롤 클리핑'을 해제해
+            #   문서 전체 폭이 화면에 나오게 한 뒤 저장(우측 잘림 방지). 실패해도 무해(기존 캡처).
+            for _ctx in [final_page] + list(getattr(final_page, "frames", None) or []):
+                try:
+                    await _ctx.evaluate(
+                        """() => {
+                            let n = 0;
+                            for (const el of document.querySelectorAll('*')) {
+                                if (el.clientWidth > 200 && el.scrollWidth > el.clientWidth + 8) {
+                                    el.style.overflow = 'visible';
+                                    el.style.width = el.scrollWidth + 'px';
+                                    n++;
+                                }
+                            }
+                            if (n) document.body.style.width = 'max-content';
+                            return n;
+                        }"""
+                    )
+                except Exception:
+                    continue
+            # 내부 문서가 iframe이면 iframe '요소 자체'도 내부 폭·높이만큼 키운다 — 내부만 넓히면
+            #   프레임 경계에서 다시 잘린다. (요소 확대 후 부모 쪽 클리핑은 위 루프가 이미 해제)
+            for fr in list(getattr(final_page, "frames", None) or []):
+                try:
+                    dims = await fr.evaluate(
+                        "() => ({w: Math.max(document.documentElement.scrollWidth, document.body ? document.body.scrollWidth : 0),"
+                        " h: Math.max(document.documentElement.scrollHeight, document.body ? document.body.scrollHeight : 0)})"
+                    )
+                    if dims and int(dims.get("w") or 0) > 400:
+                        el = await fr.frame_element()
+                        await el.evaluate(
+                            "(e, d) => { e.style.width = d.w + 'px'; e.style.height = d.h + 'px'; }", dims
+                        )
+                except Exception:
+                    continue
+            await asyncio.sleep(0.8)  # 확장 반영 대기
             saved = await save_document(final_page, "가족관계증명서", name)
     if saved:
         task.update(
