@@ -676,7 +676,9 @@ export function incomeCeiling(doc: string): number | null {
  */
 export function isClosedForNew(policy: Policy): boolean {
   const doc = `${policy.eligibility} ${policy.benefit} ${policy.target}`
-  return /신규\s*(모집|가입|신청)\s*[^,.·(]{0,8}(종료|중단|불가)|모집\s*종료|신규가입.{0,6}종료/.test(doc)
+  // '접수'까지 포함 — '신규 접수 종료'(청년내일채움공제 등)도 잡는다. '일몰'은 종료의 관용 표기라 함께.
+  //   ⚠️ '부양의무자 폐지'·'계절 상한 폐지'처럼 '폐지'가 '개선'을 뜻하는 오탐을 피해 '폐지' 단독은 쓰지 않는다.
+  return /신규\s*(모집|가입|신청|접수)\s*[^,.·(]{0,8}(종료|중단|불가)|모집\s*종료|신규가입.{0,6}종료|일몰(?!제?\s*폐지)/.test(doc)
 }
 
 // 공개 API: 정책 1건 자격 판별. doc = eligibility + ' ' + target + ' ' + name (mock_eligibility/estimate와 동일).

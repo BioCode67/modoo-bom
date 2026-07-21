@@ -16,7 +16,7 @@ import { queryConcepts, relevance } from '@/lib/search'
 import { cn } from '@/lib/utils'
 import type { Policy } from '@/data/policies'
 import { useCatalog } from '@/data/useCatalog'
-import { sidoOf, guOf, collapseProgramDuplicates, type EligiblePolicy } from '@/lib/welfare-engine'
+import { sidoOf, guOf, collapseProgramDuplicates, isClosedForNew, type EligiblePolicy } from '@/lib/welfare-engine'
 import { PolicyCard } from '@/components/PolicyCard'
 import { PolicyDetailDrawer } from '@/components/PolicyDetailDrawer'
 import { Glossary } from '@/components/Glossary'
@@ -175,6 +175,9 @@ export function Explore() {
 
   // 비검색 필터(분류·지역·현금성·혜택유형) 공통 술어 — 목록과 AI 답변이 '같은 결과'를 보게 hoist(감사 Finding 1)
   const passNonSearch = useCallback((p: Policy) => {
+    // 신규 신청이 종료된(모집·접수·가입 종료·일몰) 정책은 탐색에서도 숨긴다 — 결과 화면과 동일 원칙.
+    //   '신청할 수 있는 것만' 보여줘 사용자가 종료된 혜택에 헛걸음하지 않게(사용자 요청).
+    if (isClosedForNew(p)) return false
     const b = BUCKETS.find((x) => x.key === bucket)
     if (b?.test) { if (!b.test(p)) return false }
     else if (b?.match && !b.match.some((m) => p.category.includes(m))) return false

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  extractKeywords, getEligiblePolicies, searchPolicies,
+  extractKeywords, getEligiblePolicies, searchPolicies, isClosedForNew,
   estimateBenefits, runAnalysis, checkPolicy, incomeCeiling, situationRelevance, sidoOf, guOf, demographicMismatch, disabilityLabel, collapseProgramDuplicates, type UserProfile,
 } from './welfare-engine'
 import type { Policy } from '@/data/policies'
@@ -382,6 +382,17 @@ describe('estimateBenefits / runAnalysis', () => {
     const r = getEligiblePolicies({ ...base, age: 26, income_percentile: 60 })
     expect(r.some((p) => p.id === 'POL-040')).toBe(false)
     expect(r.some((p) => p.id === 'POL-121')).toBe(true)
+  })
+  it('isClosedForNew: 신규 종료/접수 종료/일몰은 종료로, 개선성 "폐지"는 종료로 오탐하지 않음', () => {
+    const mk = (benefit: string): Policy => ({ id: 'X', name: 't', category: 'c', target: '', benefit, eligibility: '', required_docs: [], application: '', department: '', renewal: '' })
+    // 종료로 잡아야 하는 것들
+    expect(isClosedForNew(mk('신규 모집 종료 — 기존 가입자만 유지'))).toBe(true)
+    expect(isClosedForNew(mk('신규 접수 종료, 신규 신청 불가'))).toBe(true)   // '접수' 추가 커버
+    expect(isClosedForNew(mk('2024년부터 신규 가입 종료(일몰)'))).toBe(true)
+    // ⚠️ '폐지'가 개선(부양의무자 폐지·상한 폐지)을 뜻하는 경우는 종료 아님(오탐 금지)
+    expect(isClosedForNew(mk('부양의무자 기준 대부분 폐지'))).toBe(false)
+    expect(isClosedForNew(mk('2026년 계절 상한 폐지, 자유 사용'))).toBe(false)
+    expect(isClosedForNew(mk('만 65세 이상 상시 신청'))).toBe(false)
   })
   it('에이전트 요약문 숫자 = 화면 헤더(맞춤 추천/강력 추천)와 일치(불일치 신뢰붕괴 방지)', () => {
     // 요약문의 "맞춤 복지 N건 / 강력 추천 M건"이 ResultsView 헤더의 primary/highCount와 같아야 한다.
