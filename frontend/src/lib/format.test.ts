@@ -20,6 +20,8 @@ describe('parseMonthly', () => {
   it('월 표기 없거나 금액 없으면 0', () => {
     expect(parseMonthly('치료비 전액 지원')).toBe(0)
     expect(parseMonthly('연 13만원 문화 바우처')).toBe(0) // 월이 아닌 연 단위
+    expect(parseMonthly('출산 시 349,700원 일시금')).toBe(0) // '월' 없는 일시금 → 월 현금합산에서 제외(감사)
+    expect(parseMonthly('연 500만원 장학금')).toBe(0)         // 연 단위
   })
   it('범위 표기는 상한(최댓값) 채택 — 배지 과소표시 방지', () => {
     expect(parseMonthly('월 4만~18.7만원')).toBe(187000)

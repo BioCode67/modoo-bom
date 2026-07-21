@@ -151,3 +151,10 @@ describe('시드 이름 중복 제거(표시용)', () => {
     expect(mod.getPolicyMap()['POL-059']).toBeTruthy()
   })
 })
+
+describe('nameKey — 표기변형 정규화(공백·괄호 제거로 시드/공공데이터 디듑)', () => {
+  it('괄호·공백 차이를 같은 키로 본다', () => {
+    expect(nameKey('임신·출산 진료비 지원 (국민행복카드)')).toBe(nameKey('임신·출산 진료비 지원 국민행복카드'))
+    expect(nameKey('가 나（다）')).toBe('가나다') // 전각 괄호·공백도 제거
+  })
+})
