@@ -190,8 +190,8 @@ async def _autofill_bokjiro_auth(contexts, page, user_info) -> dict:
     _mark_js = """(kind) => {
         const rowOf = (e) => { let n = e.parentElement;
             for (let i=0;i<5&&n;i++){ const t=(n.innerText||'').trim(); if(t&&t.length<=60) return t; n=n.parentElement; } return ''; };
-        const pat = kind==='name' ? /이름|성명/ : kind==='birth' ? /주민등록번호|생년월일/ : /휴대폰|핸드폰|휴대전화|연락처|전화/;
-        const cands = [...document.querySelectorAll("input[type=text],input[type=tel],input[type=number],input:not([type])")]
+        const pat = kind==='name' ? /이름|성명/ : (kind==='birth'||kind==='rrn') ? /주민등록번호|주민번호|생년월일/ : /휴대폰|핸드폰|휴대전화|연락처|전화/;
+        const cands = [...document.querySelectorAll("input[type=text],input[type=password],input[type=tel],input[type=number],input:not([type])")]
             .filter(e => e.offsetParent!==null && !e.disabled && !e.readOnly && pat.test(rowOf(e)));
         if(!cands.length){
             // 폴백(휴대폰): 라벨이 행에서 멀어 매칭 실패 시, '010' 등 앞자리 select '바로 뒤' 입력칸을 뒷자리로.
@@ -208,8 +208,8 @@ async def _autofill_bokjiro_auth(contexts, page, user_info) -> dict:
             }
             return 0;
         }
-        // 이름은 첫 칸, 생년월일은 첫 칸(앞자리), 휴대폰은 마지막 칸(뒷부분)
-        const el = kind==='phone' ? cands[cands.length-1] : cands[0];
+        // 이름·생년월일(앞자리)은 첫 칸, 휴대폰(뒷부분)·주민번호 뒷자리(rrn)는 마지막 칸
+        const el = (kind==='phone'||kind==='rrn') ? cands[cands.length-1] : cands[0];
         el.setAttribute('data-modoobom-b', kind); return 1;
     }"""
 
@@ -268,20 +268,11 @@ async def _autofill_bokjiro_auth(contexts, page, user_info) -> dict:
                 except Exception:
                     pass
             out["phone"] = await _fill(ctx_, "phone", phone_tail, numeric=True)
-        if rrn7:  # 뒷자리는 있을 때만(민감정보) — 검증은 생략(마스킹 입력이라 값 확인 어려움)
-            try:
-                _need = await ctx_.evaluate(
-                    """() => { const rowOf=(e)=>{let n=e.parentElement;for(let i=0;i<5&&n;i++){const t=(n.innerText||'').trim();if(t&&t.length<=60)return t;n=n.parentElement;}return '';};
-                        const cs=[...document.querySelectorAll("input[type=text],input[type=password],input[type=tel],input[type=number],input:not([type])")]
-                            .filter(e=>e.offsetParent!==null&&!e.disabled&&!e.readOnly&&/주민등록번호/.test(rowOf(e)));
-                        const el=cs[cs.length-1]; if(!el||el.value)return false; el.setAttribute('data-modoobom-b','rrn'); return true; }"""
-                )
-                if _need:
-                    _rl = ctx_.locator("[data-modoobom-b='rrn']")
-                    await _rl.click(timeout=3000)
-                    await page.keyboard.type(rrn7, delay=40)
-            except Exception:
-                pass
+        if rrn7:  # 뒷자리는 있을 때만(민감정보) — 이름/생년월일/휴대폰과 '동일한' 견고한 _fill 로 채운다.
+            #   ⚠️ 회귀 수정(실사용 제보 2026-07-21): 기존엔 단순 click+type 1회라 포커스·재시도·값검증이 없어
+            #      간헐 실패(원래는 됐다던 그 뒷자리 미입력). _fill 은 focus_key/click_key/fill 3중 + 값일치 검증.
+            #      password 마스킹이어도 el.value 는 실값이라 검증됨(값은 브라우저 안에서만 비교·무전송). (팀원 확인 요망)
+            await _fill(ctx_, "rrn", rrn7, numeric=True)
     # 전체동의는 '제공자 선택 뒤 마지막에'(정부24와 동일 — 제공자 선택이 동의를 리셋).
     #   ⚠️ 문서순 첫 매칭은 섹션 전체를 감싼 바깥 div('서비스 이용에 대한 동의 … 전체동의')를 잡아
     #   무효 클릭이 된다(gov24 제공자 클릭과 동일 교훈) → ① '전체동의' 행의 실제 체크박스/라디오 우선
