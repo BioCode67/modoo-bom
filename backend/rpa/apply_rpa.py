@@ -132,8 +132,9 @@ async def _pass_service_select_page(page, task, service_name: str, wait_sec: int
             return True
         # 선택 화면인데 카드를 못 찾음 — 사람이 체크하면 다음 루프가 [저장 후 다음단계]부터 이어받는다
         task.update("waiting_login",
-                    f"📋 서비스 선택 화면이에요 — 목록에서 '{service_name}'의 '신청하기'를 체크해 주세요.\n"
-                    "체크만 하시면 [저장 후 다음단계]와 확인창은 자동으로 진행해 드려요.",
+                    f"📋 아직 끝이 아니에요 — 복지로 '서비스 선택' 단계입니다. 목록에서 '{service_name}'의 '신청하기'를 체크해 주세요"
+                    " (안 보이면 목록을 아래로 내려보세요).\n"
+                    "체크만 하시면 [저장 후 다음단계]·확인창·신청서 작성까지 자동으로 진행하고, 마지막 제출 직전에만 멈춰드려요.",
                     await take_screenshot(page))
         await asyncio.sleep(2)
     return False
