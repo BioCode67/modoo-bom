@@ -304,7 +304,7 @@ export function ChatWidget() {
                 onClick={() => { setCallOpen(true); setOpen(false) }}
                 className="rounded-full p-2 bg-white/15 hover:bg-white/25"
                 aria-label="음성 통화 상담으로 전환"
-                title="📞 새싹이와 통화하기 — 말로만 상담"
+                title="📞 새싹이와 통화하기 (베타) — 말로만 상담"
               >
                 <Phone className="h-[18px] w-[18px]" />
               </button>

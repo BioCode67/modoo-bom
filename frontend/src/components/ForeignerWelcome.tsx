@@ -61,7 +61,7 @@ export function ForeignerWelcome() {
 
         {/* 📞 자국어 통화 상담 직행 — 글보다 말이 편한 사용자용(통화 언어 프리셋, VOICE_LANGS 지원 언어만 정직하게 노출) */}
         <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-violet-100 pt-4">
-          <span className="text-sm font-bold text-violet-700 flex items-center gap-1.5"><Phone className="h-4 w-4" /> 말로 하는 통화 상담 · Voice call —</span>
+          <span className="text-sm font-bold text-violet-700 flex items-center gap-1.5"><Phone className="h-4 w-4" /> 말로 하는 통화 상담 · Voice call <span className="rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-bold">베타</span> —</span>
           {([['en', 'English', '🇬🇧'], ['vi', 'Tiếng Việt', '🇻🇳'], ['zh', '中文', '🇨🇳']] as const).map(([code, label, flag]) => (
             <button
               key={code}
