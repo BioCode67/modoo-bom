@@ -83,11 +83,10 @@ export function My() {
       {/* AI 에이전트 브리핑 — 먼저 챙길 일을 능동적으로 보고 */}
       <AgentBriefing onOpen={setSelected} />
 
-      {/* 복지 여정 지도 — 찾기 → 서류 → 신청 → 관리 중 지금 어디쯤인지 + 다음 한 걸음 */}
+      {/* 복지 여정 지도 — 찾기 → 서류 → 신청 → 관리 중 지금 어디쯤인지 + 다음 한 걸음.
+          '지금 뭘 하면 되는지' 딱 하나만 또렷하게 보여주는 이 흐름 안내를 상단에 두고, 부가 정보(구독·연간
+          현금흐름 등)는 아래 '복지 도구 더보기'로 내려 정보 과다를 줄인다(사용자 피드백: 뭘 할지 헷갈림). */}
       <JourneyStepper />
-
-      {/* 관심 분야 알림 구독 — 구독 분야에서 받을 수 있는데 안 담은 복지를 능동 안내 */}
-      <InterestSubscribe onOpenPolicy={(id) => { const p = POLICY_MAP[id]; if (p) setSelected(p) }} />
 
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
         <div className="flex items-start justify-between gap-3">
@@ -119,11 +118,8 @@ export function My() {
         )}
       </motion.div>
 
-      {/* 담은 복지 중 마감 임박 — 놓침 방지 */}
+      {/* 담은 복지 중 마감 임박 — 놓침 방지(액션 직결이라 상단 유지) */}
       <DeadlineAlert policies={tracked.map((t) => POLICY_MAP[t.policyId]).filter(Boolean)} onOpen={setSelected} />
-
-      {/* 담은 복지의 연간 현금흐름 — 앞으로 12개월 누적 수령액 */}
-      <AnnualCashflow policies={tracked.map((t) => POLICY_MAP[t.policyId]).filter(Boolean)} />
 
       {/* ② 신청 — 담은 복지 목록(각 카드에서 상태·서류·다음 할 일 관리) */}
       <section id="journey-apply" className="scroll-mt-24">
@@ -180,11 +176,15 @@ export function My() {
         >
           <Wrench className="h-4 w-4 text-sprout-500" />
           복지 도구 더보기
-          <span className="text-xs font-normal text-muted-foreground">복지 캘린더 · 가구 분석 · 자동화 요약</span>
+          <span className="text-xs font-normal text-muted-foreground">알림 구독 · 연간 현금흐름 · 캘린더 · 가구 분석 · 자동화 요약</span>
           <ChevronDown className={cn('h-4 w-4 ml-auto transition-transform', showTools && 'rotate-180')} />
         </button>
         {showTools && (
           <div className="mt-2">
+            {/* 관심 분야 알림 구독 — 안 담은 복지 능동 안내(발견용, 신청 흐름과 분리해 여기로) */}
+            <InterestSubscribe onOpenPolicy={(id) => { const p = POLICY_MAP[id]; if (p) setSelected(p) }} />
+            {/* 담은 복지의 연간 현금흐름 — 앞으로 12개월 누적 수령액(부가 정보) */}
+            <AnnualCashflow policies={tracked.map((t) => POLICY_MAP[t.policyId]).filter(Boolean)} />
             <WelfareCalendar />
             <HouseholdAnalyzer onOpen={setSelected} />
             <AgentSummary />

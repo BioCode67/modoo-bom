@@ -38,6 +38,10 @@
     line-height: 1.65;
     margin: 0;
     overflow-x: hidden;
+    /* 소형 한글 판독성 — 커닝·리거처 최적화 + 그레이스케일 안티에일리어싱을 명시(윈도우 '삐리삐리' 완화). */
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   input, button, select, textarea { font-family: inherit; }
@@ -288,3 +292,9 @@
    '어느 서류의 체크인지' 헷갈리던 실측 문제(큰글씨×390 일괄발급 패널). 대신 큰 정사각형(22px)으로
    판독성을 확보하고, 탭 영역은 감싼 label 전체가 담당한다. */
 .elderly-mode input[type='checkbox'] { min-height: 0; height: 1.4rem; width: 1.4rem; }
+
+/* 초소형 글씨 판독성 바닥값 — 9~10px 은 윈도우에서 한글이 뭉개져('삐리삐리') 배지·캡션이 흐리다.
+   기본 모드에서 한 단계만 키워(≈11px) 가독성을 확보한다(레이아웃 영향 최소·어르신 모드는 위에서 더 키움).
+   레이어 밖 규칙이라 Tailwind 유틸리티를 이긴다(!important 없이 — 어르신 모드가 다시 덮을 수 있게). */
+.text-\[9px\] { font-size: 10.5px; letter-spacing: -0.01em; }
+.text-\[10px\] { font-size: 11px; }
