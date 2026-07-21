@@ -32,3 +32,31 @@ export async function copyAgentDiagnostic(): Promise<boolean> {
     return false
   }
 }
+
+// 🎬 흐름 기록 복사 — RPA_FLOW_RECORD=1(record-flow.bat)로 실행하며 자동발급/신청을 한 번 끝까지 진행하면,
+//   '지나간 화면들'의 구조(버튼·입력칸·팝업, 값은 없음)가 서버에 쌓인다. 이 버튼이 그걸 한 덩어리로 복사해 준다 →
+//   개발자는 스샷을 단계마다 받지 않고도, 성공하며 지나가는 다음 화면·새 팝업까지 한 번에 파악해 고칠 수 있다.
+
+/** 흐름 기록(지나간 화면 구조)을 붙여넣기용 텍스트로 만든다. 기록이 없으면 안내 문구를 돌려준다. */
+export async function buildFlowRecord(): Promise<string> {
+  try {
+    const r = await fetch(`${getRpaBase()}/api/_diagnostics/flow`)
+    const js = await r.json()
+    if (js && js.available) {
+      return `[모두봄 흐름 기록 — 실행이 지나간 화면들의 구조 · 값(이름·주민번호 등) 없음]\n${JSON.stringify(js, null, 2)}`
+    }
+    return '[모두봄 흐름 기록 없음] 아직 기록이 없어요 — record-flow.bat 로 실행한 뒤 자동발급/신청을 한 번 진행하면 화면 구조가 쌓입니다.'
+  } catch {
+    return '[모두봄 흐름 기록 조회 실패] 로컬 에이전트 연결을 확인해 주세요.'
+  }
+}
+
+/** 흐름 기록을 클립보드로 복사. 성공하면 true. (미지원·미연결이면 false — 호출부가 조용히 처리) */
+export async function copyFlowRecord(): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(await buildFlowRecord())
+    return true
+  } catch {
+    return false
+  }
+}

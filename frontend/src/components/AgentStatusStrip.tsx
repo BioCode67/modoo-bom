@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Bot, CheckCircle2, Loader2, AlertCircle, Stethoscope, ClipboardCopy, X, Volume2 } from 'lucide-react'
+import { Bot, CheckCircle2, Loader2, AlertCircle, Stethoscope, ClipboardCopy, X, Volume2, Film } from 'lucide-react'
 import { getRpaBase } from '@/lib/backend'
-import { copyAgentDiagnostic } from '@/lib/diag'
+import { copyAgentDiagnostic, copyFlowRecord } from '@/lib/diag'
 import { isAuthVoice, setAuthVoice } from '@/lib/authCue'
 import { useBackend } from '@/lib/useBackend'
 
@@ -17,6 +17,7 @@ export function AgentStatusStrip() {
   const { ready, caps } = useBackend()
   const [pf, setPf] = useState<'idle' | 'running' | 'error' | PfResult>('idle')
   const [diagDone, setDiagDone] = useState(false) // 진단 복사 완료 표시(훅은 조기 return 앞에)
+  const [flowDone, setFlowDone] = useState(false) // 🎬 흐름 기록 복사 완료 표시
   const [voice, setVoice] = useState(() => isAuthVoice()) // 🔊 인증 음성 안내(기기 기억, 옵트인)
   const [autoOk, setAutoOk] = useState(false) // 조용한 자가점검이 '통과'했음(무소음 ✓ 표기용)
 
@@ -81,6 +82,12 @@ export function AgentStatusStrip() {
     if (await copyAgentDiagnostic()) { setDiagDone(true); setTimeout(() => setDiagDone(false), 2500) }
   }
 
+  // 🎬 흐름 기록 복사 — record-flow.bat 로 실행하며 자동발급/신청을 한 번 진행하면 '지나간 화면들'의 구조가
+  //   쌓인다(값 없음). 이 버튼이 그걸 한 덩어리로 복사 → 개발자가 스샷 없이 다음 화면·새 팝업까지 한 번에 파악.
+  const copyFlow = async () => {
+    if (await copyFlowRecord()) { setFlowDone(true); setTimeout(() => setFlowDone(false), 2500) }
+  }
+
   return (
     <div className="mb-3 rounded-2xl border border-sprout-100 bg-sprout-50/50 px-3.5 py-2 text-[11px]">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -135,6 +142,15 @@ export function AgentStatusStrip() {
             className="rounded-lg border border-sprout-200 bg-white px-2 py-1 font-semibold text-sprout-700 hover:bg-sprout-50 inline-flex items-center gap-1">
             <ClipboardCopy className="h-3 w-3" /> {diagDone ? '복사됨 ✓' : '진단 복사'}
           </button>
+          {caps.flowRecord && (
+            /* 🎬 흐름 기록 모드(record-flow.bat)에서만 노출 — 평소엔 숨김(심사위원·일반 사용에는 안 보임).
+               자동발급/신청을 한 번 끝까지 진행한 뒤 이 버튼으로 '지나간 화면 구조'(값 없음)를 복사해 개발자에게. */
+            <button onClick={copyFlow}
+              title="record-flow.bat 로 실행 중이에요 — 자동발급/신청을 한 번 진행한 뒤 이 버튼으로 지나간 화면 구조(개인정보 없음)를 복사해 개발자에게 붙여넣어 주세요"
+              className="rounded-lg border border-violet-300 bg-violet-50 px-2 py-1 font-semibold text-violet-700 hover:bg-violet-100 inline-flex items-center gap-1">
+              <Film className="h-3 w-3" /> {flowDone ? '복사됨 ✓' : '흐름 기록 복사'}
+            </button>
+          )}
         </span>
       </div>
       {result && (
