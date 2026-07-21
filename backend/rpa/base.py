@@ -658,9 +658,19 @@ async def detect_auth_form(page) -> bool:
 async def take_screenshot(page) -> str:
     try:
         buf = await page.screenshot(full_page=False, type="jpeg", quality=75)
-        return base64.b64encode(buf).decode()
+        b64 = base64.b64encode(buf).decode()
     except Exception:
         return ""
+    # 🎬 흐름 기록(RPA_FLOW_RECORD=1 일 때만; 기본 OFF·심사/일반 사용 무영향) — 화면이 바뀔 때마다 그 구조를
+    #    중복 없이 한 파일에 남긴다. 개발 환경에서 실제 gov 화면을 직접 못 보는 제약을 우회: 사용자가 실행 한 번
+    #    뒤 파일 하나만 공유하면 전 단계 구조를 한 번에 파악한다(단계별 스샷 촬영 대체). 값 미수집·실패 무해.
+    #    record_step 이 스스로 게이트(flow_recording_on)를 확인하므로 여기선 무조건 위임(단일 소스).
+    try:
+        from rpa import diagnostics as _dg
+        await _dg.record_step(page)
+    except Exception:
+        pass
+    return b64
 
 
 async def _click_auth_confirm_any(ctx_page) -> bool:

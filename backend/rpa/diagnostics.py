@@ -144,3 +144,104 @@ async def dump(page, label: str = "", dirpath=None, tried=None, note: str = "") 
         return f"🔬 진단 저장: {os.path.basename(path)} — 서류 도우미 [🔬 진단 복사]로 공유하면 정확히 고쳐드려요"
     except Exception:
         return ""
+
+
+# ── 🎬 흐름 기록(flow recorder) — 실행이 '지나간 화면들'의 구조를 한 파일에 누적 ──
+# 배경(2026-07-21, 사용자 지시): dump() 는 '실패한 순간'만 남긴다. 하지만 실제 불편은 '성공하며 지나가되
+#   아직 핸들러가 없는 다음 화면·새 팝업'(예: 복지로 신청 → 서비스 선택 그리드 → 확인 팝업 → 동시신청 팝업)을
+#   개발자가 볼 수 없어, 단계마다 스크린샷을 찍어 보내야 했던 것이다. RPA_FLOW_RECORD=1 이면 take_screenshot
+#   이 불릴 때마다(=화면이 바뀔 때마다) '그 화면 구조'를 중복 없이 한 파일에 append 한다.
+#   → 사용자는 실행 '한 번' 뒤 이 파일 '하나'만 공유하면, 전체 흐름의 모든 화면 구조를 개발자가 한 번에 파악한다.
+# 프라이버시: capture() 와 완전히 동일한 계약 — 값(이름·주민번호·전화)은 절대 담지 않는다(구조·마커·URL만).
+# 기본 OFF: 심사위원·일반 사용·원격 배포에는 아무 영향이 없다(개발/디버그 시에만 켠다).
+_FLOW_ENV = "RPA_FLOW_RECORD"
+# 프로세스 1개(로컬 1인 디버그 세션)를 전제로 한 최소 상태 — 마지막으로 기록한 화면 서명(중복 방지)과 단계 수.
+_flow_state: dict = {"last_sig": None, "n": 0}
+
+
+def flow_recording_on() -> bool:
+    """흐름 기록이 켜져 있는지(RPA_FLOW_RECORD=1). 기본 OFF — 이 하나가 전 경로의 단일 게이트."""
+    import os
+    return os.getenv(_FLOW_ENV, "").strip().lower() in ("1", "true", "on", "yes")
+
+
+def _flow_dir(dirpath=None):
+    import pathlib
+    if dirpath is None:
+        from rpa import base as _base
+        dirpath = str(_base.DOCS_DIR)
+    d = pathlib.Path(dirpath) / "_flow"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+async def _screen_sig(page) -> str:
+    """전체 캡처 없이 '화면이 바뀌었는지'만 싸게 판별하는 서명 — URL + 보이는 상호작용 요소 수.
+    (로그인 대기 등으로 같은 화면에서 스샷이 반복돼도 중복 기록하지 않게 한다.)"""
+    try:
+        url = _safe_url(getattr(page, "url", "") or "")
+    except Exception:
+        url = ""
+    try:
+        cnt = await page.evaluate(
+            "() => document.querySelectorAll('input,select,textarea,button,a,[role=button]').length"
+        )
+    except Exception:
+        cnt = -1
+    return f"{url}|{cnt}"
+
+
+async def record_step(page, label: str = "", tried=None, note: str = "", dirpath=None) -> None:
+    """RPA_FLOW_RECORD=1 일 때만: 지금 화면 구조를 흐름 파일(JSONL)에 '중복 없이' 한 줄 append.
+
+    값 미수집(구조·마커·URL만)·실패 무해(실행을 절대 방해하지 않음)·기본 OFF.
+    take_screenshot(base.py) 한 곳에서만 호출되므로 전 RPA 모듈(발급·신청·여정)의 화면이 자동으로 남는다."""
+    if not flow_recording_on():
+        return
+    try:
+        sig = await _screen_sig(page)
+        if sig and sig == _flow_state.get("last_sig"):
+            return  # 같은 화면(로그인 대기 중 반복 스샷 등) — 건너뜀
+        d = await capture(page, label=label, tried=tried, note=note)
+        _flow_state["last_sig"] = sig
+        _flow_state["n"] = int(_flow_state.get("n", 0)) + 1
+        d["step"] = _flow_state["n"]
+        import json as _json
+        fp = _flow_dir(dirpath) / f"flow_{datetime.now().strftime('%Y%m%d')}.jsonl"
+        with open(fp, "a", encoding="utf-8") as f:
+            f.write(_json.dumps(d, ensure_ascii=False) + "\n")
+    except Exception:
+        pass
+
+
+def read_flow(dirpath=None, limit: int = 80) -> dict:
+    """오늘 기록된 흐름 파일을 읽어 단계 목록으로 반환 → {available, count, steps:[...]}(최근 limit개).
+    엔드포인트(/api/_diagnostics/flow)·CLI 공용. 파일이 없으면 available=False(기록 OFF/미실행)."""
+    import glob as _glob
+    import json as _json
+    import os as _os
+    try:
+        d = _flow_dir(dirpath)
+    except Exception:
+        return {"available": False}
+    files = sorted(_glob.glob(str(d / "flow_*.jsonl")), reverse=True)  # 파일명이 날짜라 최신순
+    if not files:
+        return {"available": False}
+    steps = []
+    try:
+        for ln in open(files[0], encoding="utf-8").read().splitlines():
+            ln = ln.strip()
+            if not ln:
+                continue
+            try:
+                steps.append(_json.loads(ln))
+            except Exception:
+                continue
+    except Exception as e:
+        return {"available": False, "error": str(e)[:120]}
+    return {
+        "available": bool(steps),
+        "file": _os.path.basename(files[0]),
+        "count": len(steps),
+        "steps": steps[-max(1, limit):],
+    }
