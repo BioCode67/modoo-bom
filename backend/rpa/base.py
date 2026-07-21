@@ -684,7 +684,10 @@ async def _click_auth_confirm_any(ctx_page) -> bool:
                         body = await ctx.evaluate("() => document.body ? document.body.innerText : ''")
                     except Exception:
                         body = ""
-                    if any(k in (body or "") for k in ("완료되지 않", "완료되지않", "미완료")):
+                    # 폰 승인 전 클릭이면 '안내'창이 뜬다 → 그 [확인]만 닫아 다음 주기에 '인증 완료'를 재시도한다.
+                    #   gov24='완료되지 않았습니다' · 복지로='입력하신 정보로 인증을 진행할 수 없습니다'(실사용 제보).
+                    #   인증 위젯 자체의 [닫기]는 건드리지 않는다('확인'만 클릭).
+                    if any(k in (body or "") for k in ("완료되지 않", "완료되지않", "미완료", "진행할 수 없", "다시 시도")):
                         await click_by_text(ctx, ["확인"])
                     return True
             except Exception:

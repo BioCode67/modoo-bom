@@ -373,3 +373,12 @@ def test_wait_any_visible_early_exit_and_ceiling():
         assert time.monotonic() - t0 < 1.0
 
     asyncio.get_event_loop_policy().new_event_loop().run_until_complete(run())
+
+
+def test_auth_confirm_dismisses_bokjiro_retry_popup():
+    """복지로 '인증 완료'를 폰 승인 전 누르면 뜨는 '진행할 수 없습니다' 안내창의 [확인]을 닫아
+    다음 주기에 '인증 완료'를 재시도하도록, dismissal 조건에 복지로 팝업 문구가 포함돼야 한다(실사용 제보)."""
+    src = open("rpa/base.py", encoding="utf-8").read()
+    assert "진행할 수 없" in src            # 복지로: '입력하신 정보로 인증을 진행할 수 없습니다'
+    assert "완료되지 않" in src             # gov24: '완료되지 않았습니다' (기존 문구 유지)
+    assert 'click_by_text(ctx, ["확인"])' in src  # 위젯 [닫기]는 건드리지 않고 안내창 [확인]만
