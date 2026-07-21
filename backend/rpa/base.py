@@ -384,6 +384,12 @@ async def save_document(page, name: str, user_name: str = "") -> Optional[str]:
 KAKAOTALK_SELECTORS = [
     "a[title='카카오톡']",
     "img[alt='카카오톡']",
+    # ⚠️ 복지로 실측(2026-07-21): 제공자 로고 링크가 가시 텍스트·img alt 없이 'aria-label'로만 이름을 준다
+    #    (흐름기록: name='카카오톡'인데 text 없음). 아래 aria-label 셀렉터가 없으면 카카오톡 타일이 안 눌린다.
+    #    정확/부분 일치 모두 '카카오톡'만 — '카카오뱅크'(aria-label='카카오뱅크')엔 '카카오톡'이 없어 오클릭 없음.
+    "[aria-label='카카오톡']",
+    "a[aria-label*='카카오톡']",
+    "button[aria-label*='카카오톡']",
     # text= 는 Playwright가 '해당 텍스트를 담는 가장 작은 요소'를 잡는다 — 신형(2026-07) 민간인증서
     # 타일 그리드(로고+라벨 div 타일, li/a/button 아님)에서 라벨 스팬을 정확히 클릭(실사용 제보).
     "text=카카오톡",
@@ -538,7 +544,7 @@ async def _provider_click_selectors(ctx, p):
         selectors = []
         for lab in p["labels"]:
             selectors += [
-                f"a[title*='{lab}']", f"img[alt*='{lab}']", f"text={lab}",
+                f"a[title*='{lab}']", f"img[alt*='{lab}']", f"[aria-label*='{lab}']", f"text={lab}",
                 f"label:has-text('{lab}')", f"li:has-text('{lab}')",
                 f"a:has-text('{lab}')", f"button:has-text('{lab}')",
             ]
@@ -568,6 +574,7 @@ async def _provider_click_tokens_js(ctx, p):
                         (el.textContent || '') +
                         (el.getAttribute('alt') || '') +
                         (el.getAttribute('title') || '') +
+                        (el.getAttribute('aria-label') || '') +
                         (el.getAttribute('data-id') || '') +
                         (el.getAttribute('data-provider') || '') +
                         el.className
@@ -600,7 +607,7 @@ async def _provider_click_loose_js(ctx, p):
             (cfg) => {
                 const all = [...document.querySelectorAll('a, button, li')];
                 const items = all.filter(el => {
-                    const t = (el.textContent + el.className).toLowerCase();
+                    const t = (el.textContent + (el.getAttribute('aria-label') || '') + el.className).toLowerCase();
                     return cfg.loose.some(k => t.includes(k)) && !cfg.exclude.some(x => t.includes(x));
                 });
                 if (items.length > 0) {
