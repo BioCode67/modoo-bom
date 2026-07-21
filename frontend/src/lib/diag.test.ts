@@ -15,11 +15,11 @@ describe('buildFlowRecord', () => {
     expect(txt).toContain('"count": 2')
   })
 
-  it('기록이 없으면 record-flow.bat 안내로 폴백한다', async () => {
+  it('기록이 없으면 진행 안내로 폴백한다', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => ({ json: async () => ({ available: false }) })))
     const txt = await buildFlowRecord()
-    expect(txt).toContain('기록이 없어요')
-    expect(txt).toContain('record-flow.bat')
+    expect(txt).toContain('아직 지나간 화면이 없어요')
+    expect(txt).toContain('진행하면')
   })
 
   it('연결 실패면 조회 실패 안내를 돌려준다(던지지 않음)', async () => {

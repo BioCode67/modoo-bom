@@ -143,10 +143,10 @@ export function AgentStatusStrip() {
             <ClipboardCopy className="h-3 w-3" /> {diagDone ? '복사됨 ✓' : '진단 복사'}
           </button>
           {caps.flowRecord && (
-            /* 🎬 흐름 기록 모드(record-flow.bat)에서만 노출 — 평소엔 숨김(심사위원·일반 사용에는 안 보임).
+            /* 🎬 흐름 기록 모드에서만 노출(run-local-app.bat 는 자동 켬 · 설치 EXE는 미설정이라 심사위원에겐 안 보임).
                자동발급/신청을 한 번 끝까지 진행한 뒤 이 버튼으로 '지나간 화면 구조'(값 없음)를 복사해 개발자에게. */
             <button onClick={copyFlow}
-              title="record-flow.bat 로 실행 중이에요 — 자동발급/신청을 한 번 진행한 뒤 이 버튼으로 지나간 화면 구조(개인정보 없음)를 복사해 개발자에게 붙여넣어 주세요"
+              title="지나간 화면 구조를 기록 중이에요 — 자동발급/신청을 한 번 진행한 뒤 이 버튼으로 화면 구조(개인정보 없음)를 복사해 개발자에게 붙여넣어 주세요"
               className="rounded-lg border border-violet-300 bg-violet-50 px-2 py-1 font-semibold text-violet-700 hover:bg-violet-100 inline-flex items-center gap-1">
               <Film className="h-3 w-3" /> {flowDone ? '복사됨 ✓' : '흐름 기록 복사'}
             </button>

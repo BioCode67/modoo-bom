@@ -26,7 +26,7 @@ export interface Capabilities {
   rpaRemote?: boolean
   /** 🔒 공유(터널) 배포 서버(health.capabilities.shared) — 서류함 등 '본인 PC 전용' UI 를 숨긴다 */
   shared?: boolean
-  /** 🎬 흐름 기록 모드(health.capabilities.flow_record; RPA_FLOW_RECORD=1·record-flow.bat)에서만 true.
+  /** 🎬 흐름 기록 모드(health.capabilities.flow_record; RPA_FLOW_RECORD=1 — run-local-app.bat 자동 켬)에서만 true.
    *  이때만 [🎬 흐름 기록 복사] 버튼을 노출한다(평소엔 숨김 → 심사위원·일반 사용에는 안 보임). */
   flowRecord?: boolean
   ai_provider?: string

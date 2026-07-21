@@ -203,8 +203,8 @@ async def health():
             # 🔒 공유(터널) 배포 여부 — 프론트가 서류함/점검 등 '본인 PC 전용' UI를 스스로 숨기게(403 충돌 방지).
             #   동일출처로 터널을 직접 여는 경우 rpaRemote 감지가 없어 이 플래그가 유일한 신호다.
             "shared": os.getenv("RPA_SHARED", "").strip().lower() in ("1", "true", "yes"),
-            # 🎬 흐름 기록 모드(RPA_FLOW_RECORD=1, record-flow.bat)에서만 true — 프론트가 [🎬 흐름 기록 복사]
-            #   버튼을 이때만 노출한다(평소엔 숨김 → 심사위원/일반 사용에는 안 보임).
+            # 🎬 흐름 기록 모드(RPA_FLOW_RECORD=1 — run-local-app.bat 가 자동으로 켬)에서만 true — 프론트가
+            #   [🎬 흐름 기록 복사] 버튼을 이때만 노출(설치 EXE는 미설정 → 심사위원에겐 안 보임).
             "flow_record": os.getenv("RPA_FLOW_RECORD", "").strip().lower() in ("1", "true", "on", "yes"),
         },
     }
@@ -408,8 +408,8 @@ async def latest_diagnostic():
 
 @app.get("/api/_diagnostics/flow")
 async def flow_record():
-    """🎬 이번 실행이 '지나간 화면들'의 구조(값 없음)를 한 번에 반환 — RPA_FLOW_RECORD=1(record-flow.bat)로
-    실행했을 때만 쌓인다. 프론트 [🎬 흐름 기록 복사]가 이 하나를 개발자에게 전달하면, 성공하며 지나가는
+    """🎬 이번 실행이 '지나간 화면들'의 구조(값 없음)를 한 번에 반환 — RPA_FLOW_RECORD=1(run-local-app.bat
+    자동 켬)일 때만 쌓인다. 프론트 [🎬 흐름 기록 복사]가 이 하나를 개발자에게 전달하면, 성공하며 지나가는
     '다음 화면·새 팝업'까지 스크린샷 없이 한 번에 파악해 전 단계를 함께 고칠 수 있다(단계별 촬영을 대체).
     🔒 본인 PC 전용(공유 배포 403)·값 미수집(diagnostics 모듈 계약)."""
     _shared_mode_guard()
