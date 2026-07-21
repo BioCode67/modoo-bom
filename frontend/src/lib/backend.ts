@@ -237,6 +237,7 @@ function finalizeCaps(
     version: rpaSrc?.version,
     rpaCapacity: rpaSrc?.rpaCapacity,
     shared: !!rpaSrc?.shared, // 서버가 공유 배포(RPA_SHARED)라고 밝히면 프론트도 개인 서류함 UI 를 숨김
+    flowRecord: rpaSrc?.flowRecord, // 🎬 흐름 기록 모드 → [🎬 흐름 기록 복사] 버튼 노출(안 실으면 fetchHealth가 채워도 여기서 유실)
   }
 }
 

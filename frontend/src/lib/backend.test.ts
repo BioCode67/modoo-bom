@@ -62,6 +62,20 @@ describe('backend 하이브리드 감지', () => {
     expect(b.API_BASE).toBe(LOCAL)
   })
 
+  it('🎬 flow_record 능력이 finalizeCaps 를 지나 caps.flowRecord 로 살아남는다(버튼 노출 회귀)', async () => {
+    // 실결함(사용자 제보): fetchHealth 가 flowRecord 를 채워도 finalizeCaps 가 caps 를 새로 만들며 유실 →
+    //   [🎬 흐름 기록 복사] 버튼이 어떤 빌드에서도 안 떴다. 능력 필드가 최종 caps 까지 전파되는지 못 박는다.
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      const base = String(url).replace('/api/health', '')
+      const caps = base === LOCAL ? { ai: true, rpa: true, flow_record: true } : null
+      if (caps == null) throw new Error('connection refused')
+      return { ok: true, json: async () => ({ mode: 'production', capabilities: caps }) } as Response
+    }))
+    const b = await loadBackend('')
+    expect(await b.checkBackend()).toBe(true)
+    expect(b.getCapabilities()?.flowRecord).toBe(true) // finalizeCaps 가 실어 보내야 버튼이 뜬다
+  })
+
   it('데스크탑 앱(동일출처 localhost, base=/) → rpa 가용·RPA_BASE는 상대경로(빈문자열)', async () => {
     // 로컬 앱은 백엔드가 프론트를 localhost 에서 직접 서빙(동일출처, base='/'). 이때 RPA_BASE 는 정상적으로
     // ''(상대경로)다 — 과거 caps.rpa=!!RPA_BASE 로 ''를 false 로 오판해 8000 이외 포트에서 자동발급이 사라졌다.
