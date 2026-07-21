@@ -17,6 +17,7 @@ import { WelfareCalendar } from '@/components/WelfareCalendar'
 import { HouseholdAnalyzer } from '@/components/HouseholdAnalyzer'
 import { AnnualCashflow } from '@/components/AnnualCashflow'
 import { DeadlineAlert } from '@/components/DeadlineAlert'
+import { WelfareRoadmap } from '@/components/WelfareRoadmap'
 import { useAppStore, type AppStatus } from '@/store/useAppStore'
 import { useAuthCtx } from '@/lib/authContext'
 import { sumCashMonthly, formatWon } from '@/lib/format'
@@ -117,6 +118,9 @@ export function My() {
           </p>
         )}
       </motion.div>
+
+      {/* 복지 신청 로드맵 — 담은 복지를 '무엇을 어떤 순서로' 신청할지 실행 계획으로 (찾기→행동) */}
+      <WelfareRoadmap onOpen={setSelected} />
 
       {/* 담은 복지 중 마감 임박 — 놓침 방지(액션 직결이라 상단 유지) */}
       <DeadlineAlert policies={tracked.map((t) => POLICY_MAP[t.policyId]).filter(Boolean)} onOpen={setSelected} />
