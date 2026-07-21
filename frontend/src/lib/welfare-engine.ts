@@ -111,10 +111,11 @@ export function extractKeywords(p: UserProfile): { summary: string; keywords: st
     if (p.income_percentile <= 40) keywords = keywords.concat(['의료급여'])
     if (p.income_percentile <= 32) keywords = keywords.concat(['기초생활', '생계급여'])
   }
-  if (p.household_type === '한부모가족' || p.household_type === '조손가구') {
+  // 가구유형은 복수 선택('다문화가족·한부모가족')일 수 있어 정확일치(===) 대신 부분매칭으로 본다(대화형 복수선택 대응).
+  if (/한부모|조손/.test(p.household_type || '')) {
     keywords = keywords.concat(['한부모', '양육비'])
   }
-  if (p.household_type === '다문화가족') {
+  if ((p.household_type || '').includes('다문화')) {
     keywords = keywords.concat(['다문화', '방문교육'])
   }
   const events = p.life_events || []
@@ -319,7 +320,7 @@ function checkPolicyDoc(doc: string, name: string, p: UserProfile): CheckResult 
   // ── 다문화 계열 ── (아동 분기보다 먼저: eligibility의 '또는 만 12세 이하 자녀'가 하드 자녀요건으로 오인돼
   //   임신 중·무자녀 다문화가족이 배제되던 문제. 가구유형으로 먼저 매칭한다.)
   if (anyIn(doc, ['다문화가족', '결혼이민자', '귀화자'])) {
-    if (p.household_type === '다문화가족')
+    if ((p.household_type || '').includes('다문화'))
       // 사각지대 대표(대회 주제) — 다문화 전용 지원은 high로. medium이면 나이만 겹친 청년 정책(전부 high)에 묻힘
       return { eligible: true, reason: '다문화가족 확인', priority: 'high', confidence: 0.9 }
     return NO
@@ -327,7 +328,7 @@ function checkPolicyDoc(doc: string, name: string, p: UserProfile): CheckResult 
   // ── 외국인 근로자·이주노동자 지원(체불임금·법률·산재 등) — 다문화/이주 신호 있으면 관련복지로 노출(사각지대, 감사 확정 FN) ──
   //   '외국인' 단독은 과매칭 위험이라 '외국인 근로자/노동자·이주노동자'로 한정. Korean 일반 프로필엔 노출 안 함.
   if (/외국인\s*근로자|외국인\s*노동자|이주\s*노동자|이주노동자|이주민\s*근로/.test(doc)) {
-    if (p.household_type === '다문화가족' || (p.life_events || []).some((e) => /외국인|이주|다문화/.test(e)))
+    if ((p.household_type || '').includes('다문화') || (p.life_events || []).some((e) => /외국인|이주|다문화/.test(e)))
       return { eligible: true, reason: '외국인·이주민 근로자 지원 관련', priority: 'medium', confidence: 0.7 }
     return NO
   }

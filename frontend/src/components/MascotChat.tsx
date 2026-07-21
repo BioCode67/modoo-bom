@@ -8,7 +8,7 @@ import type { UserProfile } from '@/lib/welfare-engine'
 import {
   EMPTY_PROFILE, AGE_BRACKETS, INCOME_OPTIONS, HOUSEHOLD_OPTIONS, SITUATIONS,
   CHILD_AGE_OPTIONS, DISABILITY_OPTIONS, REGIONS, applySituations,
-  nextStep, progressOf, mascotReaction, type StepId,
+  nextStep, progressOf, mascotReaction, parseBirthInput, formatBirth, type StepId,
 } from '@/lib/onboardingFlow'
 import { cn } from '@/lib/utils'
 
@@ -17,8 +17,8 @@ type Msg = { role: 'bot' | 'user'; text: string }
 function questionText(step: StepId, name: string): string {
   const nm = name ? `${name}님, ` : ''
   switch (step) {
-    case 'name': return '안녕하세요! 저는 모두봄 새싹이에요 🌱 몇 가지만 여쭤보고 딱 맞는 복지를 찾아드릴게요. 먼저, 어떻게 불러드릴까요?'
-    case 'age': return `${nm}반가워요! 나이가 어떻게 되세요?`
+    case 'name': return '안녕하세요! 저는 모두봄 새싹이에요 🌱 몇 가지만 여쭤보고 딱 맞는 복지를 찾아드릴게요. 먼저 성함을 알려주세요 — 나중에 복지 신청서에 그대로 들어가요.'
+    case 'age': return `${nm}반가워요! 생년월일을 알려주세요.`
     case 'income': return '요즘 형편은 어떠세요? 편하게 골라주세요.'
     case 'household': return '누구와 함께 지내세요?'
     case 'situations': return '혹시 요즘 이런 상황이 있으신가요? 해당되는 걸 모두 골라주세요.'
@@ -55,6 +55,7 @@ export function MascotChat({ onSubmit }: { onSubmit: (p: UserProfile) => void })
   const [nameDraft, setNameDraft] = useState('')
   const [multi, setMulti] = useState<string[]>([])   // situations 선택
   const [ages, setAges] = useState<number[]>([])      // 자녀 나이대 선택
+  const [houses, setHouses] = useState<string[]>([])  // 가구유형 선택(복수 — 다문화+한부모 등)
   const [history, setHistory] = useState<{ step: StepId; profile: UserProfile; len: number }[]>(draft?.history ?? [])
   const [done, setDone] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -62,7 +63,7 @@ export function MascotChat({ onSubmit }: { onSubmit: (p: UserProfile) => void })
   const submitTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => () => { if (submitTimer.current) clearTimeout(submitTimer.current) }, [])
   // 어르신(65+) 선택 시 큰글씨 모드를 즉시 제안 — 기존 복지앱의 최대 불만('작은 글씨, 어르신 미고려') 대응.
-  const { elderly, toggleElderly } = useAppStore()
+  const { elderly, toggleElderly, setRpaInfo } = useAppStore()
   const [offerElderly, setOfferElderly] = useState(false)
   // 질문 읽어주기(옵트인) — 시력 저하 어르신 배려. 켜면 새싹이의 새 질문을 음성으로 읽는다.
   const tts = useTTS()
@@ -102,7 +103,7 @@ export function MascotChat({ onSubmit }: { onSubmit: (p: UserProfile) => void })
     const reaction = mascotReaction(step, patched)
     const nxt = nextStep(step, patched)
     setProfile(patched)
-    setMulti([]); setAges([])
+    setMulti([]); setAges([]); setHouses([])
     setMsgs((m) => {
       const out = [...m, { role: 'user' as const, text: userLabel }]
       if (reaction) out.push({ role: 'bot', text: reaction })
@@ -114,13 +115,21 @@ export function MascotChat({ onSubmit }: { onSubmit: (p: UserProfile) => void })
     else { setDone(true); submitTimer.current = setTimeout(() => onSubmit(patched), 900) }
   }
 
+  // 이름 확정 — 실제 복지 신청에 그대로 쓰이므로, 입력한 성함을 신청 자동입력(rpaInfo.name)에도 채운다.
+  //   (rpaInfo는 메모리 저장·디스크 미영속이라 PII 최소저장 원칙 유지. 비면 덮어쓰지 않음.)
+  const submitName = () => {
+    const clean = nameDraft.trim()
+    if (clean) setRpaInfo({ name: clean })
+    advance({ ...profile, name: clean }, clean || '시작할게요')
+  }
+
   const back = () => {
     setHistory((h) => {
       if (!h.length) return h
       const last = h[h.length - 1]
       setProfile(last.profile)
       setStep(last.step)
-      setMulti([]); setAges([])
+      setMulti([]); setAges([]); setHouses([])
       setOfferElderly(false) // 나이 단계로 되돌아가 다시 65+를 고르면 advance에서 재제안됨
       setMsgs((m) => m.slice(0, last.len))
       return h.slice(0, -1)
@@ -129,7 +138,7 @@ export function MascotChat({ onSubmit }: { onSubmit: (p: UserProfile) => void })
 
   const restart = () => {
     try { sessionStorage.removeItem(DRAFT_KEY) } catch { /* noop */ }
-    setProfile(EMPTY_PROFILE); setStep('name'); setNameDraft(''); setMulti([]); setAges([])
+    setProfile(EMPTY_PROFILE); setStep('name'); setNameDraft(''); setMulti([]); setAges([]); setHouses([])
     setHistory([]); setDone(false); setOfferElderly(false)
     setMsgs([{ role: 'bot', text: questionText('name', '') }])
   }
@@ -211,15 +220,16 @@ export function MascotChat({ onSubmit }: { onSubmit: (p: UserProfile) => void })
                   <input
                     value={nameDraft}
                     onChange={(e) => setNameDraft(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter' && nameDraft.trim()) advance({ ...profile, name: nameDraft.trim() }, nameDraft.trim()) }}
-                    placeholder="이름 또는 별명 (안 알려주셔도 돼요)"
-                    aria-label="이름"
+                    onKeyDown={(e) => { if (e.key === 'Enter' && nameDraft.trim()) submitName() }}
+                    placeholder="본명 (예: 홍길동)"
+                    aria-label="성함"
                     className="input-cute"
                     autoFocus
                   />
+                  <p className="px-1 text-xs text-muted-foreground">실제 신청·서류 발급에 쓰이니 <b>본명</b>으로 적어주세요. 그냥 둘러볼 거면 건너뛰어도 돼요.</p>
                   <div className="flex gap-2">
                     <button onClick={() => advance({ ...profile, name: '' }, '그냥 시작할게요')} className="btn-secondary flex-1">건너뛰기</button>
-                    <button onClick={() => advance({ ...profile, name: nameDraft.trim() }, nameDraft.trim() || '시작할게요')} className="btn-primary flex-1">
+                    <button onClick={submitName} className="btn-primary flex-1">
                       다음 <Sparkles className="h-4 w-4" />
                     </button>
                   </div>
@@ -227,11 +237,13 @@ export function MascotChat({ onSubmit }: { onSubmit: (p: UserProfile) => void })
               )}
 
               {step === 'age' && (
-                <ChoiceGrid>
-                  {AGE_BRACKETS.map((a) => (
-                    <ChoiceBtn key={a.label} emoji={a.emoji} onClick={() => advance({ ...profile, age: a.age }, a.label)}>{a.label}</ChoiceBtn>
-                  ))}
-                </ChoiceGrid>
+                <BirthdateStep
+                  onBirth={(yyyymmdd, age) => {
+                    setRpaInfo({ birth_date: yyyymmdd })   // 신청·발급 본인인증 자동입력에 그대로 사용(재입력 제거)
+                    advance({ ...profile, age, _ageExplicit: true }, `${formatBirth(yyyymmdd)} · 만 ${age}세`)
+                  }}
+                  onBracket={(age, label) => advance({ ...profile, age, _ageExplicit: true }, label)}
+                />
               )}
 
               {step === 'income' && (
@@ -243,11 +255,37 @@ export function MascotChat({ onSubmit }: { onSubmit: (p: UserProfile) => void })
               )}
 
               {step === 'household' && (
-                <ChoiceGrid cols2>
-                  {HOUSEHOLD_OPTIONS.map((h) => (
-                    <ChoiceBtn key={h.label} emoji={h.emoji} onClick={() => advance({ ...profile, household_type: h.label }, h.label)}>{h.label}</ChoiceBtn>
-                  ))}
-                </ChoiceGrid>
+                <div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {HOUSEHOLD_OPTIONS.map((h) => {
+                      const on = houses.includes(h.label)
+                      return (
+                        <button
+                          key={h.label}
+                          aria-pressed={on}
+                          onClick={() => setHouses((cur) => {
+                            // '일반가구'(특별 유형 없음)는 배타 선택 — 다른 것과 함께 못 고른다(상황 단계 '해당 없어요'와 동일 패턴)
+                            if (h.label === '일반가구') return on ? [] : ['일반가구']
+                            const base = cur.filter((x) => x !== '일반가구')
+                            return base.includes(h.label) ? base.filter((x) => x !== h.label) : [...base, h.label]
+                          })}
+                          className={cn('flex items-center gap-2 rounded-2xl border-2 px-3 py-2.5 text-sm font-semibold text-left transition-all active:scale-95',
+                            on ? 'bg-sprout-700 border-sprout-700 text-white shadow-soft' : 'bg-white border-sprout-100 hover:border-sprout-300')}
+                        >
+                          <span className="text-lg">{h.emoji}</span> <span className="min-w-0">{h.label}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                  <button
+                    onClick={() => advance({ ...profile, household_type: houses.join('·') }, houses.join(', '))}
+                    disabled={!houses.length}
+                    className="btn-primary w-full mt-3 disabled:opacity-50"
+                  >
+                    {houses.length ? `${houses.length}개 골랐어요, 다음 →` : '해당하는 걸 골라주세요'}
+                  </button>
+                  <p className="mt-2 text-center text-xs text-muted-foreground">여러 개 해당되면 모두 골라주세요 (예: 다문화가족 + 한부모가족)</p>
+                </div>
               )}
 
               {step === 'situations' && (
@@ -385,5 +423,62 @@ function ChoiceBtn({ children, emoji, sub, onClick }: { children: React.ReactNod
       {emoji && <span className="text-xl shrink-0">{emoji}</span>}
       <span className="min-w-0">{children}{sub && <span className="block text-xs font-normal text-muted-foreground">{sub}</span>}</span>
     </button>
+  )
+}
+
+/**
+ * 🎂 생년월일 입력(토스·PASS 방식) — 8자리 숫자를 받아 정확한 만 나이를 계산하고, 그 값을 신청/발급
+ * 본인인증 자동입력(rpaInfo.birth_date)에도 그대로 쓴다(나이대 어림값보다 정확 + 재입력 제거).
+ * 타이핑이 어려운 어르신을 위해 '생년월일 대신 나이대로 고르기' 폴백을 함께 둔다(접근성).
+ */
+function BirthdateStep({ onBirth, onBracket }: {
+  onBirth: (yyyymmdd: string, age: number) => void
+  onBracket: (age: number, label: string) => void
+}) {
+  const [raw, setRaw] = useState('')   // 숫자만(최대 8자리)
+  const [showBrackets, setShowBrackets] = useState(false)
+  const [err, setErr] = useState('')
+  const parsed = parseBirthInput(raw)
+  const display = raw.length <= 4 ? raw
+    : raw.length <= 6 ? `${raw.slice(0, 4)}.${raw.slice(4)}`
+    : `${raw.slice(0, 4)}.${raw.slice(4, 6)}.${raw.slice(6)}`
+  const submit = () => {
+    const p = parseBirthInput(raw)
+    if (!p) { setErr('생년월일 8자리를 정확히 입력해 주세요 (예: 1960.01.01)'); return }
+    onBirth(p.yyyymmdd, p.age)
+  }
+  if (showBrackets) {
+    return (
+      <div>
+        <ChoiceGrid>
+          {AGE_BRACKETS.map((a) => (
+            <ChoiceBtn key={a.label} emoji={a.emoji} onClick={() => onBracket(a.age, a.label)}>{a.label}</ChoiceBtn>
+          ))}
+        </ChoiceGrid>
+        <button onClick={() => setShowBrackets(false)} className="btn-secondary w-full mt-3">← 생년월일로 입력할게요</button>
+      </div>
+    )
+  }
+  return (
+    <div className="flex flex-col gap-2">
+      <input
+        value={display}
+        onChange={(e) => { setRaw(e.target.value.replace(/\D/g, '').slice(0, 8)); setErr('') }}
+        onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
+        inputMode="numeric"
+        placeholder="생년월일 8자리 (예: 1960.01.01)"
+        aria-label="생년월일"
+        className="input-cute text-center tracking-widest"
+        autoFocus
+      />
+      {parsed && <p className="text-center text-xs font-bold text-sprout-700">만 {parsed.age}세로 찾아드릴게요 ✨</p>}
+      {err && <p className="text-center text-xs font-semibold text-rose-600">{err}</p>}
+      <button onClick={submit} disabled={!parsed} className="btn-primary w-full disabled:opacity-50">
+        다음 <Sparkles className="h-4 w-4" />
+      </button>
+      <button onClick={() => setShowBrackets(true)} className="mx-auto text-xs text-muted-foreground underline underline-offset-2">
+        생년월일 대신 나이대로 고를게요
+      </button>
+    </div>
   )
 }

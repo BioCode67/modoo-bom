@@ -17,7 +17,8 @@ export const EMPTY_PROFILE: UserProfile = {
   is_pregnant: false, life_events: [],
 }
 
-// 나이 구간 — 대표값은 정책 연령 임계값(19~34 청년, 65+ 어르신 등) 안에 안전하게 들도록 선택
+// 나이 구간 — 대표값은 정책 연령 임계값(19~34 청년, 65+ 어르신 등) 안에 안전하게 들도록 선택.
+// (기본 입력은 '생년월일'이지만, 타이핑이 어려운 어르신을 위해 '나이대로 고르기' 폴백으로 유지한다.)
 export const AGE_BRACKETS: { label: string; emoji: string; age: number }[] = [
   { label: '18세 이하', emoji: '🧒', age: 16 },
   { label: '19~34세 청년', emoji: '🧑', age: 27 },
@@ -25,6 +26,36 @@ export const AGE_BRACKETS: { label: string; emoji: string; age: number }[] = [
   { label: '50~64세', emoji: '👩‍🌾', age: 58 },
   { label: '65세 이상 어르신', emoji: '👵', age: 70 },
 ]
+
+// 🎂 생년월일 입력(토스·PASS 방식) — 8자리(YYYYMMDD)로 정확한 만 나이를 얻고, 그 값을 신청/발급
+//   본인인증 자동입력(rpaInfo.birth_date)에도 그대로 쓴다(나이대 어림값보다 정확 + 재입력 제거).
+/** 'YYYYMMDD'(8자리 숫자) → 만 나이. 유효하지 않으면 null. today 주입 가능(테스트 결정성). */
+export function ageFromBirth(yyyymmdd: string, today: Date = new Date()): number | null {
+  const m = /^(\d{4})(\d{2})(\d{2})$/.exec(String(yyyymmdd || ''))
+  if (!m) return null
+  const y = +m[1], mo = +m[2], d = +m[3]
+  if (mo < 1 || mo > 12 || d < 1 || d > 31) return null
+  const yr = today.getFullYear()
+  if (y < 1900 || y > yr) return null
+  let age = yr - y
+  // 올해 생일이 아직 안 지났으면 한 살 빼기(만 나이)
+  if (mo > today.getMonth() + 1 || (mo === today.getMonth() + 1 && d > today.getDate())) age -= 1
+  return age >= 0 && age <= 120 ? age : null
+}
+
+/** 사용자가 친 문자열(구분자 섞여도 됨)에서 8자리 생년월일을 뽑아 {yyyymmdd, age}. 유효하지 않으면 null. */
+export function parseBirthInput(input: string, today: Date = new Date()): { yyyymmdd: string; age: number } | null {
+  const digits = String(input || '').replace(/\D/g, '')
+  if (digits.length !== 8) return null
+  const age = ageFromBirth(digits, today)
+  return age === null ? null : { yyyymmdd: digits, age }
+}
+
+/** 'YYYYMMDD' → 'YYYY.MM.DD'(표시용). 형식이 아니면 원문 반환. */
+export function formatBirth(yyyymmdd: string): string {
+  const m = /^(\d{4})(\d{2})(\d{2})$/.exec(String(yyyymmdd || ''))
+  return m ? `${m[1]}.${m[2]}.${m[3]}` : String(yyyymmdd || '')
+}
 
 // 소득 — 생활어(쉬운 말) + 행정 기준 병기 (ProfileWizard와 동일한 값 체계)
 export const INCOME_OPTIONS: { label: string; sub: string; emoji: string; value: number }[] = [
