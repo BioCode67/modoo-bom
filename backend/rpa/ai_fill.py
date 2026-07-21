@@ -476,11 +476,12 @@ _INTENT_NEG = {
 }
 
 
-def _deterministic_plan(fields: list, keys) -> list:
+def _deterministic_plan(fields: list, keys, preused=None) -> list:
     """접근성 이름 기반 결정론 계획 — LLM 없이 값 키↔요소를 매칭. 같은 이름 여럿이면 '선호 role' 우선
-    → 문서순. 입력 role(textbox/combobox/spinbutton)만, filled/ro/이름없음/중복 idx/타인 칸 제외."""
+    → 문서순. 입력 role(textbox/combobox/spinbutton)만, filled/ro/이름없음/중복 idx/타인 칸 제외.
+    preused: 앞선 전용 패스(쪼갠 휴대폰 등)가 이미 쓴 idx — 여기서 중복 처리하지 않는다."""
     plan = []
-    used = set()
+    used = set(preused or ())
     _norm = lambda s: str(s or "").replace(" ", "")
     for key in keys:
         spec = _INTENT_PATTERNS.get(key)
@@ -515,6 +516,37 @@ def _deterministic_plan(fields: list, keys) -> list:
         used.add(f["idx"])
         plan.append({"action": "select" if f.get("role") == "combobox" else "fill", "idx": f["idx"], "key": key})
     return plan
+
+
+def _split_phone_plan(fields: list, want: dict):
+    """📱 '휴대폰 가운데 자리 + 마지막 자리(+확인 재입력)'로 쪼개진 폼 대응(복지로 신청서 실측, 2026-07-21).
+
+    배경: phone_tail(8자리)을 '휴대폰'이 든 첫 textbox 하나에 통째로 넣던 결정론 매칭은, 복지로처럼
+    휴대폰이 [가운데 4][마지막 4]로 쪼개진 폼에서 8자리를 4자리 칸에 쏟아 넣고 마지막 칸은 비워
+    필수입력이 채워지지 않았다(흐름 기록으로 실측 확인). 여기서 앞부분/뒤4자리로 나눠 각 칸에 채운다.
+    '확인' 재입력 칸(이름에 휴대폰+가운데/마지막 포함)까지 같이 채운다. 유선 '전화번호'·타인(배우자·가구원)
+    칸은 제외. 쪼개진 구조가 아니면 [](기존 단일 phone_tail 경로 유지). 반환: (plan, used_idx, vals)."""
+    tail = re.sub(r"[^0-9]", "", str(want.get("phone_tail") or ""))
+    if len(tail) < 7:
+        return [], set(), {}
+    mid, last = tail[:-4], tail[-4:]   # 010→4+4, 011→3+4 모두 안전(뒤 4자리 고정)
+    _norm = lambda s: str(s or "").replace(" ", "")
+    _OTHERS = ("배우자", "대리인", "보호자", "자녀", "아동", "가구원", "세대원", "기관", "회사", "직장")
+    plan, used = [], set()
+    has_mid = has_last = False
+    for f in fields:
+        if f.get("ro") or f.get("filled") or f.get("role") != "textbox":
+            continue
+        nm = _norm(f.get("name"))
+        if ("휴대폰" not in nm and "핸드폰" not in nm) or any(o in nm for o in _OTHERS):
+            continue  # 유선 전화번호·타인 칸 제외 — 신청인 휴대폰만
+        if "가운데" in nm or "중간" in nm:
+            plan.append({"action": "fill", "idx": f["idx"], "key": "__phone_mid"}); used.add(f["idx"]); has_mid = True
+        elif "마지막" in nm or "끝" in nm:
+            plan.append({"action": "fill", "idx": f["idx"], "key": "__phone_last"}); used.add(f["idx"]); has_last = True
+    if not (has_mid and has_last):
+        return [], set(), {}   # 쪼개진 폼 아님 — 기존 경로가 처리
+    return plan, used, {"__phone_mid": mid, "__phone_last": last}
 
 
 def _plan_respects_intent(plan: list, fields: list) -> list:
@@ -565,7 +597,14 @@ async def ai_fill(ctx, page, values: dict, page_hint: str = "", task=None,
     except Exception:
         fields0 = None
     if isinstance(fields0, list) and fields0:
-        det = _deterministic_plan(fields0, list(want.keys()))
+        # 📱 쪼개진 휴대폰 폼(가운데/마지막 + 확인 재입력) 전용 패스 — 8자리를 한 칸에 쏟던 오채움을
+        #    앞부분/뒤4자리로 나눠 각 칸에 정확히 채운다(복지로 신청서 실측). 아니면 no-op(기존 경로).
+        sp_plan, sp_used, sp_vals = _split_phone_plan(fields0, want)
+        if sp_plan:
+            got_sp = await _execute_plan(ctx, page, sp_plan, sp_vals, allow_clicks=False)
+            result["phone_tail"] = bool(got_sp.get("__phone_mid") and got_sp.get("__phone_last"))
+            want.pop("phone_tail", None)  # 쪼갠 칸이 담당 — 단일 phone_tail 경로로 재오염 금지
+        det = _deterministic_plan(fields0, list(want.keys()), preused=sp_used)
         if det:
             got0 = await _execute_plan(ctx, page, det, want, allow_clicks=False)
             result.update({k: v for k, v in got0.items() if v})
