@@ -63,12 +63,13 @@ export function RpaShowcase() {
           </div>
           <div className="flex-1">
             <p className="font-bold">더 자동으로도 — 원하는 분만 (선택)</p>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              데스크탑 앱에서는 <b className="text-foreground">🚀 원클릭 연쇄</b> — <b className="text-foreground">🔑 로그인 인증 한 번</b>으로 필요한 서류를 순서대로 자동 발급하고
-              (일시 오류는 자동 재시도), 방금 발급분을 복지로 신청 양식에 <b className="text-foreground">자동 첨부</b>한 뒤 <b className="text-foreground">제출 직전에 멈춰요</b>.
-              발급물은 <b className="text-foreground">🗂 서류함</b>이 유효기간까지 관리하고, 이미 있는 서류는 건너뛰어 <b className="text-foreground">부족한 것만</b> 발급해요.
-              📱 카카오 인증 승인과 최종 제출만 본인이요(명의도용 방지 안전장치).
-              <br className="hidden sm:block" />앞으로는 <b className="text-foreground">공공 마이데이터</b>로 <b className="text-foreground">인증 한 번이면 완전 자동</b> — 설치 없이 안전하게 준비 중이에요.
+            <p className="text-sm text-muted-foreground mt-0.5 leading-relaxed">
+              웹에서는 공식 신청 페이지로 안내까지, <b className="text-foreground">데스크탑 앱에서는 실제 서류 발급·신청까지</b> 대신해 드려요.
+              로그인 인증을 <b className="text-foreground">한 번만</b> 하면 필요한 서류(주민등록등본·소득금액증명 등)를 정부24에서 순서대로 자동 발급하고
+              (일시 오류는 자동 재시도), 방금 받은 서류를 복지로 신청 양식에 <b className="text-foreground">자동으로 첨부</b>한 뒤 정보까지 채워 <b className="text-foreground">제출 직전에 멈춰요</b>.
+              발급한 서류는 <b className="text-foreground">서류함</b>이 유효기간까지 관리해, 이미 있는 건 건너뛰고 <b className="text-foreground">부족한 것만</b> 받아요.
+              <b className="text-foreground">본인인증 승인과 최종 제출</b>, 이 둘만 직접 하시면 돼요(명의도용을 막는 안전장치예요).
+              <br className="hidden sm:block" />앞으로는 <b className="text-foreground">공공 마이데이터</b>로 인증 한 번이면 완전 자동 — 설치 없이 안전하게 준비 중이에요.
             </p>
           </div>
           <div className="flex flex-col items-center gap-2 shrink-0">

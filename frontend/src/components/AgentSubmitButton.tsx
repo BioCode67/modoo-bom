@@ -171,6 +171,15 @@ export function AgentSubmitButton({ policy }: { policy: Policy | EligiblePolicy 
 
   const start = async () => {
     if (runningRef.current) return  // 진행 중 재클릭 무시 — 동일 신청 태스크 중복 기동 방지(감사 확정)
+    // 본인인증 자동입력엔 실명·생년월일·휴대폰이 필요 — 비어 있으면 복지로 인증 화면에서 막힌다(실사용 제보:
+    //   휴대폰 미입력으로 기초연금 신청이 정지). 서류 발급(DocumentCenter)과 동일하게 '시작 전에' 정직히 안내하고,
+    //   바로 아래 인증정보 폼(RpaInfoForm)에 입력하도록 유도한다. RPA는 사용자가 넣은 값만 채울 뿐 지어내지
+    //   않는다(PII·날조 금지) → '전화번호 자동으로 대신 입력'이 아니라 '없으면 채우게 안내'가 정답. (팀원 확인 요망)
+    if (!rpaInfo.name?.trim() || !rpaInfo.birth_date?.trim() || !rpaInfo.phone?.trim()) {
+      const miss = !rpaInfo.name?.trim() ? '실명' : !rpaInfo.birth_date?.trim() ? '생년월일' : '휴대폰 번호'
+      setRun({ status: 'error', step: `${miss}을(를) 넣어주세요 — 복지로 본인인증에 필요해요. 바로 아래 ‘자동입력 추가정보’ 칸에 입력하면 인증 화면까지 자동으로 채워드려요 (내 기기에만 저장).`, at: Date.now() })
+      return
+    }
     runningRef.current = true
     const gen = ++genRef.current    // 이 실행의 세대 — reset()이 세대를 올리면 이 루프는 스스로 종료
     const startedAt = Date.now()
