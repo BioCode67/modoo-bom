@@ -23,7 +23,7 @@ describe('guideTip — 화면·상태별 다음 행동 안내', () => {
     expect(web).toContain('서류 도우미')
     expect(web).not.toContain('🚀') // 에이전트 없는 웹에서 자동화를 과장하지 않는다
   })
-  it('나의 복지: 서류 준비 후엔 다음 행동을 [🤖 자동 신청]으로 콕 집어준다(그다음 헷갈림 해소)', () => {
+  it('나의 복지: 서류 준비 후엔 다음 행동을 [자동 신청]으로 콕 집어준다(그다음 헷갈림 해소·로봇 이모지 없이)', () => {
     const ready = guideTip('my', ctx({ trackedCount: 2, agentOn: true, docsIssued: true }))
     expect(ready).toContain('자동 신청')
     expect(ready).toContain('자동 첨부')

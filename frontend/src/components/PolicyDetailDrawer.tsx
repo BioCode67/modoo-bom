@@ -497,7 +497,7 @@ function DrawerBody({
         )}
         {/* AI 의미기반 비슷한 복지(옵트인) */}
         {onOpen && (
-          <Section title="🤖 AI로 비슷한 복지">
+          <Section title="✨ AI로 비슷한 복지">
             {!aiRelated && !aiRelErr && (
               <button
                 onClick={findAiRelated}

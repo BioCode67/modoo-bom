@@ -509,7 +509,7 @@ export function Explore() {
       {aiMode && aiAnswer && (
         <div className="mt-3 rounded-2xl border-2 border-sprout-200 bg-gradient-to-br from-sprout-50 to-emerald-50 p-4">
           <div className="flex items-start gap-2.5">
-            <span className="text-xl leading-none">🤖</span>
+            <span className="text-xl leading-none">✨</span>
             <div className="min-w-0 flex-1">
               <p className="text-xs font-bold text-sprout-700">AI 답변</p>
               <p className="mt-0.5 text-sm leading-relaxed text-foreground">{aiAnswer}</p>
@@ -595,7 +595,7 @@ export function Explore() {
               <div key={p.id} className="relative">
                 {aiMode && aiScore.has(p.id) && (
                   <span className="absolute left-2 top-2 z-10 inline-flex items-center gap-1 rounded-full bg-sprout-600 px-2 py-0.5 text-[10px] font-bold text-white shadow-soft">
-                    🤖 AI 매칭
+                    ✨ AI 매칭
                   </span>
                 )}
                 <PolicyCard policy={p} index={Math.min(i, 12)} onOpen={setSelected} translateTo={translateTo} />
