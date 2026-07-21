@@ -9,7 +9,7 @@ from rpa.base import (
     take_screenshot, wait_for_login,
     click_first_matching, make_browser_context_args,
     click_provider_in_anyid, provider_display, detect_auth_form, AUTH_FORM_USER_GUIDE,
-    get_launch_options, launch_browser, wait_any_visible, AUTH_FORM_SELECTORS,
+    launch_browser, wait_any_visible, AUTH_FORM_SELECTORS,
     check_cancel, cancellable_sleep, CancelledByUser, NO_PRINT_SCRIPT,
 )
 from rpa.auth_autofill import autofill_easy_auth, request_easy_auth

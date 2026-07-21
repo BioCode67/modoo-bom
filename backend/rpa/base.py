@@ -5,7 +5,7 @@ import os
 import pathlib
 import sys
 from datetime import datetime
-from typing import Optional, Callable
+from typing import Optional
 
 
 def get_launch_options(slow_mo: int = None, headless: bool | None = None) -> dict:

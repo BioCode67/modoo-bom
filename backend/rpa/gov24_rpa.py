@@ -21,7 +21,7 @@ from rpa.base import (
     take_screenshot, wait_for_login,
     click_first_matching, click_by_text, make_browser_context_args,
     click_provider_in_anyid, provider_display, detect_auth_form, AUTH_FORM_USER_GUIDE,
-    LOGIN_PAGE_URL_KEYWORDS, get_launch_options, launch_browser, save_document,
+    LOGIN_PAGE_URL_KEYWORDS, launch_browser, save_document,
     check_cancel, cancellable_sleep, CancelledByUser, NO_PRINT_SCRIPT, wait_any_visible,
 )
 

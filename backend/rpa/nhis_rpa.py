@@ -13,7 +13,7 @@
 import asyncio
 import re
 from rpa.base import (
-    take_screenshot, make_browser_context_args, get_launch_options, launch_browser, save_document,
+    take_screenshot, make_browser_context_args, launch_browser, save_document,
     check_cancel, cancellable_sleep, CancelledByUser, NO_PRINT_SCRIPT,
 )
 
