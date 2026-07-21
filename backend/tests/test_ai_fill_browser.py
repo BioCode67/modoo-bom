@@ -115,3 +115,43 @@ def test_prompt_fields_drops_button_text_when_no_clicks():
     # 클릭 활성(옵트인) 시엔 버튼도 포함(클릭 대상 필요) — 그 경우만 텍스트 유지
     out2 = _prompt_fields(fields, allow_clicks=True)
     assert {f["idx"] for f in out2} == {0, 1, 2}
+
+
+# 복지로형 '라벨이 입력칸과 다른 컨테이너에 있는' 휴대폰 필드 — 행 라벨 매칭이 닿지 않아
+# 이름·주민번호는 채워지는데 휴대폰만 빈칸이던 실사용 제보 재현. '010 select 바로 뒤 입력칸'
+# 구조 폴백이 뒷자리를 정확히 채워야 한다(라벨 위치 무관).
+_HTML_PHONE_DISTANT = """<!doctype html><meta charset="utf-8"><body>
+<table>
+<tr><th>성명</th><td><input id="nm" type="text"></td></tr>
+<tr><th>주민등록번호</th><td><input id="b" type="text"></td></tr>
+</table>
+<div class="lbl">휴대폰 번호</div>
+<div class="fld"><span><select id="h"><option>010</option><option>011</option></select></span><span><input id="p" type="tel"></span></div>
+</body>"""
+
+
+@pytest.mark.skipif(_chromium_path() is None, reason="컨테이너 chromium 없음 — 실브라우저 e2e 스킵")
+def test_bokjiro_autofill_phone_select_adjacent_fallback_real_browser():
+    """휴대폰 라벨이 행에서 멀어 매칭 실패해도 '010 select 뒤 입력칸' 폴백으로 뒷자리를 채운다.
+    (이름·주민번호는 라벨로 정상 매칭 — 휴대폰만 폴백 경로로 성립하는지 격리 검증)"""
+    from playwright.async_api import async_playwright
+    from rpa.apply_rpa import _autofill_bokjiro_auth
+
+    async def run():
+        async with async_playwright() as pw:
+            b = await pw.chromium.launch(executable_path=_chromium_path())
+            pg = await (await b.new_context()).new_page()
+            await pg.set_content(_HTML_PHONE_DISTANT)
+            out = await _autofill_bokjiro_auth(
+                [pg], pg, {"name": "김주형", "birth_date": "20010601", "phone": "01012345678"})
+            vals = await pg.evaluate(
+                "() => ({nm: document.getElementById('nm').value,"
+                " b: document.getElementById('b').value, p: document.getElementById('p').value})")
+            await b.close()
+            return out, vals
+
+    out, vals = asyncio.new_event_loop().run_until_complete(run())
+    assert out["name"] is True and out["birth"] is True and out["phone"] is True
+    assert vals["nm"] == "김주형"       # 성명(라벨 매칭)
+    assert vals["b"] == "010601"        # 주민번호 앞자리(라벨 매칭)
+    assert vals["p"] == "12345678"      # 휴대폰 뒷자리 — 010 select 뒤 폴백으로 정확히

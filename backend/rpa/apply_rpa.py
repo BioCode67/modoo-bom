@@ -160,10 +160,24 @@ async def _autofill_bokjiro_auth(contexts, page, user_info) -> dict:
     _mark_js = """(kind) => {
         const rowOf = (e) => { let n = e.parentElement;
             for (let i=0;i<5&&n;i++){ const t=(n.innerText||'').trim(); if(t&&t.length<=60) return t; n=n.parentElement; } return ''; };
-        const pat = kind==='name' ? /이름|성명/ : kind==='birth' ? /주민등록번호|생년월일/ : /휴대폰|핸드폰/;
+        const pat = kind==='name' ? /이름|성명/ : kind==='birth' ? /주민등록번호|생년월일/ : /휴대폰|핸드폰|휴대전화|연락처|전화/;
         const cands = [...document.querySelectorAll("input[type=text],input[type=tel],input[type=number],input:not([type])")]
             .filter(e => e.offsetParent!==null && !e.disabled && !e.readOnly && pat.test(rowOf(e)));
-        if(!cands.length) return 0;
+        if(!cands.length){
+            // 폴백(휴대폰): 라벨이 행에서 멀어 매칭 실패 시, '010' 등 앞자리 select '바로 뒤' 입력칸을 뒷자리로.
+            //   한국 관공서 휴대폰 필드의 표준 구조(select + input)라 라벨 위치와 무관하게 견고(실사용 제보 대응).
+            if(kind==='phone'){
+                const pref=/^01[0-9]$/;
+                for(const s of document.querySelectorAll('select')){
+                    if(![...s.options].some(o=>pref.test((o.text||'').trim()))) continue;
+                    const box=s.closest('tr,li,dd,dl,div,fieldset')||s.parentElement;
+                    const inp=box && [...box.querySelectorAll("input[type=text],input[type=tel],input[type=number],input:not([type])")]
+                        .find(e=>e.offsetParent!==null && !e.disabled && !e.readOnly && (s.compareDocumentPosition(e) & Node.DOCUMENT_POSITION_FOLLOWING));
+                    if(inp){ inp.setAttribute('data-modoobom-b','phone'); return 1; }
+                }
+            }
+            return 0;
+        }
         // 이름은 첫 칸, 생년월일은 첫 칸(앞자리), 휴대폰은 마지막 칸(뒷부분)
         const el = kind==='phone' ? cands[cands.length-1] : cands[0];
         el.setAttribute('data-modoobom-b', kind); return 1;
