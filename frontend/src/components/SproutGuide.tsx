@@ -45,21 +45,14 @@ export function SproutGuide() {
   const [off, setOff] = useState(() => {
     try { return localStorage.getItem(OFF_KEY) === '1' } catch { return false }
   })
-  const [open, setOpen] = useState(true)
+  const [open, setOpen] = useState(false)
   const [skip3D] = useState(shouldSkipHeavy3D)
   const [contextLost, setContextLost] = useState(false)
 
-  // 화면이 바뀌면 새 안내를 잠깐 펼쳤다가 자동으로 접는다 — 말풍선이 목록·카드 같은 콘텐츠를
-  //   계속 가리지 않게(시각 감사: 결과·나의복지·탐색에서 첫 카드를 덮음). 마스코트는 남고, 다시 누르면
-  //   언제든 펼쳐 읽을 수 있으며 aria-live 로 스크린리더엔 등장 즉시 전달된다(자동 접힘이 정보 손실이 아님).
-  //   ⬇︎ 사용자가 콘텐츠를 보려고 '스크롤하는 순간' 즉시 접어(once) 가림을 없앤다 + 5.5초 백스톱 타이머.
-  useEffect(() => {
-    setOpen(true)
-    const t = setTimeout(() => setOpen(false), 5500)
-    const collapse = () => setOpen(false)
-    window.addEventListener('scroll', collapse, { passive: true, once: true })
-    return () => { clearTimeout(t); window.removeEventListener('scroll', collapse) }
-  }, [view])
+  // 말풍선은 '기본 접힘' — 자동으로 펼쳐 목록·카드를 가리지 않게 한다(사용자 2회 제보: 나의복지 하단 카드를
+  //   덮음). 안내는 새싹이(마스코트)를 누르면 언제든 펼쳐 읽을 수 있고, 화면 전환 시엔 접힌 상태로 리셋한다.
+  //   (다음 행동 안내는 각 화면의 JourneyStepper·헤더가 이미 크게 제공하므로 마스코트는 보조 역할)
+  useEffect(() => { setOpen(false) }, [view])
 
   const tip = guideTip(view, { hasResult, trackedCount, agentOn, docsIssued, appliedCount })
   if (off || !tip) return null

@@ -349,25 +349,12 @@ async def _login_bokjiro(page, task, provider: str = "kakao", user_info: dict = 
     form_detected = any([await detect_auth_form(ctx_) for ctx_ in contexts])
     _all_filled = all(filled.values())
     if kakaotalk_clicked and _all_filled and user_info:
-        # 정보를 다 채웠으면 [인증 요청]까지 자동으로 눌러준다(gov24·nhis·work24와 동일) — 이 클릭은 폰으로
-        #   인증 푸시만 보낼 뿐, 실제 승인은 사용자가 폰에서 한다(HITL 불변). 실사용 제보: 복지로만 인증요청이
-        #   자동으로 안 눌려 정체하던 것 해소. 클릭 실패 시 기존 수동 안내로 폴백(무회귀). (팀원 확인 요망)
-        _req_clicked = False
-        try:
-            from rpa.auth_autofill import request_easy_auth
-            _req_clicked = await request_easy_auth(page)
-        except Exception:
-            _req_clicked = False
-        if _req_clicked:
-            task.update("waiting_login",
-                f"📱 복지로 간편인증 정보를 채우고 [인증 요청]까지 눌렀어요.\n"
-                f"스마트폰 {pv} 알림에서 [인증 허용]만 눌러 주세요 — 이후 자동으로 신청 화면까지 진행됩니다.",
-                await take_screenshot(page))
-        else:
-            task.update("waiting_login",
-                f"📱 복지로 간편인증 정보를 채우고 {pv}를 선택했어요.\n"
-                f"화면의 [인증 요청]을 누른 뒤, 스마트폰 {pv} 알림에서 [인증 허용]만 눌러 주세요.\n"
-                "이후 자동으로 신청 화면까지 진행됩니다.", ss)
+        # ⚠️ [인증 요청] 자동 클릭은 시도했다 되돌림(실사용 제보) — 복지로는 정보 입력·전체동의 과정에서
+        #   제공자 선택이 풀려, 자동 클릭 시 '인증서비스를 선택하여 주십시오' 오류가 났다. 실화면을 못 봐
+        #   제공자 재선택 타이밍을 확실히 맞출 수 없으므로, 안전하게 '사용자 1탭'으로 둔다(HITL·무오류).
+        task.update("waiting_login",
+            f"📱 복지로 간편인증 정보를 다 채웠어요 — 화면에서 **{pv} 등 인증수단이 선택돼 있는지 확인**하고\n"
+            f"파란 [인증 요청] 버튼만 눌러 주세요 → 폰 {pv} 알림에서 [인증 허용]만 하시면 자동으로 신청 화면까지 진행됩니다.", ss)
     elif kakaotalk_clicked and form_detected:
         task.update("waiting_login", AUTH_FORM_USER_GUIDE, ss)
     elif kakaotalk_clicked:
