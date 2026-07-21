@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { guideTip } from './guideTips'
 
-const ctx = (o: Partial<{ hasResult: boolean; trackedCount: number; agentOn: boolean }> = {}) => ({
+const ctx = (o: Partial<{ hasResult: boolean; trackedCount: number; agentOn: boolean; docsIssued: boolean; appliedCount: number }> = {}) => ({
   hasResult: false, trackedCount: 0, agentOn: false, ...o,
 })
 
@@ -22,6 +22,16 @@ describe('guideTip — 화면·상태별 다음 행동 안내', () => {
     const web = guideTip('my', ctx({ trackedCount: 2 }))
     expect(web).toContain('서류 도우미')
     expect(web).not.toContain('🚀') // 에이전트 없는 웹에서 자동화를 과장하지 않는다
+  })
+  it('나의 복지: 서류 준비 후엔 다음 행동을 [🤖 자동 신청]으로 콕 집어준다(그다음 헷갈림 해소)', () => {
+    const ready = guideTip('my', ctx({ trackedCount: 2, agentOn: true, docsIssued: true }))
+    expect(ready).toContain('자동 신청')
+    expect(ready).toContain('자동 첨부')
+  })
+  it('나의 복지: 신청까지 시작했으면 "최종 제출만"으로 마무리 안내(다시 발급 유도 금지)', () => {
+    const done = guideTip('my', ctx({ trackedCount: 2, agentOn: true, docsIssued: true, appliedCount: 1 }))
+    expect(done).toContain('최종 제출')
+    expect(done).not.toContain('자동 신청') // 이미 신청한 사람에게 또 신청하라 하지 않는다
   })
   it('미지의 view는 null(안전)', () => {
     expect(guideTip('unknown', ctx())).toBeNull()

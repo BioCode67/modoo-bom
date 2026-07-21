@@ -35,6 +35,9 @@ export function SproutGuide() {
   const view = useAppStore((s) => s.view)
   const trackedCount = useAppStore((s) => s.tracked.length)
   const hasResult = useAppStore((s) => !!s.result)
+  // 진행상태(서류 준비·신청 시작) — '그다음에 뭘 하지?' 헷갈림에 다음 행동을 콕 집어 안내하기 위한 신호
+  const docsIssued = useAppStore((s) => Object.keys(s.docDone).length > 0)
+  const appliedCount = useAppStore((s) => s.tracked.filter((t) => t.status === 'applied' || t.status === 'done').length)
   const { ready, caps } = useBackend()
   const agentOn = ready === true && !!caps?.rpa
   const reduce = useReducedMotion()
@@ -46,10 +49,16 @@ export function SproutGuide() {
   const [skip3D] = useState(shouldSkipHeavy3D)
   const [contextLost, setContextLost] = useState(false)
 
-  // 화면이 바뀌면 새 안내를 펼친다(영구 숨김이 아니라면) — '각 흐름에서' 안내가 이 컴포넌트의 존재 이유
-  useEffect(() => { setOpen(true) }, [view])
+  // 화면이 바뀌면 새 안내를 잠깐 펼쳤다가 자동으로 접는다 — 말풍선이 서류함·목록 같은 콘텐츠를
+  //   계속 가리지 않게(사용자 피드백). 마스코트는 남고, 다시 누르면 언제든 펼쳐 읽을 수 있으며
+  //   aria-live 로 스크린리더엔 등장 즉시 전달된다(자동 접힘이 정보 손실이 아님).
+  useEffect(() => {
+    setOpen(true)
+    const t = setTimeout(() => setOpen(false), 8000)
+    return () => clearTimeout(t)
+  }, [view])
 
-  const tip = guideTip(view, { hasResult, trackedCount, agentOn })
+  const tip = guideTip(view, { hasResult, trackedCount, agentOn, docsIssued, appliedCount })
   if (off || !tip) return null
 
   const turnOff = () => {

@@ -17,6 +17,11 @@ describe('applyLink', () => {
   it('한글 채널 설명(복지로)은 홈으로 폴백', () => {
     expect(applyLink('복지로 또는 주민센터 방문 신청').url).toBe('https://www.bokjiro.go.kr')
   })
+  it('직업훈련(HRD-Net·K-디지털)은 정부24 검색이 아니라 HRD-Net으로 — 청년취업사관학교 실사용 제보', () => {
+    const r = applyLink('K-디지털 트레이닝 플랫폼 또는 직업훈련포털(HRD-Net)')
+    expect(r.url).toBe('https://www.hrd.go.kr')
+    expect(r.label).toContain('HRD-Net')
+  })
   it('빈 값은 복지로 홈 기본값', () => {
     expect(applyLink('').url).toBe('https://www.bokjiro.go.kr')
   })

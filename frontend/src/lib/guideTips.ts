@@ -13,6 +13,10 @@ export interface GuideCtx {
   trackedCount: number
   /** 데스크탑 에이전트(자동발급) 연결 여부 */
   agentOn: boolean
+  /** 자동발급 등으로 서류를 하나라도 준비(발급 완료 표시)했는지 — '이제 신청' 단계로 전환 */
+  docsIssued?: boolean
+  /** 신청까지 진행(준비 중→신청 완료/수급)한 담긴 혜택 수 */
+  appliedCount?: number
 }
 
 export function guideTip(view: string, ctx: GuideCtx): string | null {
@@ -25,6 +29,12 @@ export function guideTip(view: string, ctx: GuideCtx): string | null {
       return '상황으로 검색해도 돼요 — 예: "청년 월세". 마음에 드는 복지는 ♡로 담아두세요.'
     case 'my':
       if (ctx.trackedCount === 0) return '아직 담은 혜택이 없어요 — 분석·탐색에서 ♡를 누르면 여기에 모여요.'
+      // 신청까지 시작한 게 있으면 '마무리(최종 제출)'로 좁혀 안내한다 — 다 한 사람에게 또 발급하라 하지 않게.
+      if ((ctx.appliedCount ?? 0) > 0)
+        return '신청을 시작한 혜택이 있어요 👍 남은 건 폰에서 최종 제출만 확인하면 끝! 다른 혜택도 같은 방식으로 이어가요.'
+      // 서류는 준비됐는데 아직 신청 전 — '그다음에 뭘 하지?'(사용자 피드백)의 답: 다음 행동을 '자동 신청'으로 콕 집어준다.
+      if (ctx.docsIssued && ctx.agentOn)
+        return '서류가 준비됐어요! 이제 담은 복지의 [🤖 자동 신청]을 누르면 신청서까지 채워드려요 — 발급한 서류는 자동 첨부돼요. 📱 본인인증·최종 제출만 직접 하시면 끝!'
       return ctx.agentOn
         ? '서류 도우미의 🚀 버튼 하나로 발급부터 신청까지 이어드려요 — 인증만 폰에서 눌러주세요!'
         : '서류 도우미가 필요한 서류와 발급 경로를 알려드려요. 신청 키트로 바로 신청할 수 있어요.'

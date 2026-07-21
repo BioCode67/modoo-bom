@@ -118,6 +118,10 @@ export function applyLink(application: string): OfficialLink {
     return { label: '공식 사이트에서 신청', url }
   }
   if (a.includes('복지로')) return { label: '복지로에서 신청', url: 'https://www.bokjiro.go.kr' }
+  // 직업훈련(HRD-Net·K-디지털 트레이닝·내일배움 훈련과정) — 복지로/정부24가 아니라 HRD-Net에서 신청·수강한다.
+  //   실사용 제보: 훈련형 정책이 '정부24 검색'으로 빠지면 신청처를 못 찾아 헤맨다 → 올바른 포털로 직행(정직성).
+  if (a.includes('HRD') || a.includes('직업훈련포털') || a.includes('K-디지털') || a.includes('내일배움') || a.includes('직업훈련'))
+    return { label: '직업훈련포털(HRD-Net)에서 신청', url: 'https://www.hrd.go.kr' }
   if (a.includes('고용24') || a.includes('고용센터') || a.includes('work'))
     return { label: '고용24에서 신청', url: 'https://www.work24.go.kr' }
   if (a.includes('정부24')) return { label: '정부24에서 신청', url: 'https://www.gov.kr/portal/main' }
