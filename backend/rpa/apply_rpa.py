@@ -341,7 +341,16 @@ async def _login_bokjiro(page, task, provider: str = "kakao", user_info: dict = 
     #    user_info 없으면 기존처럼 사용자 직접 입력(무해 폴백). 폰 최종 승인은 항상 본인.
     filled = {"name": True, "birth": True, "phone": True}
     if user_info:
-        await asyncio.sleep(0.6)  # 제공자 선택 후 폼 렌더 안정 대기(동의 리셋 방지)
+        # ⚠️ 회귀 수정(2026-07-22, 로컬 실기기): 제공자(카카오톡) '자동' 클릭이 빨라서, 본인인증 폼이
+        #    '렌더되기 전'에 채우면 전부 실패한다(수동 클릭 땐 사람이 느려 폼이 이미 떠 있었음).
+        #    → 폼이 감지될 때까지 최대 ~7초 폴링한 뒤 채운다. 폼이 새 프레임에 떴을 수 있어 컨텍스트도
+        #    재계산(page.frames 전체 — 자동입력은 out 게이트로 멱등이라 다중 컨텍스트 안전). (팀원 확인 요망)
+        for _ in range(12):
+            if await detect_auth_form(page):
+                break
+            await asyncio.sleep(0.6)
+        await asyncio.sleep(0.6)  # 폼 렌더 안정 대기(동의 리셋 방지)
+        contexts = [page] + list(getattr(page, "frames", None) or [])
         filled = await _autofill_bokjiro_auth(contexts, page, user_info)
         # 🤖 규칙 자동입력이 일부 실패하면 AI 채움(β)이 화면 구조를 보고 이어받는다(gov24와 파리티).
         #    값은 로컬에서만 입력(프롬프트엔 구조만) — 키 없으면 조용히 무동작.
