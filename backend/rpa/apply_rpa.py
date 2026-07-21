@@ -120,14 +120,22 @@ async def _pass_service_select_page(page, task, service_name: str, wait_sec: int
             await asyncio.sleep(0.6)
             if not await click_by_text(page, ["저장 후 다음단계"]):
                 await click_eform_button(page, "저장 후 다음단계")
-            # 확인 다이얼로그('진행하시겠습니까?') — [확인]으로 신청 양식 진입(작성은 자동, 제출은 본인)
-            await asyncio.sleep(1.2)
-            try:
-                t2 = await page.evaluate("() => document.body ? document.body.innerText : ''")
-                if ("진행하시겠습니까" in t2) or ("선택한 서비스명" in t2):
-                    await click_by_text(page, ["확인"])
-            except Exception:
-                pass
+            # 확인성 팝업 '연쇄' 통과 — [저장 후 다음단계] 뒤에 줄줄이 뜨는 팝업을 신청 양식까지 [확인]으로 넘긴다:
+            #   ① '진행하시겠습니까?'(선택 확인) ② '복지멤버십 동시신청'(신청/미신청 기본값 존중) ③ 그 외 확인성.
+            #   새 팝업이 떠도 코드 수정 없이 도달하게 일반화(실사용 제보 — 스샷 하나씩 고치는 대신 클래스로 처리).
+            #   라디오는 기본 선택을 존중하고 [확인]만 누른다. 최종 제출은 여전히 본인(제출 직전 정지 불변). (팀원 확인 요망)
+            for _ in range(5):
+                await asyncio.sleep(1.3)  # 다음 팝업 렌더 대기
+                try:
+                    t2 = await page.evaluate("() => document.body ? document.body.innerText : ''")
+                except Exception:
+                    break
+                # 확인성 팝업 문구가 보일 때만 [확인] — 팝업이 사라지고 신청 양식에 도달하면 루프 종료(오클릭 방지)
+                if any(k in (t2 or "") for k in ("진행하시겠습니까", "선택한 서비스명", "동시신청", "복지멤버십", "신청하시겠습니까")):
+                    if not await click_by_text(page, ["확인"]):
+                        break
+                else:
+                    break
             await asyncio.sleep(2)
             return True
         # 선택 화면인데 카드를 못 찾음 — 사람이 체크하면 다음 루프가 [저장 후 다음단계]부터 이어받는다
