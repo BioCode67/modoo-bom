@@ -99,6 +99,28 @@ async def _pass_service_select_page(page, task, service_name: str, wait_sec: int
             checked = await page.evaluate(
                 """(key) => {
                     const norm = (s) => (s || '').replace(/\\s+/g, '');
+                    // ① 복지로 서비스 카드는 커스텀 ARIA 체크박스(role=checkbox/radio, 접근성 이름=서비스명)일 때가 많다.
+                    //    실측(2026-07-21, 로컬 흐름기록): '기초연금'이 role=checkbox div로 렌더돼 기존
+                    //    'input[type=checkbox] + 신청하기 텍스트' 패턴에 안 걸려 자동체크가 매번 실패했다.
+                    //    → 접근성 이름이 서비스명과 일치하는 체크박스를 직접 클릭한다(정확일치 우선). (팀원 확인 요망)
+                    const accName = (el) => norm(el.getAttribute('aria-label') || el.textContent || '');
+                    const boxes = [...document.querySelectorAll('[role=checkbox],[role=radio],input[type=checkbox]')]
+                        .map(el => {
+                            const n = el.matches('input')
+                                ? norm(el.getAttribute('aria-label') || (el.labels && el.labels[0] ? el.labels[0].innerText : '') || '')
+                                : accName(el);
+                            return { el, n };
+                        })
+                        .filter(o => o.n && (o.n === key || o.n.includes(key)));
+                    // 정확 일치 우선 → 가장 짧은 이름(오버매칭 방지)
+                    boxes.sort((a, b) => (a.n === key) !== (b.n === key) ? (a.n === key ? -1 : 1) : a.n.length - b.n.length);
+                    if (boxes.length) {
+                        const el = boxes[0].el;
+                        if (el.matches('input[type=checkbox]')) { if (!el.checked) el.click(); }
+                        else if (el.getAttribute('aria-checked') !== 'true') el.click();
+                        return true;
+                    }
+                    // ② (구) 카드 안 input[type=checkbox] + '신청하기' 텍스트 패턴 폴백(기존 동작 100% 보존)
                     const cards = [...document.querySelectorAll('div, li, td')]
                         .filter(c => { const t = norm(c.innerText); return t.length < 300 && t.includes(key) && t.includes('신청하기'); });
                     cards.sort((a, b) => (a.innerText || '').length - (b.innerText || '').length); // 가장 안쪽 카드 우선
