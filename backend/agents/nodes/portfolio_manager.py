@@ -32,7 +32,9 @@ def _estimate_monthly_benefit(policy_name: str, benefit_text: str) -> int:
     # "월 최대 N원" / "월 N만원" 패턴
     compact = benefit_text.replace(" ", "")  # 정규식·'만' 근접 판정을 '같은 문자열'에서 수행(위치 불일치 방지)
     patterns = [
-        r"월\s*최대?\s*([\d,]+)원",
+        # '만?' 추가 — '월 최대 20만원'처럼 숫자와 '원' 사이에 '만'이 오는 표기를 놓쳐 0으로 과소계산되던
+        #   문제 수정(프론트 parseMonthly와 패리티). '만' 여부는 아래 근접 판정에서 *10000 처리.
+        r"월\s*최대?\s*([\d,]+)만?\s*원",
         r"월\s*([\d,]+)만?\s*원",
         r"([\d,]+)원\s*지급",
     ]
