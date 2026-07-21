@@ -379,16 +379,6 @@ async def save_document(page, name: str, user_name: str = "") -> Optional[str]:
     except Exception:
         return None
 
-# 카카오 간편인증 버튼 선택자 (각 사이트에서 공통적으로 사용)
-KAKAO_SELECTORS = [
-    "a:has-text('카카오')",
-    "button:has-text('카카오')",
-    "img[alt*='카카오']",
-    ".kakao-login",
-    "[class*='kakao']",
-    "a[href*='kakao']",
-]
-
 # ★ 카카오톡(TALK) 전용 선택자 — 카카오뱅크/카카오스토리와 구분
 # plus.gov.kr 간편인증(oacx 위젯)은 카카오톡을 라디오형 label/li + img[alt='카카오톡'] 로 노출.
 KAKAOTALK_SELECTORS = [
@@ -647,11 +637,6 @@ async def _click_provider_once(page, provider: str = "kakao"):
     return False
 
 
-async def click_kakaotalk_in_anyid(page) -> bool:
-    """(호환 래퍼) anyid 모달에서 카카오톡 클릭 — click_provider_in_anyid('kakao')."""
-    return await click_provider_in_anyid(page, "kakao")
-
-
 async def detect_auth_form(page) -> bool:
     """본인인증 정보 입력 폼이 열렸는지 감지 — 메인뿐 아니라 형제 프레임·창까지 살핀다.
 
@@ -676,20 +661,6 @@ async def take_screenshot(page) -> str:
         return base64.b64encode(buf).decode()
     except Exception:
         return ""
-
-
-async def try_click_kakao(page) -> bool:
-    """카카오 로그인 버튼 자동 클릭 시도. 성공 여부 반환."""
-    for sel in KAKAO_SELECTORS:
-        try:
-            el = page.locator(sel).first
-            if await el.count() > 0:
-                await el.click()
-                await asyncio.sleep(1.5)
-                return True
-        except Exception:
-            continue
-    return False
 
 
 async def _click_auth_confirm_any(ctx_page) -> bool:
