@@ -47,3 +47,20 @@ def test_age_gate_60_still_starts_at_60():
     assert ok60 is True
     ok59, *_ = _check_policy(doc, "테스트", "T", _profile(age=59, income_percentile=50))
     assert ok59 is False
+
+
+def test_gender_gate_excludes_male_from_female_only_benefit():
+    # 남성에게 여성전용 급여(생리용품 등) 오추천 방지 — 'other'(미지정)는 포용해 배제하지 않음(프론트 패리티)
+    name, doc = "여성청소년 생리용품 지원", "만 9~24세 여성청소년"
+    assert _check_policy(doc, name, "POL-W", _profile(age=15, gender="male"))[0] is False
+    assert _check_policy(doc, name, "POL-W", _profile(age=15, gender="female"))[0] is True
+    assert _check_policy(doc, name, "POL-W", _profile(age=15, gender="other"))[0] is True
+
+
+def test_prv_foundation_gate_low_confidence_only_on_signal():
+    # 민간재단(PRV-)은 프로필 신호가 맞을 때만 저신뢰 '관련 지원'으로(심사·선발형 과장 금지, 프론트 패리티)
+    name, doc = "○○재단 대학생 장학금", "대학생 장학"
+    ok, _r, prio, conf = _check_policy(doc, name, "PRV-001", _profile(age=22))
+    assert ok is True and prio == "low" and conf == 0.6
+    ok2, _r2, _p2, conf2 = _check_policy(doc, name, "PRV-001", _profile(age=50, income_percentile=80))
+    assert ok2 is False and conf2 == 0.0
