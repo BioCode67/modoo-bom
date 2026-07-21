@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { ShieldCheck } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
 import { getPolicyMap } from '@/data/catalog'
+import { isBokjiroApplyable } from '@/lib/quickApply'
 import { getRpaBase } from '@/lib/backend'
 import { useBackend } from '@/lib/useBackend'
 import { clearLive } from '@/lib/liveTasks'
@@ -33,13 +34,21 @@ export function RpaInfoForm() {
   const { ready, caps } = useBackend()
   // 🧩 서류별 맞춤 입력 — 담은 복지의 '필요 서류'에 따라 그 서류에 필요한 정보만 노출한다(사용자 요청:
   //   등본만 받는데 부모 성명·주민번호 뒷자리를 괜히 묻지 않게). 담은 게 없으면 스코프 불명이라 넓게(안전).
-  const { needFamily, needAddress } = useMemo(() => {
+  const { needFamily, needAddress, needRrn } = useMemo(() => {
     const m = getPolicyMap()
     const docs = trackedItems.flatMap((t) => m[t.policyId]?.required_docs || [])
-    if (!docs.length) return { needFamily: true, needAddress: true }
+    // 🔒 복지로 자동신청은 간편인증에 '주민번호 전체(앞6+뒷7)'가 필요하다(실사용 제보) → 담은 정책에
+    //   복지로 신청 가능한 게 있으면 뒷 7자리 입력을 노출한다(가족관계증명서가 아니어도).
+    const bokjiro = trackedItems.some((t) => {
+      const p = m[t.policyId]
+      return !!p && isBokjiroApplyable(p.application ?? '', p.name, p.id)
+    })
+    if (!docs.length) return { needFamily: true, needAddress: true, needRrn: true }
+    const family = docs.some((d) => d.includes('가족관계')) // 가족 성명/등록기준지 → 가족관계증명서만
     return {
-      needFamily: docs.some((d) => d.includes('가족관계')), // 뒷 7자리·가족 성명/등록기준지 → 가족관계증명서만
+      needFamily: family,
       needAddress: docs.some((d) => /등본|초본/.test(d)),   // 주민등록상 주소 → 등·초본 신형 폼 자동정정용
+      needRrn: family || bokjiro,                          // 뒷 7자리 → 가족관계증명서 or 복지로 신청 본인인증
     }
   }, [trackedItems])
   const localAgent = ready === true && !!caps?.rpa
@@ -148,23 +157,38 @@ export function RpaInfoForm() {
           aria-label="주민등록상 시군구"
         />
         </>)}
-        {/* 🔒 가족관계증명서(대법원 efamily) 신청인 확인용 — 가족관계증명서가 필요할 때만 노출.
-            뒷자리·성명은 password로 가려 표시하고 rpaInfoKeep에서 제외돼 '이 탭에서는 기억'에도 보관 안 함(민감정보 무보관). */}
-        {needFamily && (<>
-        <input
-          type={showSecret ? 'text' : 'password'}
-          value={rpaInfo.rrn_back ?? ''}
-          onChange={(e) => setRpaInfo({ rrn_back: e.target.value.replace(/[^0-9]/g, '').slice(0, 7) })}
-          placeholder="주민번호 뒷 7자리 (가족관계증명서용)"
-          inputMode="numeric"
-          maxLength={7}
-          autoComplete="off"
-          className="rounded-lg border border-sprout-100 px-2.5 py-1.5 text-xs focus-ring"
-          aria-label="주민등록번호 뒷자리 (가족관계증명서용, 기본 가려져 표시)"
-        />
-        <div className="flex gap-1">
-          {/* 대법원 efamily는 부/모/배우자/자녀 성명 또는 등록기준지 중 하나로 신청인을 확인한다 —
-              부/모 없으신 분도 배우자·자녀·등록기준지로 발급되게 선택형으로 노출(사용자 요청). */}
+        {/* 🔒 주민번호 뒷 7자리 — 복지로 자동신청(간편인증) 또는 가족관계증명서(대법원) 본인인증에 쓰인다.
+            필요할 때만 노출. password로 가려 표시하고 rpaInfoKeep에서 제외돼 '이 탭에서는 기억'에도 보관 안 함(민감정보 무보관). */}
+        {needRrn && (
+        <div className="col-span-2 flex gap-1">
+          <input
+            type={showSecret ? 'text' : 'password'}
+            value={rpaInfo.rrn_back ?? ''}
+            onChange={(e) => setRpaInfo({ rrn_back: e.target.value.replace(/[^0-9]/g, '').slice(0, 7) })}
+            placeholder="주민번호 뒷 7자리 (복지로 신청·가족관계 본인인증용)"
+            inputMode="numeric"
+            maxLength={7}
+            autoComplete="off"
+            className="min-w-0 flex-1 rounded-lg border border-sprout-100 px-2.5 py-1.5 text-xs focus-ring"
+            aria-label="주민등록번호 뒷자리 (본인인증용, 기본 가려져 표시)"
+          />
+          {/* 👁 잠깐 보기 — 전부 ●는 오타를 못 잡는다는 실사용 피드백. 값 무보관은 그대로. 뒷자리·가족성명 공용 토글. */}
+          <button
+            type="button"
+            onClick={() => setShowSecret((s) => !s)}
+            aria-pressed={showSecret}
+            aria-label={showSecret ? '민감 입력 가리기' : '민감 입력 잠깐 보기'}
+            title={showSecret ? '가리기' : '입력 확인(잠깐 보기)'}
+            className="shrink-0 rounded-lg border border-sprout-100 px-2 py-1.5 text-xs font-semibold text-muted-foreground hover:border-sprout-200"
+          >
+            {showSecret ? '🙈 가리기' : '👁 보기'}
+          </button>
+        </div>
+        )}
+        {/* 대법원 efamily는 부/모/배우자/자녀 성명 또는 등록기준지 중 하나로 신청인 확인 — 가족관계증명서일 때만.
+            부/모 없으신 분도 배우자·자녀·등록기준지로 발급되게 선택형으로 노출(사용자 요청). */}
+        {needFamily && (
+        <div className="col-span-2 flex gap-1">
           <select
             value={rpaInfo.parent_kind || '부'}
             onChange={(e) => setRpaInfo({ parent_kind: e.target.value })}
@@ -186,24 +210,12 @@ export function RpaInfoForm() {
             className="min-w-0 flex-1 rounded-lg border border-sprout-100 px-2.5 py-1.5 text-xs focus-ring"
             aria-label="가족관계 확인 값 (성명 또는 등록기준지, 성명은 기본 가려져 표시)"
           />
-          {/* 👁 잠깐 보기 — 전부 ●는 한글 오타(김상식/김상익)를 못 잡는다는 실사용 피드백. 값 무보관은 그대로. */}
-          <button
-            type="button"
-            onClick={() => setShowSecret((s) => !s)}
-            aria-pressed={showSecret}
-            aria-label={showSecret ? '민감 입력 가리기' : '민감 입력 잠깐 보기'}
-            title={showSecret ? '가리기' : '입력 확인(잠깐 보기)'}
-            className="shrink-0 rounded-lg border border-sprout-100 px-2 py-1.5 text-xs font-semibold text-muted-foreground hover:border-sprout-200"
-          >
-            {showSecret ? '🙈 가리기' : '👁 보기'}
-          </button>
         </div>
-        </>)}
+        )}
       </div>
-      {needFamily && (
+      {needRrn && (
       <p className="text-[11px] text-muted-foreground leading-relaxed">
-        🔒 뒷 7자리·가족 성명(또는 등록기준지)은 <b>가족관계증명서(대법원) 발급 확인에만</b> 쓰여요 — 부/모가 안 계셔도
-        <b> 배우자·자녀·등록기준지</b>로 발급돼요. 성명은 기본 ●로 가려지고 [👁 보기]로 확인, 디스크·탭 기억에는 <b>저장되지 않아요</b>.
+        🔒 뒷 7자리는 <b>복지로 신청·가족관계증명서(대법원) 본인인증</b>에 쓰여요{needFamily ? <>, 가족 성명(또는 등록기준지)은 가족관계증명서 발급 확인용이에요 — 부/모가 안 계셔도 <b>배우자·자녀·등록기준지</b>로 발급돼요</> : ''}. 기본 ●로 가려지고 [👁 보기]로 확인, 디스크·탭 기억에는 <b>저장되지 않아요</b>.
       </p>
       )}
       <div className="flex flex-wrap gap-1">

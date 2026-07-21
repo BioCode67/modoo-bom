@@ -382,3 +382,13 @@ def test_auth_confirm_dismisses_bokjiro_retry_popup():
     assert "진행할 수 없" in src            # 복지로: '입력하신 정보로 인증을 진행할 수 없습니다'
     assert "완료되지 않" in src             # gov24: '완료되지 않았습니다' (기존 문구 유지)
     assert 'click_by_text(ctx, ["확인"])' in src  # 위젯 [닫기]는 건드리지 않고 안내창 [확인]만
+
+
+def test_auth_notice_dismissed_before_confirm_click():
+    """안내 팝업이 '인증 완료' 버튼을 덮어 다음 클릭이 막히던 실사용 갭 — '인증 완료'를 누르기 '전에' 먼저
+    안내 팝업을 닫아 대기상태로 복귀해야 한다. _click_auth_confirm_any 가 _dismiss_auth_notice 를 선행 호출한다."""
+    src = open("rpa/base.py", encoding="utf-8").read()
+    assert "async def _dismiss_auth_notice" in src
+    # _click_auth_confirm_any 본문 안에서 _dismiss_auth_notice 를 먼저 호출(확인 루프 진입 전)
+    body = src.split("async def _click_auth_confirm_any", 1)[1].split("async def wait_for_login", 1)[0]
+    assert "_dismiss_auth_notice(ctx_page)" in body

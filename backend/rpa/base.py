@@ -673,6 +673,32 @@ async def take_screenshot(page) -> str:
     return b64
 
 
+# 간편인증 '안내' 팝업 문구 — 폰 승인 전 클릭(gov24 '완료되지 않았습니다') 또는 입력정보 진행 불가
+#   (복지로 '입력하신 정보로 인증을 진행할 수 없습니다 … 다시 시도하세요'). 이 [확인]만 닫는다(위젯 '닫기' 금지).
+_AUTH_NOTICE_KEYS = ("완료되지 않", "완료되지않", "미완료", "진행할 수 없", "다시 시도")
+
+
+async def _dismiss_auth_notice(ctx_page) -> bool:
+    """간편인증 '안내' 팝업이 떠 있으면 [확인]만 눌러 닫는다 → 닫았으면 True.
+
+    ⚠️ 실사용 제보(2026-07-21): 이 안내 팝업이 '인증 완료' 버튼을 덮고 있으면, 다음 주기의 클릭이 모달에
+    막혀(el.click 인터셉트) 그 뒤의 팝업 닫기 로직까지 도달 못 해 '대기상태로 복귀'가 안 됐다. 그래서
+    '인증 완료'를 누르기 '전에' 먼저 안내 팝업을 치운다 → [확인] 닫고 대기 → 다음 주기에 인증완료 재시도."""
+    for ctx in _sibling_contexts(ctx_page):
+        try:
+            body = await ctx.evaluate("() => document.body ? document.body.innerText : ''")
+        except Exception:
+            body = ""
+        if any(k in (body or "") for k in _AUTH_NOTICE_KEYS):
+            try:
+                if await click_by_text(ctx, ["확인"]):
+                    await asyncio.sleep(0.6)
+                    return True
+            except Exception:
+                continue
+    return False
+
+
 async def _click_auth_confirm_any(ctx_page) -> bool:
     """'인증 완료' 버튼을 메인 page 뿐 아니라 형제 프레임·창까지 훑어 누른다 → 눌렀으면 True.
 
@@ -683,6 +709,8 @@ async def _click_auth_confirm_any(ctx_page) -> bool:
 
     승인 전 클릭이면 gov24 가 '완료되지 않았습니다' 안내만 띄우므로, 그 안내의 '확인'만 닫고(메인 팝업
     '닫기'는 절대 건드리지 않음) 다음 주기에 재시도한다. 실제 본인인증(폰 [인증 허용])은 여전히 사용자 몫."""
+    # 먼저 '안내' 팝업이 떠 있으면 닫아 대기상태로 복귀 — 팝업이 '인증 완료'를 덮어 클릭을 막던 실사용 갭 해소.
+    await _dismiss_auth_notice(ctx_page)
     for ctx in _sibling_contexts(ctx_page):
         for sel in AUTH_CONFIRM_SELECTORS:
             try:
