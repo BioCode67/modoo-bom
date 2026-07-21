@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Sparkles, Mic, MicOff } from 'lucide-react'
 import { parseProfileFromText } from '@/lib/parseQuery'
 import { useSpeech } from '@/lib/useSpeech'
-import { detectLang } from '@/lib/detectLang'
+import { detectUiLang } from '@/lib/detectLang'
 import { useAppStore } from '@/store/useAppStore'
 import type { UserProfile } from '@/lib/welfare-engine'
 import { cn } from '@/lib/utils'
@@ -29,8 +29,9 @@ export function QuickAsk({ onSubmit }: { onSubmit: (p: UserProfile) => void }) {
   const go = () => {
     const t = text.trim()
     if (!t) return
-    const lang = detectLang(t)
-    if (lang && lang.code !== 'ko') {
+    // 보수적 detectUiLang로 게이트 — 한국어 사용자의 짧은 영문 약어('housing')·한/영 오타('dkssud')를
+    //   외국어로 오인해 Explore로 튕기던 문제 방지(Explore·aiAnswer와 동일 기준).
+    if (detectUiLang(t) !== 'ko') {
       // 외국어 입력 → 다국어 AI 의미 검색으로 라우팅(한국어 규칙 파싱 대신)
       setAiQuery(t)
       setAiIntent(true)

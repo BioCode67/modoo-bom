@@ -53,6 +53,7 @@ export function TrackedCard({ item, policy, onOpen }: { item: TrackedItem; polic
           <button
             key={s}
             onClick={() => setStatus(item.policyId, s)}
+            aria-pressed={item.status === s}
             className={cn('rounded-xl py-1.5 text-[11px] font-bold transition-all',
               item.status === s ? STATUS_META[s].cls + ' ring-2 ring-offset-1 ring-current/30' : 'bg-muted/60 text-muted-foreground hover:bg-muted')}
           >

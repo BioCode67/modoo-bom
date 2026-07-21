@@ -135,6 +135,7 @@ export function My() {
               <button
                 key={f.key}
                 onClick={() => setFilter(f.key)}
+                aria-pressed={filter === f.key}
                 className={cn('shrink-0 rounded-full px-4 py-2 text-sm font-semibold border-2 transition-all',
                   filter === f.key ? 'bg-sprout-700 border-sprout-700 text-white' : 'bg-white border-sprout-100 text-muted-foreground hover:border-sprout-200')}
               >

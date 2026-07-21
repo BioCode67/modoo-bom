@@ -16,7 +16,9 @@ export interface DeadlineHint {
 const PATTERNS: { re: RegExp; label: (m: RegExpMatchArray) => string; urgent: boolean; skipIf?: (t: string) => boolean }[] = [
   { re: /(출생|출산)\s*후\s*(\d+)\s*일\s*(?:이내|내|안)/, label: (m) => `${m[1]} 후 ${m[2]}일 내 신청`, urgent: true },
   { re: /(출생|출산)\s*후\s*(\d+)\s*(개월|년)\s*(?:이내|내)/, label: (m) => `${m[1]} 후 ${m[2]}${m[3]} 내 신청`, urgent: false },
-  { re: /(퇴직|이직|실직|퇴사)\s*후\s*(\d+)\s*(일|개월|년)\s*(?:이내|내)?/, label: (m) => `${m[1]} 후 ${m[2]}${m[3]} 내 신청`, urgent: true },
+  // 종결어(이내/내/신청 등) 필수 — '실직 후 3개월간 지원'(지속 기간)을 '마감'으로 오인해 가짜 긴급 배지를
+  //   달던 문제 방지(감사). '퇴직 후 1년 이내 신청'처럼 실제 기한형만 잡는다.
+  { re: /(퇴직|이직|실직|퇴사)\s*후\s*(\d+)\s*(일|개월|년)\s*(?:이내|내|안|신청|신고|접수)/, label: (m) => `${m[1]} 후 ${m[2]}${m[3]} 내 신청`, urgent: true },
   { re: /(\d+)\s*일\s*(?:이내|내|안)\s*(?:신청|신고|접수)/, label: (m) => `${m[1]}일 내 신청`, urgent: true },
   { re: /(\d+)\s*일\s*이내/, label: (m) => `${m[1]}일 내 신청`, urgent: true },
   // '한시'는 '상시사업 전환' 등 이제 상시가 된 제도엔 배지를 달지 않는다

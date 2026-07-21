@@ -16,6 +16,10 @@ describe('deadlineHint', () => {
     const h = deadlineHint(mk({ eligibility: '퇴직 후 1년 이내 신청 가능' }))
     expect(h?.urgent).toBe(true)
   })
+  it('기간형("실직 후 3개월간 지원")은 마감 아님 — 가짜 긴급 배지 방지(감사)', () => {
+    expect(deadlineHint(mk({ benefit: '실직 후 3개월간 지원' }))).toBeNull()
+    expect(deadlineHint(mk({ eligibility: '퇴직 후 3년 경과자 대상' }))).toBeNull()
+  })
   it('한시 사업 → 긴급', () => {
     expect(deadlineHint(mk({ name: '한시 긴급생활지원' }))?.urgent).toBe(true)
   })
