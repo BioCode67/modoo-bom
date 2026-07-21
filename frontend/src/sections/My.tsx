@@ -18,6 +18,7 @@ import { HouseholdAnalyzer } from '@/components/HouseholdAnalyzer'
 import { AnnualCashflow } from '@/components/AnnualCashflow'
 import { DeadlineAlert } from '@/components/DeadlineAlert'
 import { WelfareRoadmap } from '@/components/WelfareRoadmap'
+import { DocPlanCard } from '@/components/DocPlanCard'
 import { useAppStore, type AppStatus } from '@/store/useAppStore'
 import { useAuthCtx } from '@/lib/authContext'
 import { sumCashMonthly, formatWon } from '@/lib/format'
@@ -164,6 +165,8 @@ export function My() {
 
       {/* ① 서류 발급 — 담은 복지에 필요한 서류를 미리 준비 */}
       <section id="journey-docs" className="scroll-mt-24">
+        {/* 서류 중심 통합 정리 — 재사용(한 번 떼서 여러 신청)·유효기간(발급 3개월)을 한눈에 */}
+        <DocPlanCard onOpen={setSelected} />
         <DocumentCenter />
       </section>
 
