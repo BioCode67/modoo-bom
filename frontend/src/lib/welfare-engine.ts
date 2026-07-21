@@ -20,6 +20,8 @@ export interface UserProfile {
   life_events: string[]
   /** 자연어 질의 원문(선택) — 주제어(틀니·전세·창업 등)를 랭킹에 반영하기 위해 보관. 자격판정엔 영향 없음. */
   _query?: string
+  /** 대화형 파싱이 나이를 '명시적으로' 잡았는지(false=대략 추정/기본값). 대화 진입에서 정확한 나이를 되물을지 판단용. */
+  _ageExplicit?: boolean
 }
 
 export interface EligiblePolicy extends Policy {

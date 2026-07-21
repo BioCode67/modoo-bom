@@ -37,6 +37,8 @@ export function QuickAsk({ onSubmit }: { onSubmit: (p: UserProfile) => void }) {
       setView('explore')
       return
     }
+    // 나이 추정(청년→27 등) 시 정확한 나이를 되묻는 '토스식 확인'은 호출부(Analyze.handleSubmit)에서
+    //   일괄 처리한다 — 홈 히어로·대화·한 문장 모든 진입을 한 곳에서 게이트(중복 방지).
     onSubmit(parseProfileFromText(t))
   }
 

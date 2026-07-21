@@ -5,12 +5,13 @@ import { ProfileWizard } from '@/components/ProfileWizard'
 import { MascotChat } from '@/components/MascotChat'
 import { HelperView } from '@/components/HelperView'
 import { QuickAsk } from '@/components/QuickAsk'
+import { AgeAskStep } from '@/components/AgeAskStep'
 import { AnalyzingOverlay } from '@/components/AnalyzingOverlay'
 import { ResultsView } from '@/components/ResultsView'
 import { runAnalysis, type UserProfile, type AnalysisResult } from '@/lib/welfare-engine'
 import { useAppStore } from '@/store/useAppStore'
 
-type Phase = 'form' | 'analyzing' | 'result'
+type Phase = 'form' | 'age' | 'analyzing' | 'result'
 
 export function Analyze() {
   const { profile: savedProfile, result: savedResult, setAnalysis, clearAnalysis, pendingProfile, setPendingProfile, helper } = useAppStore()
@@ -18,11 +19,24 @@ export function Analyze() {
   const [phase, setPhase] = useState<Phase>(savedResult ? 'result' : 'form')
   const [mode, setMode] = useState<'chat' | 'quick' | 'form'>('chat')
   const [pending, setPending] = useState<{ profile: UserProfile; result: AnalysisResult } | null>(null)
+  // 🎂 나이 추정 시 되물을 프로필 — 대화형(홈 한 문장·QuickAsk) 진입의 단일 게이트
+  const [needAge, setNeedAge] = useState<UserProfile | null>(null)
 
-  const handleSubmit = (profile: UserProfile) => {
+  const runNow = (profile: UserProfile) => {
     const result = runAnalysis(profile)
     setPending({ profile, result })
     setPhase('analyzing')
+  }
+  const handleSubmit = (profile: UserProfile) => {
+    // 대화형 파싱이 정확한 나이(N세/살)를 못 잡아 추정값(청년→27·기본 30)을 쓴 경우엔 분석 전에
+    //   토스식으로 딱 한 번 되묻는다. 위저드·가이드챗은 정확한 나이를 직접 받으므로 _ageExplicit 미설정
+    //   → 엄격 비교(=== false)로 그 경우엔 게이트하지 않는다(불필요한 되물음 방지).
+    if (profile._ageExplicit === false) {
+      setNeedAge(profile)
+      setPhase('age')
+      return
+    }
+    runNow(profile)
   }
 
   // 홈에서 한 문장 입력으로 넘어온 경우: 분석 오버레이(실제 AI)를 태운다
@@ -45,11 +59,23 @@ export function Analyze() {
   const reset = () => {
     clearAnalysis()
     setPending(null)
+    setNeedAge(null)
     setPhase('form')
   }
 
   // 가족 도움 링크로 진입 시 — 도우미 뷰(남의 프로필 온디바이스 재계산)를 최우선으로 표시
   if (helper) return <HelperView />
+
+  // 🎂 나이 확인 단계 — 추정값으로 바로 분석하지 않고 정확한 나이를 한 번 받는다(토스식).
+  if (phase === 'age' && needAge)
+    return (
+      <AgeAskStep
+        initialAge={needAge.age}
+        onConfirm={(age) => { const p = { ...needAge, age, _ageExplicit: true }; setNeedAge(null); runNow(p) }}
+        onSkip={() => { const p = needAge; setNeedAge(null); runNow(p) }}
+        onBack={() => { setNeedAge(null); setPhase('form') }}
+      />
+    )
 
   if (phase === 'analyzing' && pending)
     return <AnalyzingOverlay profile={pending.profile} eligible={pending.result.eligible_policies} onDone={handleAnalyzed} />

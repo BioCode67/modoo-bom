@@ -210,6 +210,11 @@ export function parseProfileFromText(text: string): UserProfile {
   if (/임신|임산부|산모|미혼모|여성|여자(?!친구|아이|애|사람|형제|조카|짝)/.test(t)) p.gender = 'female'
   else if (/남성|남자(?!친구|아이|애|사람|형제|조카|짝)/.test(t)) p.gender = 'male'
 
+  // 나이를 '실제 수치'로 잡았는지 기록 — '청년→27'·자립준비→21·기본 30 같은 추정은 false.
+  //   대화형 진입(QuickAsk)이 이 값으로 '정확한 나이를 되물을지'를 판단한다(퉁침 방지).
+  //   exact(N세/살)만 명시로 본다 — 'N0대'는 대(범위) 추정이라 되물음 대상(중앙값 오차 방지).
+  p._ageExplicit = !!exact
+
   return p
 }
 
