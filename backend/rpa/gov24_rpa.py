@@ -1031,7 +1031,10 @@ async def _issue_family_cert_efamily(page, task, context, user_info: dict = None
     rrn7 = re.sub(r"[^0-9]", "", str(ui.get("rrn_back", "")))
     rrn7 = rrn7 if len(rrn7) == 7 else ""
     parent_name = str(ui.get("parent_name", "")).strip()
-    parent_kind = "모" if str(ui.get("parent_kind", "부")).strip().startswith("모") else "부"
+    # 신청인 확인 방법 — 부/모뿐 아니라 배우자·자녀·등록기준지도(부/모 없으신 분 대응, efamily 실측 옵션). (팀원 확인 요망)
+    _pk = str(ui.get("parent_kind", "부")).strip()
+    parent_kind = _pk if _pk in ("부", "모", "배우자", "자녀", "등록기준지") else "부"
+    _rel_label = "등록기준지" if parent_kind == "등록기준지" else f"{parent_kind} 성명"
 
     task.update("running", "📄 가족관계증명서(β) — 원 발급처인 대법원 전자가족관계등록시스템으로 이동해요...")
     # ① 신청 페이지 직행(실측 URL) → 실패 시 홈에서 타일 클릭 폴백
@@ -1089,12 +1092,18 @@ async def _issue_family_cert_efamily(page, task, context, user_info: dict = None
     #    ③ 0.7초 '지연 후' 별도 재검증만 신뢰('-'와 빈값은 실패) — 안 남았으면 처음부터 재시도(3회).
     _parent_ok = not parent_name  # 값이 없으면 판정 대상 아님(안내는 아래 missing 분기가 담당)
     if parent_name:
-        _js_kick_select = """() => {
+        _js_kick_select = """(kind) => {
             for (const tr of document.querySelectorAll('tr')) {
                 const head = ((tr.querySelector('th, td') || {}).innerText || '').trim();
                 if (!/^추가정보확인/.test(head)) continue;
                 const sel = tr.querySelector('select');
-                if (sel) sel.dispatchEvent(new Event('change', {bubbles: true}));
+                if (sel) {
+                    // 고른 관계(부/모/배우자/자녀/등록기준지)에 맞는 옵션을 실제로 선택한다 — 기존엔 기본값(부)에
+                    //   이름만 넣어 모·배우자·자녀 선택이 반영 안 되던 갭 해소(옵션 텍스트 '부 성명'·'등록기준지'…에 매칭).
+                    const opt = [...sel.options].find(o => (o.text||'').replace(/\\s/g,'').includes(kind));
+                    if (opt && sel.value !== opt.value) sel.value = opt.value;
+                    sel.dispatchEvent(new Event('change', {bubbles: true}));
+                }
                 return true;
             }
             return false;
@@ -1121,7 +1130,7 @@ async def _issue_family_cert_efamily(page, task, context, user_info: dict = None
         )
         for _attempt in range(3):
             try:
-                await page.evaluate(_js_kick_select)
+                await page.evaluate(_js_kick_select, parent_kind)
             except Exception:
                 pass
             await asyncio.sleep(0.5)  # change 후 재생성/활성화 렌더 대기
@@ -1198,7 +1207,7 @@ async def _issue_family_cert_efamily(page, task, context, user_info: dict = None
         _pmsg = "✅ 신청인 정보를 모두 채우고 간편인증 창을 열었어요 — 인증창도 이어서 채울게요..."
         if not _parent_ok:
             # 값은 넘겼지만 화면 반영 확인 실패 — 정직하게 알리고 구조 진단 동봉(다음 조준용)
-            _pmsg += (f"\n⚠️ {parent_kind} 성명 칸은 채움 확인이 안 됐어요 — 화면에서 확인·입력해 주세요."
+            _pmsg += (f"\n⚠️ {_rel_label} 칸은 채움 확인이 안 됐어요 — 화면에서 확인·입력해 주세요."
                       f"\n🔍 진단: {_parent_diag}")
         task.update("running", _pmsg, await take_screenshot(page))
     else:
@@ -1206,7 +1215,7 @@ async def _issue_family_cert_efamily(page, task, context, user_info: dict = None
         if not rrn7:
             _missing.append("주민등록번호 뒷자리")
         if not parent_name:
-            _missing.append(f"{parent_kind} 성명")
+            _missing.append(_rel_label)
         task.update(
             "waiting_login",
             "📋 신청인 정보를 채울 수 있는 만큼 채웠어요.\n"
