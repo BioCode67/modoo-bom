@@ -49,13 +49,16 @@ export function SproutGuide() {
   const [skip3D] = useState(shouldSkipHeavy3D)
   const [contextLost, setContextLost] = useState(false)
 
-  // 화면이 바뀌면 새 안내를 잠깐 펼쳤다가 자동으로 접는다 — 말풍선이 서류함·목록 같은 콘텐츠를
-  //   계속 가리지 않게(사용자 피드백). 마스코트는 남고, 다시 누르면 언제든 펼쳐 읽을 수 있으며
-  //   aria-live 로 스크린리더엔 등장 즉시 전달된다(자동 접힘이 정보 손실이 아님).
+  // 화면이 바뀌면 새 안내를 잠깐 펼쳤다가 자동으로 접는다 — 말풍선이 목록·카드 같은 콘텐츠를
+  //   계속 가리지 않게(시각 감사: 결과·나의복지·탐색에서 첫 카드를 덮음). 마스코트는 남고, 다시 누르면
+  //   언제든 펼쳐 읽을 수 있으며 aria-live 로 스크린리더엔 등장 즉시 전달된다(자동 접힘이 정보 손실이 아님).
+  //   ⬇︎ 사용자가 콘텐츠를 보려고 '스크롤하는 순간' 즉시 접어(once) 가림을 없앤다 + 5.5초 백스톱 타이머.
   useEffect(() => {
     setOpen(true)
-    const t = setTimeout(() => setOpen(false), 8000)
-    return () => clearTimeout(t)
+    const t = setTimeout(() => setOpen(false), 5500)
+    const collapse = () => setOpen(false)
+    window.addEventListener('scroll', collapse, { passive: true, once: true })
+    return () => { clearTimeout(t); window.removeEventListener('scroll', collapse) }
   }, [view])
 
   const tip = guideTip(view, { hasResult, trackedCount, agentOn, docsIssued, appliedCount })

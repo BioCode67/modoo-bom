@@ -46,6 +46,10 @@
 
   input, button, select, textarea { font-family: inherit; }
 
+  /* 한글 제목은 어절(공백) 단위로만 줄바꿈 — '받을 수 있/는'처럼 단어 중간에서 갈라지는 것 방지(시각 감사).
+     제목은 길이가 짧아 넘침 위험이 낮다. 본문은 기본 줄바꿈 유지(좁은 칸에서 넘침 방지). */
+  h1, h2, h3, h4 { word-break: keep-all; }
+
   /* 키보드 사용자용 포커스 링 (마우스 클릭 시엔 표시 안 함) */
   a:focus-visible, button:focus-visible, [role="button"]:focus-visible,
   summary:focus-visible, [tabindex]:focus-visible {
