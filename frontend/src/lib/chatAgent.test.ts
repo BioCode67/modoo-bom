@@ -91,6 +91,11 @@ describe('matchSaveIntent — 대화 맥락 기억(직전 복지를 가리켜 �
     expect(matchSaveIntent('2개 저장해줘', ctx)?.map((p) => p.id)).toEqual(['A', 'B'])
     expect(matchSaveIntent('2가지 담아줘', ctx)).toHaveLength(2)
   })
+  it('한글 수사 개수("두 개/세 개/한 개") → 앞에서 N건(서수 오인 방지)', () => {
+    expect(matchSaveIntent('두 개 담아줘', ctx)?.map((p) => p.id)).toEqual(['A', 'B']) // 2번째 하나가 아니라 2건
+    expect(matchSaveIntent('세 개 저장해줘', ctx)).toHaveLength(3)
+    expect(matchSaveIntent('한 개만 담아줘', ctx)?.map((p) => p.id)).toEqual(['A'])
+  })
   it('이름 직접 언급 → 해당 정책', () => {
     expect(matchSaveIntent('아동수당 담아줘', ctx)?.[0].id).toBe('B')
   })

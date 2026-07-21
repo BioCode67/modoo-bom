@@ -31,6 +31,11 @@ describe('buildEvents', () => {
     const ev = buildEvents([mk({ policyId: 'POL-007', status: 'done', appliedAt: Date.now() - 100 * DAY })], { 'POL-007': once })
     expect(ev.some((e) => e.kind === 'renew')).toBe(false)
   })
+  it('done + "연간 재선정" → 갱신 일정(monitoring과 동일 규칙 — .ics 누락 회귀 방지)', () => {
+    const annual = { ...policy, id: 'POL-050', name: '연간재선정정책', renewal: '연간 재선정' }
+    const ev = buildEvents([mk({ policyId: 'POL-050', status: 'done', appliedAt: Date.now() - 100 * DAY })], { 'POL-050': annual })
+    expect(ev.some((e) => e.kind === 'renew')).toBe(true)
+  })
   it('날짜 오름차순 정렬', () => {
     const ev = buildEvents([mk({ status: 'applied', appliedAt: Date.now() }), mk({ policyId: 'POL-001', status: 'tracking' })], map)
     for (let i = 1; i < ev.length; i++) expect(ev[i].date).toBeGreaterThanOrEqual(ev[i - 1].date)

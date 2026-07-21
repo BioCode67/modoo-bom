@@ -32,6 +32,11 @@ describe('interestDigest', () => {
     expect(d[0].total).toBe(1)
   })
 
+  it('복합 분야(임신·출산)를 토큰으로 흡수 — "출산지원" 카테고리가 잡힌다(감사)', () => {
+    const d = interestDigest(['임신·출산'], [P('Y', '첫만남이용권', '출산지원')], new Set())
+    expect(d[0]?.total).toBe(1)
+  })
+
   it('구독이 없으면 빈 결과', () => {
     expect(interestDigest([], pols, new Set())).toHaveLength(0)
   })

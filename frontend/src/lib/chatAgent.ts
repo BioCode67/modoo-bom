@@ -290,6 +290,11 @@ export function matchSaveIntent(raw: string, context: Policy[], explicitOnly = f
   // 'N개/N가지/N건'은 '개수'(앞에서 N건) — 서수(N번째)보다 먼저 판정해 "3개 담아줘"가 '3번째 하나'로 오해되지 않게(감사)
   const cnt = t.match(/([1-9])(개|가지|건)/)
   if (cnt) return context.slice(0, parseInt(cnt[1], 10))
+  // 한글 수사 개수('두 개/세 개/한 개')도 개수로 — 서수(N번째)보다 먼저 판정(안 그러면 '두 개'가
+  //   '2번째 하나'로 오인됨). 반드시 세는말(개·가지·건)이 붙을 때만 → '65세 …'의 '세'는 여기 안 걸린다.
+  const KCNT: Record<string, number> = { 한: 1, 하나: 1, 두: 2, 둘: 2, 세: 3, 셋: 3, 네: 4, 넷: 4 }
+  const kcnt = t.match(/(하나|둘|셋|넷|한|두|세|네)(개|가지|건)/)
+  if (kcnt && KCNT[kcnt[1]] !== undefined) return context.slice(0, KCNT[kcnt[1]])
   const ord = t.match(/(첫|두|세|네|하나|둘|셋|넷|[1-4])(번째|째|번)?/)
   if (ord && ORD[ord[1]] !== undefined && context[ORD[ord[1]]]) return [context[ORD[ord[1]]]]
   const byName = context.filter((p) => t.includes(p.name.replace(/\s/g, '')))
