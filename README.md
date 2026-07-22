@@ -11,6 +11,10 @@
 
 [![모두봄 시연 영상](https://img.youtube.com/vi/7hsiDM1Ej9s/hqdefault.jpg)](https://youtu.be/7hsiDM1Ej9s)
 
+### 핵심 시연 (서류 발급·신청 자동화) — https://youtu.be/MrqZZ6OKA2A
+
+[![모두봄 핵심 시연 — 서류 발급·신청 자동화](https://img.youtube.com/vi/MrqZZ6OKA2A/hqdefault.jpg)](https://youtu.be/MrqZZ6OKA2A)
+
 > AI 백엔드도 클라우드(Render)에 라이브로 배포돼 있습니다 — LangGraph 10노드 에이전트와 지식형 챗이
 > 실제 LLM(Gemini 2.5 Flash) 답변을 돌려줍니다. **무료 티어라 유휴 후 첫 요청은 콜드스타트(~50초)로 깨어난 뒤 응답**하며,
 > LLM 실패 시 Groq·Claude로 자동 폴백, 키가 없으면 규칙 기반으로 동작합니다.
