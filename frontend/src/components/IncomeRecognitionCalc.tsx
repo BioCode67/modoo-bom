@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Home, Wallet, Landmark, Car, Info, ChevronDown, TrendingUp } from 'lucide-react'
+import { Home, Wallet, Landmark, Car, Info, ChevronDown, TrendingUp, Check } from 'lucide-react'
 import {
   computeRecognition, recognitionPercentile, judgeBenefits, parseAmount,
   BASIC_PROPERTY, REGION_LABEL, type RegionKind,
@@ -43,7 +43,7 @@ const emptyFields = (region: RegionKind) => ({
   basicProperty: String(BASIC_PROPERTY[region]), debt: '',
 })
 
-export function IncomeRecognitionCalc({ initialSize = 1 }: { initialSize?: number }) {
+export function IncomeRecognitionCalc({ initialSize = 1, onApply }: { initialSize?: number; onApply?: (pct: number) => void }) {
   const [size, setSize] = useState(Math.max(1, Math.min(7, initialSize)))
   const [region, setRegion] = useState<RegionKind>('metro')
   const [f, setF] = useState(() => emptyFields('metro'))
@@ -168,6 +168,13 @@ export function IncomeRecognitionCalc({ initialSize = 1 }: { initialSize?: numbe
           )
         )}
       </div>
+
+      {/* 정밀 계산한 소득인정액(%)을 실제 분석 프로필에 반영 — 간이 % 대신 재산까지 반영한 값으로 */}
+      {onApply && hasInput && (
+        <button onClick={() => onApply(Math.min(pct, 200))} className="btn-primary !py-2 mt-2 w-full text-xs">
+          <Check className="h-4 w-4" /> 이 소득인정액(약 {pct}%)을 분석에 반영
+        </button>
+      )}
 
       {/* 역산 — 얼마까지 벌어도 자격이 되나(급여별 근로소득 상한) */}
       <div className="mt-3 rounded-xl bg-white border border-sky2-100 p-3">

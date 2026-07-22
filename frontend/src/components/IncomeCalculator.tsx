@@ -174,7 +174,7 @@ export function IncomeCalculator({
         <ArrowRight className={cn('h-3.5 w-3.5 transition-transform', showDetail && 'rotate-90')} />
         {showDetail ? '정밀 계산 닫기' : '재산까지 넣어 소득인정액 정밀 계산'}
       </button>
-      {showDetail && <IncomeRecognitionCalc initialSize={size} />}
+      {showDetail && <IncomeRecognitionCalc initialSize={size} onApply={onApply} />}
     </div>
   )
 }
