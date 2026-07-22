@@ -18,6 +18,7 @@ import { HouseholdAnalyzer } from '@/components/HouseholdAnalyzer'
 import { AnnualCashflow } from '@/components/AnnualCashflow'
 import { DeadlineAlert } from '@/components/DeadlineAlert'
 import { WelfareRoadmap } from '@/components/WelfareRoadmap'
+import { PriorityRecommend } from '@/components/PriorityRecommend'
 import { DocPlanCard } from '@/components/DocPlanCard'
 import { PaymentSchedule } from '@/components/PaymentSchedule'
 import { useAppStore, type AppStatus } from '@/store/useAppStore'
@@ -123,6 +124,9 @@ export function My() {
 
       {/* 복지 신청 로드맵 — 담은 복지를 '무엇을 어떤 순서로' 신청할지 실행 계획으로 (찾기→행동) */}
       <WelfareRoadmap onOpen={setSelected} />
+
+      {/* 먼저 챙기세요 — 신청 전 담은 복지를 우선순위 점수로 '무엇부터' 추천(3개 이상일 때만) */}
+      <PriorityRecommend onOpen={setSelected} />
 
       {/* 담은 복지 중 마감 임박 — 놓침 방지(액션 직결이라 상단 유지) */}
       <DeadlineAlert policies={tracked.map((t) => POLICY_MAP[t.policyId]).filter(Boolean)} onOpen={setSelected} />
