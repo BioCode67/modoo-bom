@@ -10,6 +10,8 @@ import { benefitTypeOf, BENEFIT_TYPE_META, type BenefitType } from '@/lib/benefi
 import { useAppStore } from '@/store/useAppStore'
 import { IncomeCalculator } from '@/components/IncomeCalculator'
 import { parseMonthly, isCashBenefit } from '@/lib/format'
+import { applyDifficulty } from '@/lib/priority'
+import { applyChannel } from '@/lib/roadmap'
 import { buildAiAnswer } from '@/lib/aiAnswer'
 import { supportsOnDeviceTranslation, getTranslator, zhTarget } from '@/lib/onDeviceTranslate'
 import { queryConcepts, relevance } from '@/lib/search'
@@ -46,7 +48,8 @@ const BUCKETS: { key: string; label: string; emoji: string; match?: string[]; te
   { key: 'farm', label: '농어민', emoji: '🌾', match: ['농어'] },
 ]
 
-type SortKey = 'default' | 'amount' | 'name'
+type SortKey = 'default' | 'amount' | 'name' | 'ease'
+const DIFF_RANK = { easy: 0, medium: 1, hard: 2 } as const
 const PAGE = 60 // '더 보기' 1회당 추가 노출 수
 // 첫 화면·검색어 변경 직후 노출 수 — 검색 중 지연 커밋(카드 마운트) 비용을 낮춘다.
 // CPU×4 실측: 60장 커밋이 타이핑 중 100~600ms 롱태스크의 주범(구형 PC 타이핑 끊김). 24장도 2~3화면 분량.
@@ -271,6 +274,12 @@ export function Explore() {
       const cashAmt = (p: Policy) => (isCashBenefit(p.benefit, `${p.name} ${p.category}`) ? parseMonthly(p.benefit) : 0)
       out = [...list].sort((a, b2) => cashAmt(b2) - cashAmt(a))
     } else if (sort === 'name') out = [...list].sort((a, b2) => a.name.localeCompare(b2.name, 'ko'))
+    else if (sort === 'ease') {
+      // 신청 쉬운 순 — 자동발급/온라인·서류 적은 순(applyDifficulty), 동급이면 현금액 높은 순
+      const cashAmt = (p: Policy) => (isCashBenefit(p.benefit, `${p.name} ${p.category}`) ? parseMonthly(p.benefit) : 0)
+      const diff = (p: Policy) => DIFF_RANK[applyDifficulty(applyChannel(p.application), (p.required_docs || []).length)]
+      out = [...list].sort((a, b2) => diff(a) - diff(b2) || cashAmt(b2) - cashAmt(a))
+    }
     // 같은 프로그램 중복(문화누리 3중복 등) 접기 — 결과 뷰와 동일 기준. POL- 시드에만 적용, 외부 데이터는 그대로.
     return collapseProgramDuplicates(out)
   }, [dq, catalog, sort, aiMode, aiHits, passNonSearch])
@@ -451,7 +460,7 @@ export function Explore() {
         {/* 정렬·필터 */}
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <ArrowDownWideNarrow className="h-4 w-4 text-muted-foreground" />
-          {([['default', '기본순'], ['amount', '금액 높은순'], ['name', '이름순']] as [SortKey, string][]).map(([k, l]) => (
+          {([['default', '기본순'], ['amount', '금액 높은순'], ['ease', '신청 쉬운 순'], ['name', '이름순']] as [SortKey, string][]).map(([k, l]) => (
             <button key={k} onClick={() => setSort(k)}
               className={cn('rounded-full px-3 py-1.5 text-xs font-semibold border transition-colors', sort === k ? 'bg-sprout-700 border-sprout-700 text-white' : 'bg-white border-sprout-100 text-muted-foreground hover:border-sprout-200')}>
               {l}
@@ -504,7 +513,7 @@ export function Explore() {
       <div className="mt-5 flex items-center justify-between gap-2 flex-wrap">
         <p className="text-sm text-muted-foreground" role="status" aria-live="polite">
           {aiMode && aiHits ? <>🌍 <b className="text-foreground">AI</b>가 의미로 찾은 </> : '총 '}
-          <b className="text-foreground">{filtered.length}</b>개 정책{onlyCash ? ' · 현금 지원' : ''}{sort === 'amount' ? ' · 금액순' : sort === 'name' ? ' · 이름순' : ''}
+          <b className="text-foreground">{filtered.length}</b>개 정책{onlyCash ? ' · 현금 지원' : ''}{sort === 'amount' ? ' · 금액순' : sort === 'ease' ? ' · 신청 쉬운 순' : sort === 'name' ? ' · 이름순' : ''}
         </p>
         <Glossary />
       </div>
