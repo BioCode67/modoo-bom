@@ -5,7 +5,7 @@
 
 ### 라이브 데모 — https://biocode67.github.io/modoo-bom/
 ### 지금 바로 체험·설치 (웹 QR + 안드로이드 앱) — https://biocode67.github.io/app.html
-### 심사위원용 실행 가이드 — [docs/제출/심사위원-실행-가이드.md](docs/제출/심사위원-실행-가이드.md) (웹 0분 · 데스크탑앱 2분 · 인증 없이 보는 코스 포함)
+### 실행 가이드 — [docs/제출/심사위원-실행-가이드.md](docs/제출/심사위원-실행-가이드.md) (웹 0분 · 데스크탑앱 2분 · 인증 없이 보는 코스 포함)
 
 ### 시연 영상 — https://youtu.be/7hsiDM1Ej9s
 
