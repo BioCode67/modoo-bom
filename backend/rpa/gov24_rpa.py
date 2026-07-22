@@ -1567,6 +1567,8 @@ async def _issue_family_cert_efamily(page, task, context, user_info: dict = None
     #   '폼 캡처'가 붙는다(정직성). '등록기준지'는 가족관계증명서 서식의 고정 항목.
     #   ⚠️ 'final_page is not page'(새 창 열람)는 baseline 덕에 '이번 단계에서 새로 열린 창'만 참이다
     #      — 여정에서 이전 단계 잔류 창(등본 출력창)을 결과로 오인하던 것이 여기 반영돼 오보가 사라진다.
+    #   ⚠️ 정직성(감사): 그러나 '새 창' 단독은 '발급물 시도' 트리거일 뿐 '성공'이 아니다 — 점검/오류
+    #      팝업도 새 창이다. 실제 성공은 아래에서 genuine PDF 바이트 또는 '등록기준지' 신호로만 센다.
     really = ("등록기준지" in body_now) or (final_page is not page)
     saved = ""
     if really:
@@ -1653,7 +1655,20 @@ async def _issue_family_cert_efamily(page, task, context, user_info: dict = None
                 except Exception:
                     continue
             await asyncio.sleep(0.8)  # 확장 반영 대기
-            saved = await save_document(final_page, "가족관계증명서", name)
+            # ⚠️ 정직성(감사): save_document(스크린샷 폴백)는 '항상 성공'이라, 새 창만 뜬 점검/오류
+            #    화면도 여기서 성공으로 날조된다('final_page is not page' 단독 우회). 실제 증명서 신호
+            #    ('등록기준지' — 가족관계증명서 서식 고정 항목)를 프레임 전체에서 확인한 뒤에만 저장한다.
+            #    (원본 PDF 를 받은 경우는 위에서 이미 saved 라 여기 오지 않는다 — 그건 genuine 바이트.)
+            cert_text = body_now
+            for _fr in list(getattr(final_page, "frames", None) or []):
+                try:
+                    _t = await _fr.evaluate("() => document.body ? document.body.innerText : ''")
+                    if _t:
+                        cert_text += "\n" + _t
+                except Exception:
+                    continue
+            if "등록기준지" in cert_text:
+                saved = await save_document(final_page, "가족관계증명서", name)
     if saved:
         task.update(
             "done",

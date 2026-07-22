@@ -165,6 +165,18 @@ src/
   nhis·work24 제외), 그 수(≥2)일 때만 공유 세션 생성·`one_login=True`. 새 `gov_login_docs` 필드로 프론트
   배지를 '🔑 정부24 **N건** 로그인 1회'로 정확히 한정(별도 인증 서류를 '1회'로 끌어안지 않음). 로직 회귀
   테스트 2건 추가(`test_gov_session.py`, efamily on/off·nhis/work24 제외). pytest gov_session **11**·vitest **798**.
+- **정직성 하드닝 M1 — 발급 '전' 오보 + efamily 성공 게이트(2026-07-22)**: 위 배지(발급 '후')는 정직해졌으나
+  발급 '전' CTA 가 여전히 오보하던 정반대편 갭을 닫음. ① **발급 전 '한 번 인증' 게이팅** — `DocumentCenter`
+  CTA 5곳이 하드코딩 "한 번 인증으로 이어서"라, 건보·고용24만 골라도(별도 사이트 인증) 이를 약속했다.
+  순수 `lib/oneLogin.ts`(`sharedGovLoginCount`·`oneLoginNote` — 백엔드 `gov_login_doc_count` 미러링, 별도
+  인증 nhis·work24·efamily·nps 제외)로 정부24 공유 서류 ≥2 일 때만 '한 번 인증', 아니면 '각 기관에서 차례로'.
+  ② **여정 종결 요약 순수 lib 추출** — `pollJourney` 클로저 인라인이던 요약(발급=saved_path·신청=success·
+  '🔑 정부24 N건 로그인 1회'=one_login&&gov_login_docs>1)을 `lib/journeySummary.ts`(`summarizeJourney`·
+  `manualApplyCount`·`journeyTitleBadge`)로 뽑아 vitest 락. ③ **efamily 성공 게이트 강화** — 가족관계증명서
+  스크린샷 폴백 `save_document`가 '항상 성공'이라 `really`의 `final_page is not page`(새 창) 단독으로 점검/
+  오류 팝업까지 발급 성공으로 날조하던 것을, 실제 증명서 신호('등록기준지'를 프레임 전체 innerText 에서 확인)
+  뒤에만 저장하도록 게이팅(원본 PDF genuine 바이트 경로는 불변). vitest 신설 10건(oneLogin·journeySummary),
+  `test_rpa_honesty.py` 계약 1건. 전체 vitest **808**·pytest 정직성/세션 **34**.
 - 프론트 자동화 게이팅: `src/lib/useBackend.ts`(백엔드 감지) → 있으면 RPA(`AgentSubmitButton`/`DocumentCenter`), 없으면 가이드.
 
 ### 배포 — GitHub Pages (정적)
