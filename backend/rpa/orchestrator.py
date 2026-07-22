@@ -20,6 +20,33 @@ _JOURNEY_TERMINAL = ("completed", "error", "cancelled")
 _orphans: set = set()
 
 
+def _family_via_efamily() -> bool:
+    """가족관계증명서가 대법원 efamily(자체 인증) 경로로 발급되는지 — 기본 켜짐(gov24_rpa 와 동일 env).
+    efamily 는 정부24 로그인과 무관한 별도 인증이라, '정부24 로그인 1회' 공유 대상에서 빠진다."""
+    return os.getenv("RPA_FAMILY_EFAMILY", "1") != "0"
+
+
+def gov_login_doc_count(steps) -> int:
+    """여정에서 '정부24 로그인 1회'로 이어 발급되는 서류 수(공유 세션 실익·정직한 '1회' 주장의 기준).
+
+    ⚠️ 정직성: gov24 타입이라도 가족관계증명서는 efamily(대법원 별도 인증)로 라우팅되면 이 로그인을
+    공유하지 않는다 → 제외한다. 건보(nhis)·고용24(work24)는 애초에 gov24 타입이 아니라 자연히 빠진다.
+    이 수가 2 이상일 때만 공유 세션이 실익이 있고, 사용자에게 '로그인 인증 1회'라 말할 수 있다."""
+    from rpa.manager import _SUPPORTED_DOCS
+    efamily = _family_via_efamily()
+    n = 0
+    for s in steps:
+        if s.get("kind") != "doc":
+            continue
+        name = s.get("name", "")
+        if _SUPPORTED_DOCS.get(name, ("",))[0] != "gov24":
+            continue
+        if efamily and "가족관계" in name:
+            continue  # 대법원 efamily 별도 인증 — 정부24 공유 로그인 대상 아님
+        n += 1
+    return n
+
+
 def _evict_journeys() -> None:
     """상한 초과 시 '끝난' 여정 중 가장 오래된 것부터 제거 — 장기 구동 데스크탑 에이전트의
     좀비 여정 무한 누적(감사 :13) 방지. 진행 중 여정은 절대 지우지 않는다(폴링 404 방지)."""
@@ -213,19 +240,21 @@ async def _run_journey(jid, user_info, profile):
     user_name = j["user_name"]
     cancelled = False
 
-    from rpa.manager import queued_slot, _TASK_TIMEOUT, _SUPPORTED_DOCS
-    # 🔑 '진짜 한 번 인증' — 정부24 서류가 2종 이상이면 여정 공유 브라우저 세션을 만든다.
+    from rpa.manager import queued_slot, _TASK_TIMEOUT
+    # 🔑 '진짜 한 번 인증' — 정부24 로그인을 공유하는 서류가 2종 이상이면 여정 공유 브라우저 세션을 만든다.
     #    첫 서류가 로그인하면 나머지는 같은 세션으로 폼 직행(카카오 로그인 인증 1회).
     #    1종뿐이면 기존 단독 실행 그대로(발급 후 60초 수동저장 유예 유지 — 동작 불변).
+    #    ⚠️ 정직성: 가족관계증명서(efamily 별도 인증)·건보·고용24 는 이 로그인을 공유하지 않아 세지 않는다
+    #    → '1회' 주장이 실제 사용자 인증 횟수와 어긋나지 않게(gov_login_doc_count, 감사 확정).
     from rpa.session import GovSession, close_quietly
-    _gov_doc_count = sum(1 for s in j["steps"]
-                         if s["kind"] == "doc" and _SUPPORTED_DOCS.get(s["name"], ("",))[0] == "gov24")
+    _gov_doc_count = gov_login_doc_count(j["steps"])
     #    안전밸브: 실사이트에서 공유 세션이 문제를 일으키면 RPA_ONE_LOGIN=0 으로 즉시 기존
     #    '서류별 개별 브라우저' 방식 복귀(코드 수정·재빌드 불필요 — 데모 직전 리스크 차단).
     import os as _os
     _one_login_on = _os.getenv("RPA_ONE_LOGIN", "1") != "0"
     gov_session = GovSession() if (_gov_doc_count >= 2 and _one_login_on) else None
     j["one_login"] = gov_session is not None  # UI 요약에 '🔑 로그인 인증 1회' 표기용(정직한 사실만)
+    j["gov_login_docs"] = _gov_doc_count if gov_session is not None else 0  # 실제로 그 1회를 공유한 서류 수
     try:
         for step in j["steps"]:
             # 여정 중단 요청 시 남은 단계는 시작하지 않는다(다음 단계 브라우저가 안 뜨게 — 감사 :123)

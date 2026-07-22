@@ -711,12 +711,15 @@ export function DocumentCenter() {
           {
             const steps = j.steps || []
             const oneLogin = !!(j as { one_login?: boolean }).one_login // 백엔드 사실 플래그 — 공유 세션 여정만 true
+            // 🔑 실제로 '정부24 로그인 1회'를 공유한 서류 수(가족관계·건보·고용24는 별도 인증이라 제외됨).
+            //    배지를 전체 발급 건수가 아니라 이 수로 한정해, 별도 인증한 서류까지 '1회'로 오보하지 않는다(정직성).
+            const govLoginDocs = Number((j as { gov_login_docs?: number }).gov_login_docs || 0)
             const issued = steps.filter((sp) => sp.kind !== 'apply' && sp.saved_path).length
             const skipped = steps.filter((sp) => sp.status === 'cancelled').length
             const prepared = steps.filter((sp) => sp.kind === 'apply' && ['done', 'completed'].includes(sp.status) && sp.success === true).length
             const manual = steps.filter((sp) => sp.kind === 'apply' && ['done', 'completed'].includes(sp.status) && sp.success !== true).length
             const parts = [
-              issued > 0 ? `서류 ${issued}건 발급${oneLogin && issued > 1 ? ' (🔑 로그인 인증 1회)' : ''}` : '',
+              issued > 0 ? `서류 ${issued}건 발급${oneLogin && govLoginDocs > 1 ? ` (🔑 정부24 ${govLoginDocs}건 로그인 1회)` : ''}` : '',
               skipped > 0 ? `${skipped}건 건너뜀` : '',
               prepared > 0 ? `신청 양식 ${prepared}건 준비(제출은 본인 확인 후)` : '',
               manual > 0 ? `신청 ${manual}건 직접 진행 필요` : '',

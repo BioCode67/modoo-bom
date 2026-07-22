@@ -156,6 +156,15 @@ src/
   '문서 단계 1회 자동 재시도'(자가 치유)까지 발동 — 미발급 else 라 이중발급 없고, 여정 성공은 `result.success`
   로 세므로 완료 집계 무영향. 조기 return 도 호출부 60초 유예+`browser.close()` 유지(누수·유예 손실 없음).
   소스 계약 회귀 락 4건 추가(`test_rpa_honesty.py`, 들여쓰기 무관 파싱). 전 배터리 pytest **330**·vitest **785**.
+- **정직성 파리티 — '로그인 인증 1회' 오보 금지(2026-07-22)**: 여정의 `one_login`/요약 배지가 **실제 인증
+  횟수와 어긋나던 것** 수정. `_gov_doc_count` 가 가족관계증명서를 gov24 로 세지만 기본값에선 대법원
+  **efamily 별도 인증**으로 라우팅(`RPA_FAMILY_EFAMILY=1`)되고, 건보(nhis)·고용24(work24)도 각자 별도
+  카카오 인증이다. 그런데 요약 배지는 이들까지 포함한 **전체 발급 건수** 옆에 '🔑 로그인 인증 1회'를 붙여,
+  원클릭 연쇄(등본+건보+고용+가족관계가 흔함)에서 **여러 번 인증한 걸 1회로 오보**했다. → 순수 함수
+  `gov_login_doc_count`(orchestrator)로 **정부24 로그인을 실제로 공유하는 서류만** 세고(efamily 가족관계·
+  nhis·work24 제외), 그 수(≥2)일 때만 공유 세션 생성·`one_login=True`. 새 `gov_login_docs` 필드로 프론트
+  배지를 '🔑 정부24 **N건** 로그인 1회'로 정확히 한정(별도 인증 서류를 '1회'로 끌어안지 않음). 로직 회귀
+  테스트 2건 추가(`test_gov_session.py`, efamily on/off·nhis/work24 제외). pytest gov_session **11**·vitest **798**.
 - 프론트 자동화 게이팅: `src/lib/useBackend.ts`(백엔드 감지) → 있으면 RPA(`AgentSubmitButton`/`DocumentCenter`), 없으면 가이드.
 
 ### 배포 — GitHub Pages (정적)
