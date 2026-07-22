@@ -6,6 +6,7 @@ import { usePolicyMap } from '@/data/useCatalog'
 import { useAppStore } from '@/store/useAppStore'
 import { buildDocPlan, docPlanToText, type DocNeed, type DocNeedStatus } from '@/lib/docPlan'
 import { freshnessLabel, freshnessTone } from '@/lib/docValidity'
+import { docGuide } from '@/lib/docGuide'
 import { cn } from '@/lib/utils'
 
 const STATUS_UI: Record<DocNeedStatus, { badge: string; label: string; emoji: string }> = {
@@ -149,6 +150,27 @@ function DocRow({ need, expanded, onToggle, onOpenPolicy }: {
               <RefreshCw className="h-3 w-3" /> {need.issuable ? '아래 [서류 준비]에서 다시 발급할 수 있어요.' : '발급처에서 최신 서류로 다시 받으세요.'}
             </p>
           )}
+          {/* 발급 방법 안내 — 어디서 어떻게 떼는지 */}
+          {(() => {
+            const g = docGuide(need.name)
+            if (!g) return null
+            return (
+              <div className="mb-2">
+                <p className="text-[11px] text-muted-foreground mb-1">발급 방법{g.fee === 'free' ? ' · 무료' : g.fee === 'paid' ? ' · 유료' : ''}{g.note ? ` · ${g.note}` : ''}</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {g.channels.map((c, i) => (
+                    c.url ? (
+                      <a key={i} href={c.url} target="_blank" rel="noopener noreferrer" className="chip bg-sky2-50 text-sky2-700 hover:bg-sky2-100 transition-colors text-xs">
+                        {c.label}{c.detail ? ` · ${c.detail}` : ''}
+                      </a>
+                    ) : (
+                      <span key={i} className="chip bg-muted text-muted-foreground text-xs">{c.label}{c.detail ? ` · ${c.detail}` : ''}</span>
+                    )
+                  ))}
+                </div>
+              </div>
+            )
+          })()}
           <p className="text-[11px] text-muted-foreground mb-1">이 서류가 필요한 신청</p>
           <div className="flex flex-wrap gap-1.5">
             {need.policies.map((p) => (
