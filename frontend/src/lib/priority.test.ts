@@ -76,4 +76,14 @@ describe('rankPolicies — 정렬 + 근거', () => {
     expect(rankPolicies([])).toEqual([])
     expect(rankPolicies([null as unknown as Policy])).toEqual([])
   })
+
+  it('필드 누락 정책도 크래시 없이 처리(외부 policies.json 방어)', () => {
+    // benefit·application·required_docs 등이 없는 부분 데이터
+    const bad = { id: 'X', name: '누락정책', category: '기타' } as unknown as Policy
+    const r = rankPolicies([bad])
+    expect(r.length).toBe(1)
+    expect(r[0].score).toBeGreaterThanOrEqual(0)
+    expect(r[0].score).toBeLessThanOrEqual(100)
+    expect(r[0].monthly).toBe(0) // benefit 없음 → 현금성 0
+  })
 })
