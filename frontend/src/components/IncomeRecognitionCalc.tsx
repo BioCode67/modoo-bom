@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react'
-import { Home, Wallet, Landmark, Car, Info, ChevronDown } from 'lucide-react'
+import { Home, Wallet, Landmark, Car, Info, ChevronDown, TrendingUp } from 'lucide-react'
 import {
   computeRecognition, recognitionPercentile, judgeBenefits, parseAmount,
   BASIC_PROPERTY, REGION_LABEL, type RegionKind,
 } from '@/lib/incomeRecognition'
+import { benefitCeilings, nearestCeiling } from '@/lib/benefitCeiling'
 import { medianIncome, isApprox, MEDIAN_YEAR, won } from '@/lib/medianIncome'
 import { cn } from '@/lib/utils'
 
@@ -51,15 +52,21 @@ export function IncomeRecognitionCalc({ initialSize = 1 }: { initialSize?: numbe
   const set = (k: keyof ReturnType<typeof emptyFields>) => (v: string) => setF((s) => ({ ...s, [k]: v }))
   const pickRegion = (r: RegionKind) => { setRegion(r); setF((s) => ({ ...s, basicProperty: String(BASIC_PROPERTY[r]) })) }
 
-  const result = useMemo(() => computeRecognition(
-    { earned: parseAmount(f.earned), other: parseAmount(f.other), careExpense: parseAmount(f.careExpense) },
-    { residential: parseAmount(f.residential), general: parseAmount(f.general), financial: parseAmount(f.financial), car: parseAmount(f.car) },
-    { basicProperty: parseAmount(f.basicProperty), debt: parseAmount(f.debt), carExempt },
-  ), [f, carExempt])
+  // 입력을 구조화(정계산·역산이 같은 값을 공유) — 재렌더마다 한 번만 파싱
+  const income = useMemo(() => ({ earned: parseAmount(f.earned), other: parseAmount(f.other), careExpense: parseAmount(f.careExpense) }), [f.earned, f.other, f.careExpense])
+  const property = useMemo(() => ({ residential: parseAmount(f.residential), general: parseAmount(f.general), financial: parseAmount(f.financial), car: parseAmount(f.car) }), [f.residential, f.general, f.financial, f.car])
+  const opts = useMemo(() => ({ basicProperty: parseAmount(f.basicProperty), debt: parseAmount(f.debt), carExempt }), [f.basicProperty, f.debt, carExempt])
+
+  const result = useMemo(() => computeRecognition(income, property, opts), [income, property, opts])
+  const ceilings = useMemo(
+    () => benefitCeilings({ size, currentTotal: result.total, property, opts, other: income.other, careExpense: income.careExpense }),
+    [size, result.total, property, opts, income.other, income.careExpense],
+  )
 
   const pct = recognitionPercentile(result.total, size)
   const benefits = judgeBenefits(result.total, size)
   const hasInput = result.total > 0
+  const near = nearestCeiling(ceilings)
 
   return (
     <div className="mt-3 rounded-2xl border border-sky2-100 bg-sky2-50/40 p-3.5">
@@ -156,6 +163,33 @@ export function IncomeRecognitionCalc({ initialSize = 1 }: { initialSize?: numbe
           ) : (
             <p className="mt-2 text-[11px] text-muted-foreground">기초생활보장 급여 기준(중위 50% 이하)보다 높아요. 그래도 받을 수 있는 다른 복지가 많아요.</p>
           )
+        )}
+      </div>
+
+      {/* 역산 — 얼마까지 벌어도 자격이 되나(급여별 근로소득 상한) */}
+      <div className="mt-3 rounded-xl bg-white border border-sky2-100 p-3">
+        <p className="flex items-center gap-1.5 text-sm font-extrabold text-foreground"><TrendingUp className="h-4 w-4 text-sky2-600" /> 얼마까지 벌어도 되나</p>
+        <p className="mt-0.5 text-[11px] text-muted-foreground">지금 재산 그대로일 때, 급여별로 <b>근로·사업소득</b>이 월 얼마 이하여야 자격이 유지되는지예요.</p>
+        <ul className="mt-2 space-y-1">
+          {ceilings.map((c) => (
+            <li key={c.key} className="flex items-center justify-between gap-2 text-xs">
+              <span className="flex items-center gap-1.5">
+                <span className={cn('inline-block h-1.5 w-1.5 rounded-full', c.eligibleNow ? 'bg-success-500' : 'bg-rose-300')} />
+                <span className="font-semibold">{c.emoji} {c.label}</span>
+                <span className="text-[10px] text-muted-foreground">≤{c.pct}%</span>
+              </span>
+              {c.maxEarned === null ? (
+                <span className="font-bold text-rose-600">재산만으로 초과</span>
+              ) : (
+                <span className="tabular-nums font-bold text-sky2-700">월 {won(c.maxEarned)} 이하</span>
+              )}
+            </li>
+          ))}
+        </ul>
+        {near && (
+          <p className="mt-2 rounded-lg bg-amber-50 px-2.5 py-1.5 text-[11px] text-amber-800">
+            💡 지금은 <b>{near.emoji} {near.label}</b> 기준까지 소득인정액 여유가 <b>{won(Math.max(0, near.headroom))}</b>이에요. 이보다 더 늘면 이 급여 경계를 넘어요.
+          </p>
         )}
       </div>
 
