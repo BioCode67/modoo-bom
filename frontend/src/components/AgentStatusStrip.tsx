@@ -82,8 +82,9 @@ export function AgentStatusStrip() {
     if (await copyAgentDiagnostic()) { setDiagDone(true); setTimeout(() => setDiagDone(false), 2500) }
   }
 
-  // 🎬 흐름 기록 복사 — record-flow.bat 로 실행하며 자동발급/신청을 한 번 진행하면 '지나간 화면들'의 구조가
-  //   쌓인다(값 없음). 이 버튼이 그걸 한 덩어리로 복사 → 개발자가 스샷 없이 다음 화면·새 팝업까지 한 번에 파악.
+  // 🎬 흐름 기록 복사 — run-local-app.bat 로 앱을 켜면 흐름 기록(RPA_FLOW_RECORD=1)이 자동으로 켜져,
+  //   자동발급/신청을 한 번 진행하면 '지나간 화면들'의 구조가 쌓인다(값 없음). 이 버튼이 그걸 한 덩어리로
+  //   복사 → 개발자가 스샷 없이 다음 화면·새 팝업까지 한 번에 파악.
   const copyFlow = async () => {
     if (await copyFlowRecord()) { setFlowDone(true); setTimeout(() => setFlowDone(false), 2500) }
   }

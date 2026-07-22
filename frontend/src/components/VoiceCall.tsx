@@ -288,7 +288,7 @@ export function VoiceCall({ open, onClose, presetLang, onTranscript, briefing }:
               value={lang}
               onChange={(e) => changeLang(e.target.value)}
               aria-label="상담 언어 선택 (Language)"
-              className="rounded-2xl border-2 border-sprout-200 bg-white px-2 text-sm font-semibold shrink-0"
+              className="rounded-2xl border-2 border-sprout-200 bg-white px-3 text-base font-bold shrink-0"
             >
               {Object.entries(VOICE_LANGS).map(([code, s]) => (
                 <option key={code} value={code}>{s.flag} {s.label}</option>
