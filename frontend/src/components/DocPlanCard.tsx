@@ -7,6 +7,7 @@ import { useAppStore } from '@/store/useAppStore'
 import { buildDocPlan, docPlanToText, type DocNeed, type DocNeedStatus } from '@/lib/docPlan'
 import { freshnessLabel, freshnessTone } from '@/lib/docValidity'
 import { docGuide } from '@/lib/docGuide'
+import { batchableGroups } from '@/lib/docPortalGroups'
 import { cn } from '@/lib/utils'
 
 const STATUS_UI: Record<DocNeedStatus, { badge: string; label: string; emoji: string }> = {
@@ -81,6 +82,28 @@ export function DocPlanCard({ onOpen }: { onOpen?: (p: Policy) => void }) {
                 <span><b>{plan.topReuse.name}</b> 하나면 <b>{plan.topReuse.policies.length}개</b> 신청에 함께 써요 — 한 번만 발급하면 돼요.</span>
               </div>
             )}
+
+            {/* 발급처별 묶음 — 한 번 로그인으로 여러 장 연속 발급 */}
+            {(() => {
+              const batches = batchableGroups(plan.needs.map((n) => n.name))
+              return batches.length > 0 ? (
+                <div className="mt-3 rounded-xl bg-sky2-50/50 border border-sky2-100 px-3 py-2">
+                  <p className="text-[11px] font-bold text-sky2-800">💡 한 번 로그인으로 여러 장 발급</p>
+                  <ul className="mt-1 flex flex-col gap-1">
+                    {batches.map((b) => (
+                      <li key={b.portal} className="text-[11px]">
+                        {b.url ? (
+                          <a href={b.url} target="_blank" rel="noopener noreferrer" className="font-bold text-sky2-700 hover:underline">{b.portal}</a>
+                        ) : (
+                          <span className="font-bold text-foreground">{b.portal}</span>
+                        )}
+                        <span className="text-muted-foreground"> — {b.docs.join(' · ')} ({b.docs.length}종)</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null
+            })()}
 
             {/* 상태 요약 칩 */}
             <div className="mt-3 flex flex-wrap gap-1.5 text-[11px] font-bold">
