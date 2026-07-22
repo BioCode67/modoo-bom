@@ -2,6 +2,8 @@ import type { Policy } from '@/data/policies'
 import { issuableCanonical } from '@/lib/docAliases'
 import { isRpaSupported } from '@/lib/officialLinks'
 import { evaluateDoc, freshnessLabel, type DocValidity } from '@/lib/docValidity'
+import { docGuide, guideSummary } from '@/lib/docGuide'
+import { batchableGroups } from '@/lib/docPortalGroups'
 
 /**
  * 필요 서류 통합 플랜 — 담아둔(추적 중인) 여러 복지의 required_docs 를 한데 모아
@@ -163,7 +165,15 @@ export function docPlanToText(plan: DocPlan): string {
     const auto = n.issuable ? ' · 자동발급 대상' : ''
     const life = n.validity && n.validity.freshness !== 'permanent' ? ` (${freshnessLabel(n.validity)})` : ''
     lines.push(`${mark[n.status]} ${n.name}${reuse}${auto}${life}`)
+    const g = docGuide(n.name)
+    if (g) lines.push(`    발급: ${guideSummary(g)}`)
     lines.push(`    ↳ ${n.policies.map((p) => p.name).join(', ')}`)
+  }
+  // 한 번 로그인으로 여러 장 뗄 수 있는 발급처 묶음
+  const batches = batchableGroups(plan.needs.map((n) => n.name))
+  if (batches.length > 0) {
+    lines.push('', '[한 번 로그인으로 여러 장]')
+    for (const b of batches) lines.push(`• ${b.portal}: ${b.docs.join(' · ')} (${b.docs.length}종)`)
   }
   lines.push('', '※ 유효기간은 통상 기준이며, 실제 인정 여부는 접수 기관 요구가 우선입니다.')
   return lines.join('\n')

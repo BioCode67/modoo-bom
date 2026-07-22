@@ -152,7 +152,14 @@ describe('docPlanToText — 사람이 읽는 요약', () => {
     expect(txt).toMatch(/필요 서류 정리/)
     expect(txt).toMatch(/주민등록등본/)
     expect(txt).toMatch(/2개 신청 공용/)
+    expect(txt).toMatch(/발급: .*정부24/) // 발급 방법 동봉
     expect(txt).toMatch(/접수 기관 요구가 우선/)
+  })
+  it('발급처 묶음(한 번 로그인) 섹션 — 정부24 2종', () => {
+    const A = P('POL-1', '기초연금', ['주민등록등본', '장애인증명서'])
+    const txt = docPlanToText(buildDocPlan(track('POL-1'), mapOf(A), {}, NOW))
+    expect(txt).toMatch(/한 번 로그인으로 여러 장/)
+    expect(txt).toMatch(/정부24:/)
   })
   it('빈 플랜은 안내 한 줄', () => {
     expect(docPlanToText(buildDocPlan([], {}, {}, NOW))).toMatch(/서류 정보가 없습니다/)
