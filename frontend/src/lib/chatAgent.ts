@@ -7,6 +7,7 @@ import { searchPolicies } from '@/lib/search'
 import { buildActionFeed } from '@/lib/monitoring'
 import { parseMonthly, formatWon, isCashBenefit } from '@/lib/format'
 import { medianIncome, BENEFIT_THRESHOLDS } from '@/lib/medianIncome'
+import { rankPolicies } from '@/lib/priority'
 import { applyLink } from '@/lib/officialLinks'
 
 /**
@@ -72,6 +73,8 @@ export function greetingReply(profile: UserProfile | null, tracked: TrackedItem[
 const ELIG_RE = /(내가|나).*(받|대상|자격|해당)|받을\s*수\s*있|자격|대상.*되|혜택.*뭐|뭐.*받|추천|어떤.*복지|맞는.*복지/
 // 소득 기준(얼마까지 벌어도 되나) 질문 — 자격(ELIG)보다 먼저 잡아 소득 상한표로 답한다.
 const INCOME_RE = /(소득|수입|중위소득|소득인정액)\s*(기준|얼마|상한|조건|제한|컷|커트라인|몇\s*%|퍼센트|되)|얼마(까지|나)?\s*(벌|버는|버시|소득|수입)|(벌어도|벌면|버는데)\s*(되|받|자격|대상)/
+// 우선순위(뭐부터 신청?) 질문 — 자격(ELIG)보다 먼저 잡아 점수순 추천으로 답한다.
+const PRIORITY_RE = /우선\s*순위|뭐\s*부터|무엇\s*부터|어떤\s*(것|거)\s*(부터|먼저)|먼저\s*(신청|해야|챙|받)|신청\s*순서|가장\s*급한|제일\s*(중요|급)/
 const GREET_RE = /^(안녕|하이|hello|hi|반가|ㅎㅇ)/i
 
 /** 저장된 분석결과/프로필로 '내가 받을 수 있는' 질문에 개인화 답변 */
@@ -322,9 +325,27 @@ export function incomeThresholdReply(): AgentReply {
   }
 }
 
+/** 우선순위 안내 — 담은(없으면 분석결과) 복지를 점수순으로 '먼저 챙기세요' */
+export function priorityReply(result: AnalysisResult | null, tracked: TrackedItem[]): AgentReply {
+  const map = getPolicyMap()
+  const pool = tracked.length
+    ? tracked.map((t) => map[t.policyId]).filter((p): p is Policy => !!p)
+    : (result?.eligible_policies ?? [])
+  const ranked = rankPolicies(pool).slice(0, 3)
+  if (ranked.length === 0) {
+    return { text: '먼저 어떤 복지가 되는지 분석해볼까요? 담아둔 복지가 있으면 금액·시급성·확실성으로 신청 순서를 매겨드려요.', cta: { view: 'analyze', label: '내 복지 분석' } }
+  }
+  const lines = ranked.map((r, i) => `${i + 1}. ${r.policy.name} (${r.score}점 · 신청 ${['쉬움', '보통', '어려움'][['easy', 'medium', 'hard'].indexOf(r.difficulty)]})`)
+  return {
+    text: `이 순서로 챙기시길 추천해요 (금액·시급성·자격 확실성·신청 편의 종합):\n${lines.join('\n')}\n\n‘나의 복지’에서 항목별 점수 근거도 볼 수 있어요.`,
+    policies: ranked.map((r) => r.policy as Policy),
+    cta: { view: 'my', label: '우선순위 자세히' },
+  }
+}
+
 export function isLocalIntent(raw: string): boolean {
   const q = raw.trim()
-  return GREET_RE.test(q) || DOCS_RE.test(q) || APPLY_RE.test(q) || INCOME_RE.test(q) || ELIG_RE.test(q)
+  return GREET_RE.test(q) || DOCS_RE.test(q) || APPLY_RE.test(q) || INCOME_RE.test(q) || PRIORITY_RE.test(q) || ELIG_RE.test(q)
 }
 
 /** 메인 진입점 — 자유문장을 의도로 나눠 개인화·행동형으로 응답 */
@@ -343,6 +364,8 @@ export function agentReply(raw: string, ctx: { profile: UserProfile | null; resu
     const doc = matchIssueIntent(q, ctx.issueDocs)
     if (doc) return issueReply(doc)
   }
+  // 우선순위('뭐부터 신청?')는 방법(APPLY '신청 해야')·자격(ELIG)보다 먼저 — 순서 신호가 가장 구체적.
+  if (PRIORITY_RE.test(q)) return priorityReply(ctx.result, ctx.tracked ?? [])
   if (DOCS_RE.test(q)) return docsReply(ctx.tracked ?? [], ctx.agentOn ?? false)
   if (APPLY_RE.test(q)) return applyReply(ctx.tracked ?? [], ctx.agentOn ?? false)
   // 소득 기준 질문은 자격(ELIG)보다 먼저 — '얼마까지 벌어도 받아요?'를 상한표로 답한다.

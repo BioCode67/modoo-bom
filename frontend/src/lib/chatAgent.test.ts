@@ -90,6 +90,27 @@ describe('agentReply — 소득 기준(얼마까지 벌어도 되나) 인텐트'
   })
 })
 
+describe('agentReply — 우선순위(뭐부터 신청?) 인텐트', () => {
+  it('"뭐부터 신청해야 해?" → 점수순 추천 + 나의복지 CTA', () => {
+    const r = agentReply('뭐부터 신청해야 해?', { profile, result, tracked: [] })
+    expect(r.text).toMatch(/순서로 챙기/)
+    expect(r.text).toMatch(/기초연금/)
+    expect((r.policies ?? []).length).toBeGreaterThan(0)
+    expect(r.cta?.view).toBe('my')
+  })
+  it('담은 것·결과 모두 없으면 분석 유도', () => {
+    const r = agentReply('우선순위 알려줘', { profile: null, result: null, tracked: [] })
+    expect(r.cta?.view).toBe('analyze')
+  })
+  it('"뭐 받을 수 있어?"(자격)는 우선순위 인텐트가 아니다', () => {
+    const r = agentReply('뭐 받을 수 있어?', { profile, result, tracked: [] })
+    expect(r.text).not.toMatch(/순서로 챙기/)
+  })
+  it('isLocalIntent가 우선순위 질문을 로컬 처리', () => {
+    expect(isLocalIntent('뭐부터 신청해?')).toBe(true)
+  })
+})
+
 const mkP = (id: string, name: string): Policy =>
   ({ id, name, category: '', target: '', benefit: '', eligibility: '', application: '', required_docs: [], department: '', renewal: '' } as Policy)
 const ctx = [mkP('A', '기초연금'), mkP('B', '아동수당'), mkP('C', '주거급여')]
