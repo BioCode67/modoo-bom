@@ -6,7 +6,7 @@ import {
 } from '@/lib/incomeRecognition'
 import { benefitCeilings, nearestCeiling } from '@/lib/benefitCeiling'
 import { diffScenarios } from '@/lib/scenarioDiff'
-import { medianIncome, isApprox, MEDIAN_YEAR, won } from '@/lib/medianIncome'
+import { medianIncome, isApprox, MEDIAN_YEAR, won, livelihoodPayment } from '@/lib/medianIncome'
 import { cn } from '@/lib/utils'
 
 /**
@@ -70,6 +70,8 @@ export function IncomeRecognitionCalc({ initialSize = 1, onApply }: { initialSiz
   const hasInput = result.total > 0
   const near = nearestCeiling(ceilings)
   const diff = snapshot ? diffScenarios(snapshot, { total: result.total, size }) : null
+  // 생계급여 자격이 되면 실지급 추정 = 생계급여 기준액(중위32%) − 소득인정액 (공식 그대로, 소득인정액 사용이라 간이 계산보다 정확)
+  const livelihood = livelihoodPayment(size, result.total)
 
   return (
     <div className="mt-3 rounded-2xl border border-sky2-100 bg-sky2-50/40 p-3.5">
@@ -166,6 +168,11 @@ export function IncomeRecognitionCalc({ initialSize = 1, onApply }: { initialSiz
           ) : (
             <p className="mt-2 text-[11px] text-muted-foreground">기초생활보장 급여 기준(중위 50% 이하)보다 높아요. 그래도 받을 수 있는 다른 복지가 많아요.</p>
           )
+        )}
+        {hasInput && livelihood > 0 && (
+          <div className="mt-2 rounded-lg bg-sprout-50 border border-sprout-100 px-2.5 py-1.5">
+            <p className="text-xs"><b className="text-sprout-700">예상 생계급여</b> 월 약 <b className="text-sprout-700 tabular-nums">{won(livelihood)}</b> <span className="text-[10px] text-muted-foreground">(생계급여 기준액 − 소득인정액)</span></p>
+          </div>
         )}
       </div>
 
