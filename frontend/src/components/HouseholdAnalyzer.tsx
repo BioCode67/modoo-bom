@@ -4,8 +4,11 @@ import { Users, Plus, Trash2, ChevronRight } from 'lucide-react'
 import { getEligiblePolicies, type UserProfile, type EligiblePolicy } from '@/lib/welfare-engine'
 import type { Policy } from '@/data/policies'
 import { formatWon, categoryMeta, sumCashMonthly } from '@/lib/format'
+import { classifyHousehold } from '@/lib/householdType'
 import { useAppStore } from '@/store/useAppStore'
 import { cn } from '@/lib/utils'
+
+const HH_SELECT_TYPES = ['일반가구', '한부모가족', '다문화가족', '조손가구', '1인가구']
 
 interface Member {
   id: string
@@ -67,6 +70,10 @@ export function HouseholdAnalyzer({ onOpen }: { onOpen: (p: Policy | EligiblePol
     return { per, uniqueCount: uniq.size, refTotal }
   }, [members, income, household])
 
+  // 구성원(관계·나이)으로 가구유형 자동 판별 — 수동 드롭다운 선택을 도와준다
+  const hh = useMemo(() => classifyHousehold(members.map((m) => ({ relation: m.relation, age: m.age }))), [members])
+  const canApplyHh = HH_SELECT_TYPES.includes(hh.type) && hh.type !== household
+
   const update = (id: string, patch: Partial<Member>) =>
     setMembers((ms) => ms.map((m) => (m.id === id ? { ...m, ...patch } : m)))
 
@@ -83,8 +90,16 @@ export function HouseholdAnalyzer({ onOpen }: { onOpen: (p: Policy | EligiblePol
         ))}
         <span className="ml-2 text-xs font-bold text-muted-foreground">가구 형태</span>
         <select aria-label="가구 형태" value={household} onChange={(e) => setHousehold(e.target.value)} className="rounded-lg border border-sprout-100 px-2 py-1 text-xs">
-          {['일반가구', '한부모가족', '다문화가족', '조손가구', '1인가구'].map((h) => <option key={h}>{h}</option>)}
+          {HH_SELECT_TYPES.map((h) => <option key={h}>{h}</option>)}
         </select>
+      </div>
+
+      {/* 구성 기반 가구유형 자동 판별 힌트 */}
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+        <span className="text-muted-foreground">🏷 구성으로 보면 <b className="text-foreground">{hh.type}</b>{hh.flags.length > 0 && <span className="text-muted-foreground"> · {hh.flags.join('·')}</span>}</span>
+        {canApplyHh && (
+          <button onClick={() => setHousehold(hh.type)} className="chip chip-sprout">이 유형으로 설정</button>
+        )}
       </div>
 
       {/* 가구 요약 */}
