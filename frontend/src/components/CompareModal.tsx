@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { X } from 'lucide-react'
 import type { Policy } from '@/data/policies'
 import { parseMonthly, formatWon, categoryMeta, isCashBenefit } from '@/lib/format'
+import { eligibilityConditions, conditionsToText } from '@/lib/eligibilityConditions'
 import { useModalFocus } from '@/hooks/useModalFocus'
 
 export function CompareModal({ policies, onClose }: { policies: Policy[]; onClose: () => void }) {
@@ -14,6 +15,8 @@ export function CompareModal({ policies, onClose }: { policies: Policy[]; onClos
     // 이름·분류를 context로 넘겨 '장기요양(재가급여)' 같은 서비스 한도액을 현금으로 과장하지 않게(감사 HIGH, PolicyCard와 동일).
     { label: '예상 월 혜택', get: (p) => { const m = isCashBenefit(p.benefit, `${p.name} ${p.category}`) ? parseMonthly(p.benefit) : 0; return m > 0 ? `월 ${formatWon(m)}` : '상세 확인' } },
     { label: '지원 대상', get: (p) => p.target },
+    // 자격 자유서술을 스캔 가능한 요약으로(연령·소득·대상군·지역) — 나란히 비교하기 쉽게
+    { label: '자격 조건(요약)', get: (p) => conditionsToText(eligibilityConditions(p)) || '상세 확인' },
     { label: '필요 서류', get: (p) => p.required_docs.join(', ') },
     { label: '신청처', get: (p) => p.application },
     { label: '담당', get: (p) => p.department },

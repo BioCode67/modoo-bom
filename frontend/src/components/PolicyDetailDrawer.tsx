@@ -9,6 +9,7 @@ import type { EligiblePolicy } from '@/lib/welfare-engine'
 import { generateGuides, matchFacts } from '@/lib/welfare-engine'
 import { EligibilityExplainer } from '@/components/EligibilityExplainer'
 import { docCoverage, coverageLabel } from '@/lib/docCoverage'
+import { ConditionChips, BenefitBreakdownView } from '@/components/PolicyConditionChips'
 import { categoryMeta, parseMonthly, formatWon, isCashBenefit, PRIORITY_META } from '@/lib/format'
 import { deadlineHint } from '@/lib/deadline'
 import { docLink, isApplyAutomatable } from '@/lib/officialLinks'
@@ -324,11 +325,15 @@ function DrawerBody({
               <Section title={`💰 ${tr(uiLang,'benefit')}`}>
                 {monthly > 0 && <p className="text-2xl font-extrabold text-sprout-700 mb-1">월 {formatWon(monthly)}까지</p>}
                 <TermText text={policy.benefit} className="text-sm text-foreground/80 leading-relaxed block" />
+                {/* 합산형 금액이면 '기초 + 부가 = 합계' 구성 분해 */}
+                <BenefitBreakdownView benefit={policy.benefit} />
               </Section>
               <Section title={`🎯 ${tr(uiLang,'target')}`}>
                 <TermText text={policy.target} className="text-sm text-foreground/80 leading-relaxed block" />
               </Section>
               <Section title={`📋 ${tr(uiLang,'eligibility')}`}>
+                {/* 자격 자유서술을 스캔 가능한 조건 칩으로 요약(연령·소득·대상·지역) */}
+                <ConditionChips policy={policy} />
                 <TermText text={policy.eligibility} className="text-sm text-foreground/80 leading-relaxed block" />
               </Section>
             </>
