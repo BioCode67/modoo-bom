@@ -5,6 +5,7 @@ import {
   BASIC_PROPERTY, REGION_LABEL, type RegionKind,
 } from '@/lib/incomeRecognition'
 import { benefitCeilings, nearestCeiling } from '@/lib/benefitCeiling'
+import { diffScenarios } from '@/lib/scenarioDiff'
 import { medianIncome, isApprox, MEDIAN_YEAR, won } from '@/lib/medianIncome'
 import { cn } from '@/lib/utils'
 
@@ -48,6 +49,7 @@ export function IncomeRecognitionCalc({ initialSize = 1 }: { initialSize?: numbe
   const [f, setF] = useState(() => emptyFields('metro'))
   const [carExempt, setCarExempt] = useState(false)
   const [showAdvanced, setShowAdvanced] = useState(false)
+  const [snapshot, setSnapshot] = useState<{ total: number; size: number } | null>(null)
 
   const set = (k: keyof ReturnType<typeof emptyFields>) => (v: string) => setF((s) => ({ ...s, [k]: v }))
   const pickRegion = (r: RegionKind) => { setRegion(r); setF((s) => ({ ...s, basicProperty: String(BASIC_PROPERTY[r]) })) }
@@ -67,6 +69,7 @@ export function IncomeRecognitionCalc({ initialSize = 1 }: { initialSize?: numbe
   const benefits = judgeBenefits(result.total, size)
   const hasInput = result.total > 0
   const near = nearestCeiling(ceilings)
+  const diff = snapshot ? diffScenarios(snapshot, { total: result.total, size }) : null
 
   return (
     <div className="mt-3 rounded-2xl border border-sky2-100 bg-sky2-50/40 p-3.5">
@@ -192,6 +195,39 @@ export function IncomeRecognitionCalc({ initialSize = 1 }: { initialSize?: numbe
           </p>
         )}
       </div>
+
+      {/* 시나리오 비교 — '지금'과 '바뀐 뒤'의 자격 급여 득실(복지 절벽 확인) */}
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <button
+          onClick={() => setSnapshot({ total: result.total, size })}
+          className="inline-flex items-center gap-1 rounded-lg border border-sky2-100 bg-white px-2.5 py-1.5 text-xs font-semibold text-sky2-700 hover:border-sky2-200"
+        >
+          📌 지금 상태로 비교 시작
+        </button>
+        {snapshot && (
+          <button onClick={() => setSnapshot(null)} className="text-[11px] font-semibold text-muted-foreground hover:underline">비교 지우기</button>
+        )}
+      </div>
+      {diff && (
+        <div className="mt-2 rounded-xl border border-sky2-100 bg-sky2-50/40 p-2.5 text-xs">
+          <p className="font-bold text-foreground">
+            소득인정액 {diff.totalDelta === 0 ? '동일' : diff.totalDelta > 0 ? `+${won(diff.totalDelta)} 증가` : `${won(Math.abs(diff.totalDelta))} 감소`}
+          </p>
+          {diff.unchanged ? (
+            <p className="mt-1 text-muted-foreground">자격 급여 변화는 없어요.</p>
+          ) : (
+            <div className="mt-1.5 flex flex-col gap-1">
+              {diff.lost.length > 0 && (
+                <p className="text-rose-700">− 잃음: {diff.lost.map((x) => `${x.emoji} ${x.label}`).join(' · ')}</p>
+              )}
+              {diff.gained.length > 0 && (
+                <p className="text-sprout-700">+ 열림: {diff.gained.map((x) => `${x.emoji} ${x.label}`).join(' · ')}</p>
+              )}
+            </div>
+          )}
+          <p className="mt-1 text-[10px] text-muted-foreground">저장한 시점 대비 지금 입력값 기준 변화예요. 소득·재산을 바꿔 이직·이사 등을 시뮬레이션해 보세요.</p>
+        </div>
+      )}
 
       <p className="mt-2 flex items-start gap-1 text-[10px] leading-relaxed text-muted-foreground">
         <Info className="mt-0.5 h-3 w-3 shrink-0" />
