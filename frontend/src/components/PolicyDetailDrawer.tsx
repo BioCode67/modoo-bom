@@ -7,6 +7,7 @@ import type { Policy } from '@/data/policies'
 import { getCatalog } from '@/data/catalog'
 import type { EligiblePolicy } from '@/lib/welfare-engine'
 import { generateGuides, matchFacts } from '@/lib/welfare-engine'
+import { EligibilityExplainer } from '@/components/EligibilityExplainer'
 import { categoryMeta, parseMonthly, formatWon, isCashBenefit, PRIORITY_META } from '@/lib/format'
 import { deadlineHint } from '@/lib/deadline'
 import { docLink, isApplyAutomatable } from '@/lib/officialLinks'
@@ -298,6 +299,10 @@ function DrawerBody({
             })()}
           </div>
         )}
+
+        {/* 자격 판정 근거(왜 되는지/안 되는지) — 프로필이 있으면 정밀 정책에 한해 조건별 통과/탈락 설명.
+            특히 담은 게 아니라 '탐색/검색으로 연' 부적격 정책의 이유·개선점을 알려준다(위 초록 블록은 적격만 노출). */}
+        <EligibilityExplainer policy={policy} profile={profile} />
 
         {(() => {
           // 공공데이터 요약본(대상=혜택=자격이 동일)이면 한 섹션으로 깔끔하게
