@@ -138,7 +138,18 @@ src/
   긴급복지 진단, 복지 점수·TOP3, **대표문의 전화 tel: 연결**, **포트폴리오 차트**(SVG), 온보딩,
   **로그인·동기화**(카카오·구글, Supabase 무료 티어, 선택 — 미설정 시 인증 UI 숨김 + supabase-js 트리셰이킹 제외, 설정은 `supabase/SETUP.md`),
   **PWA**(설치형·오프라인·autoUpdate·beforeinstallprompt), 큰글씨·고대비·ESC·ARIA·focus-visible 접근성, ErrorBoundary.
-- **품질 게이트(모두 통과)**: `npm run lint`(eslint9 flat, react-hooks, 0건) · `npm test`(vitest **780**) ·
+- **클라이언트 분석 심화(2026-07-22)**: 소득·자격 이해를 깊게 — **소득인정액 정밀 계산기**
+  (`lib/incomeRecognition.ts`: 재산 환산 공식 주거1.04·일반4.17·금융6.26%·자동차100%, 기본재산액→부채
+  캐스케이드, `IncomeRecognitionCalc`가 IncomeCalculator에 편입) + **급여별 근로소득 상한 역산**
+  (`benefitCeiling.ts` "얼마까지 벌어도 되나") + **소득인정액 시나리오 비교**(`scenarioDiff.ts` 복지 절벽)
+  + 예상 생계급여 실지급액. **자격 판정 근거 설명기**(`explainEligibility.ts` 4게이트 통과/탈락, checkPolicy
+  단일 진실원) + **반려·탈락 대응 가이드**(`recovery.ts` 이의신청 권리). **서류 군집**: 필요 서류 통합 플랜·
+  3개월 유효기간(`docPlan.ts`·`docValidity.ts`), 발급 방법(`docGuide.ts`), 자동발급 커버리지
+  (`docCoverage.ts`), 발급처 묶음(`docPortalGroups.ts` 한 번 로그인 연쇄). **우선순위 추천**(`priority.ts`
+  투명 점수, 탐색 '신청 쉬운 순' 정렬)·**다음 지급 예정일**(`paymentSchedule.ts`)·**가구 자동 판별**
+  (`householdType.ts`). 챗/통화 인텐트: "소득 얼마까지"·"뭐부터 신청?". 전부 순수 함수·온디바이스·
+  정직성(추정·심사 확정 명시), 실데이터+페르소나 5종 종단 테스트로 하드닝.
+- **품질 게이트(모두 통과)**: `npm run lint`(eslint9 flat, react-hooks, 0건) · `npm test`(vitest **1013**) ·
   `tsc --noEmit` · `npm run build` · E2E 스모크(`frontend/e2e/smoke.py`, 실브라우저 10여정 + e2e:chat/save/fin/ext + **e2e:a11y** — axe-core 전 화면(기본 4 + 고대비·큰글씨 + 통화) 위반 0, 마운트 게이트로 무효 측정 방지) / 백엔드 `pytest`(**294** — 전체 의존성 설치 기준, chromadb 미설치 환경은 일부 제외 — 페르소나 5종은 전체 의존성 필요). 변경마다 브라우저 회귀 검증.
 - **견고성 감사(2026-07)**: 다중에이전트 감사로 백엔드 확정결함 8건(extract_json dict 보장·RPA 태스크
   강한참조·chat 세션유지·카탈로그 파싱·검색캐시 사본·ETL _pick 섀도잉) + 프론트 5건(sidoOf 도우선·
