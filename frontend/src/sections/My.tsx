@@ -19,6 +19,7 @@ import { AnnualCashflow } from '@/components/AnnualCashflow'
 import { DeadlineAlert } from '@/components/DeadlineAlert'
 import { WelfareRoadmap } from '@/components/WelfareRoadmap'
 import { DocPlanCard } from '@/components/DocPlanCard'
+import { PaymentSchedule } from '@/components/PaymentSchedule'
 import { useAppStore, type AppStatus } from '@/store/useAppStore'
 import { useAuthCtx } from '@/lib/authContext'
 import { sumCashMonthly, formatWon } from '@/lib/format'
@@ -125,6 +126,9 @@ export function My() {
 
       {/* 담은 복지 중 마감 임박 — 놓침 방지(액션 직결이라 상단 유지) */}
       <DeadlineAlert policies={tracked.map((t) => POLICY_MAP[t.policyId]).filter(Boolean)} onOpen={setSelected} />
+
+      {/* 신청·수급 중 급여의 다음 입금 예정일 — '돈 언제 들어와?'(applied·done만 노출, 없으면 미표시) */}
+      <PaymentSchedule />
 
       {/* ② 신청 — 담은 복지 목록(각 카드에서 상태·서류·다음 할 일 관리) */}
       <section id="journey-apply" className="scroll-mt-24">
