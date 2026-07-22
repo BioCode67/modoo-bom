@@ -3,6 +3,7 @@ import { CheckCircle2, XCircle, MinusCircle, ChevronDown, Lightbulb } from 'luci
 import type { Policy } from '@/data/policies'
 import type { UserProfile } from '@/lib/welfare-engine'
 import { explainEligibility, blockerHint, type GateStatus } from '@/lib/explainEligibility'
+import { recoveryPlan } from '@/lib/recovery'
 import { cn } from '@/lib/utils'
 
 const GATE_ICON: Record<GateStatus, React.ReactNode> = {
@@ -26,6 +27,7 @@ export function EligibilityExplainer({ policy, profile }: { policy: Policy; prof
 
   if (!ex || ex.mode !== 'precise') return null
   const hint = blockerHint(ex)
+  const recovery = recoveryPlan(ex)
 
   return (
     <div className={cn('rounded-2xl border p-3.5', ex.eligible ? 'border-sprout-100 bg-white' : 'border-rose-100 bg-rose-50/40')}>
@@ -58,6 +60,24 @@ export function EligibilityExplainer({ policy, profile }: { policy: Policy; prof
               ex.fixableByIncome ? 'bg-amber-50 text-amber-800' : 'bg-white/70 text-muted-foreground')}>
               <Lightbulb className="mt-0.5 h-3.5 w-3.5 shrink-0" /> {hint}
             </p>
+          )}
+
+          {/* 대응 가이드 — 대상이 아닐 때 '그래서 어떻게 하나' */}
+          {recovery && (
+            <div className="mt-2.5 rounded-xl border border-sky2-100 bg-white/60 p-2.5">
+              <p className="text-[11px] font-bold text-foreground">이럴 땐 이렇게 해보세요</p>
+              <ul className="mt-1.5 flex flex-col gap-1.5">
+                {recovery.steps.map((s, i) => (
+                  <li key={i} className="flex items-start gap-1.5 text-xs leading-snug">
+                    <span aria-hidden className="shrink-0">{s.icon}</span>
+                    <span><b className="font-semibold">{s.title}</b> · <span className="text-muted-foreground">{s.detail}</span></span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2 rounded-lg bg-sky2-50 px-2.5 py-1.5 text-[11px] text-sky2-800">
+                <b>{recovery.appeal.title}</b> · {recovery.appeal.detail}
+              </p>
+            </div>
           )}
 
           <p className="mt-2 text-[10px] text-muted-foreground">※ 판정은 입력한 프로필 기준 추정이에요. 실제 자격·지급액은 신청 기관의 행정 심사로 확정돼요.</p>
