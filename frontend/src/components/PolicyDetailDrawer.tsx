@@ -8,6 +8,7 @@ import { getCatalog } from '@/data/catalog'
 import type { EligiblePolicy } from '@/lib/welfare-engine'
 import { generateGuides, matchFacts } from '@/lib/welfare-engine'
 import { EligibilityExplainer } from '@/components/EligibilityExplainer'
+import { docCoverage, coverageLabel } from '@/lib/docCoverage'
 import { categoryMeta, parseMonthly, formatWon, isCashBenefit, PRIORITY_META } from '@/lib/format'
 import { deadlineHint } from '@/lib/deadline'
 import { docLink, isApplyAutomatable } from '@/lib/officialLinks'
@@ -387,6 +388,16 @@ function DrawerBody({
                   <div className="h-full rounded-full bg-sprout-500 transition-all" style={{ width: `${Math.round((doneCount / total) * 100)}%` }} />
                 </div>
               )}
+              {/* 자동발급 커버리지 — 앱이 대신 뗄 수 있는 서류 비율(에이전트 연결 시) */}
+              {(() => {
+                const cov = docCoverage(policy)
+                return cov.issuable > 0 ? (
+                  <p className="mb-2 flex items-start gap-1 text-[11px] text-sprout-700">
+                    <span aria-hidden>🤖</span>
+                    <span>{coverageLabel(cov)}{cov.manual > 0 ? <span className="text-muted-foreground"> · 직접 준비: {cov.manualDocs.slice(0, 2).join('·')}{cov.manualDocs.length > 2 ? ' 외' : ''}</span> : ''}</span>
+                  </p>
+                ) : null
+              })()}
               <ul className="space-y-1.5">
                 {policy.required_docs.map((d: string) => {
                   const dl = docLink(d)
