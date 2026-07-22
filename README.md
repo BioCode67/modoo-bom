@@ -11,17 +11,18 @@
 
 [![모두봄 시연 영상](https://img.youtube.com/vi/7hsiDM1Ej9s/hqdefault.jpg)](https://youtu.be/7hsiDM1Ej9s)
 
-> AI 백엔드도 클라우드(Render)에 라이브로 배포돼 있습니다 — LangGraph 10노드 에이전트와 지식형 챗이
-> 실제 LLM(Gemini 2.5 Flash) 답변을 돌려줍니다. **무료 티어라 유휴 후 첫 요청은 콜드스타트(~50초)로 깨어난 뒤 응답**하며,
-> LLM 실패 시 Groq·Claude로 자동 폴백, 키가 없으면 규칙 기반으로 동작합니다.
-> (추천·검색·급여계산은 백엔드 없이도 브라우저 온디바이스로 항상 즉시 동작 — 백엔드는 지식형 챗·RAG를 더합니다.)
+### 핵심 시연 (서류 발급·신청 자동화) — https://youtu.be/c8FwDnrkEiY
+
+[![모두봄 핵심 시연 — 서류 발급·신청 자동화](https://img.youtube.com/vi/c8FwDnrkEiY/hqdefault.jpg)](https://youtu.be/c8FwDnrkEiY)
+
+> 모두봄의 AI는 **브라우저에서 직접 도는 온디바이스 AI**입니다 — 복지 추천·다국어 의미검색·급여계산이 회원가입도, 서버 전송도 없이 항상 즉시 동작합니다.
 
 ![tests](https://img.shields.io/badge/frontend_tests-790_passed-brightgreen) ![pytest](https://img.shields.io/badge/backend_pytest-331_passed-brightgreen) ![e2e](https://img.shields.io/badge/E2E_실브라우저-12스위트·에러0-brightgreen) ![data](https://img.shields.io/badge/실데이터-5,300여건_검증-blue) ![lighthouse](https://img.shields.io/badge/Lighthouse-A11y100·BP100·SEO100-blue)
 
 회원가입·백엔드 없이 바로 동작합니다. 프론트엔드는 **전국 약 5,300건 복지**(보건복지부 검증 큐레이션 124 + 정부지원사업·청년주택·서민금융 45
 + 민간재단 큐레이션 21 + 한국사회보장정보원 공공데이터 5,143(중앙460·지자체4,683) — 현대차 정몽구 스칼러십·심장재단 수술비 등
 민간은 전 항목 공식 사이트 실측 검증, 이름 기준 병합·디듑)와 자격 판정 엔진, 그리고 브라우저에서 직접 도는 AI를 실행하므로 즉시 로딩되고 항상 켜져 있습니다.
-(FastAPI 백엔드를 연결하면 LangGraph 에이전트·RPA 자동발급 등 고급 기능이 활성화됩니다. LLM은 Gemini 2.5 Flash — Groq·Claude 자동 폴백.)
+(데스크탑 앱을 연결하면 정부24 서류 자동발급·복지로 신청 자동화 등 고급 기능이 더해집니다.)
 
 ![모두봄 핵심 지표](docs/기획서자료/infographic-핵심지표.png)
 
