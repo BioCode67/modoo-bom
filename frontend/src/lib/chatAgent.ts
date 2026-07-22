@@ -6,6 +6,7 @@ import { getCatalog, getPolicyMap } from '@/data/catalog'
 import { searchPolicies } from '@/lib/search'
 import { buildActionFeed } from '@/lib/monitoring'
 import { parseMonthly, formatWon, isCashBenefit } from '@/lib/format'
+import { medianIncome, BENEFIT_THRESHOLDS } from '@/lib/medianIncome'
 import { applyLink } from '@/lib/officialLinks'
 
 /**
@@ -69,6 +70,8 @@ export function greetingReply(profile: UserProfile | null, tracked: TrackedItem[
 }
 
 const ELIG_RE = /(내가|나).*(받|대상|자격|해당)|받을\s*수\s*있|자격|대상.*되|혜택.*뭐|뭐.*받|추천|어떤.*복지|맞는.*복지/
+// 소득 기준(얼마까지 벌어도 되나) 질문 — 자격(ELIG)보다 먼저 잡아 소득 상한표로 답한다.
+const INCOME_RE = /(소득|수입|중위소득|소득인정액)\s*(기준|얼마|상한|조건|제한|컷|커트라인|몇\s*%|퍼센트|되)|얼마(까지|나)?\s*(벌|버는|버시|소득|수입)|(벌어도|벌면|버는데)\s*(되|받|자격|대상)/
 const GREET_RE = /^(안녕|하이|hello|hi|반가|ㅎㅇ)/i
 
 /** 저장된 분석결과/프로필로 '내가 받을 수 있는' 질문에 개인화 답변 */
@@ -306,9 +309,22 @@ export function matchSaveIntent(raw: string, context: Policy[], explicitOnly = f
 
 /** 로컬(행동·개인화) 의도인가 — 이 의도들은 클라우드 LLM이 있어도 로컬 에이전트가 처리한다
  *  (담기·서류·자격은 스토어/프로필과 결합된 '행동'이라 LLM보다 정확·즉시). */
+/** 소득 기준(급여별 소득인정액 상한) 안내 — medianIncome 공식값으로 가구원수별 월 상한을 표로. */
+export function incomeThresholdReply(): AgentReply {
+  const sizes = [1, 2, 3, 4]
+  const lines = BENEFIT_THRESHOLDS.map((b) => {
+    const amts = sizes.map((s) => `${s}인 ${formatWon(Math.floor((medianIncome(s) * b.pct) / 100))}`).join(' · ')
+    return `• ${b.label}(중위 ${b.pct}%): ${amts}`
+  })
+  return {
+    text: `복지 자격은 대부분 ‘소득인정액’(월 소득 + 재산을 소득으로 환산한 값)이 기준 중위소득의 몇 % 이하냐로 정해져요. 2026년 기준 급여별 소득인정액 월 상한이에요:\n${lines.join('\n')}\n\n근로·사업소득은 30% 공제 후 반영되고 재산도 소득으로 환산돼요. 재산까지 넣은 정확한 계산은 ‘탐색 > 기초생활보장 계산기 > 재산까지 넣어 정밀 계산’에서 할 수 있어요.`,
+    cta: { view: 'explore', label: '소득인정액 계산하기' },
+  }
+}
+
 export function isLocalIntent(raw: string): boolean {
   const q = raw.trim()
-  return GREET_RE.test(q) || DOCS_RE.test(q) || APPLY_RE.test(q) || ELIG_RE.test(q)
+  return GREET_RE.test(q) || DOCS_RE.test(q) || APPLY_RE.test(q) || INCOME_RE.test(q) || ELIG_RE.test(q)
 }
 
 /** 메인 진입점 — 자유문장을 의도로 나눠 개인화·행동형으로 응답 */
@@ -329,6 +345,8 @@ export function agentReply(raw: string, ctx: { profile: UserProfile | null; resu
   }
   if (DOCS_RE.test(q)) return docsReply(ctx.tracked ?? [], ctx.agentOn ?? false)
   if (APPLY_RE.test(q)) return applyReply(ctx.tracked ?? [], ctx.agentOn ?? false)
+  // 소득 기준 질문은 자격(ELIG)보다 먼저 — '얼마까지 벌어도 받아요?'를 상한표로 답한다.
+  if (INCOME_RE.test(q)) return incomeThresholdReply()
   if (ELIG_RE.test(q)) return eligibilityReply(ctx.profile, ctx.result)
   return searchReply(q, ctx.profile)
 }

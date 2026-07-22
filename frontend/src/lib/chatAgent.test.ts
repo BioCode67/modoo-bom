@@ -69,6 +69,27 @@ describe('agentReply — 개인화·행동형 응답', () => {
   })
 })
 
+describe('agentReply — 소득 기준(얼마까지 벌어도 되나) 인텐트', () => {
+  it('"소득 기준 얼마" → 급여별 소득인정액 상한표 + 계산기 CTA', () => {
+    const r = agentReply('소득 기준이 얼마예요?', { profile: null, result: null })
+    expect(r.text).toMatch(/소득인정액/)
+    expect(r.text).toMatch(/생계급여.*32%/)
+    expect(r.text).toMatch(/만원/) // 가구원수별 월 상한 금액
+    expect(r.cta?.view).toBe('explore')
+  })
+  it('"얼마까지 벌어도 받아요?"도 소득 인텐트로(자격 인텐트보다 우선)', () => {
+    const r = agentReply('얼마까지 벌어도 받을 수 있어요?', { profile: null, result: null })
+    expect(r.text).toMatch(/소득인정액|급여별/)
+  })
+  it('"얼마나 받아요?"(수령액)는 소득 인텐트가 아니다(오발동 방지)', () => {
+    const r = agentReply('얼마나 받아요?', { profile: null, result: null })
+    expect(r.text).not.toMatch(/급여별 소득인정액 월 상한/)
+  })
+  it('isLocalIntent가 소득 질문을 로컬로 처리(클라우드 미전송)', () => {
+    expect(isLocalIntent('소득 얼마까지 벌어도 되나요')).toBe(true)
+  })
+})
+
 const mkP = (id: string, name: string): Policy =>
   ({ id, name, category: '', target: '', benefit: '', eligibility: '', application: '', required_docs: [], department: '', renewal: '' } as Policy)
 const ctx = [mkP('A', '기초연금'), mkP('B', '아동수당'), mkP('C', '주거급여')]
