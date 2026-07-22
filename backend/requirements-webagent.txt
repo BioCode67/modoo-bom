@@ -1,0 +1,21 @@
+# ──────────────────────────────────────────────────────────────
+# [선택] 스마트 AI 웹 에이전트(backend/webagent)의 browser-use 엔진
+# ──────────────────────────────────────────────────────────────
+# 이 파일은 '선택 확장'이다. 설치하지 않아도 webagent 모듈은 그대로 임포트되며,
+# browser-use 엔진이 없으면 검증된 빠른 경로(local_agent) + 공식 링크 폴백으로 정직하게 축소된다.
+#
+# 설치:
+#   pip install -r requirements-webagent.txt
+#   playwright install chromium     # (이미 설치돼 있으면 생략)
+#
+# 판단 계층 LLM 키는 backend/.env 의 GEMINI_API_KEY(권장·무료·비전) 등을 그대로 사용한다.
+#
+# ⚠️ 버전 메모: 이 프로젝트는 langchain 0.3.x 로 고정돼 있다. browser-use 0.1.x 라인은
+#    langchain 챗 모델(llm_factory.build_agent_llm 반환형)을 그대로 받아 호환이 좋다.
+#    0.2+ 이후는 자체 LLM 클래스로 바뀌므로, 상위 버전을 쓸 경우 llm_factory 를 함께 조정한다.
+#    (실측 검증은 데스크탑의 고정 버전에서 수행 — 여기선 langchain 호환 라인에 상한을 둔다.)
+browser-use>=0.1.40,<0.2.0
+
+# 대안: OpenClaw(자체 호스팅 자율 에이전트) 등 다른 프레임워크로도 교체 가능하다.
+# webagent 는 '엔진 러너 주입'(DefaultExecutor(browser_use_runner=...)) 지점만 바꾸면 되도록
+# 오케스트레이션과 실행을 분리해 두었다.
