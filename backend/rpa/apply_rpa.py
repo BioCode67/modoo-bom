@@ -23,7 +23,7 @@ from rpa.base import (
     click_first_matching, click_by_text, make_browser_context_args,
     click_provider_in_anyid, provider_display, detect_auth_form, AUTH_FORM_USER_GUIDE,
     LOGIN_PAGE_URL_KEYWORDS, get_launch_options, launch_browser,
-    click_eform_button, get_frame_by_url,
+    click_eform_button, get_frame_by_url, _sibling_contexts,
     check_cancel, CancelledByUser, NO_PRINT_SCRIPT, wait_any_visible,
 )
 
@@ -153,8 +153,12 @@ async def _pass_service_select_page(page, task, service_name: str, wait_sec: int
                 except Exception:
                     break
                 # 확인성 팝업 문구가 보일 때만 [확인] — 팝업이 사라지고 신청 양식에 도달하면 루프 종료(오클릭 방지)
-                if any(k in (t2 or "") for k in ("진행하시겠습니까", "선택한 서비스명", "동시신청", "복지멤버십", "신청하시겠습니까")):
-                    if not await click_by_text(page, ["확인"]):
+                #   '서비스를 잘못 선택했을 시 신청일자의 불이익…' 안내 팝업(실사용 제보)도 [확인]으로 넘긴다.
+                #   확인 버튼이 eForm(.cl-button)이라 표준 클릭이 안 먹던 갭 → click_eform_button 좌표 클릭 폴백.
+                if any(k in (t2 or "") for k in (
+                        "진행하시겠습니까", "선택한 서비스명", "동시신청", "복지멤버십", "신청하시겠습니까",
+                        "불이익", "잘못 선택", "잘못선택", "신청일자")):
+                    if not (await click_by_text(page, ["확인"]) or await click_eform_button(page, "확인")):
                         break
                 else:
                     break
@@ -167,6 +171,55 @@ async def _pass_service_select_page(page, task, service_name: str, wait_sec: int
                     "체크만 하시면 [저장 후 다음단계]·확인창·신청서 작성까지 자동으로 진행하고, 마지막 제출 직전에만 멈춰드려요.",
                     await take_screenshot(page))
         await asyncio.sleep(2)
+    return False
+
+
+# 복지로 간편인증 '전체동의' — 섹션 전체를 감싼 바깥 div('서비스 이용에 대한 동의 … 전체동의') 오클릭을
+#   피해 ① '전체동의' 행의 실제 체크박스/라디오 우선 ② 없으면 '전체동의' 텍스트를 가진 '가장 작은' 요소 클릭.
+#   자동입력 함수와 '인증 요청 직전 재체크'가 같은 로직을 쓰도록 모듈 공용 상수로 통일.
+_BOKJIRO_AGREE_JS = """() => {
+    const rowOf=(e)=>{let n=e; for(let i=0;i<4&&n;i++){ const t=(n.innerText||'').replace(/\\s+/g,''); if(t.includes('전체동의')&&t.length<=40) return true; n=n.parentElement;} return false;};
+    for(const cb of document.querySelectorAll("input[type=checkbox],input[type=radio]")){
+        if(cb.offsetParent!==null && rowOf(cb)){ if(!cb.checked) cb.click(); return true; }
+    }
+    const cands=[...document.querySelectorAll("label,span,a,button")]
+        .filter(e=>e.offsetParent!==null && (e.innerText||'').replace(/\\s+/g,'').includes('전체동의'))
+        .sort((a,b)=>(a.innerText||'').length-(b.innerText||'').length);
+    if(cands.length){ cands[0].click(); return true; }
+    return false;
+}"""
+
+
+async def _bokjiro_agree_all(contexts) -> bool:
+    """복지로 간편인증 '전체동의'를 체크한다(제공자 선택이 동의를 리셋하므로 '가장 마지막'에 호출).
+    여러 번 불러도 무해(이미 체크면 그대로). 성공(체크/클릭)하면 True."""
+    for ctx_ in contexts:
+        try:
+            if await ctx_.evaluate(_BOKJIRO_AGREE_JS):
+                return True
+        except Exception:
+            pass
+    return False
+
+
+async def _request_auth_bokjiro(ctx) -> bool:
+    """복지로 '인증 요청' 클릭 — 표준 button/a 우선, eForm(.cl-button/[role=button])이면 좌표 신뢰 클릭 폴백.
+    ⚠️ 이 버튼은 폰으로 인증 푸시를 보낼 뿐, 실제 승인(폰 [인증 허용])은 여전히 본인 몫(비가역 본인인증)."""
+    for sel in ["button:has-text('인증 요청')", "button:has-text('인증요청')",
+                "a:has-text('인증 요청')", "a:has-text('인증요청')",
+                "input[value*='인증 요청']", "input[value*='인증요청']"]:
+        try:
+            el = ctx.locator(sel).first
+            if await el.count() > 0 and await el.is_visible():
+                await el.click()
+                return True
+        except Exception:
+            continue
+    try:
+        if await click_eform_button(ctx, "인증 요청") or await click_eform_button(ctx, "인증요청"):
+            return True
+    except Exception:
+        pass
     return False
 
 
@@ -274,26 +327,8 @@ async def _autofill_bokjiro_auth(contexts, page, user_info) -> dict:
             #      password 마스킹이어도 el.value 는 실값이라 검증됨(값은 브라우저 안에서만 비교·무전송). (팀원 확인 요망)
             await _fill(ctx_, "rrn", rrn7, numeric=True)
     # 전체동의는 '제공자 선택 뒤 마지막에'(정부24와 동일 — 제공자 선택이 동의를 리셋).
-    #   ⚠️ 문서순 첫 매칭은 섹션 전체를 감싼 바깥 div('서비스 이용에 대한 동의 … 전체동의')를 잡아
-    #   무효 클릭이 된다(gov24 제공자 클릭과 동일 교훈) → ① '전체동의' 행의 실제 체크박스/라디오 우선
-    #   ② 없으면 '전체동의' 텍스트를 가진 '가장 작은' 요소(라벨/스팬)를 클릭.
-    _agree_js = """() => {
-        const rowOf=(e)=>{let n=e; for(let i=0;i<4&&n;i++){ const t=(n.innerText||'').replace(/\\s+/g,''); if(t.includes('전체동의')&&t.length<=40) return true; n=n.parentElement;} return false;};
-        for(const cb of document.querySelectorAll("input[type=checkbox],input[type=radio]")){
-            if(cb.offsetParent!==null && rowOf(cb)){ if(!cb.checked) cb.click(); return true; }
-        }
-        const cands=[...document.querySelectorAll("label,span,a,button")]
-            .filter(e=>e.offsetParent!==null && (e.innerText||'').replace(/\\s+/g,'').includes('전체동의'))
-            .sort((a,b)=>(a.innerText||'').length-(b.innerText||'').length);
-        if(cands.length){ cands[0].click(); return true; }
-        return false;
-    }"""
-    for ctx_ in contexts:
-        try:
-            if await ctx_.evaluate(_agree_js):
-                break
-        except Exception:
-            pass
+    #   바깥 div 오클릭 방지 로직은 _bokjiro_agree_all(모듈 공용)로 통일 — '인증 요청 직전 재체크'도 같은 함수.
+    await _bokjiro_agree_all(contexts)
     return out
 
 
@@ -330,10 +365,12 @@ async def _login_bokjiro(page, task, provider: str = "kakao", user_info: dict = 
     task.update("running", f"간편인증 위젯 로드됨 — '{pv}' 선택 중...", ss)
 
     # 인증수단 선택(뱅크류 오클릭 제외). 위젯이 있는 컨텍스트를 찾아 클릭.
+    #   반환값("trusted"|"js")을 그대로 보존한다 — 아래 자동 '인증 요청'은 trusted 확정일 때만 진행.
     kakaotalk_clicked = False
     for ctx_ in contexts:
-        if await click_provider_in_anyid(ctx_, provider):
-            kakaotalk_clicked = True
+        r = await click_provider_in_anyid(ctx_, provider)
+        if r:
+            kakaotalk_clicked = r  # "trusted" | "js"
             break
     await asyncio.sleep(1)
 
@@ -374,14 +411,42 @@ async def _login_bokjiro(page, task, provider: str = "kakao", user_info: dict = 
                         filled[_dst] = True
             except Exception:
                 pass
-    ss = await take_screenshot(page)
-
-    form_detected = any([await detect_auth_form(ctx_) for ctx_ in contexts])
+    # 🔵 (gov24 파리티) 제공자 재선택(trusted 확정) → 전체동의 재체크 → 조건 충족 시 '인증 요청'까지 자동.
+    #   ⚠️ 배경(실사용 되돌림 이력): 정보 입력·전체동의 과정에서 제공자 선택이 풀린 채 [인증 요청]하면
+    #   복지로가 '인증서비스를 선택하여 주십시오' 오류를 냈다. gov24 에서 검증한 해법을 그대로 이식 —
+    #   요청 '직전'에 제공자를 다시 확정(trusted)하고 동의를 마지막에 재체크한 뒤, **trusted 재클릭일 때만**
+    #   요청한다(js 폴백은 위젯이 무시 → 같은 오류). 실패하면 사용자가 [인증 요청] 1탭(무오류 폴백). (팀원 확인 요망)
     _all_filled = all(filled.values())
-    if kakaotalk_clicked and _all_filled and user_info:
-        # ⚠️ [인증 요청] 자동 클릭은 시도했다 되돌림(실사용 제보) — 복지로는 정보 입력·전체동의 과정에서
-        #   제공자 선택이 풀려, 자동 클릭 시 '인증서비스를 선택하여 주십시오' 오류가 났다. 실화면을 못 봐
-        #   제공자 재선택 타이밍을 확실히 맞출 수 없으므로, 안전하게 '사용자 1탭'으로 둔다(HITL·무오류).
+    requested = False
+    if user_info:
+        from rpa.gov24_rpa import _birth6
+        _birth = _birth6((user_info or {}).get("birth_date"))
+        _sib = _sibling_contexts(page)
+        reclick = False
+        for ctx_ in _sib:
+            r = await click_provider_in_anyid(ctx_, provider)
+            if r:
+                reclick = r  # "trusted" | "js"
+                break
+        if reclick:
+            kakaotalk_clicked = reclick
+        await asyncio.sleep(0.4)
+        await _bokjiro_agree_all(_sib)  # 재선택으로 풀렸을 수 있는 전체동의를 마지막에 다시 체크
+        if _all_filled and _birth and kakaotalk_clicked == "trusted":
+            await asyncio.sleep(0.6)
+            for ctx_ in _sib:
+                if await _request_auth_bokjiro(ctx_):
+                    requested = True
+                    break
+
+    ss = await take_screenshot(page)
+    form_detected = any([await detect_auth_form(ctx_) for ctx_ in contexts])
+    if requested:
+        task.update("waiting_login",
+            f"✅ 복지로 간편인증 정보 자동입력 + '인증 요청'까지 완료했어요.\n"
+            f"📱 휴대폰 {pv} 알림에서 [인증 허용]만 누르시면 '인증 완료'까지 자동으로 이어집니다.", ss)
+    elif kakaotalk_clicked and _all_filled and user_info:
+        # 제공자 재선택이 trusted 로 확정되지 않아 자동 요청을 보류함 — 정보는 채웠으니 사용자가 [인증 요청]만.
         task.update("waiting_login",
             f"📱 복지로 간편인증 정보를 다 채웠어요 — 화면에서 **{pv} 등 인증수단이 선택돼 있는지 확인**하고\n"
             f"파란 [인증 요청] 버튼만 눌러 주세요 → 폰 {pv} 알림에서 [인증 허용]만 하시면 자동으로 신청 화면까지 진행됩니다.", ss)
