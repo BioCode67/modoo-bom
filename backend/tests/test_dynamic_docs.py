@@ -327,3 +327,52 @@ def test_wait_document_rendered_returns_when_content_present():
         loop.run_until_complete(_wait_document_rendered(_Page(), timeout_sec=1))  # 예외 없이 반환하면 통과
     finally:
         loop.close()
+
+
+def test_wait_document_rendered_waits_while_visual_pending():
+    """⚠️ 빈 캡처 방지(실사용 제보 2026-07-23): 문서출력 뷰어의 '껍데기 텍스트'(메뉴·안내)가 실제
+    문서 이미지보다 먼저 300자를 넘겨도, 큰 비주얼이 아직 로딩 중(pending>0)이면 '조기 통과'해선
+    안 된다 → 텍스트 단독으로 빈 화면을 발급완료로 저장하던 것을 소스 계약으로 잠근다.
+
+    JS가 {s,w,p} 계약을 반환한다고 보고(실브라우저 e2e 는 컨테이너 chromium 몫), '텍스트는 많지만
+    본문 비주얼은 대기 중'인 상태에선 timeout_sec 을 다 쓰고 False(=미확정)로 반환됨을 확인한다."""
+    import asyncio
+    import time
+    from rpa.gov24_rpa import _wait_document_rendered
+
+    class _Page:
+        async def wait_for_load_state(self, _state, timeout=0):
+            return None
+        async def evaluate(self, _script):
+            # 껍데기 텍스트는 이미 넘쳤지만(그래도 s에 반영 안 됨) 큰 이미지가 로딩 중 → p=1
+            return {"s": 0, "w": 0, "p": 1}
+
+    loop = asyncio.new_event_loop()
+    try:
+        t0 = time.monotonic()
+        ok = loop.run_until_complete(_wait_document_rendered(_Page(), timeout_sec=1))
+        elapsed = time.monotonic() - t0
+    finally:
+        loop.close()
+    assert ok is False              # 대기 중 비주얼 → 조기 통과 금지(미확정으로 정직하게 반환)
+    assert elapsed >= 0.9           # 실제로 타임아웃까지 '기다렸다'(즉시 통과 아님)
+
+
+def test_wait_document_rendered_passes_on_bright_visual():
+    """반대편 파리티 — 큰 비주얼이 실제로 그려지면(강신호 s, pending 0) 안정 확인 후 통과한다.
+    (텍스트 게이팅 강화가 '정상 렌더'까지 막지 않음을 보장)."""
+    import asyncio
+    from rpa.gov24_rpa import _wait_document_rendered
+
+    class _Page:
+        async def wait_for_load_state(self, _state, timeout=0):
+            return None
+        async def evaluate(self, _script):
+            return {"s": 1, "w": 0, "p": 0}  # 밝은 본문 렌더됨
+
+    loop = asyncio.new_event_loop()
+    try:
+        ok = loop.run_until_complete(_wait_document_rendered(_Page(), timeout_sec=3))
+    finally:
+        loop.close()
+    assert ok is True

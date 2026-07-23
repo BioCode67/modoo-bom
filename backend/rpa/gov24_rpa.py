@@ -916,18 +916,25 @@ async def _wait_document_rendered(page, timeout_sec: int = 20) -> bool:
         "      return (n * 4 / d.length) > 0.2 ? 1 : -1;"  # 1=문서같음(흰 바탕), -1=빈/어두움
         "    } catch (e) { return 0; }"  # 교차출처 오염 — 판정 불가
         "  };"
-        "  let s = 0, w = 0;"
+        "  let s = 0, w = 0, pending = 0;"
         "  for (const c of document.querySelectorAll('canvas')) {"
-        "    if (c.width > 300 && c.height > 300 && bright(c) === 1) s++;"
+        "    if (c.width > 300 && c.height > 300) { if (bright(c) === 1) s++; else pending++; }"  # 큰 캔버스가 아직 안 그려짐 = '대기'(빈 본문)
         "  }"
         "  for (const im of document.querySelectorAll('img')) {"
-        "    if (im.complete && im.naturalWidth > 150 && im.naturalHeight > 150) {"
-        "      const b = bright(im); if (b === 1) s++; else if (b === 0) w++;"
-        "    }"
+        "    const big = im.naturalWidth > 150 && im.naturalHeight > 150;"
+        "    if (!im.complete && (big || im.width > 150 || im.height > 150)) { pending++; continue; }"  # 로딩 중 큰 이미지 = '대기'(빈 캡처 주범)
+        "    if (im.complete && big) { const b = bright(im); if (b === 1) s++; else if (b === 0) w++; else pending++; }"  # 완료됐지만 어두움 = 아직 빈 본문
+        "  }"
+        "  for (const e of document.querySelectorAll('embed, object, iframe')) {"  # 샘플 불가한 문서 뷰어(PDF 등)는 존재만으로 약신호(약신호 경로가 6초 유예 후 통과)
+        "    const r = e.getBoundingClientRect ? e.getBoundingClientRect() : null;"
+        "    if (r && r.width > 300 && r.height > 300) w++;"
         "  }"
         "  const tx = (document.body ? document.body.innerText : '').replace(/\\s/g,'').length;"
-        "  if (tx > 300) s++;"
-        "  return {s: s, w: w};"
+        # ⚠️ 실사용 제보(2026-07-23): 본문 텍스트(tx>300)를 강신호로 세면, 문서출력 뷰어 '껍데기'(메뉴·버튼·안내
+        #   문구)가 실제 문서보다 먼저 300자를 넘겨 '본문은 아직 빈 화면'인데도 조기 통과 → 빈 캡처가 저장됐다.
+        #   → 텍스트는 '로딩 중인 큰 비주얼(pending)이 없을 때만' 강신호로 인정한다(순수 텍스트 문서는 종전과 동일).
+        "  if (tx > 300 && pending === 0) s++;"
+        "  return {s: s, w: w, p: pending};"
         "}"
     )
     prev = None
@@ -936,6 +943,7 @@ async def _wait_document_rendered(page, timeout_sec: int = 20) -> bool:
         ready = False
         strong = 0
         weak = 0
+        pending = 0  # 아직 로딩 중인 큰 비주얼(캔버스·이미지) — 있으면 '조기 통과' 금지
         for fr in [page] + list(getattr(page, "frames", None) or []):
             try:
                 r = await fr.evaluate(js)
@@ -946,12 +954,15 @@ async def _wait_document_rendered(page, timeout_sec: int = 20) -> bool:
             elif isinstance(r, dict):
                 strong += int(r.get("s") or 0)
                 weak += int(r.get("w") or 0)
+                pending += int(r.get("p") or 0)
             elif isinstance(r, (int, float)):
                 strong += int(r)
         if ready or (strong > 0 and prev == strong):
             await asyncio.sleep(2.0)  # 렌더/페인트 완료 여유 — 캡처가 본문을 담게
             return True
-        if strong == 0 and weak > 0:
+        # 약신호(교차출처 뷰어) 경로는 '로딩 중인 큰 비주얼이 없을 때만' — 본문 이미지가 아직 그려지는 중이면
+        #   6초 유예 통과가 빈 캡처를 만들 수 있어, pending 이 풀릴 때까지(또는 전체 타임아웃) 기다린다.
+        if strong == 0 and weak > 0 and pending == 0:
             weak_since = i if weak_since is None else weak_since
             if i - weak_since >= 12:  # 판정 불가 신호만 6초+ — 교차출처 문서로 보고 진행
                 await asyncio.sleep(2.0)
