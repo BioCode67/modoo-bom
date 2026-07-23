@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { agentReply, greetingReply, matchSaveIntent, matchIssueIntent, matchIssueAllIntent, matchAutopilotIntent, issueReply, docsReply, isLocalIntent } from './chatAgent'
+import { agentReply, greetingReply, matchSaveIntent, matchIssueIntent, matchIssueAllIntent, matchAutopilotIntent, matchMisconceptionIntent, issueReply, docsReply, isLocalIntent } from './chatAgent'
 import type { UserProfile, AnalysisResult, EligiblePolicy } from './welfare-engine'
 import type { Policy } from '@/data/policies'
 import type { TrackedItem } from '@/store/useAppStore'
@@ -247,5 +247,40 @@ describe('matchAutopilotIntent — 🚀 "알아서 다 해줘" 오토파일럿 �
     // 웹(에이전트 미연결)에선 오토파일럿 약속을 하지 않는다(정직성)
     const web = agentReply('알아서 다 해줘', { profile: null, result: null, tracked: [], agentOn: false })
     expect(web.autopilot).toBeUndefined()
+  })
+})
+
+describe('오해 진단 인텐트 — 틀린 확신 바로잡기', () => {
+  it('통념+포기신호가 함께면 해당 규칙 id를 잡는다', () => {
+    expect(matchMisconceptionIntent('재산이 좀 있어서 안 될 것 같아요')).toBe('asset')
+    expect(matchMisconceptionIntent('자식이 있으면 못 받는다던데')).toBe('dependant')
+    expect(matchMisconceptionIntent('일하면 다 끊긴다면서요')).toBe('work')
+    expect(matchMisconceptionIntent('외국인이라 안 되죠?')).toBe('foreigner')
+  })
+  it('포기신호 없는 단순 언급은 가로채지 않는다(검색 보존)', () => {
+    expect(matchMisconceptionIntent('재산세 감면 알려줘')).toBeNull()
+    expect(matchMisconceptionIntent('노인 일자리 있어?')).toBeNull()
+    expect(matchMisconceptionIntent('장애인 4급 복지')).toBeNull()
+  })
+  it('agentReply가 오해를 구조 규칙으로 바로잡는다(정직성 라벨 포함)', () => {
+    const r = agentReply('재산이 있어서 안 될 것 같아요', { profile, result })
+    expect(r.text).toMatch(/소득인정액|재산/)
+    expect(r.text).toMatch(/최종 자격|심사/) // HONESTY 라벨
+  })
+  it('프로필 없이 오해를 물으면 분석 유도 CTA', () => {
+    const r = agentReply('자식이 있어서 못 받겠죠?', { profile: null, result: null })
+    expect(r.cta?.view).toBe('analyze')
+  })
+})
+
+describe('숨은 자격 인텐트 — 놓친 거 없어?', () => {
+  it("'놓친 거 없어?'는 되물음 또는 분석 유도로 답한다(검색 아님)", () => {
+    const r = agentReply('내가 놓친 복지 없어?', { profile, result })
+    expect(r.text.length).toBeGreaterThan(0)
+    expect(r.text).toMatch(/혹시|놓친|해당/)
+  })
+  it('프로필 없으면 분석부터 안내', () => {
+    const r = agentReply('빠뜨린 거 없나?', { profile: null, result: null })
+    expect(r.cta?.view).toBe('analyze')
   })
 })

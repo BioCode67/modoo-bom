@@ -7,6 +7,8 @@ import { searchPolicies } from '@/lib/search'
 import { buildActionFeed } from '@/lib/monitoring'
 import { parseMonthly, formatWon, isCashBenefit } from '@/lib/format'
 import { applyLink } from '@/lib/officialLinks'
+import { MYTH_RULES, pickEvidence } from '@/lib/misconceptions'
+import { scanProfileGaps } from '@/lib/profileGaps'
 
 /**
  * 챗 에이전트 두뇌 — 검색봇을 넘어 '나를 알고, 대신 행동하는' 에이전트로.
@@ -306,6 +308,61 @@ export function isLocalIntent(raw: string): boolean {
   return GREET_RE.test(q) || DOCS_RE.test(q) || APPLY_RE.test(q) || ELIG_RE.test(q)
 }
 
+// ── 오해 진단 인텐트 — '틀린 확신'으로 포기하려는 말에 구조 규칙으로 바로잡는다 ──
+// 통념 신호(무엇을 오해하나) + 포기/의심 신호(DOUBT)가 함께 있을 때만 발동해 단순 언급 오발동을 막는다.
+const MYTH_HINTS: { id: string; re: RegExp }[] = [
+  { id: 'asset', re: /재산|집이? ?있|차가? ?있|저축|모아둔|가진 ?게|땅이? ?있/ },
+  { id: 'dependant', re: /자식|자녀|부양 ?의무|가족.*소득|아들|딸/ },
+  { id: 'work', re: /일하면|취직|근로|돈 ?벌면|일 ?시작|알바|소득이 ?생기/ },
+  { id: 'reapply', re: /떨어졌|탈락|반려|거절|한 ?번.*안/ },
+  { id: 'disability-mild', re: /경증|가벼운 ?장애|[456] ?급/ },
+  { id: 'foreigner', re: /외국인|이주민|귀화|다문화/ },
+]
+const DOUBT_RE = /못 ?받|안 ?될|안 ?돼|안 ?되|자격.*(안|없|미달)|해당.*(안|없)|어차피|소용없|끊|잘려|중단|끝이|되겠|될까|안 ?나오|힘들|어렵|포기/
+
+/** 오해(통념) 발화인지 — 통념 대상 규칙 id를 돌려준다(아니면 null). 포기/의심 신호가 있어야만 잡는다. */
+export function matchMisconceptionIntent(raw: string): string | null {
+  const t = raw || ''
+  if (!DOUBT_RE.test(t)) return null
+  for (const h of MYTH_HINTS) if (h.re.test(t)) return h.id
+  return null
+}
+
+/** 규칙 id로 오해를 바로잡는 답 — truth(정직성 라벨 포함)+적격 정책 원문 근거를 붙인다(자격 재판정 없음). */
+function misconceptionReply(ruleId: string, result: AnalysisResult | null): AgentReply {
+  const rule = MYTH_RULES.find((r) => r.id === ruleId)
+  if (!rule) return searchReply('', null) // 방어: 규칙 못 찾으면 검색 폴백
+  const eligible = result?.eligible_policies ?? []
+  const ev = pickEvidence(rule, eligible)
+  const map = getPolicyMap()
+  const policies = ev.ids.map((id) => map[id]).filter(Boolean) as Policy[]
+  const evLine = ev.ids.length ? `\n\n근거가 되는 복지 · ${ev.text}` : `\n\n${ev.text}`
+  const tail = result ? '' : '\n\n정확히 확인하려면 간단한 분석을 먼저 해보세요.'
+  return {
+    text: `${rule.truth}${evLine}${tail}`,
+    policies,
+    cta: result ? undefined : { view: 'analyze', label: '내 자격 분석해보기' },
+  }
+}
+
+// ── 숨은 자격 인텐트 — '놓친 거 없어?'에 프로필 공백을 되물어 준다 ──
+const GAP_RE = /놓친|빠뜨|빠진 ?거|누락|안 ?물어|더 ?받을 ?수 ?있|또 ?받을 ?수|추가로 ?받을|숨은 ?자격|내가 ?모르는|더 ?없(나|어|을|는)/
+
+/** 프로필 공백을 임팩트순으로 되묻는다(해당되면 열리는 복지 수·월 증가 추정). 사실 단정 없이 '혹시?'로. */
+function gapReply(profile: UserProfile | null): AgentReply {
+  if (!profile) return { text: '아직 분석 전이라 놓친 자격을 짚어드리기 어려워요. 간단한 분석을 먼저 해볼까요?', cta: { view: 'analyze', label: '분석 시작' } }
+  const gaps = scanProfileGaps(profile, { limit: 3 })
+  if (!gaps.length) return { text: '지금 입력하신 정보로는 크게 놓친 항목이 보이지 않아요. 상황이 바뀌면 언제든 다시 분석해 주세요.' }
+  const lines = gaps.map((g) => {
+    const money = g.monthlyDelta > 0 ? `, 월 최대 +${formatWon(g.monthlyDelta)}` : ''
+    return `• ${g.question}\n  (해당되면 +${g.newCount}개${money})`
+  }).join('\n')
+  return {
+    text: `혹시 이런 상황이신가요? 해당되면 받을 복지가 늘어요.\n${lines}\n\n※ 추정이에요 — 해당되시면 프로필에 반영해 다시 분석해 보세요.`,
+    cta: { view: 'analyze', label: '프로필 고쳐 다시 분석' },
+  }
+}
+
 /** 메인 진입점 — 자유문장을 의도로 나눠 개인화·행동형으로 응답 */
 export function agentReply(raw: string, ctx: { profile: UserProfile | null; result: AnalysisResult | null; tracked?: TrackedItem[]; agentOn?: boolean; issueDocs?: string[] }): AgentReply {
   const q = raw.trim()
@@ -325,5 +382,10 @@ export function agentReply(raw: string, ctx: { profile: UserProfile | null; resu
   if (DOCS_RE.test(q)) return docsReply(ctx.tracked ?? [], ctx.agentOn ?? false)
   if (APPLY_RE.test(q)) return applyReply(ctx.tracked ?? [], ctx.agentOn ?? false)
   if (ELIG_RE.test(q)) return eligibilityReply(ctx.profile, ctx.result)
+  // 오해 바로잡기('재산 있어서 안 될 것 같아요')·숨은 자격('놓친 거 없어?') — 검색 폴백보다 먼저,
+  // 단 좁게 게이트해(포기·의심 신호+통념 / 명시적 '놓침' 표현) 일반 검색 질의를 가로채지 않는다.
+  const myth = matchMisconceptionIntent(q)
+  if (myth) return misconceptionReply(myth, ctx.result)
+  if (GAP_RE.test(q)) return gapReply(ctx.profile)
   return searchReply(q, ctx.profile)
 }
