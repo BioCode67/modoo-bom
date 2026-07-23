@@ -2025,7 +2025,19 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None, session=Non
 
             # ⑥ 발급 결과에서 문서출력 → PDF 저장
             await asyncio.sleep(2)
-            await click_by_text(page, ["문서출력", "출력하기"])
+            _printed = await click_by_text(page, ["문서출력", "출력하기"])
+            if not _printed:
+                # 🧭 self-heal(openclaw식 observe→decide): 하드코딩 라벨이 안 맞으면(사이트 문구 변경 등)
+                #   클릭 가능 요소를 정리해 '문서출력' 단계 버튼을 찾아 누른다. 결정론 동의어 우선, 키 있으면
+                #   LLM 판단까지(버튼 라벨만 전송·제출/결제류 거부). 없으면 no-op(기존 동작 불변).
+                try:
+                    from rpa.ai_fill import ai_pick_action
+                    await ai_pick_action(
+                        page, "발급된 문서를 화면에 출력해 PDF로 저장하는 단계로 진행",
+                        ["문서출력", "출력하기", "인쇄", "발급", "저장", "출력"], task=task,
+                    )
+                except Exception:
+                    pass
             await asyncio.sleep(3)
             # baseline: 이번 단계에서 새로 열린 문서출력 창만 결과로(여정에서 이전 단계 잔류 창을 이 서류로
             #   저장·성공보고하던 것 차단 — really_issued 판정·save_document 대상이 모두 올바른 창을 가리게).

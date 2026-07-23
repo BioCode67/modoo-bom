@@ -650,3 +650,121 @@ async def ai_fill(ctx, page, values: dict, page_hint: str = "", task=None,
         if not unfinished:
             break  # 점검 통과 — 전 키 완료
     return result
+
+
+# ── 🧭 observe → decide → click (내비게이션) — openclaw/browser-use식 SOTA를 '클릭 판단'에 적용 ──
+#   ai_fill 이 '어느 칸에 무엇을 채울지'를 접근성 트리로 판단하듯, 여기선 '어느 버튼을 눌러야
+#   목표에 도달하는지'를 같은 방식(클릭 가능 요소를 인덱싱해 라벨만 LLM에 전달)으로 판단한다.
+#   왜 필요한가: 정부24 발급 흐름의 '문서출력·다음·발급' 클릭이 하드코딩 라벨(click_by_text)이라
+#   사이트가 문구를 바꾸면 끊긴다 → 결정론 실패 시 self-heal 폴백으로 자연 복구.
+#
+#   프라이버시(불변): 버튼/링크의 '라벨'만 전송한다 — 입력값·문서 내용·개인정보는 담지 않는다.
+#   ⚠️ '문서 화면이 다 떴는가'(발급물 렌더 판정)는 여기에 넣지 않는다 — 그 화면은 실명·주민번호를
+#      그대로 담아, 스크린샷을 클라우드로 보내면 PII 유출이다. 렌더 판정은 브라우저 안(로컬)에서만
+#      하는 결정론 픽셀 안정 검사(gov24_rpa._wait_document_rendered)가 담당한다.
+_NAV_DENY = re.compile(r"제출|결제|삭제|탈퇴|해지|이체|취소|납부|송금")
+
+
+def _safe_button_label(text: str) -> str:
+    """클릭 후보의 '안전한' 라벨만 남긴다 — 마이페이지 '홍길동님·환영' 등 개인정보성 텍스트는 제외.
+    (프롬프트로 나가는 것은 순수 버튼 문구여야 한다 — 이름이 라벨에 섞이는 링크는 후보에서 뺀다)."""
+    t = re.sub(r"\s+", " ", str(text or "")).strip()
+    if not t:
+        return ""
+    if re.search(r"[가-힣]{2,4}\s*님|환영|로그아웃|마이\s*페이지", t):
+        return ""  # 개인정보성/계정 링크 — 내비게이션 후보 아님
+    return t[:24]
+
+
+def build_nav_prompt(goal: str, buttons: list) -> str:
+    """내비게이션 판단 프롬프트 — 목표와 '클릭 가능 요소 라벨'만 담는다(값·개인정보 미포함)."""
+    return (
+        "당신은 한국 정부 웹사이트 자동화 에이전트입니다. 아래는 지금 화면에서 '클릭 가능한 요소'의 라벨 목록입니다.\n"
+        f"목표: {goal}\n"
+        "이 목표로 나아가려면 어느 요소를 눌러야 합니까? 제출·결제·삭제·취소 같은 '비가역/위험' 버튼은 절대 고르지 마세요.\n"
+        "맞는 요소가 없으면 idx 를 -1 로 답하세요.\n"
+        '설명 없이 JSON 하나만 출력: {"idx": N}\n'
+        f"요소 목록: {json.dumps(buttons, ensure_ascii=False)}\n"
+    )
+
+
+async def _click_idx(ctx, idx) -> bool:
+    """인덱싱된 요소(data-modoobom-ai)를 클릭 — 성공하면 True."""
+    try:
+        await ctx.locator(f"[data-modoobom-ai='{idx}']").click(timeout=4000)
+        await asyncio.sleep(0.6)
+        return True
+    except Exception:
+        return False
+
+
+async def ai_pick_action(ctx, goal: str, want_texts: list = None, task=None) -> bool:
+    """🧭 목표(goal)에 맞는 버튼을 '화면을 이해해' 눌러 준다 — 클릭했으면 True.
+
+    2계층(ai_fill 과 동일 철학):
+      ① 결정론(무료·오프라인): want_texts(동의어) 라벨과 일치하는 버튼을 문서순으로 클릭.
+         → 하드코딩 click_by_text 와 같은 힘 + '양방향 부분일치'로 라벨 변형을 조금 더 흡수.
+      ② LLM(키+RPA_AI_FILL, 옵트인): 결정론이 못 찾으면 클릭 가능 요소를 인덱싱해 라벨만 보내고
+         '어느 버튼이 goal 인가'를 판단(browser-use/Stagehand식 observe→decide).
+    안전: 제출/결제/삭제/취소 등은 결정론·LLM 양쪽에서 거부(_NAV_DENY). 개인정보성 라벨은 후보 제외.
+    프라이버시: 버튼 라벨만 전송(입력값·문서 내용 미포함). 키 없으면 ②는 건너뜀(Mock-safe)."""
+    want_texts = want_texts or []
+    try:
+        fields = await ctx.evaluate(_COLLECT_JS)
+    except Exception:
+        return False
+    if not isinstance(fields, list) or not fields:
+        return False
+    _norm = lambda s: re.sub(r"\s+", "", str(s or ""))
+    # 클릭 가능 요소만 정리(버튼·링크·submit) — 안전 라벨 + 거부목록 제외
+    buttons = []
+    for f in fields:
+        role = f.get("role")
+        if role not in ("button", "link") and f.get("type") not in ("submit", "button"):
+            continue
+        label = _safe_button_label(f.get("text") or f.get("name"))
+        if not label or _NAV_DENY.search(_norm(label)):
+            continue
+        buttons.append({"idx": f.get("idx"), "text": label})
+    if not buttons:
+        return False
+
+    # ① 결정론 — want_texts 동의어와 양방향 부분일치(공백 무시)
+    for wt in want_texts:
+        wn = _norm(wt)
+        if not wn:
+            continue
+        for b in buttons:
+            bn = _norm(b["text"])
+            if bn and (wn in bn or (bn in wn and len(bn) >= 2)):
+                if await _click_idx(ctx, b["idx"]):
+                    return True
+
+    # ② LLM — 구조만 보고 판단(키 있을 때·옵트인)
+    if not ai_fill_enabled():
+        return False
+    prompt = build_nav_prompt(goal, buttons)
+    try:
+        loop = asyncio.get_running_loop()
+        text = await loop.run_in_executor(None, lambda: _ask_llm(prompt, 12, ""))
+    except Exception:
+        return False
+    m = re.search(r"\{[\s\S]*\}", text or "")
+    if not m:
+        return False
+    try:
+        idx = int(json.loads(m.group(0)).get("idx"))
+    except Exception:
+        return False
+    if idx < 0:
+        return False
+    # LLM 이 고른 idx 도 거부목록 재검(환각으로 제출/결제를 고르는 것 차단)
+    lbl = next((b["text"] for b in buttons if b["idx"] == idx), "")
+    if not lbl or _NAV_DENY.search(_norm(lbl)):
+        return False
+    if task is not None:
+        try:
+            task.update("running", f"🧭 AI가 화면을 읽고 '{lbl}' 단계로 진행해요(값·개인정보는 전송하지 않아요).")
+        except Exception:
+            pass
+    return await _click_idx(ctx, idx)
