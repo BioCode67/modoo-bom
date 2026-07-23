@@ -215,3 +215,15 @@ describe('MYTH_RULES — 규칙셋 형태·정직성', () => {
     }
   })
 })
+
+describe('태도 장벽 규칙 — 대화 전용(카드 자동노출 안 함)', () => {
+  it('complex·healthy 규칙이 존재하고 trigger는 항상 false', async () => {
+    const { MYTH_RULES } = await import('./misconceptions')
+    for (const id of ['complex', 'healthy']) {
+      const rule = MYTH_RULES.find((r) => r.id === id)
+      expect(rule).toBeTruthy()
+      expect(rule!.trigger({} as never, [])).toBe(false)
+      expect(rule!.truth).toMatch(/최종 자격|심사/) // 정직성 라벨
+    }
+  })
+})

@@ -17,6 +17,7 @@ import { WelfareCalendar } from '@/components/WelfareCalendar'
 import { HouseholdAnalyzer } from '@/components/HouseholdAnalyzer'
 import { AnnualCashflow } from '@/components/AnnualCashflow'
 import { DeadlineAlert } from '@/components/DeadlineAlert'
+import { DocReuseCard } from '@/components/DocReuseCard'
 import { useAppStore, type AppStatus } from '@/store/useAppStore'
 import { useAuthCtx } from '@/lib/authContext'
 import { sumCashMonthly, formatWon } from '@/lib/format'
@@ -124,6 +125,9 @@ export function My() {
 
       {/* 담은 복지의 연간 현금흐름 — 앞으로 12개월 누적 수령액 */}
       <AnnualCashflow policies={tracked.map((t) => POLICY_MAP[t.policyId]).filter(Boolean)} />
+
+      {/* 서류 재사용 — 여러 복지가 같은 서류를 쓸 때 '한 번만 준비'하도록(준비 부담↓) */}
+      <DocReuseCard policies={tracked.map((t) => POLICY_MAP[t.policyId]).filter(Boolean)} />
 
       {/* ② 신청 — 담은 복지 목록(각 카드에서 상태·서류·다음 할 일 관리) */}
       <section id="journey-apply" className="scroll-mt-24">

@@ -310,3 +310,19 @@ describe('isLocalIntent — 신규 인텐트도 로컬 처리(무환각·즉시)
     expect(isLocalIntent('소급 받을 수 있나요?')).toBe(true)
   })
 })
+
+describe('오해 진단 — 태도 장벽(복잡·건강)', () => {
+  it("'복잡해서 못 하겠어요' → complex 반박", () => {
+    expect(matchMisconceptionIntent('신청이 너무 복잡해서 못 하겠어요')).toBe('complex')
+    expect(matchMisconceptionIntent('절차가 어려워요')).toBe('complex')
+  })
+  it("'건강해서 해당 없죠?' → healthy 반박", () => {
+    expect(matchMisconceptionIntent('저는 건강해서 해당 없죠?')).toBe('healthy')
+    expect(matchMisconceptionIntent('멀쩡한데 복지가 필요 없잖아요')).toBe('healthy')
+  })
+  it('태도 반박도 정직성 라벨과 함께 답한다', () => {
+    const r = agentReply('신청이 복잡해서 못 하겠어요', { profile, result })
+    expect(r.text).toMatch(/주민센터|복지로|간단/)
+    expect(r.text).toMatch(/최종 자격|심사/)
+  })
+})
