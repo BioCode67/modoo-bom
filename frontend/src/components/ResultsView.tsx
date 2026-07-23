@@ -25,6 +25,8 @@ import { searchPolicies } from '@/lib/search'
 import { getCatalog } from '@/data/catalog'
 import { cn } from '@/lib/utils'
 import { profileSignals } from '@/lib/profileSignals'
+import { MisconceptionCard } from '@/components/MisconceptionCard'
+import { GapProbeCard } from '@/components/GapProbeCard'
 import { JourneyStepper } from '@/components/JourneyStepper'
 import { useAppStore } from '@/store/useAppStore'
 import { encodeHelperLink, decodeHelperPayload } from '@/lib/helperLink'
@@ -255,6 +257,11 @@ export function ResultsView({ result, profile, onReset, helperMode = false }: { 
           </div>
         </motion.div>
       )}
+
+      {/* 오해 진단 — 이 프로필에 걸리는 복지 통념을 구조 규칙으로 바로잡음(걸린 게 없으면 자동 숨김) */}
+      <MisconceptionCard profile={profile} eligible={eligible} />
+      {/* 숨은 자격 발굴기 — 말 안 한 차원이 열어줄 복지를 임팩트순으로 되물음(도우미 모드에선 남의 프로필이라 숨김) */}
+      {!helperMode && <GapProbeCard profile={profile} onEdit={onReset} />}
 
       {/* 알림 */}
       {result.notifications.length > 0 && (

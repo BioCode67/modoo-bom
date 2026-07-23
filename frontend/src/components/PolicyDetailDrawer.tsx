@@ -18,6 +18,8 @@ import { APPLY_EXTRA_EVENT } from '@/lib/applyExtra'
 import { ApplyFlow } from '@/components/ApplyFlow'
 import { TermText } from '@/components/TermText'
 import { VisitKit } from '@/components/VisitKit'
+import { FreshnessBadge } from '@/components/FreshnessBadge'
+import { DocSharingNote } from '@/components/DocSharingNote'
 import { t as tr, RTL } from '@/lib/i18nLite'
 import { ApplyKit } from '@/components/ApplyKit'
 import { oneTapApply, bestApplyInfo } from '@/lib/quickApply'
@@ -406,6 +408,8 @@ function DrawerBody({
                   )
                 })}
               </ul>
+              {/* 행정정보 공동이용 — 동의 서명 하나로 안 떼도 되는 서류 안내(생략 가능분 있을 때만) */}
+              <DocSharingNote policy={policy} />
               {doneCount === total && (
                 // 준비 완료 → 곧바로 신청으로 연결(루프 완성). bestApplyUrl로 주요 복지는 정확한 복지로 딥링크.
                 <div className="mt-2 flex flex-wrap items-center gap-2 rounded-xl bg-sprout-50 px-3 py-2.5">
@@ -475,6 +479,9 @@ function DrawerBody({
             </div>
           )
         })()}
+
+        {/* 데이터 신선도·완결성 — 이 레코드를 얼마나 믿고 무엇을 공식 확인해야 하는지 정직 지표 */}
+        <FreshnessBadge policy={policy} />
 
         {/* 함께 보면 좋은 복지 */}
         {related.length > 0 && onOpen && (

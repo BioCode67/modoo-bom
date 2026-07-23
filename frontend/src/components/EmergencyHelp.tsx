@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { LifeBuoy, X, Phone, ExternalLink } from 'lucide-react'
 import { CRISES, matchEmergency } from '@/lib/emergency'
@@ -6,6 +6,9 @@ import { applyLink } from '@/lib/officialLinks'
 import { bestApplyUrl } from '@/lib/quickApply'
 import { parseMonthly, formatWon, categoryMeta, isCashBenefit } from '@/lib/format'
 import { useModalFocus } from '@/hooks/useModalFocus'
+import { useAppStore } from '@/store/useAppStore'
+import { TriageLadder } from '@/components/TriageLadder'
+import { CrisisEvidencePanel } from '@/components/CrisisEvidencePanel'
 import { cn } from '@/lib/utils'
 
 /** 위기 상황 빠른 진단 — 복지 사각지대의 가장 급한 사용자를 즉시 돕는다. */
@@ -13,6 +16,11 @@ export function EmergencyHelp() {
   const [open, setOpen] = useState(false)
   const [sel, setSel] = useState<string[]>([])
   const matched = matchEmergency(sel)
+  // 발급완료(docDone) 키를 위기 입증 서류 대조에 넘긴다(공백 정규화된 서류명 — crisisEvidence가 공백무시 대조).
+  // ⚠️ 셀렉터에서 Object.keys를 바로 반환하면 매 렌더 '새 배열' → zustand가 매번 변경으로 보고 무한 렌더(마운트 붕괴).
+  //    안정적인 docDone 객체를 구독하고 keys는 useMemo로 파생한다(PolicyDetailDrawer와 동일 패턴).
+  const docDone = useAppStore((s) => s.docDone)
+  const issuedDocs = useMemo(() => Object.keys(docDone), [docDone])
   const panelRef = useRef<HTMLDivElement>(null)
   useModalFocus(panelRef, open, () => setOpen(false))
 
@@ -92,7 +100,9 @@ export function EmergencyHelp() {
                 {matched.length > 0 && (
                   <div className="mt-4">
                     <p className="text-sm font-bold mb-2">관련 있는 긴급 지원 {matched.length}건 <span className="text-[11px] font-normal text-muted-foreground">· 자격은 소득·재산 심사 후 확정</span></p>
-                    <ul className="space-y-2">
+                    {/* ⏱ 시간 순 실행 사다리 — 같은 지원을 '언제 도움이 오나'로 재정렬 + 오늘 할 단 하나 */}
+                    <TriageLadder policies={matched} />
+                    <ul className="space-y-2 mt-3">
                       {matched.map((p) => {
                         // 월 배지는 '현금성 월지원'만 — 일시금·바우처·서비스는 "월 X"로 오표기하지 않는다(정직성)
                         const m = isCashBenefit(p.benefit, `${p.name} ${p.category}`) ? parseMonthly(p.benefit) : 0
@@ -113,6 +123,9 @@ export function EmergencyHelp() {
                     </ul>
                   </div>
                 )}
+
+                {/* 위기 입증 서류 도우미 — 선택한 위기를 무엇으로·어디서 입증하나(발급완료 대조·골든타임 우선) */}
+                {sel.length > 0 && <CrisisEvidencePanel crisisKeys={sel} issuedDocs={issuedDocs} />}
               </div>
             </motion.div>
           </motion.div>

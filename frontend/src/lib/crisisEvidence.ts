@@ -50,16 +50,17 @@ export interface EvidencePlan {
 type BaseDoc = Omit<EvidenceDoc, 'issuedAlready'>
 
 // 위기별 큐레이션 원본 — 각 위기 2~4개 대표 입증서류. source/effort/deferrable은 발급 실무의 구조 정보이며 정액이 아니다.
+// key는 앱의 위기 분류(lib/emergency.ts CRISES)와 동일하게 맞춘다 — EmergencyHelp에서 선택한 위기 key가 그대로 들어온다.
 const RAW: Record<string, { label: string; docs: BaseDoc[] }> = {
-  unemployed: {
+  joblost: {
     label: '실직(비자발적 이직)',
     docs: [
       { name: '해고(예고)통지서·권고사직 확인서', proves: '비자발적 실직 사유', source: '직장', effort: '요청필요', deferrable: true },
       { name: '이직확인서', proves: '이직 사유·퇴사일 (실업급여 연계)', source: '직장', effort: '요청필요', deferrable: true },
-      { name: '폐업사실증명원', proves: '자영업 폐업으로 인한 소득상실 (해당 시)', source: '정부24', effort: '바로발급', deferrable: false },
+      { name: '고용보험 피보험자격 이력내역서', proves: '고용보험 가입·상실 이력', source: '정부24', effort: '바로발급', deferrable: false },
     ],
   },
-  illness: {
+  sick: {
     label: '질병·부상',
     docs: [
       { name: '진단서', proves: '질병·부상 사실과 치료 필요', source: '병원', effort: '요청필요', deferrable: true },
@@ -75,6 +76,14 @@ const RAW: Record<string, { label: string; docs: BaseDoc[] }> = {
       { name: '가족관계증명서', proves: '사망한 주소득자와의 관계', source: '정부24', effort: '바로발급', deferrable: false },
     ],
   },
+  business: {
+    label: '사업 위기·폐업',
+    docs: [
+      { name: '폐업사실증명원', proves: '자영업 폐업으로 인한 소득상실', source: '정부24', effort: '바로발급', deferrable: false },
+      { name: '사업자등록 휴·폐업 사실증명', proves: '영업 중단 사실', source: '정부24', effort: '바로발급', deferrable: false },
+      { name: '소득금액증명(또는 사실증명)', proves: '소득 급감·무소득', source: '정부24', effort: '바로발급', deferrable: false },
+    ],
+  },
   disaster: {
     label: '화재·재난',
     docs: [
@@ -82,20 +91,25 @@ const RAW: Record<string, { label: string; docs: BaseDoc[] }> = {
       { name: '피해사실확인서', proves: '재난·재해로 인한 주거·재산 피해', source: '주민센터', effort: '요청필요', deferrable: true },
     ],
   },
-  income: {
-    label: '소득단절',
+  housing: {
+    label: '주거 위기(월세 연체·퇴거)',
     docs: [
-      { name: '소득금액증명(또는 사실증명)', proves: '무소득·소득 없음', source: '정부24', effort: '바로발급', deferrable: false },
-      { name: '통장 거래내역서', proves: '급여·소득 입금 중단', source: '금융기관', effort: '바로발급', deferrable: false },
-      { name: '휴직·무급휴직 확인서', proves: '근로 중단으로 인한 소득단절 (해당 시)', source: '직장', effort: '요청필요', deferrable: true },
+      { name: '임대차(전월세) 계약서', proves: '임차 사실·월 임대료 부담 (확정일자 받은 사본)', source: '주민센터', effort: '요청필요', deferrable: true },
+      { name: '월세 이체내역·입금확인서', proves: '월세 납부·연체 정황', source: '금융기관', effort: '바로발급', deferrable: true },
     ],
   },
-  divorce: {
-    label: '이혼·가정해체',
+  violence: {
+    label: '폭력·학대 위기',
     docs: [
-      { name: '혼인관계증명서(이혼 사실 기재)', proves: '이혼으로 인한 가구 변동', source: '정부24', effort: '바로발급', deferrable: false },
-      { name: '주민등록등본', proves: '세대 분리·단독 가구 구성', source: '정부24', effort: '바로발급', deferrable: false },
-      { name: '경찰 신고사실 확인원(사건사고사실확인원)', proves: '가정폭력 피해 사실 (해당되시면)', source: '경찰·소방', effort: '요청필요', deferrable: true },
+      { name: '경찰 사건사고사실확인원', proves: '폭력·학대 신고 사실', source: '경찰·소방', effort: '요청필요', deferrable: true },
+      { name: '보호시설 입소확인서', proves: '보호시설 입소 사실 (해당 시)', source: '주민센터', effort: '요청필요', deferrable: true },
+    ],
+  },
+  birth: {
+    label: '출산',
+    docs: [
+      { name: '임신확인서', proves: '임신·출산 예정 사실', source: '병원', effort: '요청필요', deferrable: true },
+      { name: '출생증명서', proves: '출생 사실 (출산 후 신고·바우처 연계)', source: '병원', effort: '요청필요', deferrable: false },
     ],
   },
 }
