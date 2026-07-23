@@ -359,7 +359,7 @@ def test_wait_document_rendered_waits_while_visual_pending():
 
 
 def test_wait_document_rendered_passes_on_bright_visual():
-    """반대편 파리티 — 큰 비주얼이 실제로 그려지면(강신호 s, pending 0) 안정 확인 후 통과한다.
+    """반대편 파리티 — 큰 비주얼이 실제로 그려지고(강신호 s) 지문이 멈추면 통과한다.
     (텍스트 게이팅 강화가 '정상 렌더'까지 막지 않음을 보장)."""
     import asyncio
     from rpa.gov24_rpa import _wait_document_rendered
@@ -368,7 +368,7 @@ def test_wait_document_rendered_passes_on_bright_visual():
         async def wait_for_load_state(self, _state, timeout=0):
             return None
         async def evaluate(self, _script):
-            return {"s": 1, "w": 0, "p": 0}  # 밝은 본문 렌더됨
+            return {"s": 1, "w": 0, "p": 0, "fp": 80}  # 밝은 본문 렌더됨(지문 고정)
 
     loop = asyncio.new_event_loop()
     try:
@@ -376,3 +376,31 @@ def test_wait_document_rendered_passes_on_bright_visual():
     finally:
         loop.close()
     assert ok is True
+
+
+def test_wait_document_rendered_waits_until_visual_stable():
+    """🎯 상태 기반(자기 페이스) — 본문이 '그려지는 중'(지문 fp 증가)이면 통과하지 않고, 화면이
+    '멈춘'(fp 고정) 뒤에만 캡처한다. 고정 대기시간이 아니라 '렌더 안정'으로 self-pace 함을 잠근다.
+    → 느린 PC/네트워크에서도 빈 캡처가 나지 않도록(컴퓨터-유즈 에이전트식 '가라앉음' 판정)."""
+    import asyncio
+    from rpa.gov24_rpa import _wait_document_rendered
+
+    calls = {"n": 0}
+
+    class _Page:
+        async def wait_for_load_state(self, _state, timeout=0):
+            return None
+        async def evaluate(self, _script):
+            calls["n"] += 1
+            # 처음 4회는 지문이 계속 증가(문서가 그려지는 중) → 이후 고정(멈춤 = 렌더 완료)
+            fp = min(calls["n"], 4) * 50
+            return {"s": 1, "w": 0, "p": 0, "fp": fp}
+
+    loop = asyncio.new_event_loop()
+    try:
+        ok = loop.run_until_complete(_wait_document_rendered(_Page(), timeout_sec=8))
+    finally:
+        loop.close()
+    assert ok is True
+    # 지문 증가 구간(4회)을 지나 '멈춤'을 확인할 때까지 폴링했다 — 즉시(1~2회) 통과가 아님
+    assert calls["n"] >= 5

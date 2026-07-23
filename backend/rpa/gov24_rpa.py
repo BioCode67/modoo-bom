@@ -889,21 +889,23 @@ async def _wait_auth_form_ready(ctx, timeout_sec: int = 5) -> None:
 
 
 async def _wait_document_rendered(page, timeout_sec: int = 20) -> bool:
-    """문서출력 뷰어의 '본문'이 실제로 렌더될 때까지 대기 — 빈 PDF 저장 방지.
-    ⚠️ 실사용 제보 2건: ① 너무 빨리 캡처해 '헤더만 있고 본문 빈' PDF ② (시연 아침) 그래도 재발 —
-       원인은 가짜 준비 신호였다: 문서출력 껍데기는 처음부터 큰 iframe/embed 를 갖고 있어
-       '큰 embed 존재'를 렌더 완료로 오판했고, 페이지 이미지(예: 10쪽)는 아직 0장이었다.
-    → 신호를 '실제 그려진 본문'으로 한정: 로드 완료(complete)된 큰 이미지·캔버스 개수 또는 충분한
-      본문 텍스트를 **모든 프레임**에서 세고, 두 번 연속 같은 개수(증가 멈춤 = 로드 안정)일 때만 통과.
-      배터리 절전 등 느린 PC를 위해 기본 대기도 20초로. 끝내 못 잡으면 False 반환 후 진행(캡처는 한다)."""
+    """문서출력 뷰어의 본문이 '다 그려지고 더는 변하지 않을 때'까지 대기 — 빈/부분 PDF 저장 방지.
+
+    ⚠️ 설계 원칙(2026-07-23, 실사용 피드백 반영): '몇 초 기다렸다 캡처'는 PC 성능·네트워크 속도에
+       따라 빗나간다(느리면 빈 화면, 빠르면 불필요한 지연). 그래서 **시간이 아니라 '상태'로 판단**한다 —
+       컴퓨터-유즈 에이전트가 화면이 '가라앉을' 때까지 기다리듯:
+         ① 실제 문서 픽셀(48×48 축소 후 흰 바탕 비율>20%)이 보이고,
+         ② 그 화면의 '지문(fp: 밝기·텍스트량 합)'이 연속 프레임에서 **멈추면(변화 없음)** 캡처한다.
+       느린 환경은 지문이 계속 커지므로 자동으로 더 기다리고, 빠른 환경은 곧 멈춰 즉시 통과한다.
+       교차출처 뷰어(PDF 등)는 픽셀을 못 읽으므로 networkidle + 약신호 지속으로 대체 판단한다.
+       timeout_sec 은 '판독 실패 시 안전 상한'일 뿐 정상 경로의 트리거가 아니다(못 잡으면 False)."""
     try:
         await page.wait_for_load_state("networkidle", timeout=min(timeout_sec, 10) * 1000)
     except Exception:
         pass
-    # ⚠️ 실사용 재재발(같은 날 15:00 저장본): '큰 캔버스/이미지 존재'만으로는 부족 — 문서출력 뷰어는
-    #    빈(어두운) 대형 캔버스 + 로딩 스피너 상태로도 크기 신호를 만족한다. → 픽셀 샘플링으로 승격:
-    #    요소를 48×48로 축소해 '문서다운 흰 바탕 비율(>20%)'이 실제로 보일 때만 강신호(s)로 센다.
-    #    교차출처 오염(getImageData 불가)은 약신호(w)로 분리 — 약신호만 6초+ 지속되면 로드로 간주.
+    # 픽셀 샘플링: 요소를 48×48로 축소해 '문서다운 흰 바탕 비율'을 실측한다. 강신호(s)=흰 바탕>20%,
+    #   지문(fp)=그 밝기(정수)·본문 텍스트량의 합 → '얼마나 그려졌는가'를 수치화(프레임 간 비교로 안정 감지).
+    #   pending=아직 로딩 중인 큰 비주얼(조기 통과 금지 주범), w=픽셀 판독 불가(교차출처·뷰어·완료됐지만 어두움).
     js = (
         "() => {"
         "  const bright = (el) => {"
@@ -913,19 +915,21 @@ async def _wait_document_rendered(page, timeout_sec: int = 20) -> bool:
         "      const d = octx.getImageData(0, 0, 48, 48).data;"
         "      let n = 0;"
         "      for (let i = 0; i < d.length; i += 4) { if (d[i] > 200 && d[i+1] > 200 && d[i+2] > 200) n++; }"
-        "      return (n * 4 / d.length) > 0.2 ? 1 : -1;"  # 1=문서같음(흰 바탕), -1=빈/어두움
-        "    } catch (e) { return 0; }"  # 교차출처 오염 — 판정 불가
+        "      return n / (d.length / 4);"  # 0..1 흰 바탕 비율(연속값 — 지문 계산용)
+        "    } catch (e) { return -1; }"  # 교차출처 오염 — 판독 불가
         "  };"
-        "  let s = 0, w = 0, pending = 0;"
+        "  let s = 0, w = 0, pending = 0, fp = 0;"
+        "  const grade = (el) => { const r = bright(el);"  # 큰 이미지·캔버스 판정: 판독불가=w, 흰문서=강신호+지문, 그 외=약신호
+        "    if (r < 0) { w++; } else if (r > 0.2) { s++; fp += Math.round(r * 100); } else { w++; } };"
         "  for (const c of document.querySelectorAll('canvas')) {"
-        "    if (c.width > 300 && c.height > 300) { if (bright(c) === 1) s++; else pending++; }"  # 큰 캔버스가 아직 안 그려짐 = '대기'(빈 본문)
+        "    if (c.width > 300 && c.height > 300) grade(c);"
         "  }"
         "  for (const im of document.querySelectorAll('img')) {"
         "    const big = im.naturalWidth > 150 && im.naturalHeight > 150;"
         "    if (!im.complete && (big || im.width > 150 || im.height > 150)) { pending++; continue; }"  # 로딩 중 큰 이미지 = '대기'(빈 캡처 주범)
-        "    if (im.complete && big) { const b = bright(im); if (b === 1) s++; else if (b === 0) w++; else pending++; }"  # 완료됐지만 어두움 = 아직 빈 본문
+        "    if (im.complete && big) grade(im);"
         "  }"
-        "  for (const e of document.querySelectorAll('embed, object, iframe')) {"  # 샘플 불가한 문서 뷰어(PDF 등)는 존재만으로 약신호(약신호 경로가 6초 유예 후 통과)
+        "  for (const e of document.querySelectorAll('embed, object, iframe')) {"  # 샘플 불가한 문서 뷰어(PDF 등)는 존재만으로 약신호
         "    const r = e.getBoundingClientRect ? e.getBoundingClientRect() : null;"
         "    if (r && r.width > 300 && r.height > 300) w++;"
         "  }"
@@ -933,17 +937,18 @@ async def _wait_document_rendered(page, timeout_sec: int = 20) -> bool:
         # ⚠️ 실사용 제보(2026-07-23): 본문 텍스트(tx>300)를 강신호로 세면, 문서출력 뷰어 '껍데기'(메뉴·버튼·안내
         #   문구)가 실제 문서보다 먼저 300자를 넘겨 '본문은 아직 빈 화면'인데도 조기 통과 → 빈 캡처가 저장됐다.
         #   → 텍스트는 '로딩 중인 큰 비주얼(pending)이 없을 때만' 강신호로 인정한다(순수 텍스트 문서는 종전과 동일).
-        "  if (tx > 300 && pending === 0) s++;"
-        "  return {s: s, w: w, p: pending};"
+        "  if (tx > 300 && pending === 0) { s++; fp += Math.min(tx, 4000); }"
+        "  return {s: s, w: w, p: pending, fp: fp};"
         "}"
     )
-    prev = None
+    prev_fp = None      # 직전 프레임의 지문 — 같으면 '화면이 멈춤(렌더 완료)'
     weak_since = None
-    for i in range(max(1, timeout_sec * 2)):
+    for i in range(max(2, timeout_sec * 2)):
         ready = False
         strong = 0
         weak = 0
-        pending = 0  # 아직 로딩 중인 큰 비주얼(캔버스·이미지) — 있으면 '조기 통과' 금지
+        pending = 0     # 아직 로딩 중인 큰 비주얼 — 있으면 조기 통과 금지
+        fp = 0          # 이번 프레임 지문(밝기·텍스트량 합)
         for fr in [page] + list(getattr(page, "frames", None) or []):
             try:
                 r = await fr.evaluate(js)
@@ -955,23 +960,29 @@ async def _wait_document_rendered(page, timeout_sec: int = 20) -> bool:
                 strong += int(r.get("s") or 0)
                 weak += int(r.get("w") or 0)
                 pending += int(r.get("p") or 0)
+                fp += int(r.get("fp") or 0)
             elif isinstance(r, (int, float)):
                 strong += int(r)
-        if ready or (strong > 0 and prev == strong):
-            await asyncio.sleep(2.0)  # 렌더/페인트 완료 여유 — 캡처가 본문을 담게
+        if ready:
+            await asyncio.sleep(1.0)
             return True
-        # 약신호(교차출처 뷰어) 경로는 '로딩 중인 큰 비주얼이 없을 때만' — 본문 이미지가 아직 그려지는 중이면
-        #   6초 유예 통과가 빈 캡처를 만들 수 있어, pending 이 풀릴 때까지(또는 전체 타임아웃) 기다린다.
+        # 🎯 상태 기반 통과: 실제 그려진 본문(strong)이 있고, 로딩 중 비주얼이 없으며(pending==0),
+        #    지문이 직전 프레임과 '같으면'(화면이 멈춤 = 렌더 완료) 캡처한다. 시간이 아니라 '멈춤'이 트리거.
+        if strong > 0 and pending == 0 and prev_fp is not None and fp == prev_fp:
+            await asyncio.sleep(0.8)  # 마지막 페인트 반영 여유(짧게)
+            return True
+        # 픽셀을 못 읽는 교차출처 뷰어만 있는 경우 — networkidle 이후에도 판독 불가. 약신호가 '멈춰 지속'되고
+        #   로딩 중 비주얼이 없을 때만, 관측 불가의 정직한 폴백으로 진행(그 외엔 지문 안정 경로가 담당).
         if strong == 0 and weak > 0 and pending == 0:
             weak_since = i if weak_since is None else weak_since
-            if i - weak_since >= 12:  # 판정 불가 신호만 6초+ — 교차출처 문서로 보고 진행
-                await asyncio.sleep(2.0)
+            if i - weak_since >= 12:  # 판독 불가 약신호만 6초+ 지속 — 교차출처 문서로 보고 진행
+                await asyncio.sleep(1.5)
                 return True
         else:
             weak_since = None
-        prev = strong if strong > 0 else None
+        prev_fp = fp
         await asyncio.sleep(0.5)
-    await asyncio.sleep(2.0)  # 신호 못 잡아도 최소 여유 후 캡처(빈 화면보다 늦더라도 담기게)
+    await asyncio.sleep(1.5)  # 상태를 못 잡아도 최소 여유 후 캡처(빈 화면보다 늦더라도 담기게)
     return False
 
 
