@@ -20,11 +20,14 @@ from webagent.web_agent import (  # noqa: F401
     default_fallback_url,
     default_resolver,
 )
+from webagent.journey import run_web_journey, WebJourneyResult  # noqa: F401
 
 __all__ = [
     "run_web_agent",
+    "run_web_journey",
     "WebAgentConfig",
     "WebAgentResult",
+    "WebJourneyResult",
     "DefaultExecutor",
     "EngineOutcome",
     "default_fallback_url",

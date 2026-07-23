@@ -85,15 +85,34 @@ async def my_runner(goal, cfg):      # 커스텀/대체 엔진(OpenClaw 등)
 result = await run_web_agent(goal, executor=DefaultExecutor(browser_use_runner=my_runner))
 ```
 
+## 여정 — 여러 목표를 이어서 (`run_web_journey`)
+
+'전부 자동발급'처럼 여러 서류·신청을 순서대로 이어서 처리하고 집계합니다. 본인인증 같은
+'사람 인계' 지점을 만나면(기본) 거기서 멈춰, 사람이 인증을 마친 뒤 남은 목표로 다시 호출합니다
+(정부 인증은 비가역·법적 안전장치라 대리 불가).
+
+```python
+from webagent import run_web_journey
+
+j = await run_web_journey(["주민등록등본 발급", "가족관계증명서 발급"])
+print(j.summary)      # "목표 2개 · 경로 확정 2"
+print(j.stopped_at)   # 사람 인계로 멈춘 단계(없으면 None)
+```
+
+결과 `WebJourneyResult`: `done_count`(완료) · `routed_count`(경로 확정) · `human_count`(본인확인 필요) ·
+`error_count`(자동 불가) · `stopped_at` · `steps`(각 단계 결과) · `summary`. 실제 완료만 done으로 셉니다.
+
 ## 구성
 
 ```
 webagent/
-├── __init__.py       # 공개 API: run_web_agent · WebAgentConfig · WebAgentResult
+├── __init__.py       # 공개 API: run_web_agent · run_web_journey · WebAgentConfig · WebAgentResult
 ├── config.py         # 가드레일 설정(env → WebAgentConfig)
 ├── types.py          # 구조화 결과(WebAgentResult) · 상태 상수
 ├── llm_factory.py    # 판단 계층 LLM 구성(비전 우선, provider 키 재사용)
-└── web_agent.py      # 하이브리드 오케스트레이터 + browser-use 어댑터 + DefaultExecutor
+├── web_agent.py      # 하이브리드 오케스트레이터 + browser-use 어댑터 + DefaultExecutor
+└── journey.py        # 다목표 연쇄(여정) — 사람 인계 지점에서 멈춤·정직한 집계
 ```
 
-테스트: `pytest tests/test_webagent.py` (브라우저·키 없이 도는 계약 테스트 — 라우팅·롤백·가드레일·정직성).
+테스트: `pytest tests/test_webagent.py tests/test_webagent_journey.py`
+(브라우저·키 없이 도는 계약 테스트 — 라우팅·롤백·가드레일·여정 집계·정직성).
