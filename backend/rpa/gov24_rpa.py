@@ -2031,8 +2031,9 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None, session=Non
                 #   클릭 가능 요소를 정리해 '문서출력' 단계 버튼을 찾아 누른다. 결정론 동의어 우선, 키 있으면
                 #   LLM 판단까지(버튼 라벨만 전송·제출/결제류 거부). 없으면 no-op(기존 동작 불변).
                 try:
-                    from rpa.ai_fill import ai_pick_action
-                    await ai_pick_action(
+                    from rpa.ai_fill import ai_pick_action_deep
+                    # 프레임 관통 self-heal — 문서출력 버튼이 자식 프레임에 있어도 찾는다(실측 대비)
+                    await ai_pick_action_deep(
                         page, "발급된 문서를 화면에 출력해 PDF로 저장하는 단계로 진행",
                         ["문서출력", "출력하기", "인쇄", "발급", "저장", "출력"], task=task,
                         site="gov24",  # 경로 기억(route memorization) — 성공한 라벨을 다음 실행에서 먼저 시도

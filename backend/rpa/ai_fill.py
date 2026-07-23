@@ -891,3 +891,26 @@ async def ai_pick_action(ctx, goal: str, want_texts: list = None, task=None, sit
         _remember(lbl)
         return True
     return False
+
+
+async def ai_pick_action_deep(page, goal: str, want_texts: list = None, task=None,
+                              site: str = "", verify=None) -> bool:
+    """🪟 프레임 관통(unified cross-frame) observe→decide→click — 목표 버튼을 메인 페이지에서 못 찾으면
+    자식 프레임(iframe)까지 훑어 클릭한다(browser-use/Stagehand의 cross-frame 트리 파리티).
+
+    실측 배경(2026-07-23): plus.gov.kr 로그인 위젯이 메인 프레임 light DOM에 안 잡힘(shadow는 관통 완료,
+    iframe 케이스 대비). 신형 정부/인증 폼은 콘텐츠가 프레임에 나뉘는 일이 잦다. 메인 우선이라 프레임이
+    없거나 메인에 버튼이 있으면 기존 ai_pick_action과 100% 동일(순수 확장)."""
+    if await ai_pick_action(page, goal, want_texts, task, site, verify):
+        return True
+    main = getattr(page, "main_frame", None)
+    for fr in list(getattr(page, "frames", None) or []):
+        if fr is main:
+            continue
+        try:
+            # 프레임엔 task 알림·site 캐시를 넘기지 않는다(메인에서 이미 처리·중복 방지). verify 는 유지.
+            if await ai_pick_action(fr, goal, want_texts, None, "", verify):
+                return True
+        except Exception:
+            continue
+    return False

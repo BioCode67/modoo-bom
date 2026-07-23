@@ -264,3 +264,58 @@ def test_ai_fill_and_pick_pierce_shadow_dom(monkeypatch):
     assert r.get("name") is True and r.get("phone_tail") is True   # shadow 입력 채움+값검증 성공
     assert nm == "홍길동"                                          # shadow 실제 값 정확
     assert ok is True and did is True                              # shadow 버튼 찾아 실제 클릭
+
+
+# 🪟 콘텐츠가 iframe에 나뉜 폼(신형 정부/인증 화면 잦음) — 메인 프레임엔 버튼이 없고 자식 프레임에만 있다.
+_HTML_IFRAME = """<!doctype html><meta charset="utf-8"><body>
+<p>메인 프레임 — 여기엔 목표 버튼이 없습니다.</p>
+<iframe srcdoc="&lt;button id='b'&gt;문서출력&lt;/button&gt;"></iframe>
+</body>"""
+
+
+def test_ai_pick_action_deep_pierces_iframe():
+    """🪟 ai_pick_action_deep: 목표 버튼이 자식 iframe 안에만 있어도 프레임 관통으로 찾아 클릭한다
+    (browser-use/Stagehand cross-frame 파리티). 메인 프레임의 ai_pick_action 은 못 찾는 것도 함께 확인."""
+    from playwright.async_api import async_playwright
+    from rpa.ai_fill import ai_pick_action, ai_pick_action_deep
+
+    async def run():
+        async with async_playwright() as pw:
+            p = _chromium_path()
+            try:
+                b = await (pw.chromium.launch(executable_path=p) if p
+                           else pw.chromium.launch(channel="chrome"))
+            except Exception as e:
+                return ("skip", str(e))
+            pg = await (await b.new_context()).new_page()
+            await pg.set_content(_HTML_IFRAME)
+            await asyncio.sleep(0.3)
+            # 자식 프레임 버튼에 클릭 감지 훅
+            for fr in pg.frames:
+                if fr is pg.main_frame:
+                    continue
+                try:
+                    await fr.evaluate("() => { const e = document.getElementById('b');"
+                                      " if (e) e.addEventListener('click', () => { window.__c = true; }); }")
+                except Exception:
+                    pass
+            shallow = await ai_pick_action(pg, "문서출력 단계", ["문서출력"])   # 메인만 → 못 찾음
+            deep = await ai_pick_action_deep(pg, "문서출력 단계", ["문서출력"])  # 프레임 관통 → 찾음
+            did = False
+            for fr in pg.frames:
+                if fr is pg.main_frame:
+                    continue
+                try:
+                    if await fr.evaluate("() => !!window.__c"):
+                        did = True
+                except Exception:
+                    pass
+            await b.close()
+            return (shallow, deep, did)
+
+    res = asyncio.new_event_loop().run_until_complete(run())
+    if res and res[0] == "skip":
+        pytest.skip(f"실 브라우저 없음: {res[1]}")
+    shallow, deep, did = res
+    assert shallow is False    # 메인 프레임만 보는 ai_pick_action 은 iframe 안 버튼을 못 찾는다
+    assert deep is True and did is True   # 프레임 관통으로 찾아 실제 클릭
