@@ -34,7 +34,7 @@ function scrollToAnchor(id: string) {
  *  - 'my'(기본): 나의 복지 화면 — 현재 단계 섹션으로 스크롤.
  *  - 'result': 결과 화면(찾기 직후) — 찾기 완료를 보여주고 '나의 복지에서 이어가기'로 흐름을 잇는다.
  */
-export function JourneyStepper({ context = 'my' }: { context?: 'my' | 'result' } = {}) {
+export function JourneyStepper({ context = 'my', onGo: onGoExternal }: { context?: 'my' | 'result'; onGo?: (stage: JourneyStage) => void } = {}) {
   const { tracked, docDone, setView } = useAppStore()
   const map = usePolicyMap()
   const isResult = context === 'result'
@@ -52,8 +52,11 @@ export function JourneyStepper({ context = 'my' }: { context?: 'my' | 'result' }
   const go = (stage: JourneyStage) => {
     if (stage === 'find') { setView('analyze'); return }
     if (isResult) { setView('my'); return } // 결과 화면엔 서류·목록 섹션이 없으니 나의 복지로 이어준다
-    // 서류가 필요 없으면 '서류' 노드는 빈 섹션이라 목록(신청)으로 보낸다 — 빈 곳 스크롤 데드엔드 방지
-    const anchor = stage === 'docs' && !needsDocs ? META.apply.anchor : META[stage].anchor
+    // 서류가 필요 없으면 '서류' 노드는 빈 섹션이라 목록(신청)으로 보낸다 — 빈 곳 데드엔드 방지
+    const resolved = stage === 'docs' && !needsDocs ? 'apply' : stage
+    // 나의 복지가 탭 UI면 스크롤 대신 해당 탭으로 전환(onGo). 없으면 기존 앵커 스크롤(하위호환).
+    if (onGoExternal) { onGoExternal(resolved as JourneyStage); return }
+    const anchor = META[resolved as JourneyStage].anchor
     if (anchor) scrollToAnchor(anchor)
   }
   const goNext = () => (isResult ? setView('my') : go(j.current))
