@@ -284,3 +284,29 @@ describe('숨은 자격 인텐트 — 놓친 거 없어?', () => {
     expect(r.cta?.view).toBe('analyze')
   })
 })
+
+describe('신청 골든타임 인텐트 — 언제 신청해야 손해 안 보나', () => {
+  it("'언제 신청?'은 타이밍 답으로 라우팅(방법 아님)", () => {
+    const r = agentReply('언제 신청해야 해?', { profile, result })
+    expect(r.text).toMatch(/신청한 달|타이밍|서두|이번 달/)
+  })
+  it('65세 임박(63세)이면 사전신청을 서두르라 안내', () => {
+    const p63 = { ...profile, age: 63 }
+    const r = agentReply('지금 안 하면 손해야?', { profile: p63, result })
+    expect(r.text).toMatch(/서두|미리|골든타임|⏰/)
+  })
+  it("'어떻게 신청해?'(방법)는 타이밍이 가로채지 않는다(APPLY 보존)", () => {
+    const r = agentReply('어떻게 신청해?', { profile: null, result: null, tracked: [mkT('POL-001')] })
+    expect(r.text).not.toMatch(/골든타임|서두르세요/)
+    expect(r.cta?.view).toBe('my')
+  })
+})
+
+describe('isLocalIntent — 신규 인텐트도 로컬 처리(무환각·즉시)', () => {
+  it('오해·숨은자격·타이밍 질문은 클라우드가 아니라 로컬로 라우팅', () => {
+    expect(isLocalIntent('재산이 있어서 안 될 것 같아요')).toBe(true)
+    expect(isLocalIntent('내가 놓친 복지 없어?')).toBe(true)
+    expect(isLocalIntent('언제 신청해야 해?')).toBe(true)
+    expect(isLocalIntent('소급 받을 수 있나요?')).toBe(true)
+  })
+})

@@ -9,6 +9,7 @@ import { parseMonthly, formatWon, isCashBenefit } from '@/lib/format'
 import { applyLink } from '@/lib/officialLinks'
 import { MYTH_RULES, pickEvidence } from '@/lib/misconceptions'
 import { scanProfileGaps } from '@/lib/profileGaps'
+import { applyTiming } from '@/lib/applyTiming'
 
 /**
  * 챗 에이전트 두뇌 — 검색봇을 넘어 '나를 알고, 대신 행동하는' 에이전트로.
@@ -301,13 +302,6 @@ export function matchSaveIntent(raw: string, context: Policy[], explicitOnly = f
   return context // 밋밋한 "담아줘" + 여러 개(직접 보여준 목록) → 보여준 것 전부
 }
 
-/** 로컬(행동·개인화) 의도인가 — 이 의도들은 클라우드 LLM이 있어도 로컬 에이전트가 처리한다
- *  (담기·서류·자격은 스토어/프로필과 결합된 '행동'이라 LLM보다 정확·즉시). */
-export function isLocalIntent(raw: string): boolean {
-  const q = raw.trim()
-  return GREET_RE.test(q) || DOCS_RE.test(q) || APPLY_RE.test(q) || ELIG_RE.test(q)
-}
-
 // ── 오해 진단 인텐트 — '틀린 확신'으로 포기하려는 말에 구조 규칙으로 바로잡는다 ──
 // 통념 신호(무엇을 오해하나) + 포기/의심 신호(DOUBT)가 함께 있을 때만 발동해 단순 언급 오발동을 막는다.
 const MYTH_HINTS: { id: string; re: RegExp }[] = [
@@ -363,6 +357,34 @@ function gapReply(profile: UserProfile | null): AgentReply {
   }
 }
 
+// ── 신청 골든타임 인텐트 — '언제 신청해야 손해 안 봐?'에 시간이 중요한 알림을 짚어 준다 ──
+// '어떻게 신청'(방법)과 구분되게 타이밍 특화어에만 발동(APPLY_RE보다 먼저 검사).
+const TIMING_RE = /골든\s*타임|소급|미리\s*신청|사전\s*신청|언제\s*(까지\s*)?신청|신청\s*시기|신청\s*기한|기한\s*(이|은)?\s*언제|지금\s*안\s*하면|늦으면|서둘러|서둘러야|타이밍/
+
+/** 신청 타이밍 답 — 이 사람에게 시간이 급한 항목(소급·사전신청·기한)을 짚고, 없으면 신청주의 원칙을 안내. */
+function timingReply(profile: UserProfile | null, result: AnalysisResult | null): AgentReply {
+  const alerts = applyTiming(profile, result?.eligible_policies ?? [])
+  if (!alerts.length) {
+    return {
+      text: '복지는 대부분 신청한 달부터 지급되고 지난 달치는 소멸돼요. 받을 수 있는 게 있으면 이번 달 안에 신청하는 게 좋아요. 지금 특별히 시간이 급한 항목은 보이지 않네요.',
+      cta: result ? undefined : { view: 'analyze', label: '내 자격 분석해보기' },
+    }
+  }
+  const lines = alerts.map((a) => `• ${a.title}\n  놓치면 — ${a.lossRisk}`).join('\n')
+  return {
+    text: `신청 타이밍, 이건 서두르세요 ⏰\n${lines}\n\n정확한 기한은 주민센터·복지로에서 확인하세요.`,
+    cta: result ? { view: 'my', label: '담은 복지 신청 준비' } : { view: 'analyze', label: '내 자격 분석해보기' },
+  }
+}
+
+/** 로컬(행동·개인화) 의도인가 — 이 의도들은 클라우드 LLM이 있어도 로컬 에이전트가 처리한다
+ *  (담기·서류·자격·오해교정·숨은자격·신청타이밍은 스토어/프로필/규칙과 결합돼 LLM보다 정확·즉시·무환각). */
+export function isLocalIntent(raw: string): boolean {
+  const q = raw.trim()
+  return GREET_RE.test(q) || DOCS_RE.test(q) || APPLY_RE.test(q) || ELIG_RE.test(q)
+    || TIMING_RE.test(q) || GAP_RE.test(q) || matchMisconceptionIntent(q) !== null
+}
+
 /** 메인 진입점 — 자유문장을 의도로 나눠 개인화·행동형으로 응답 */
 export function agentReply(raw: string, ctx: { profile: UserProfile | null; result: AnalysisResult | null; tracked?: TrackedItem[]; agentOn?: boolean; issueDocs?: string[] }): AgentReply {
   const q = raw.trim()
@@ -380,6 +402,8 @@ export function agentReply(raw: string, ctx: { profile: UserProfile | null; resu
     if (doc) return issueReply(doc)
   }
   if (DOCS_RE.test(q)) return docsReply(ctx.tracked ?? [], ctx.agentOn ?? false)
+  // 신청 '타이밍'(언제·소급·미리)은 '방법'(어떻게·어디서)보다 먼저 — APPLY_RE에 가로채이지 않게.
+  if (TIMING_RE.test(q)) return timingReply(ctx.profile, ctx.result)
   if (APPLY_RE.test(q)) return applyReply(ctx.tracked ?? [], ctx.agentOn ?? false)
   if (ELIG_RE.test(q)) return eligibilityReply(ctx.profile, ctx.result)
   // 오해 바로잡기('재산 있어서 안 될 것 같아요')·숨은 자격('놓친 거 없어?') — 검색 폴백보다 먼저,
