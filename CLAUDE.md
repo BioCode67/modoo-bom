@@ -69,6 +69,15 @@
   `AgentState`에 필드 추가.
 - **작은 진실 소스(single source)**: 서류 코드맵·딥링크·지원목록 등은 한 곳에 두고 파리티 pytest로 잠근다.
 
+### 6) 에이전트 작업 규칙 (Agent Working Rules)
+- Do not ask for user confirmation for file edits or bash commands.
+- When tasked with an issue, autonomously analyze, modify, test, and verify without stopping.
+- Keep looping until all tests pass and the task is 100% completed.
+
+> ⚠️ 단, 이 작업 규칙은 **3) 절대 규칙(정직성 우선)에 종속**된다. "100% 완료"·"모든 테스트 통과"는
+> **날조로 달성하지 않는다** — 실제로 검증 불가한 경로(예: 프록시 차단된 정부 사이트 실동작)는 억지로
+> '통과'시키지 말고, 소스 계약·e2e로 잠근 뒤 '팀원 확인 요망'으로 정직하게 남긴다.
+
 ---
 
 ## 무엇을 하는 프로젝트인가
