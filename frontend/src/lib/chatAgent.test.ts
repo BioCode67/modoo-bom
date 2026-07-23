@@ -335,3 +335,16 @@ describe('오해 진단 — 1인가구·중산층 대화 인텐트', () => {
     expect(matchMisconceptionIntent('중산층이라 대상 아니죠?')).toBe('middle-income')
   })
 })
+
+describe('종합 조언 인텐트 — 내 상황 정리', () => {
+  it("'내 상황 정리해줘'는 종합 조언(로컬)으로 라우팅", () => {
+    expect(isLocalIntent('내 상황 정리해줘')).toBe(true)
+    const r = agentReply('내 상황 정리해줘', { profile, result })
+    expect(r.text.length).toBeGreaterThan(0)
+    expect(r.cta?.view).toBe('my')
+  })
+  it('프로필/결과 없으면 분석부터 안내', () => {
+    const r = agentReply('정리해줘', { profile: null, result: null })
+    expect(r.cta?.view).toBe('analyze')
+  })
+})

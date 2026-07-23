@@ -10,6 +10,7 @@ import { applyLink } from '@/lib/officialLinks'
 import { MYTH_RULES, pickEvidence } from '@/lib/misconceptions'
 import { scanProfileGaps } from '@/lib/profileGaps'
 import { applyTiming } from '@/lib/applyTiming'
+import { getInsights } from '@/lib/insights'
 
 /**
  * 챗 에이전트 두뇌 — 검색봇을 넘어 '나를 알고, 대신 행동하는' 에이전트로.
@@ -382,12 +383,31 @@ function timingReply(profile: UserProfile | null, result: AnalysisResult | null)
   }
 }
 
+// ── 종합 조언 인텐트 — '내 상황 정리해줘'에 스마트 인사이트(타이밍·오해·숨은자격·신선도)를 한눈에 ──
+const ADVICE_RE = /정리해|요약해|종합|한눈에|내 ?상황|조언|어떻게 ?해야|뭐 ?부터|뭐 ?하면|짚어|브리핑/
+
+/** 여러 인사이트 엔진을 합쳐 우선순위로 조언한다(getInsights 아그리게이터 재사용 — 규칙 중복 없음). */
+function adviceReply(profile: UserProfile | null, result: AnalysisResult | null): AgentReply {
+  if (!profile || !result) {
+    return { text: '먼저 간단한 분석을 하면 상황을 종합해 조언해 드릴 수 있어요.', cta: { view: 'analyze', label: '분석 시작' } }
+  }
+  const insights = getInsights(profile, result.eligible_policies ?? [], { limit: 4 })
+  if (!insights.length) {
+    return { text: `${profile.name || '회원'}님, 지금은 특별히 급히 짚어드릴 게 없어요. 담은 복지의 서류·신청을 차근히 준비하시면 돼요.`, cta: { view: 'my', label: '나의 복지 보기' } }
+  }
+  const lines = insights.map((i) => `${i.emoji} ${i.title}\n  ${i.detail}`).join('\n')
+  return {
+    text: `${profile.name || '회원'}님 상황을 종합하면 이 순서로 챙기시면 좋아요.\n${lines}`,
+    cta: { view: 'my', label: '나의 복지에서 이어가기' },
+  }
+}
+
 /** 로컬(행동·개인화) 의도인가 — 이 의도들은 클라우드 LLM이 있어도 로컬 에이전트가 처리한다
- *  (담기·서류·자격·오해교정·숨은자격·신청타이밍은 스토어/프로필/규칙과 결합돼 LLM보다 정확·즉시·무환각). */
+ *  (담기·서류·자격·오해교정·숨은자격·신청타이밍·종합조언은 스토어/프로필/규칙과 결합돼 LLM보다 정확·즉시·무환각). */
 export function isLocalIntent(raw: string): boolean {
   const q = raw.trim()
   return GREET_RE.test(q) || DOCS_RE.test(q) || APPLY_RE.test(q) || ELIG_RE.test(q)
-    || TIMING_RE.test(q) || GAP_RE.test(q) || matchMisconceptionIntent(q) !== null
+    || TIMING_RE.test(q) || GAP_RE.test(q) || ADVICE_RE.test(q) || matchMisconceptionIntent(q) !== null
 }
 
 /** 메인 진입점 — 자유문장을 의도로 나눠 개인화·행동형으로 응답 */
@@ -416,5 +436,7 @@ export function agentReply(raw: string, ctx: { profile: UserProfile | null; resu
   const myth = matchMisconceptionIntent(q)
   if (myth) return misconceptionReply(myth, ctx.result)
   if (GAP_RE.test(q)) return gapReply(ctx.profile)
+  // 종합 조언('정리해줘'·'뭐부터') — 개별 인텐트가 안 걸린 넓은 요청을 인사이트로 한눈에(검색 폴백 직전)
+  if (ADVICE_RE.test(q)) return adviceReply(ctx.profile, ctx.result)
   return searchReply(q, ctx.profile)
 }
