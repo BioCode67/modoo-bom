@@ -1837,9 +1837,10 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None, session=Non
                 # 🤖 규칙 매칭이 전부 빗나간 경우에만 AI 채움(β) — 드롭다운 '구조·옵션 텍스트'만 LLM에
                 if not (addr.get("sido") or addr.get("sigungu")):
                     try:
-                        from rpa.ai_fill import ai_fill
-                        _ai = await ai_fill(page, page, {"sido": sido, "sigungu": sigungu},
-                                            page_hint="정부24 주민등록표 등본(초본) 발급 — 주민등록상 주소 확인", task=task, allow_clicks=True)
+                        from rpa.ai_fill import ai_fill_deep
+                        # 프레임 관통 — 주소 select 가 자식 프레임에 있어도 채운다(신형 폼 대비)
+                        _ai = await ai_fill_deep(page, {"sido": sido, "sigungu": sigungu},
+                                                 page_hint="정부24 주민등록표 등본(초본) 발급 — 주민등록상 주소 확인", task=task, allow_clicks=True)
                         addr = {"sido": addr.get("sido") or bool(_ai.get("sido")),
                                 "sigungu": addr.get("sigungu") or bool(_ai.get("sigungu"))}
                     except Exception:

@@ -319,3 +319,46 @@ def test_ai_pick_action_deep_pierces_iframe():
     shallow, deep, did = res
     assert shallow is False    # 메인 프레임만 보는 ai_pick_action 은 iframe 안 버튼을 못 찾는다
     assert deep is True and did is True   # 프레임 관통으로 찾아 실제 클릭
+
+
+# 🪟 입력 폼이 iframe 안에 있는 경우 — ai_fill_deep 이 프레임 관통으로 채운다(주소 select 등 대비)
+_HTML_IFRAME_FORM = ("<!doctype html><meta charset='utf-8'><body><p>메인(폼 없음)</p>"
+                     "<iframe srcdoc=\"<table><tr><th>성명</th><td><input id='nm' type='text'></td></tr>"
+                     "<tr><th>휴대폰</th><td><input id='ph' type='tel'></td></tr></table>\"></iframe></body>")
+
+
+def test_ai_fill_deep_pierces_iframe_form(monkeypatch):
+    """🪟 ai_fill_deep: 입력 폼이 자식 iframe 안에만 있어도 프레임 관통으로 채운다(cross-frame 파리티)."""
+    monkeypatch.setenv("RPA_AI_FILL", "1")
+    from playwright.async_api import async_playwright
+    from rpa.ai_fill import ai_fill_deep
+
+    async def run():
+        async with async_playwright() as pw:
+            p = _chromium_path()
+            try:
+                b = await (pw.chromium.launch(executable_path=p) if p
+                           else pw.chromium.launch(channel="chrome"))
+            except Exception as e:
+                return ("skip", str(e))
+            pg = await (await b.new_context()).new_page()
+            await pg.set_content(_HTML_IFRAME_FORM)
+            await asyncio.sleep(0.3)
+            r = await ai_fill_deep(pg, {"name": "홍길동", "phone_tail": "01012345678"}, page_hint="iframe 폼")
+            nm = ""
+            for fr in pg.frames:
+                if fr is pg.main_frame:
+                    continue
+                try:
+                    nm = await fr.evaluate("() => document.getElementById('nm').value")
+                except Exception:
+                    pass
+            await b.close()
+            return (r, nm)
+
+    res = asyncio.new_event_loop().run_until_complete(run())
+    if res and res[0] == "skip":
+        pytest.skip(f"실 브라우저 없음: {res[1]}")
+    r, nm = res
+    assert r.get("name") is True and r.get("phone_tail") is True   # 프레임 안 입력 채움+값검증
+    assert nm == "홍길동"                                          # iframe 실제 값

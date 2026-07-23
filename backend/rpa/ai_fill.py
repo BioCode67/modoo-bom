@@ -893,6 +893,31 @@ async def ai_pick_action(ctx, goal: str, want_texts: list = None, task=None, sit
     return False
 
 
+async def ai_fill_deep(page, values: dict, page_hint: str = "", task=None,
+                       allow_clicks: bool = False, rounds: int = 2) -> dict:
+    """🪟 프레임 관통 ai_fill — 메인 페이지에서 못 채운 키를 자식 프레임(iframe)에서 이어서 채운다.
+    신형 폼이 iframe에 나뉘는 케이스 대비(browser-use/Stagehand cross-frame 파리티). 메인 우선 +
+    '남은 키만' 프레임 순회라, 프레임이 없거나 메인에서 다 채우면 기존 ai_fill과 동일(순수 확장)."""
+    result = await ai_fill(page, page, values, page_hint, task, allow_clicks, rounds)
+    want = {k: str(v) for k, v in (values or {}).items() if v}
+    remaining = {k: v for k, v in want.items() if not result.get(k)}
+    if not remaining:
+        return result
+    main = getattr(page, "main_frame", None)
+    for fr in list(getattr(page, "frames", None) or []):
+        if fr is main:
+            continue
+        try:
+            got = await ai_fill(fr, page, remaining, page_hint, None, allow_clicks, rounds)
+        except Exception:
+            continue
+        result.update({k: v for k, v in got.items() if v})
+        remaining = {k: v for k, v in remaining.items() if not result.get(k)}
+        if not remaining:
+            break
+    return result
+
+
 async def ai_pick_action_deep(page, goal: str, want_texts: list = None, task=None,
                               site: str = "", verify=None) -> bool:
     """🪟 프레임 관통(unified cross-frame) observe→decide→click — 목표 버튼을 메인 페이지에서 못 찾으면
