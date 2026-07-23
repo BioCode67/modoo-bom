@@ -139,3 +139,13 @@ describe('실사용 질의 회귀(2026-07 품질 스윕)', () => {
     expect(searchPolicies(HS, '청년월세지원')[0].id).toBe('T-9')   // 붙여쓴 이름도 #1
   })
 })
+
+describe('expandQuery — 생활어 2차 확장', () => {
+  it('새 그룹 고유어를 행정용어로 확장(기존 그룹과 겹치지 않는 신규어 기준)', () => {
+    expect(expandQuery('보육료')).toContain('유치원')   // 육아 그룹
+    expect(expandQuery('신혼')).toContain('결혼')        // 결혼 그룹
+    expect(expandQuery('난청')).toContain('보청기')      // 청각 그룹
+    expect(expandQuery('탈북')).toContain('새터민')      // 북한이탈 그룹
+    expect(expandQuery('문화누리')).toContain('여가')    // 문화 그룹
+  })
+})
