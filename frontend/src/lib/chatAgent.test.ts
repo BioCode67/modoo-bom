@@ -326,3 +326,12 @@ describe('오해 진단 — 태도 장벽(복잡·건강)', () => {
     expect(r.text).toMatch(/최종 자격|심사/)
   })
 })
+
+describe('오해 진단 — 1인가구·중산층 대화 인텐트', () => {
+  it("'1인 가구라 받을 게 없죠?' → single", () => {
+    expect(matchMisconceptionIntent('1인 가구라 받을 게 없죠?')).toBe('single')
+  })
+  it("'중산층이라 대상 아니죠?' → middle-income", () => {
+    expect(matchMisconceptionIntent('중산층이라 대상 아니죠?')).toBe('middle-income')
+  })
+})

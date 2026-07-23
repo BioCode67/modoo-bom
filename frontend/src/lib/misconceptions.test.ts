@@ -227,3 +227,27 @@ describe('태도 장벽 규칙 — 대화 전용(카드 자동노출 안 함)', 
     }
   })
 })
+
+describe('자동 트리거 오해 — 1인가구·중산층', () => {
+  const base = {
+    name: '테스트', age: 40, gender: 'male' as const, region: '서울', household_type: '3인가구',
+    income_percentile: 30, disability: false, disability_grade: '', employment_status: 'employed',
+    has_children: false, children_ages: [] as number[], is_pregnant: false, life_events: [] as string[],
+  }
+  const elig = [{ id: 'POL-X', name: '주거급여', category: '주거', target: '저소득', benefit: '월 20만원',
+    eligibility: '1인 가구 포함 주거 지원', required_docs: [], application: '복지로', department: '', renewal: '',
+    reason: '', priority: 'medium' as const, confidence: 0.8 }]
+
+  it('1인 가구 + 적격 → single 오해가 카드에 뜬다', () => {
+    const myths = matchMyths({ ...base, household_type: '1인가구' }, elig)
+    expect(myths.some((m) => m.id === 'single')).toBe(true)
+  })
+  it('중위 50~95% 소득 + 적격 → middle-income 오해가 카드에 뜬다', () => {
+    const myths = matchMyths({ ...base, income_percentile: 60 }, elig)
+    expect(myths.some((m) => m.id === 'middle-income')).toBe(true)
+  })
+  it('저소득(중위 30%)엔 middle-income 오해가 안 뜬다(오발동 방지)', () => {
+    const myths = matchMyths({ ...base, income_percentile: 30 }, elig)
+    expect(myths.some((m) => m.id === 'middle-income')).toBe(false)
+  })
+})

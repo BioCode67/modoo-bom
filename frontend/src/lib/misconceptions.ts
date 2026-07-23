@@ -170,6 +170,32 @@ export const MYTH_RULES: MythRule[] = [
     basis: '결혼이민·영주·난민 인정 등 일부 체류자격은 복지 대상이에요(구조 규칙).',
     evidenceRe: FOREIGNER_RE,
   },
+  {
+    id: 'single',
+    belief: '1인 가구라 받을 수 있는 복지가 별로 없다.',
+    truth:
+      '1인 가구도 대상인 복지가 많아요. 주거급여·청년/노인 주거지원·기초생활보장·긴급복지 등은 1인 가구를 폭넓게 지원해요.' +
+      HONESTY,
+    severity: 'reduces',
+    trigger: (p, e) => (p.household_type || '').includes('1인') && hasElig(e),
+    evidenceMatch: (pol) => /1인|단독|독거|혼자|1명|주거/.test(docOf(pol)),
+    appliesWhy: () => '1인 가구라 복지가 적을 거라 여기기 쉽지만, 1인 가구 대상 지원이 꽤 있어요.',
+    basis: '1인 가구도 주거·기초생활·긴급복지 등 다양한 복지 대상이에요(구조 안내).',
+    evidenceRe: /1인|단독|독거|주거/,
+  },
+  {
+    id: 'middle-income',
+    belief: '나는 소득이 낮지 않아서(중산층이라) 복지 대상이 아니다.',
+    truth:
+      '소득과 무관하게 받는 복지도 많아요. 아동수당·출산지원·건강검진·교육 등은 소득을 보지 않고, 중위소득 100~150%까지 대상인 복지도 있어요.' +
+      HONESTY,
+    severity: 'info',
+    trigger: (p, e) => (p.income_percentile ?? 0) >= 50 && (p.income_percentile ?? 0) <= 95 && hasElig(e),
+    evidenceMatch: (pol) => /소득\s*무관|누구나|전\s*국민|소득\s*(기준\s*)?없|150%|120%|100%|아동수당|출산/.test(docOf(pol)),
+    appliesWhy: (p) => `소득이 중위 ${p.income_percentile ?? 0}% 정도라 '나는 대상이 아니다'라고 지레 여기기 쉬운데, 소득 무관 복지도 있어요.`,
+    basis: '아동수당·출산·교육 등은 소득과 무관하고, 중위 100~150% 대상 복지도 있어요(구조 안내).',
+    evidenceRe: /소득|누구나|아동|출산|교육/,
+  },
   // ── 태도 장벽(자격이 아니라 마음가짐) — 카드로 자동 노출하지 않고(trigger:false) '대화에서 그 말이 나올 때만' 바로잡는다 ──
   {
     id: 'complex',
