@@ -102,6 +102,19 @@ print(j.stopped_at)   # 사람 인계로 멈춘 단계(없으면 None)
 결과 `WebJourneyResult`: `done_count`(완료) · `routed_count`(경로 확정) · `human_count`(본인확인 필요) ·
 `error_count`(자동 불가) · `stopped_at` · `steps`(각 단계 결과) · `summary`. 실제 완료만 done으로 셉니다.
 
+## REST 엔드포인트
+
+`main.py` 가 `app.include_router(webagent_router)` 로 연결합니다.
+
+| Method | Path | 설명 |
+|--------|------|------|
+| POST | `/api/webagent/run` | `{ goal, engine?, max_steps?, timeout_s? }` → `WebAgentResult` |
+| POST | `/api/webagent/journey` | `{ goals[], engine?, stop_on_human? }` → `WebJourneyResult` |
+| GET | `/api/webagent/config` | 현재 가드레일 기본값 + 엔진 가용성(browser_use·builtin_cdp·llm_provider) |
+
+오버라이드는 가드레일 범위로 클램프됩니다(max_steps ≤ 50, timeout ≤ 600s, engine는 유효값만).
+핸들러 로직은 `_handle_run`/`_handle_journey`/`_config_info` 순수 함수로 분리해 HTTP 없이 테스트합니다.
+
 ## 구성
 
 ```
@@ -111,8 +124,9 @@ webagent/
 ├── types.py          # 구조화 결과(WebAgentResult) · 상태 상수
 ├── llm_factory.py    # 판단 계층 LLM 구성(비전 우선, provider 키 재사용)
 ├── web_agent.py      # 하이브리드 오케스트레이터 + browser-use 어댑터 + DefaultExecutor
-└── journey.py        # 다목표 연쇄(여정) — 사람 인계 지점에서 멈춤·정직한 집계
+├── journey.py        # 다목표 연쇄(여정) — 사람 인계 지점에서 멈춤·정직한 집계
+└── router.py         # REST 라우터(POST /run·/journey · GET /config) + 순수 핸들러
 ```
 
-테스트: `pytest tests/test_webagent.py tests/test_webagent_journey.py`
-(브라우저·키 없이 도는 계약 테스트 — 라우팅·롤백·가드레일·여정 집계·정직성).
+테스트: `pytest tests/test_webagent.py tests/test_webagent_journey.py tests/test_webagent_router.py`
+(브라우저·키 없이 도는 계약 테스트 — 라우팅·롤백·가드레일·여정 집계·엔드포인트 핸들러·정직성).

@@ -127,6 +127,10 @@ async def _unhandled_exception(request: Request, exc: Exception):
 
 app.include_router(router)
 
+# 스마트 AI 웹 에이전트(backend/webagent) — 자연어 목표 → 구조화 결과. 지연 임포트 안전(브라우저·키 없으면 폴백).
+from webagent.router import router as webagent_router  # noqa: E402
+app.include_router(webagent_router)
+
 
 @app.websocket("/ws/analyze")
 async def ws_analyze(ws: WebSocket):
