@@ -215,3 +215,52 @@ def test_bokjiro_autofill_phone_select_adjacent_fallback_real_browser():
     assert vals["nm"] == "김주형"       # 성명(라벨 매칭)
     assert vals["b"] == "010601"        # 주민번호 앞자리(라벨 매칭)
     assert vals["p"] == "12345678"      # 휴대폰 뒷자리 — 010 select 뒤 폴백으로 정확히
+
+
+# 🌑 신형 web-component 위젯(open shadow root) — 실측(2026-07-23): plus.gov.kr 로그인의 인증 위젯이
+#   light DOM querySelectorAll 로는 안 보임(shadow 추정). SOTA(browser-use/Stagehand)는 shadow를 뚫는다.
+_HTML_SHADOW = """<!doctype html><meta charset="utf-8"><body>
+<div id="host"></div>
+<script>
+  const sr = document.getElementById('host').attachShadow({mode:'open'});
+  sr.innerHTML = "<table><tr><th>성명</th><td><input id='nm' type='text'></td></tr>" +
+                 "<tr><th>휴대폰</th><td><input id='ph' type='tel'></td></tr></table>" +
+                 "<button id='btn'>문서출력</button>";
+</script></body>"""
+
+
+def test_ai_fill_and_pick_pierce_shadow_dom(monkeypatch):
+    """🌑 open shadow root 안의 입력/버튼을 인지→채움→값검증(ai_fill) + 찾아 클릭(ai_pick_action).
+    신형 인증/폼 위젯이 shadow DOM으로 렌더되는 경우 대응 — 컨테이너 chromium 또는 시스템 chrome 로 실증."""
+    monkeypatch.setenv("RPA_AI_FILL", "1")
+    from playwright.async_api import async_playwright
+    from rpa.ai_fill import ai_fill, ai_pick_action
+
+    async def run():
+        async with async_playwright() as pw:
+            p = _chromium_path()
+            try:
+                b = await (pw.chromium.launch(executable_path=p) if p
+                           else pw.chromium.launch(channel="chrome"))
+            except Exception as e:
+                return ("skip", str(e))
+            pg = await (await b.new_context()).new_page()
+            await pg.set_content(_HTML_SHADOW)
+            # 채움: shadow 안 입력 — perception(shadow 관통)→locator fill(shadow 관통)→dq 값검증
+            r = await ai_fill(pg, pg, {"name": "홍길동", "phone_tail": "01012345678"}, page_hint="shadow 폼")
+            nm = await pg.evaluate("() => document.getElementById('host').shadowRoot.getElementById('nm').value")
+            # 클릭: shadow 안 '문서출력' 버튼
+            await pg.evaluate("() => { const sr = document.getElementById('host').shadowRoot;"
+                              " sr.getElementById('btn').addEventListener('click', () => { window.__c = true; }); }")
+            ok = await ai_pick_action(pg, "문서출력 단계", ["문서출력"])
+            did = await pg.evaluate("() => !!window.__c")
+            await b.close()
+            return (r, nm, ok, did)
+
+    res = asyncio.new_event_loop().run_until_complete(run())
+    if res and res[0] == "skip":
+        pytest.skip(f"실 브라우저 없음(컨테이너 chromium·시스템 chrome 모두 불가): {res[1]}")
+    r, nm, ok, did = res
+    assert r.get("name") is True and r.get("phone_tail") is True   # shadow 입력 채움+값검증 성공
+    assert nm == "홍길동"                                          # shadow 실제 값 정확
+    assert ok is True and did is True                              # shadow 버튼 찾아 실제 클릭

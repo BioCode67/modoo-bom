@@ -81,7 +81,16 @@ _COLLECT_JS = """() => {
     };
     const out = [];
     let idx = 0;
-    for (const el of document.querySelectorAll('input, select, textarea, button, a, [role=button], [role=checkbox], [role=radio]')) {
+    // 🌑 shadow DOM 관통 수집(2026 웹에이전트 SOTA: browser-use/Stagehand는 shadow root를 뚫는다).
+    //   실측: 신형 정부/인증 위젯이 web component(open shadow root)로 렌더돼 document.querySelectorAll
+    //   만으론 입력·버튼을 못 봤다. open shadow root를 재귀로 함께 훑어 요소를 인덱싱한다(closed는 불가).
+    const SEL = 'input, select, textarea, button, a, [role=button], [role=checkbox], [role=radio]';
+    const collectEls = (root, acc, depth) => {
+        for (const el of root.querySelectorAll(SEL)) acc.push(el);
+        if (depth < 5) for (const el of root.querySelectorAll('*')) { if (el.shadowRoot) collectEls(el.shadowRoot, acc, depth + 1); }
+        return acc;
+    };
+    for (const el of collectEls(document, [], 0)) {
         const tag = el.tagName.toLowerCase();
         const type = (el.type || tag).toLowerCase();
         if (['hidden', 'image', 'file'].includes(type)) continue;
@@ -129,6 +138,13 @@ _MASK_ON_JS = """() => {
     return true;
 }"""
 _MASK_OFF_JS = "() => { const s = document.getElementById('modoobom-mask'); if (s) s.remove(); return true; }"
+
+# 🌑 shadow DOM 관통 querySelector — 인덱싱된 요소(data-modoobom-ai)가 open shadow root 안에 있어도
+#   찾는다. perception(_COLLECT_JS)이 shadow까지 인덱싱하므로, 값 검증·포커스·select 처리도 같은 관통이
+#   필요하다(안 그러면 shadow 요소 채움이 '검증 실패'로 false negative). closed shadow root는 접근 불가.
+_DQ = ("const dq=(s,r)=>{r=r||document;let e=r.querySelector(s);if(e)return e;"
+       "const hs=r.querySelectorAll('*');for(let i=0;i<hs.length;i++){if(hs[i].shadowRoot){"
+       "e=dq(s,hs[i].shadowRoot);if(e)return e;}}return null;};")
 
 _ENV_LOADED = False
 
@@ -368,8 +384,8 @@ async def _do_fill(ctx, page, sel: str, val: str) -> bool:
                     await loc.click(timeout=3000)
                 except Exception:
                     focused = await ctx.evaluate(
-                        "(s) => { const e = document.querySelector(s); if (!e) return false;"
-                        " e.focus(); return document.activeElement === e; }", sel)
+                        "(s) => { " + _DQ + " const e = dq(s); if (!e) return false;"
+                        " e.focus(); return e.getRootNode().activeElement === e; }", sel)
                     if not focused:
                         continue  # 포커스조차 못 잡으면 키 입력은 무의미 — 다음 방법(CDP fill)으로
                 await kb.press("Control+a")
@@ -383,7 +399,7 @@ async def _do_fill(ctx, page, sel: str, val: str) -> bool:
             # '값 일치' 검증 — 비어있지 않음만 보면 영타 오입력(rlatkdtlr)도 통과한다(실사용 확정).
             #   숫자 값은 포맷팅(하이픈 등) 관용, 그 외는 정확 일치. 비교는 브라우저 안에서만.
             ok = await ctx.evaluate(
-                """(a) => { const e = document.querySelector(a.s); if (!e || !e.value) return false;
+                "(a) => { " + _DQ + """ const e = dq(a.s); if (!e || !e.value) return false;
                     const t = e.value.trim(), v = String(a.v).trim();
                     if (/^[0-9]+$/.test(v)) return t.replace(/[^0-9]/g, '') === v;
                     return t === v; }""", {"s": sel, "v": val})
@@ -405,7 +421,7 @@ async def _execute_plan(ctx, page, plan: list, want: dict, allow_clicks: bool) -
                 if not (allow_clicks and clicks_enabled()):
                     continue
                 txt = await ctx.evaluate(
-                    "(s) => { const e = document.querySelector(s);"
+                    "(s) => { " + _DQ + " const e = dq(s);"
                     " return e ? (e.innerText || e.value || '').trim() : ''; }", sel)
                 if not click_text_allowed(txt):
                     continue  # 허용목록 밖 — 어떤 경우에도 클릭하지 않는다(HITL·비가역 보호)
@@ -419,7 +435,7 @@ async def _execute_plan(ctx, page, plan: list, want: dict, allow_clicks: bool) -
                 if not v:
                     continue
                 ok = await ctx.evaluate(
-                    """(a) => { const e = document.querySelector(a.s); if (!e || e.tagName !== 'SELECT') return false;
+                    "(a) => { " + _DQ + """ const e = dq(a.s); if (!e || e.tagName !== 'SELECT') return false;
                         const norm = (x) => String(x || '').replace(/\\s+/g, '');
                         const o = [...e.options].find(o => norm(o.text).includes(norm(a.v)) || (norm(a.v).includes(norm(o.text)) && norm(o.text).length >= 2));
                         if (!o) return false;
@@ -430,10 +446,10 @@ async def _execute_plan(ctx, page, plan: list, want: dict, allow_clicks: bool) -
                 continue
             if action == "fill" and val:
                 info = await ctx.evaluate(
-                    "(s) => { const e = document.querySelector(s); return e ? e.tagName.toLowerCase() : ''; }", sel)
+                    "(s) => { " + _DQ + " const e = dq(s); return e ? e.tagName.toLowerCase() : ''; }", sel)
                 if info == "select":
                     ok = await ctx.evaluate(
-                        """(a) => { const e = document.querySelector(a.s); if (!e) return false;
+                        "(a) => { " + _DQ + """ const e = dq(a.s); if (!e) return false;
                             const norm = (x) => String(x || '').replace(/\\s+/g, '');
                             const o = [...e.options].find(o => norm(o.text).includes(norm(a.v)) || (norm(a.v).includes(norm(o.text)) && norm(o.text).length >= 2));
                             if (!o) return false;
@@ -709,7 +725,7 @@ async def _click_idx(ctx, idx) -> bool:
                 await loc.click(timeout=4000)
             else:
                 ok = await ctx.evaluate(
-                    "(s) => { const e = document.querySelector(s); if (!e) return false; e.click(); return true; }", sel)
+                    "(s) => { " + _DQ + " const e = dq(s); if (!e) return false; e.click(); return true; }", sel)
                 if not ok:
                     return False  # 요소 자체가 사라짐(detached·제거) — 영구 실패, 재시도 무의미
             await asyncio.sleep(0.6)
