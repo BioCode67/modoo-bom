@@ -2035,6 +2035,7 @@ async def run_gov24_rpa(task, doc_name: str, user_info: dict = None, session=Non
                     await ai_pick_action(
                         page, "발급된 문서를 화면에 출력해 PDF로 저장하는 단계로 진행",
                         ["문서출력", "출력하기", "인쇄", "발급", "저장", "출력"], task=task,
+                        site="gov24",  # 경로 기억(route memorization) — 성공한 라벨을 다음 실행에서 먼저 시도
                     )
                 except Exception:
                     pass

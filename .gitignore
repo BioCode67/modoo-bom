@@ -53,3 +53,4 @@ frontend/e2e/demo-video/
 extension/dist/
 backend/agent_profile.json
 backend/rpa/docs_extra.json
+backend/rpa/route_cache.json

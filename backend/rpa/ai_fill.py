@@ -698,17 +698,38 @@ async def _click_idx(ctx, idx) -> bool:
         return False
 
 
-async def ai_pick_action(ctx, goal: str, want_texts: list = None, task=None) -> bool:
+def _match_score(bn: str, wn: str) -> int:
+    """의미 접지(grounding) 점수화 — '첫 일치'가 아니라 정확일치>시작일치>부분일치로 오클릭을 줄인다
+    (OSCAR/browser-use식 라벨 접지). bn/wn 은 공백 제거 정규화된 라벨."""
+    if not bn or not wn:
+        return 0
+    if bn == wn:
+        return 100
+    if bn.startswith(wn) or wn.startswith(bn):
+        return 60
+    if wn in bn:
+        return 45
+    if bn in wn and len(bn) >= 2:
+        return 40
+    return 0
+
+
+async def ai_pick_action(ctx, goal: str, want_texts: list = None, task=None, site: str = "") -> bool:
     """🧭 목표(goal)에 맞는 버튼을 '화면을 이해해' 눌러 준다 — 클릭했으면 True.
 
-    2계층(ai_fill 과 동일 철학):
-      ① 결정론(무료·오프라인): want_texts(동의어) 라벨과 일치하는 버튼을 문서순으로 클릭.
-         → 하드코딩 click_by_text 와 같은 힘 + '양방향 부분일치'로 라벨 변형을 조금 더 흡수.
+    3계층(상위 RPA 성능 기법을 안전·Mock-safe·프라이버시 보존으로 적용):
+      ⓪ 경로 기억(Skyvern route memorization): site 가 주어지면 (site,goal)의 '지난 성공 라벨'을 최우선
+         후보로 먼저 시도 → 빠르고 일관됨. 안 맞으면 무효화(forget)하고 아래로.
+      ① 결정론(무료·오프라인): want_texts(동의어)를 라벨 점수화(_match_score, 정확>시작>부분)로 지목.
       ② LLM(키+RPA_AI_FILL, 옵트인): 결정론이 못 찾으면 클릭 가능 요소를 인덱싱해 라벨만 보내고
          '어느 버튼이 goal 인가'를 판단(browser-use/Stagehand식 observe→decide).
-    안전: 제출/결제/삭제/취소 등은 결정론·LLM 양쪽에서 거부(_NAV_DENY). 개인정보성 라벨은 후보 제외.
-    프라이버시: 버튼 라벨만 전송(입력값·문서 내용 미포함). 키 없으면 ②는 건너뜀(Mock-safe)."""
-    want_texts = want_texts or []
+    성공 시 클릭한 라벨을 route_cache 에 기억(다음 실행 가속). 안전: 제출/결제/삭제/취소 등은 결정론·
+    LLM 양쪽에서 거부(_NAV_DENY), 개인정보성 라벨은 후보 제외. 프라이버시: 버튼 라벨만 전송·저장."""
+    want_texts = list(want_texts or [])
+    try:
+        from rpa import route_cache
+    except Exception:
+        route_cache = None
     try:
         fields = await ctx.evaluate(_COLLECT_JS)
     except Exception:
@@ -726,19 +747,33 @@ async def ai_pick_action(ctx, goal: str, want_texts: list = None, task=None) -> 
         if not label or _NAV_DENY.search(_norm(label)):
             continue
         buttons.append({"idx": f.get("idx"), "text": label})
+    cached = route_cache.get_label(site, goal) if (route_cache and site) else ""
     if not buttons:
+        if cached and route_cache:
+            route_cache.forget(site, goal)  # 후보 없음 — 옛 기억 무효화
         return False
 
-    # ① 결정론 — want_texts 동의어와 양방향 부분일치(공백 무시)
-    for wt in want_texts:
+    def _remember(lbl):
+        if route_cache and site and lbl:
+            route_cache.remember(site, goal, lbl)
+
+    # ⓪+① 결정론 — 경로 기억 라벨을 최우선으로, want_texts 동의어를 라벨 점수화로 지목
+    for wt in ([cached] if cached else []) + want_texts:
         wn = _norm(wt)
         if not wn:
             continue
+        best, best_score = None, 0
         for b in buttons:
-            bn = _norm(b["text"])
-            if bn and (wn in bn or (bn in wn and len(bn) >= 2)):
-                if await _click_idx(ctx, b["idx"]):
-                    return True
+            sc = _match_score(_norm(b["text"]), wn)
+            if sc > best_score:
+                best, best_score = b, sc
+        if best is not None and best_score > 0:
+            if await _click_idx(ctx, best["idx"]):
+                _remember(best["text"])
+                return True
+    # 경로 기억 라벨이 후보 어디에도 없으면(사이트 문구 변경 등) 무효화 — 다음엔 다시 학습
+    if cached and route_cache and not any(_match_score(_norm(b["text"]), _norm(cached)) > 0 for b in buttons):
+        route_cache.forget(site, goal)
 
     # ② LLM — 구조만 보고 판단(키 있을 때·옵트인)
     if not ai_fill_enabled():
@@ -767,4 +802,7 @@ async def ai_pick_action(ctx, goal: str, want_texts: list = None, task=None) -> 
             task.update("running", f"🧭 AI가 화면을 읽고 '{lbl}' 단계로 진행해요(값·개인정보는 전송하지 않아요).")
         except Exception:
             pass
-    return await _click_idx(ctx, idx)
+    if await _click_idx(ctx, idx):
+        _remember(lbl)
+        return True
+    return False
