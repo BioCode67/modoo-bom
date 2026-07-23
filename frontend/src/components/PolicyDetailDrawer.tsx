@@ -548,7 +548,7 @@ function DrawerBody({
         </div>
       )}
       {/* 하단 고정 액션 */}
-      <div className="sticky bottom-0 bg-background/95 backdrop-blur border-t border-sprout-100 p-4 flex gap-2">
+      <div className="sticky bottom-0 z-10 bg-background border-t border-sprout-100 p-4 flex gap-2">
         <button
           onClick={() => ctx.toggleSaved({ id: policy.id, name: policy.name, category: policy.category })}
           className={cn('btn-secondary !px-4', saved && '!bg-peach-50 !border-peach-200 !text-peach-600')}
