@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { RotateCcw, Heart, TrendingUp, Bell, PartyPopper, Printer, Volume2, Square, Users, FileText, ArrowRight, Check, AlertTriangle, Clock } from 'lucide-react'
 import { SproutLogo } from '@/ui/SproutLogo'
@@ -28,6 +28,7 @@ import { profileSignals } from '@/lib/profileSignals'
 import { MisconceptionCard } from '@/components/MisconceptionCard'
 import { GapProbeCard } from '@/components/GapProbeCard'
 import { ApplyTimingCard } from '@/components/ApplyTimingCard'
+import { summarizeFreshness } from '@/lib/freshness'
 import { JourneyStepper } from '@/components/JourneyStepper'
 import { useAppStore } from '@/store/useAppStore'
 import { encodeHelperLink, decodeHelperPayload } from '@/lib/helperLink'
@@ -51,6 +52,8 @@ export function ResultsView({ result, profile, onReset, helperMode = false }: { 
   const primary = eligible.filter((p) => /^POL-/.test(p.id))
   const privateRel = eligible.filter((p) => /^PRV-/.test(p.id)) // 민간재단 — 접힌 목록에 묻히지 않게 별도 노출
   const related = eligible.filter((p) => !/^(POL|PRV)-/.test(p.id))
+  // 데이터 정직성 — 추천 중 몇 개가 요약형(공식 확인 권장)인지 한 줄로(환각 없는 투명성, 경쟁 차별점)
+  const freshFacts = useMemo(() => summarizeFreshness(eligible), [eligible])
   // 강력추천(high) 중 '현금성'만 합산(바우처·서비스·현물·고용주지원 제외) → 보수적·신뢰 가능한 헤드라인.
   // 자활·구직수당처럼 근로능력/상황 전제이거나 중복불가인 항목까지 더해 과장되지 않도록 의도적으로 좁힘.
   const monthly = sumCashMonthly(primary.filter((p) => p.priority === 'high'))
@@ -147,6 +150,12 @@ export function ResultsView({ result, profile, onReset, helperMode = false }: { 
           {monthly > 0 && (
             <p className="mt-2 text-[11px] text-muted-foreground max-w-lg">
               ※ ‘핵심 현금지원’은 강력 추천 중 <b>현금으로 받는 지원</b>만 적게 잡아 더한 값이에요. 상품권·서비스·물품·회사 지원은 빼고, 중복으로 받을 수 없는 경우·실제 조건에 따라 받는 금액은 달라질 수 있어요.
+            </p>
+          )}
+          {/* 데이터 투명성 한 줄 — 요약형 공공데이터는 최신 요건이 다를 수 있음을 정직하게(환각 없는 안내) */}
+          {freshFacts.verifyCount > 0 && (
+            <p className="mt-1 text-[11px] text-muted-foreground max-w-lg">
+              ℹ️ {freshFacts.note} 요약형 공공데이터는 최신 요건이 다를 수 있어, 상세에서 공식 링크로 한 번 더 확인하시길 권해요.
             </p>
           )}
 
