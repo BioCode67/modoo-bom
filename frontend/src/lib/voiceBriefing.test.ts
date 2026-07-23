@@ -32,3 +32,18 @@ describe('buildResultBriefing — 📞 결과 음성 브리핑', () => {
     expect(buildResultBriefing({ eligible_policies: [], required_docs: [] } as never)).toBeNull()
   })
 })
+
+describe('buildResultBriefing — 프로필 인사이트 덧붙임', () => {
+  it('프로필을 주면 스마트 인사이트(타이밍·오해)를 음성에도 덧붙인다', () => {
+    const p64: UserProfile = { ...SENIOR, age: 64, income_percentile: 40 }
+    const res = runAnalysis(p64)
+    const b = buildResultBriefing(res, p64)
+    // 만 64세 → 기초연금 사전신청(preapply, timing) 인사이트가 항상 들어간다
+    if (b) expect(b.text).toMatch(/시기가 중요|참고로/)
+  })
+  it('프로필 없이 호출해도(하위호환) 그대로 동작', () => {
+    const res = runAnalysis(SENIOR)
+    const b = buildResultBriefing(res)!
+    expect(b.text).toContain('전화로 짚어드릴게요')
+  })
+})

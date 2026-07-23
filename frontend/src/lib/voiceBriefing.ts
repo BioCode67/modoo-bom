@@ -1,5 +1,6 @@
-import type { AnalysisResult, EligiblePolicy } from '@/lib/welfare-engine'
+import type { AnalysisResult, EligiblePolicy, UserProfile } from '@/lib/welfare-engine'
 import { formatWon, sumCashMonthly } from '@/lib/format'
+import { getInsights } from '@/lib/insights'
 
 /**
  * 📞 결과 음성 브리핑 — 분석 결과를 '전화로 설명받는' 한 덩이 안내문 생성(순수 함수).
@@ -10,7 +11,7 @@ import { formatWon, sumCashMonthly } from '@/lib/format'
  * - top3는 화면 목록과 같은 순서(정밀추천 우선) — 말과 화면이 다른 걸 가리키지 않게.
  * - 이어지는 대화를 위해 top3 정책을 함께 반환 → 통화에서 "첫번째 담아줘"가 바로 성립.
  */
-export function buildResultBriefing(result: AnalysisResult): { text: string; policies: EligiblePolicy[] } | null {
+export function buildResultBriefing(result: AnalysisResult, profile: UserProfile | null = null): { text: string; policies: EligiblePolicy[] } | null {
   const eligible = result?.eligible_policies ?? []
   if (!eligible.length) return null
   const primary = eligible.filter((p) => /^POL-/.test(p.id))
@@ -31,6 +32,17 @@ export function buildResultBriefing(result: AnalysisResult): { text: string; pol
   }
   if (docs.length > 0) {
     lines.push(`서류는 모두 합쳐 ${docs.length}종이 필요해요 — 서류 준비는 나의 복지에서 제가 챙겨드릴게요.`)
+  }
+  // 📌 스마트 인사이트 — 급한 신청 타이밍·흔한 오해를 음성으로도 한두 개 짚어준다(프로필 있을 때·있으면만)
+  if (profile) {
+    const smart = getInsights(profile, eligible, { limit: 6 })
+      .filter((i) => i.kind === 'timing' || i.kind === 'misconception')
+      .slice(0, 2)
+    for (const it of smart) {
+      lines.push(it.kind === 'timing'
+        ? `그리고 시기가 중요해요 — ${it.title}. ${it.detail}`
+        : `참고로 '${it.title}'라고 여기기 쉽지만 꼭 그렇진 않아요. 자세한 건 화면에서 짚어드릴게요.`)
+    }
   }
   lines.push(`마음에 드는 게 있으면 지금 "첫번째 담아줘"처럼 말씀하셔도 되고, 더 궁금한 것도 편하게 물어보세요.`)
   return { text: lines.join('\n'), policies: top }

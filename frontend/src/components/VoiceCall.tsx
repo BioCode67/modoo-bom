@@ -186,7 +186,7 @@ export function VoiceCall({ open, onClose, presetLang, onTranscript, briefing }:
     if (!open) return
     setTurns([])
     if (briefing && result) {
-      const b = buildResultBriefing(result)
+      const b = buildResultBriefing(result, profile)
       if (b) {
         setTurns([{ role: 'bot', text: b.text, policies: b.policies as Policy[] }])
         if (!mutedRef.current) tts.speak(speakableText(b.text))
