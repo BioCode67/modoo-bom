@@ -689,13 +689,70 @@ def build_nav_prompt(goal: str, buttons: list) -> str:
 
 
 async def _click_idx(ctx, idx) -> bool:
-    """인덱싱된 요소(data-modoobom-ai)를 클릭 — 성공하면 True."""
+    """인덱싱된 요소를 '자가 치유(self-healing)' 클릭 — 성공하면 True.
+
+    UiPath Healing Agent·BrowserStack식 복원력(실측 67% 실패 스텝 자가복구): 일시 실패
+    (오버레이 가림·스크롤 밖·detached 요소)에 대비해 단계적으로 재시도한다 —
+      ① 일반 클릭 → ② 화면에 들여(scroll into view) 재클릭 → ③ JS 합성 클릭(포인터 인터셉트 우회).
+    짧은 지수 백오프. 3단계 모두 실패하면 False(상위가 다른 후보로 폴백)."""
+    sel = f"[data-modoobom-ai='{idx}']"
+    loc = ctx.locator(sel)
+    for attempt in range(3):
+        try:
+            if attempt == 0:
+                await loc.click(timeout=4000)
+            elif attempt == 1:
+                try:
+                    await loc.scroll_into_view_if_needed(timeout=2000)  # 가림/스크롤 밖 해소 후 재시도
+                except Exception:
+                    pass
+                await loc.click(timeout=4000)
+            else:
+                ok = await ctx.evaluate(
+                    "(s) => { const e = document.querySelector(s); if (!e) return false; e.click(); return true; }", sel)
+                if not ok:
+                    return False  # 요소 자체가 사라짐(detached·제거) — 영구 실패, 재시도 무의미
+            await asyncio.sleep(0.6)
+            return True
+        except Exception:
+            await asyncio.sleep(0.35 * (attempt + 1))  # 지수(짧은) 백오프 — 일시 실패 완화
+    return False
+
+
+async def page_signature(ctx) -> str:
+    """같은-페이지 진행 검증용 '지문' — URL + 요소 수 + 본문 길이(값·개인정보 미포함).
+    행동 전/후 비교로 '실제로 화면이 바뀌었나'를 판정한다(Agent-E change-observer). ⚠️ 새 창을
+    여는 행동엔 쓰지 말 것(같은 페이지는 안 변해 오판) — 호출부가 같은-페이지 진행에만 사용."""
     try:
-        await ctx.locator(f"[data-modoobom-ai='{idx}']").click(timeout=4000)
-        await asyncio.sleep(0.6)
-        return True
+        return await ctx.evaluate(
+            "() => location.href + '|' + document.querySelectorAll('*').length + '|'"
+            " + (document.body ? document.body.innerText.length : 0)")
     except Exception:
-        return False
+        return ""
+
+
+async def act_and_verify(do_action, verify=None, attempts: int = 2) -> bool:
+    """🔁 행동→검증→재시도 — CUA/Claude computer-use('행동 후 스크린샷으로 됐는지 확인')·Agent-E
+    change-observer의 핵심 신뢰성 기법. '클릭은 됐지만 아무 일도 안 일어남'을 잡아 재시도/폴백하게 한다.
+
+    do_action(): 코루틴 — 행동 실행(bool 반환 권장). verify(): 코루틴 → bool(기대한 변화가 실제로
+    생겼는가). verify 가 None 이면 do_action 성공만으로 판정. 실패 시 짧은 백오프 후 최대 attempts 회."""
+    for i in range(max(1, attempts)):
+        try:
+            acted = await do_action()
+        except Exception:
+            acted = False
+        if verify is None:
+            if acted:
+                return True
+        else:
+            try:
+                if await verify():
+                    return True
+            except Exception:
+                pass
+        await asyncio.sleep(0.4 * (i + 1))
+    return False
 
 
 def _match_score(bn: str, wn: str) -> int:
@@ -714,7 +771,7 @@ def _match_score(bn: str, wn: str) -> int:
     return 0
 
 
-async def ai_pick_action(ctx, goal: str, want_texts: list = None, task=None, site: str = "") -> bool:
+async def ai_pick_action(ctx, goal: str, want_texts: list = None, task=None, site: str = "", verify=None) -> bool:
     """🧭 목표(goal)에 맞는 버튼을 '화면을 이해해' 눌러 준다 — 클릭했으면 True.
 
     3계층(상위 RPA 성능 기법을 안전·Mock-safe·프라이버시 보존으로 적용):
@@ -769,6 +826,12 @@ async def ai_pick_action(ctx, goal: str, want_texts: list = None, task=None, sit
                 best, best_score = b, sc
         if best is not None and best_score > 0:
             if await _click_idx(ctx, best["idx"]):
+                if verify is not None:
+                    try:
+                        if not await verify():
+                            continue  # 클릭했지만 기대한 변화 없음 → 다음 후보로 자기수정
+                    except Exception:
+                        pass
                 _remember(best["text"])
                 return True
     # 경로 기억 라벨이 후보 어디에도 없으면(사이트 문구 변경 등) 무효화 — 다음엔 다시 학습
@@ -803,6 +866,12 @@ async def ai_pick_action(ctx, goal: str, want_texts: list = None, task=None, sit
         except Exception:
             pass
     if await _click_idx(ctx, idx):
+        if verify is not None:
+            try:
+                if not await verify():
+                    return False  # LLM 선택 클릭이 화면을 바꾸지 못함 — 실패로 정직 보고
+            except Exception:
+                pass
         _remember(lbl)
         return True
     return False
