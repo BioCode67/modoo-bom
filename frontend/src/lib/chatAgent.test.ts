@@ -361,3 +361,16 @@ describe('지금 바로 되는 것 인텐트', () => {
     expect(['analyze', 'my']).toContain(r.cta?.view)
   })
 })
+
+describe('상담 전화 인텐트', () => {
+  it("'상담 전화번호 알려줘'는 로컬 hotline으로 라우팅", () => {
+    expect(isLocalIntent('상담 전화번호 알려줘')).toBe(true)
+    const r = agentReply('상담 전화번호 알려줘', { profile: null, result: null })
+    expect(r.text).toContain('129')
+    expect(r.text).toMatch(/바뀔 수 있어요/)
+  })
+  it('상황 키워드는 관련 번호 우선(빚→서민금융 1397)', () => {
+    const r = agentReply('빚 때문에 어디로 전화해야 해?', { profile: null, result: null })
+    expect(r.text).toContain('1397')
+  })
+})

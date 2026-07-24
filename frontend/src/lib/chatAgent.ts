@@ -12,6 +12,7 @@ import { scanProfileGaps } from '@/lib/profileGaps'
 import { applyTiming } from '@/lib/applyTiming'
 import { getInsights } from '@/lib/insights'
 import { quickWins } from '@/lib/quickWins'
+import { hotlinesFor } from '@/lib/hotlines'
 
 /**
  * 챗 에이전트 두뇌 — 검색봇을 넘어 '나를 알고, 대신 행동하는' 에이전트로.
@@ -405,6 +406,18 @@ function quickWinReply(result: AnalysisResult | null): AgentReply {
   }
 }
 
+// ── 상담 전화 인텐트 — '어디로 전화하죠?'에 대표 상담 번호를 바로(어르신·저자력 사용자 우선) ──
+const HOTLINE_RE = /전화번호|상담\s*전화|전화\s*상담|콜센터|상담\s*센터|핫라인|어디\s*(에|로)?\s*(전화|연락)|문의\s*(전화|처)|전화\s*어디/
+
+/** 상황 키워드로 관련 상담 번호를 안내(없으면 대표 목록). 번호는 바뀔 수 있음을 고지. */
+function hotlineReply(raw: string): AgentReply {
+  const list = hotlinesFor(raw, 6)
+  const lines = list.map((h) => `• ${h.tel} — ${h.name}${h.urgent ? ' (24시간)' : ''}: ${h.desc}`).join('\n')
+  return {
+    text: `상담 전화번호를 안내해 드릴게요(번호는 바뀔 수 있어요).\n${lines}\n\n어디에 해당하는지 모르시면 129(보건복지상담센터)로 먼저 전화하시면 안내받을 수 있어요.`,
+  }
+}
+
 // ── 종합 조언 인텐트 — '내 상황 정리해줘'에 스마트 인사이트(타이밍·오해·숨은자격·신선도)를 한눈에 ──
 const ADVICE_RE = /정리해|요약해|종합|한눈에|내 ?상황|조언|어떻게 ?해야|뭐 ?부터|뭐 ?하면|짚어|브리핑/
 
@@ -429,7 +442,7 @@ function adviceReply(profile: UserProfile | null, result: AnalysisResult | null)
 export function isLocalIntent(raw: string): boolean {
   const q = raw.trim()
   return GREET_RE.test(q) || DOCS_RE.test(q) || APPLY_RE.test(q) || ELIG_RE.test(q)
-    || TIMING_RE.test(q) || GAP_RE.test(q) || ADVICE_RE.test(q) || QUICKWIN_RE.test(q) || matchMisconceptionIntent(q) !== null
+    || TIMING_RE.test(q) || GAP_RE.test(q) || ADVICE_RE.test(q) || QUICKWIN_RE.test(q) || HOTLINE_RE.test(q) || matchMisconceptionIntent(q) !== null
 }
 
 /** 메인 진입점 — 자유문장을 의도로 나눠 개인화·행동형으로 응답 */
@@ -460,6 +473,8 @@ export function agentReply(raw: string, ctx: { profile: UserProfile | null; resu
   if (GAP_RE.test(q)) return gapReply(ctx.profile)
   // 지금 바로 되는 것 — '온라인 즉시' 완결 가능 복지(마찰 최소)
   if (QUICKWIN_RE.test(q)) return quickWinReply(ctx.result)
+  // 상담 전화 — '어디로 전화?'에 대표 번호(어르신·저자력 우선)
+  if (HOTLINE_RE.test(q)) return hotlineReply(q)
   // 종합 조언('정리해줘'·'뭐부터') — 개별 인텐트가 안 걸린 넓은 요청을 인사이트로 한눈에(검색 폴백 직전)
   if (ADVICE_RE.test(q)) return adviceReply(ctx.profile, ctx.result)
   return searchReply(q, ctx.profile)
