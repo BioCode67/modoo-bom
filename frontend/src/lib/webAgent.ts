@@ -1,5 +1,6 @@
 import { docLink, isRpaSupported, LOCAL_RPA_DOCS, RPA_SUPPORTED_DOCS, applyLink, isApplyAutomatable } from '@/lib/officialLinks'
 import { bestApplyUrl, isBokjiroApplyable } from '@/lib/quickApply'
+import { runWebAgentRemote, type WebAgentRunResult } from '@/lib/webAgentClient'
 
 /**
  * webAgent — 자연어 목표 한 문장을 '무엇을·어떤 경로로' 처리할지 구조화 계획으로 바꾸는 순수 플래너.
@@ -143,4 +144,36 @@ export function describeWebAgent(plan: WebAgentPlan, backendConnected: boolean):
       : `${plan.message} 지금 에이전트가 이어서 진행할게요.`
   }
   return '데스크탑 앱을 연결하면 자동으로 진행돼요. 지금은 공식 사이트 링크로 안내할게요.'
+}
+
+/** 하이브리드 결과 — 계획(항상) + 백엔드 실행(가능 시) + 폴백 링크·안내. */
+export interface WebAgentHybrid {
+  plan: WebAgentPlan
+  executed: WebAgentRunResult | null   // 백엔드 실행 결과(없거나 실패면 null)
+  fallbackUrl: string
+  message: string
+}
+
+/**
+ * 계획 → (백엔드 있으면) 실행 → 폴백을 한 번에.
+ * 흐름:
+ *  ① planWebAgent로 목표를 분류(항상). ② backendReady!==false면 /api/webagent/run 호출 시도.
+ *  ③ 실행 성공이면 그 결과·메시지·폴백을, 실패/미연결이면 계획 기반 안내를 반환.
+ * 순수 계획 + 주입 가능한 실행(fetch)로 테스트 가능. 실패는 절대 throw하지 않고 계획으로 폴백.
+ */
+export async function runWebAgentHybrid(
+  goal: string,
+  opts: { backendReady?: boolean; baseUrl?: string; fetchImpl?: typeof fetch } = {},
+): Promise<WebAgentHybrid> {
+  const plan = planWebAgent(goal)
+  let executed: WebAgentRunResult | null = null
+  if (opts.backendReady !== false) {
+    executed = await runWebAgentRemote(goal, { baseUrl: opts.baseUrl, fetchImpl: opts.fetchImpl })
+  }
+  return {
+    plan,
+    executed,
+    fallbackUrl: (executed && executed.fallbackUrl) || plan.fallbackUrl,
+    message: (executed && executed.message) || describeWebAgent(plan, executed != null),
+  }
 }

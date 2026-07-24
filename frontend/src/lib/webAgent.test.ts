@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { planWebAgent, detectDoc, describeWebAgent } from './webAgent'
+import { planWebAgent, detectDoc, describeWebAgent, runWebAgentHybrid } from './webAgent'
 
 describe('detectDoc — 목표 문장에서 서류명 인식', () => {
   it('축약어를 정규 서류명으로', () => {
@@ -95,5 +95,35 @@ describe('describeWebAgent — 백엔드 연결여부 게이팅(정직성)', () 
     const p = planWebAgent('오늘 날씨 어때')
     expect(describeWebAgent(p, true)).toBe(p.message)
     expect(describeWebAgent(p, false)).toBe(p.message)
+  })
+})
+
+const mkFetch = (body: unknown, ok = true): typeof fetch =>
+  (async () => ({ ok, json: async () => body })) as unknown as typeof fetch
+
+describe('runWebAgentHybrid — 계획→실행→폴백', () => {
+  it('backendReady=false면 실행 없이 계획 기반 안내', async () => {
+    const h = await runWebAgentHybrid('주민등록등본 발급', { backendReady: false })
+    expect(h.executed).toBeNull()
+    expect(h.plan.docHint).toBe('주민등록등본')
+    expect(h.fallbackUrl).toContain('gov.kr')
+    expect(h.message.length).toBeGreaterThan(0)
+  })
+
+  it('백엔드 실행 성공이면 그 결과·메시지 사용', async () => {
+    const h = await runWebAgentHybrid('주민등록등본 발급', {
+      baseUrl: 'http://localhost:8000',
+      fetchImpl: mkFetch({ status: 'route', engine: 'deterministic', message: '검증된 빠른 경로', fallback_url: 'https://www.gov.kr' }),
+    })
+    expect(h.executed?.status).toBe('route')
+    expect(h.message).toContain('검증된 빠른 경로')
+  })
+
+  it('실행 실패(네트워크)는 throw 없이 계획으로 폴백', async () => {
+    const boom = (async () => { throw new Error('net') }) as unknown as typeof fetch
+    const h = await runWebAgentHybrid('청년월세 신청', { baseUrl: 'http://x', fetchImpl: boom })
+    expect(h.executed).toBeNull()
+    expect(h.plan.kind).toBe('apply_welfare')
+    expect(h.fallbackUrl).toMatch(/bokjiro|gov\.kr/)
   })
 })
