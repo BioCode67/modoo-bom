@@ -1,6 +1,6 @@
 import { useRef } from 'react'
 import { motion } from 'framer-motion'
-import { MessageCircle, FileCheck2, BellRing, Sparkles, X } from 'lucide-react'
+import { MessageCircle, FileCheck2, BellRing, Sparkles, Volume2, X } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
 import { SproutLogo } from '@/ui/SproutLogo'
 import { useModalFocus } from '@/hooks/useModalFocus'
@@ -15,7 +15,7 @@ const HELPS = [
 
 /** 첫 방문 1회 — 새싹이(에이전트)가 직접 인사하며 '무엇을 대신 해주는지' 소개(진입장벽 완화) */
 export function Onboarding() {
-  const { onboarded, setOnboarded, setView, uiLang, langSuggested } = useAppStore()
+  const { onboarded, setOnboarded, setView, uiLang, langSuggested, openVoiceGuide } = useAppStore()
   const panelRef = useRef<HTMLDivElement>(null)
   // 외국인 배려(발견된 UX 결함 수정):
   //  ① 이미 자국어를 쓰면(비 ko) 한국어 온보딩은 오히려 방해 → 생략
@@ -73,6 +73,14 @@ export function Onboarding() {
           <button onClick={() => { setOnboarded(); setView('analyze') }} className="btn-primary flex-1 justify-center whitespace-nowrap order-1 sm:order-2"><Sparkles className="h-4 w-4" /> 새싹이랑 시작하기</button>
           <button onClick={setOnboarded} className="btn-secondary flex-1 justify-center whitespace-nowrap order-2 sm:order-1">둘러볼게요</button>
         </div>
+
+        {/* 글 읽기 어려운 어르신·저시력 배려 — 사용법을 소리로 듣는 경로(1순위 사용자 접근성) */}
+        <button
+          onClick={() => { setOnboarded(); openVoiceGuide() }}
+          className="mt-2 w-full inline-flex items-center justify-center gap-1.5 rounded-2xl border-2 border-sprout-200 bg-sprout-50 px-4 py-2.5 text-sm font-bold text-sprout-700 hover:bg-sprout-100 transition-colors whitespace-nowrap"
+        >
+          <Volume2 className="h-4 w-4" /> 🔊 음성으로 사용법 듣기
+        </button>
       </motion.div>
     </div>
   )

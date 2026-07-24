@@ -86,6 +86,7 @@ def main() -> int:
                 ("home·고대비", "", "고대비(저시력용) 모드"),
                 ("home·큰글씨", "", "큰 글씨(어르신용) 모드"),  # 어르신 확대 규칙(.text-xs 오버라이드 등) 적용 상태의 대비·구조 룰
                 ("통화", "", None),  # 📞 통화 다이얼로그 오픈 상태 — 대화 표면도 axe 커버(셀렉트·마이크·이중 경로)
+                ("음성사용법", "", None),  # 🔊 음성 사용법 안내 다이얼로그 — 낭독 자막·큰 버튼·진행칩 axe 커버
             ]
             for name, q, toggle in cases:
                 pg = ctx.new_page()
@@ -105,6 +106,10 @@ def main() -> int:
                     pg.click('[aria-label="복지 도우미 챗봇 열기"]')
                     pg.click('[aria-label="음성 통화 상담으로 전환"]')
                     pg.wait_for_selector('[role="dialog"][aria-label="새싹이와 통화 상담"]', timeout=8000)
+                    pg.wait_for_timeout(600)
+                if name == "음성사용법":  # 내비의 '음성으로 사용법 듣기' 버튼으로 실제 경로 그대로 연다
+                    pg.click('[aria-label="음성으로 사용법 듣기"]')
+                    pg.wait_for_selector('[role="dialog"][aria-label="음성 사용법 안내"]', timeout=8000)
                     pg.wait_for_timeout(600)
                 pg.evaluate(axe_js)
                 res = pg.evaluate("async () => await axe.run(document, {resultTypes:['violations']})")

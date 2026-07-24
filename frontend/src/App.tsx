@@ -14,6 +14,7 @@ import { ReturnConfirm } from '@/components/ReturnConfirm'
 import { LangSuggest } from '@/components/LangSuggest'
 import { PrintSummary } from '@/components/PrintSummary'
 import { Onboarding } from '@/components/Onboarding'
+import { VoiceGuide } from '@/components/VoiceGuide'
 import { loadExternalCatalog } from '@/data/catalog'
 import { useAppStore } from '@/store/useAppStore'
 import { decodeHelperPayload } from '@/lib/helperLink'
@@ -134,6 +135,7 @@ export default function App() {
       <div className="no-print"><SproutGuide /></div>
       <div className="no-print"><ReturnConfirm /></div>
       <div className="no-print"><Onboarding /></div>
+      <div className="no-print"><VoiceGuide /></div>
       <PrintSummary />
     </div>
     </MotionConfig>
