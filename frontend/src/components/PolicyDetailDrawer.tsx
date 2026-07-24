@@ -20,6 +20,7 @@ import { TermText } from '@/components/TermText'
 import { VisitKit } from '@/components/VisitKit'
 import { FreshnessBadge } from '@/components/FreshnessBadge'
 import { DocSharingNote } from '@/components/DocSharingNote'
+import { ConditionChips, BenefitBreakdownView } from '@/components/PolicyConditionChips'
 import { t as tr, RTL } from '@/lib/i18nLite'
 import { ApplyKit } from '@/components/ApplyKit'
 import { oneTapApply, bestApplyInfo } from '@/lib/quickApply'
@@ -320,11 +321,15 @@ function DrawerBody({
               <Section title={`💰 ${tr(uiLang,'benefit')}`}>
                 {monthly > 0 && <p className="text-2xl font-extrabold text-sprout-700 mb-1">월 {formatWon(monthly)}까지</p>}
                 <TermText text={policy.benefit} className="text-sm text-foreground/80 leading-relaxed block" />
+                {/* 합산형 급여(기초+부가=합계)면 구성 요소로 풀어 보여줌 */}
+                <BenefitBreakdownView benefit={policy.benefit} />
               </Section>
               <Section title={`🎯 ${tr(uiLang,'target')}`}>
                 <TermText text={policy.target} className="text-sm text-foreground/80 leading-relaxed block" />
               </Section>
               <Section title={`📋 ${tr(uiLang,'eligibility')}`}>
+                {/* 자유서술 자격을 스캔 가능한 조건 칩(연령·소득·대상군·지역)으로 먼저 */}
+                <ConditionChips policy={policy} />
                 <TermText text={policy.eligibility} className="text-sm text-foreground/80 leading-relaxed block" />
               </Section>
             </>
