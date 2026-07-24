@@ -53,6 +53,11 @@ interface AppState {
   onboarded: boolean
   setOnboarded: () => void
 
+  // 🔊 음성 사용법 안내(새싹이 가이드 투어) 열림 여부 — 전이(비저장). 온보딩·내비에서 연다.
+  voiceGuideOpen: boolean
+  openVoiceGuide: () => void
+  closeVoiceGuide: () => void
+
   // RPA 자동입력용 추가정보(선택) — 본인인증 폼 자동 작성에만 사용, 내 기기에만 저장
   // sido/sigungu: 주민등록상 주소(회원정보 주소와 다를 때 발급 폼에서 자동 정정용)
   // auth_provider: 간편인증 수단(kakao|pass|naver|toss) — 카카오 없는 어르신은 통신사 PASS
@@ -153,6 +158,10 @@ export const useAppStore = create<AppState>()(
       toggleHighContrast: () => set((s) => ({ highContrast: !s.highContrast })),
       onboarded: false,
       setOnboarded: () => set({ onboarded: true }),
+
+      voiceGuideOpen: false,
+      openVoiceGuide: () => set({ voiceGuideOpen: true }),
+      closeVoiceGuide: () => set({ voiceGuideOpen: false }),
 
       rpaInfo: { name: '', birth_date: '', phone: '', carrier: '', sido: '', sigungu: '', auth_provider: 'kakao', rrn_back: '', parent_kind: '부', parent_name: '' },
       setRpaInfo: (patch) => set((s) => ({ rpaInfo: { ...s.rpaInfo, ...patch } })),

@@ -1,4 +1,4 @@
-import { Home, Search, Compass, Heart, Eye, Sparkles, Contrast, Download } from 'lucide-react'
+import { Home, Search, Compass, Heart, Eye, Sparkles, Contrast, Download, Volume2 } from 'lucide-react'
 import { useAppStore, type View } from '@/store/useAppStore'
 import { useInstallPrompt } from '@/lib/useInstallPrompt'
 import { AuthControl } from '@/components/AuthControl'
@@ -13,7 +13,7 @@ const NAV: { view: View; label: string; icon: typeof Home }[] = [
 ]
 
 export function Navbar() {
-  const { view, setView, elderly, toggleElderly, highContrast, toggleHighContrast, tracked } = useAppStore()
+  const { view, setView, elderly, toggleElderly, highContrast, toggleHighContrast, tracked, openVoiceGuide } = useAppStore()
   const { canInstall, promptInstall } = useInstallPrompt()
   const savedCount = tracked.length
 
@@ -50,6 +50,16 @@ export function Navbar() {
           </nav>
 
           <div className="ml-auto flex items-center gap-2">
+            {/* 🔊 소리로 듣는 사용법 — 온보딩을 닫은 뒤에도 언제든 열 수 있게(어르신·저시력 상시 진입) */}
+            <button
+              onClick={openVoiceGuide}
+              title="음성으로 사용법 듣기"
+              aria-label="음성으로 사용법 듣기"
+              className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold border-2 bg-white border-sprout-100 text-sprout-700 hover:border-sprout-300"
+            >
+              <Volume2 className="h-4 w-4" />
+              <span className="hidden lg:inline">사용법 듣기</span>
+            </button>
             <button
               onClick={toggleElderly}
               title={elderly ? '일반 글씨' : '큰 글씨(어르신용)'}
