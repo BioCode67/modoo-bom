@@ -30,6 +30,7 @@ import { GapProbeCard } from '@/components/GapProbeCard'
 import { ApplyTimingCard } from '@/components/ApplyTimingCard'
 import { summarizeFreshness } from '@/lib/freshness'
 import { buildWelfareReport } from '@/lib/welfareReport'
+import { quickWins } from '@/lib/quickWins'
 import { JourneyStepper } from '@/components/JourneyStepper'
 import { useAppStore } from '@/store/useAppStore'
 import { encodeHelperLink, decodeHelperPayload } from '@/lib/helperLink'
@@ -56,6 +57,8 @@ export function ResultsView({ result, profile, onReset, helperMode = false }: { 
   const related = eligible.filter((p) => !/^(POL|PRV)-/.test(p.id))
   // 데이터 정직성 — 추천 중 몇 개가 요약형(공식 확인 권장)인지 한 줄로(환각 없는 투명성, 경쟁 차별점)
   const freshFacts = useMemo(() => summarizeFreshness(eligible), [eligible])
+  // 지금 바로 온라인으로 끝나는 복지(마찰 최소) — 있으면 한 줄로 앞세워 행동을 유도
+  const quick = useMemo(() => quickWins(eligible), [eligible])
   // 강력추천(high) 중 '현금성'만 합산(바우처·서비스·현물·고용주지원 제외) → 보수적·신뢰 가능한 헤드라인.
   // 자활·구직수당처럼 근로능력/상황 전제이거나 중복불가인 항목까지 더해 과장되지 않도록 의도적으로 좁힘.
   const monthly = sumCashMonthly(primary.filter((p) => p.priority === 'high'))
@@ -282,6 +285,13 @@ export function ResultsView({ result, profile, onReset, helperMode = false }: { 
 
       {/* 신청 골든타임 — 신청주의라 타이밍이 곧 돈. 시간이 중요한 알림만(소급·사전신청·기한) 맨 위에 */}
       <ApplyTimingCard profile={profile} eligible={eligible} />
+      {/* 지금 바로 온라인 완결 가능 — 마찰 최소 복지를 한 줄로 앞세워 '바로 할 수 있다'는 자신감을 준다 */}
+      {quick.length > 0 && (
+        <div className="mt-5 flex items-center gap-2.5 rounded-2xl border-2 border-sprout-200 bg-sprout-50 px-4 py-3">
+          <span className="text-lg" aria-hidden>⚡</span>
+          <p className="text-sm font-semibold text-sprout-800">이 중 <b>{quick.length}개</b>는 지금 바로 온라인으로 신청할 수 있어요 — 복지로 로그인이면 끝이에요!</p>
+        </div>
+      )}
       {/* 오해 진단 — 이 프로필에 걸리는 복지 통념을 구조 규칙으로 바로잡음(걸린 게 없으면 자동 숨김) */}
       <MisconceptionCard profile={profile} eligible={eligible} />
       {/* 숨은 자격 발굴기 — 말 안 한 차원이 열어줄 복지를 임팩트순으로 되물음(도우미 모드에선 남의 프로필이라 숨김) */}
