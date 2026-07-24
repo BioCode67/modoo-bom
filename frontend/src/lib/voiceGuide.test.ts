@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { GUIDE_STEPS, matchGuideCommand, applyGuideCommand } from './voiceGuide'
+import {
+  GUIDE_STEPS, matchGuideCommand, applyGuideCommand,
+  GUIDE_LANGS, GUIDE_UI, guideSteps, guideUi,
+} from './voiceGuide'
 
 describe('GUIDE_STEPS — 음성 사용법 대본', () => {
   it('발견→이해→신청→관리 흐름의 여러 단계가 있다', () => {
@@ -22,6 +25,49 @@ describe('GUIDE_STEPS — 음성 사용법 대본', () => {
     const withGoto = GUIDE_STEPS.filter((s) => s.goto)
     expect(withGoto).toHaveLength(1)
     expect(GUIDE_STEPS[GUIDE_STEPS.length - 1].goto).toBe('analyze')
+  })
+})
+
+describe('다국어 대본·UI 패리티(ko·en·vi·zh)', () => {
+  it('모든 언어가 같은 단계 구조(id·순서·goto)를 가진다', () => {
+    const koIds = guideSteps('ko').map((s) => s.id)
+    for (const lang of GUIDE_LANGS) {
+      const steps = guideSteps(lang)
+      expect(steps.map((s) => s.id), lang).toEqual(koIds)
+      // 마지막만 goto, 값은 언어 무관
+      expect(steps.filter((s) => s.goto).map((s) => s.goto), lang).toEqual(['analyze'])
+    }
+  })
+
+  it('각 언어 낭독문·제목·칩이 비어있지 않고, 이모지·마크다운·URL이 없다', () => {
+    for (const lang of GUIDE_LANGS) {
+      for (const s of guideSteps(lang)) {
+        expect(s.title.length, `${lang}/${s.id}`).toBeGreaterThan(0)
+        expect(s.chip.length, `${lang}/${s.id}`).toBeGreaterThan(0)
+        expect(s.say.length, `${lang}/${s.id}`).toBeGreaterThan(10)
+        expect(s.say, `${lang}/${s.id}`).not.toMatch(/https?:\/\//)
+        expect(s.say, `${lang}/${s.id}`).not.toMatch(/[*_#`•]/)
+        expect(s.say, `${lang}/${s.id}`).not.toMatch(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u)
+      }
+    }
+  })
+
+  it('모든 언어에 조작 UI 문자열이 채워져 있다', () => {
+    for (const lang of GUIDE_LANGS) {
+      const ui = guideUi(lang)
+      for (const k of Object.keys(GUIDE_UI.ko) as (keyof typeof ui)[]) {
+        expect(ui[k], `${lang}/${k}`).toBeTruthy()
+      }
+    }
+    // a11y 감사가 여는 다이얼로그 라벨(ko)은 고정 문자열
+    expect(GUIDE_UI.ko.dialogLabel).toBe('음성 사용법 안내')
+  })
+
+  it('미지원 코드는 한국어로 폴백', () => {
+    // @ts-expect-error 지원 목록 밖 코드로 폴백 동작 검증
+    expect(guideSteps('xx')).toEqual(guideSteps('ko'))
+    // @ts-expect-error 지원 목록 밖 코드로 폴백 동작 검증
+    expect(guideUi('xx')).toBe(GUIDE_UI.ko)
   })
 })
 
@@ -57,6 +103,29 @@ describe('matchGuideCommand — 발화 → 명령', () => {
     expect(matchGuideCommand('오늘 날씨 좋네요')).toBeNull()
     expect(matchGuideCommand('')).toBeNull()
     expect(matchGuideCommand('   ')).toBeNull()
+  })
+
+  it('다국어 명령(en·vi·zh)도 판정한다', () => {
+    // next
+    expect(matchGuideCommand('next please')).toBe('next')
+    expect(matchGuideCommand('tiếp theo')).toBe('next')
+    expect(matchGuideCommand('下一步')).toBe('next')
+    // prev
+    expect(matchGuideCommand('go back')).toBe('prev')
+    expect(matchGuideCommand('quay lại')).toBe('prev')
+    expect(matchGuideCommand('上一步')).toBe('prev')
+    // repeat
+    expect(matchGuideCommand('say it again')).toBe('repeat')
+    expect(matchGuideCommand('lặp lại')).toBe('repeat')
+    expect(matchGuideCommand('再说一遍')).toBe('repeat')
+    // stop
+    expect(matchGuideCommand('stop')).toBe('stop')
+    expect(matchGuideCommand('dừng lại')).toBe('stop')
+    expect(matchGuideCommand('退出')).toBe('stop')
+    // start
+    expect(matchGuideCommand("let's go")).toBe('start')
+    expect(matchGuideCommand('bắt đầu')).toBe('start')
+    expect(matchGuideCommand('开始')).toBe('start')
   })
 })
 
