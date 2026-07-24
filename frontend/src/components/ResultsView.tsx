@@ -29,6 +29,7 @@ import { MisconceptionCard } from '@/components/MisconceptionCard'
 import { GapProbeCard } from '@/components/GapProbeCard'
 import { ApplyTimingCard } from '@/components/ApplyTimingCard'
 import { summarizeFreshness } from '@/lib/freshness'
+import { buildWelfareReport } from '@/lib/welfareReport'
 import { JourneyStepper } from '@/components/JourneyStepper'
 import { useAppStore } from '@/store/useAppStore'
 import { encodeHelperLink, decodeHelperPayload } from '@/lib/helperLink'
@@ -40,6 +41,7 @@ export function ResultsView({ result, profile, onReset, helperMode = false }: { 
   const [showRelated, setShowRelated] = useState(false)
   const [savedAll, setSavedAll] = useState(false) // '추천 전부 담기'를 눌렀는지(버튼 피드백)
   const [autoPilot, setAutoPilot] = useState(false) // '오토파일럿'을 눌렀는지(버튼 피드백)
+  const [reportCopied, setReportCopied] = useState(false) // '리포트 복사' 피드백
   const { ready, caps } = useBackend()
   // 오토파일럿은 에이전트(데스크탑앱) 연결 시에만 — 담기→서류 발급→신청 준비를 실제로 이어갈 수 있을 때만 약속한다.
   const agentOn = ready === true && !!caps?.rpa && !helperMode
@@ -88,6 +90,15 @@ export function ResultsView({ result, profile, onReset, helperMode = false }: { 
 
   // 가족에게 부탁하기 — 프로필(이름 제외)+담은 정책을 링크로 공유. 받은 가족 폰에서 같은 결과가 복원된다.
   // 서버 미전송(해시). 단, 메신저 대화방엔 링크가 남으므로 동의 후 전송.
+  // 복지 리포트 텍스트를 클립보드로 — 카톡·메일로 붙여넣어 전달 가능(이름은 기본 제외, 프라이버시)
+  const copyReport = async () => {
+    try {
+      await navigator.clipboard.writeText(buildWelfareReport(profile, result, { includeName: false }))
+      setReportCopied(true)
+      setTimeout(() => setReportCopied(false), 2000)
+    } catch { /* 클립보드 미허용 등 무시 */ }
+  }
+
   const shareToFamily = async () => {
     // 링크를 먼저 만든 뒤 '실제로 담긴' 건수를 역디코드로 확인해 고지한다 — 인코더가 용량 상한(6000자)으로
     // 장문 정책명 일부를 떨굴 수 있어, confirm이 전체 건수를 약속하면 과장이 되기 때문(정직성 철칙).
@@ -167,6 +178,7 @@ export function ResultsView({ result, profile, onReset, helperMode = false }: { 
               <button onClick={() => setView('my')} className="btn-secondary !py-2.5"><Heart className="h-4 w-4" /> 나의 복지에서 관리</button>
             )}
             <button onClick={() => window.print()} className="btn-secondary !py-2.5"><Printer className="h-4 w-4" /> 인쇄·저장</button>
+            <button onClick={copyReport} className="btn-secondary !py-2.5" aria-label="복지 리포트 텍스트 복사"><FileText className="h-4 w-4" /> {reportCopied ? '복사됨!' : '리포트 복사'}</button>
             {tts.supported && (
               <button onClick={speakSummary} className="btn-secondary !py-2.5" aria-label={tts.speaking ? '읽기 중지' : '결과 읽어주기'}>
                 {tts.speaking ? <Square className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />} {tts.speaking ? '중지' : '읽어주기'}
