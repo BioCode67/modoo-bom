@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Heart, Wallet, Scale, Sparkles, Compass, Printer, Cloud, ChevronDown, Wrench, UserPlus } from 'lucide-react'
+import { Heart, Wallet, Scale, Sparkles, Compass, Printer, Cloud, ChevronDown, Wrench, UserPlus, FileText } from 'lucide-react'
 import type { Policy } from '@/data/policies'
 import { usePolicyMap } from '@/data/useCatalog'
-import type { EligiblePolicy } from '@/lib/welfare-engine'
+import type { EligiblePolicy, AnalysisResult } from '@/lib/welfare-engine'
+import { buildWelfareReport } from '@/lib/welfareReport'
 import { TrackedCard, STATUS_META } from '@/components/TrackedCard'
 import { PolicyDetailDrawer } from '@/components/PolicyDetailDrawer'
 import { InterestSubscribe } from '@/components/InterestSubscribe'
@@ -33,8 +34,9 @@ const FILTERS: { key: AppStatus | 'all'; label: string }[] = [
 ]
 
 export function My() {
-  const { tracked, setView, resetForNextUser } = useAppStore()
+  const { tracked, setView, resetForNextUser, profile } = useAppStore()
   const [filter, setFilter] = useState<AppStatus | 'all'>('all')
+  const [reportCopied, setReportCopied] = useState(false) // '리포트 복사' 피드백
   const [selected, setSelected] = useState<Policy | EligiblePolicy | null>(null)
   const [compare, setCompare] = useState(false)
   const [showTools, setShowTools] = useState(false) // 보조 도구(캘린더·가구분석·자동화요약) 접기 — 요소 과다로 길 잃지 않게
@@ -55,6 +57,18 @@ export function My() {
     if (!window.confirm('이 기기에 저장된 내 정보(담은 복지·프로필·진행 기록·발급 기록)를 모두 지우고 새 사용자로 시작할까요?\n\n※ 다른 사람에게 넘기거나 공용 기기에서 쓸 때 사용하세요. 지운 기록은 되돌릴 수 없어요.')) return
     resetForNextUser()
     setView('home')
+  }
+
+  // 담은 복지 목록을 텍스트 리포트로 복사 — 카톡·메일로 가족·사회복지사에게 전달(이름 기본 제외)
+  const copyMyReport = async () => {
+    const pols = tracked.map((t) => POLICY_MAP[t.policyId]).filter(Boolean)
+    const docs = Array.from(new Set(pols.flatMap((p) => p.required_docs || [])))
+    const pseudo = { eligible_policies: pols, required_docs: docs } as unknown as AnalysisResult
+    try {
+      await navigator.clipboard.writeText(buildWelfareReport(profile, pseudo, { includeName: false }))
+      setReportCopied(true)
+      setTimeout(() => setReportCopied(false), 2000)
+    } catch { /* 클립보드 미허용 등 무시 */ }
   }
 
   if (tracked.length === 0) {
@@ -96,14 +110,26 @@ export function My() {
             <h1 className="text-2xl sm:text-3xl font-extrabold">나의 복지 <Heart className="inline h-6 w-6 text-peach-400 fill-peach-400" /></h1>
             <p className="text-muted-foreground mt-1">담아둔 복지의 신청 준비와 진행 상황을 한눈에 관리하세요.</p>
           </div>
-          {/* 공용 기기·다른 사람에게 넘길 때 — 이 기기의 내 기록을 비우고 새로 시작 */}
-          <button
-            onClick={startNewUser}
-            className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-sprout-200 bg-white px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:border-sprout-300 hover:text-foreground transition-colors"
-            title="이 기기에 저장된 내 정보를 지우고 새 사용자로 시작해요"
-          >
-            <UserPlus className="h-3.5 w-3.5" /> 새 사용자로 시작
-          </button>
+          <div className="shrink-0 flex flex-wrap items-center justify-end gap-2">
+            {/* 담은 복지 목록을 텍스트로 복사 — 가족·사회복지사에게 전달 */}
+            {tracked.length > 0 && (
+              <button
+                onClick={copyMyReport}
+                className="inline-flex items-center gap-1.5 rounded-full border border-sprout-200 bg-white px-3 py-1.5 text-xs font-semibold text-sprout-700 hover:border-sprout-300 transition-colors"
+                aria-label="담은 복지 리포트 텍스트 복사"
+              >
+                <FileText className="h-3.5 w-3.5" /> {reportCopied ? '복사됨!' : '리포트 복사'}
+              </button>
+            )}
+            {/* 공용 기기·다른 사람에게 넘길 때 — 이 기기의 내 기록을 비우고 새로 시작 */}
+            <button
+              onClick={startNewUser}
+              className="inline-flex items-center gap-1.5 rounded-full border border-sprout-200 bg-white px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:border-sprout-300 hover:text-foreground transition-colors"
+              title="이 기기에 저장된 내 정보를 지우고 새 사용자로 시작해요"
+            >
+              <UserPlus className="h-3.5 w-3.5" /> 새 사용자로 시작
+            </button>
+          </div>
         </div>
         <SyncBadge />
 
