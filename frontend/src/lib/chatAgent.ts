@@ -11,6 +11,7 @@ import { MYTH_RULES, pickEvidence } from '@/lib/misconceptions'
 import { scanProfileGaps } from '@/lib/profileGaps'
 import { applyTiming } from '@/lib/applyTiming'
 import { getInsights } from '@/lib/insights'
+import { quickWins } from '@/lib/quickWins'
 
 /**
  * 챗 에이전트 두뇌 — 검색봇을 넘어 '나를 알고, 대신 행동하는' 에이전트로.
@@ -383,6 +384,27 @@ function timingReply(profile: UserProfile | null, result: AnalysisResult | null)
   }
 }
 
+// ── 지금 바로 되는 것 인텐트 — '앉은 자리에서 온라인으로 끝나는' 복지만 골라 안내 ──
+const QUICKWIN_RE = /지금 ?바로|당장 ?(되|신청|가능)|앉은 ?자리|바로 ?되는|바로 ?신청|온라인으로만|집에서 ?(되|신청)|쉬운 ?것부터/
+
+/** 온라인 즉시 완결 가능 복지(quickWins)를 안내 — 신청 마찰이 가장 낮은 것부터. */
+function quickWinReply(result: AnalysisResult | null): AgentReply {
+  const eligible = result?.eligible_policies ?? []
+  const wins = quickWins(eligible)
+  if (!wins.length) {
+    return {
+      text: '지금 이 자리에서 온라인으로 바로 끝나는 복지는 눈에 띄지 않네요. 그래도 담아두시면 서류·신청을 순서대로 도와드릴게요.',
+      cta: result ? { view: 'my', label: '나의 복지에서 준비' } : { view: 'analyze', label: '먼저 분석하기' },
+    }
+  }
+  const lines = wins.slice(0, 5).map((w) => `• ${w.policy.name}${w.noDocs ? ' — 서류 없이 바로' : ' — 방문 없이 준비 가능'}`).join('\n')
+  return {
+    text: `앉은 자리에서 온라인으로 바로 신청할 수 있는 복지예요(${wins.length}개).\n${lines}\n\n복지로에서 로그인 후 신청하시면 돼요.`,
+    policies: wins.slice(0, 5).map((w) => w.policy as Policy),
+    cta: { view: 'my', label: '담아서 신청 준비' },
+  }
+}
+
 // ── 종합 조언 인텐트 — '내 상황 정리해줘'에 스마트 인사이트(타이밍·오해·숨은자격·신선도)를 한눈에 ──
 const ADVICE_RE = /정리해|요약해|종합|한눈에|내 ?상황|조언|어떻게 ?해야|뭐 ?부터|뭐 ?하면|짚어|브리핑/
 
@@ -407,7 +429,7 @@ function adviceReply(profile: UserProfile | null, result: AnalysisResult | null)
 export function isLocalIntent(raw: string): boolean {
   const q = raw.trim()
   return GREET_RE.test(q) || DOCS_RE.test(q) || APPLY_RE.test(q) || ELIG_RE.test(q)
-    || TIMING_RE.test(q) || GAP_RE.test(q) || ADVICE_RE.test(q) || matchMisconceptionIntent(q) !== null
+    || TIMING_RE.test(q) || GAP_RE.test(q) || ADVICE_RE.test(q) || QUICKWIN_RE.test(q) || matchMisconceptionIntent(q) !== null
 }
 
 /** 메인 진입점 — 자유문장을 의도로 나눠 개인화·행동형으로 응답 */
@@ -436,6 +458,8 @@ export function agentReply(raw: string, ctx: { profile: UserProfile | null; resu
   const myth = matchMisconceptionIntent(q)
   if (myth) return misconceptionReply(myth, ctx.result)
   if (GAP_RE.test(q)) return gapReply(ctx.profile)
+  // 지금 바로 되는 것 — '온라인 즉시' 완결 가능 복지(마찰 최소)
+  if (QUICKWIN_RE.test(q)) return quickWinReply(ctx.result)
   // 종합 조언('정리해줘'·'뭐부터') — 개별 인텐트가 안 걸린 넓은 요청을 인사이트로 한눈에(검색 폴백 직전)
   if (ADVICE_RE.test(q)) return adviceReply(ctx.profile, ctx.result)
   return searchReply(q, ctx.profile)

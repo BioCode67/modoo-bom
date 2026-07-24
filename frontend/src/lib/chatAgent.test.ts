@@ -348,3 +348,16 @@ describe('종합 조언 인텐트 — 내 상황 정리', () => {
     expect(r.cta?.view).toBe('analyze')
   })
 })
+
+describe('지금 바로 되는 것 인텐트', () => {
+  it("'지금 바로 되는 거 있어?'는 로컬 quickWin으로 라우팅", () => {
+    expect(isLocalIntent('지금 바로 되는 거 있어?')).toBe(true)
+    const r = agentReply('지금 바로 되는 거 있어?', { profile, result })
+    expect(r.text.length).toBeGreaterThan(0)
+    expect(r.cta).toBeTruthy()
+  })
+  it('결과 없으면 분석·준비로 안내(막다른 응답 없음)', () => {
+    const r = agentReply('당장 신청 되는 거', { profile: null, result: null })
+    expect(['analyze', 'my']).toContain(r.cta?.view)
+  })
+})
