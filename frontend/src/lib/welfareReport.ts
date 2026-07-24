@@ -2,6 +2,7 @@ import type { AnalysisResult, UserProfile } from '@/lib/welfare-engine'
 import { formatWon, sumCashMonthly, isCashBenefit, parseMonthly } from '@/lib/format'
 import { applyTiming } from '@/lib/applyTiming'
 import { getInsights } from '@/lib/insights'
+import { quickWins } from '@/lib/quickWins'
 
 /**
  * 복지 리포트 생성 — 분석 결과를 '복사·저장·전달 가능한 한 덩이 텍스트'로 만든다(순수 함수).
@@ -51,6 +52,13 @@ export function buildWelfareReport(
     if (docs.length) {
       lines.push('')
       lines.push(`● 필요 서류(통합 ${docs.length}종): ${docs.slice(0, 15).join(', ')}${docs.length > 15 ? ' 외' : ''}`)
+    }
+
+    const qw = quickWins(base)
+    if (qw.length) {
+      lines.push('')
+      lines.push(`● 지금 바로 온라인으로 신청 가능: ${qw.length}개`)
+      qw.slice(0, 5).forEach((w) => lines.push(`  ⚡ ${w.policy.name}${w.noDocs ? ' (서류 없이 바로)' : ''}`))
     }
 
     const timing = profile ? applyTiming(profile, eligible) : []
