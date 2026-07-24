@@ -20,8 +20,12 @@ from pydantic import BaseModel
 
 from webagent import run_web_agent, run_web_journey, WebAgentConfig
 from webagent.config import VALID_ENGINES
-from webagent.web_agent import _browser_use_available, _cdp_reachable
+from webagent.web_agent import _browser_use_available, _cdp_reachable, default_resolver, default_fallback_url
 from webagent.llm_factory import select_provider
+
+# 목표 성격 분류용 키워드(브라우저 없이 빠른 미리보기)
+_ISSUE_WORDS = ("발급", "떼", "출력", "증명서", "등본", "초본", "확인서", "내역서")
+_APPLY_WORDS = ("신청", "접수", "지원금", "수당", "급여", "바우처")
 
 
 # ── 요청 스키마 ──
@@ -77,6 +81,28 @@ async def _handle_journey(payload: dict) -> dict:
     return result.to_dict()
 
 
+def _classify(goal: str) -> dict:
+    """목표를 브라우저 없이 빠르게 분류(미리보기) — 발급/신청/미상 + 검증된 빠른경로 여부 + 폴백 링크.
+
+    /run 이 오케스트레이션(무거움)이라면, 이건 '이 목표가 뭘 하려는지' 즉답(가벼움)이다.
+    """
+    g = (goal or "").strip()
+    doc = default_resolver(g) if g else None
+    kind = "unknown"
+    if g:
+        if any(w in g for w in _APPLY_WORDS) and not any(w in g for w in _ISSUE_WORDS):
+            kind = "apply_welfare"
+        elif doc or any(w in g for w in _ISSUE_WORDS):
+            kind = "issue_doc"
+    return {
+        "goal": g,
+        "kind": kind,                       # issue_doc | apply_welfare | unknown
+        "resolved_doc": doc,                # 검증된 빠른경로로 인식된 서류(없으면 None)
+        "deterministic": doc is not None,   # 결정적 빠른경로 대상인가
+        "fallback_url": default_fallback_url(g),
+    }
+
+
 def _config_info() -> dict:
     """현재 가드레일 기본값 + 엔진 가용성(어떤 엔진이 실제로 준비됐는지 정직하게)."""
     cfg = WebAgentConfig.from_env()
@@ -113,3 +139,8 @@ async def journey_endpoint(req: JourneyRequest) -> dict:
 @router.get("/config")
 async def config_endpoint() -> dict:
     return _config_info()
+
+
+@router.get("/classify")
+async def classify_endpoint(goal: str) -> dict:
+    return _classify(goal)

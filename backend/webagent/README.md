@@ -111,6 +111,7 @@ print(j.stopped_at)   # 사람 인계로 멈춘 단계(없으면 None)
 | POST | `/api/webagent/run` | `{ goal, engine?, max_steps?, timeout_s? }` → `WebAgentResult` |
 | POST | `/api/webagent/journey` | `{ goals[], engine?, stop_on_human? }` → `WebJourneyResult` |
 | GET | `/api/webagent/config` | 현재 가드레일 기본값 + 엔진 가용성(browser_use·builtin_cdp·llm_provider) |
+| GET | `/api/webagent/classify?goal=…` | 브라우저 없이 목표 성격 미리보기(발급/신청/미상·빠른경로 여부) |
 
 오버라이드는 가드레일 범위로 클램프됩니다(max_steps ≤ 50, timeout ≤ 600s, engine는 유효값만).
 핸들러 로직은 `_handle_run`/`_handle_journey`/`_config_info` 순수 함수로 분리해 HTTP 없이 테스트합니다.

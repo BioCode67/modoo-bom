@@ -10,6 +10,7 @@ from webagent.router import (
     _handle_journey,
     _config_info,
     _cfg_from,
+    _classify,
     RunRequest,
     JourneyRequest,
 )
@@ -86,3 +87,29 @@ def test_request_schemas_defaults():
     assert r.goal == "등본" and r.engine is None
     j = JourneyRequest(goals=["a", "b"])
     assert j.stop_on_human is True and j.goals == ["a", "b"]
+
+
+def test_classify_issue_doc_known():
+    c = _classify("주민등록등본 발급")
+    assert c["kind"] == "issue_doc"
+    assert c["resolved_doc"] == "주민등록등본"
+    assert c["deterministic"] is True
+    assert "gov.kr" in c["fallback_url"]
+
+
+def test_classify_apply_welfare():
+    c = _classify("청년월세 신청")
+    assert c["kind"] == "apply_welfare"
+    assert c["deterministic"] is False
+    assert "bokjiro" in c["fallback_url"]
+
+
+def test_classify_issue_verb_unknown_doc():
+    c = _classify("무슨무슨 증명서 발급")
+    assert c["kind"] == "issue_doc"
+    assert c["resolved_doc"] is None
+
+
+def test_classify_empty_is_unknown():
+    c = _classify("   ")
+    assert c["kind"] == "unknown" and c["deterministic"] is False
