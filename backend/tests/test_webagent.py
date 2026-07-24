@@ -185,3 +185,43 @@ def test_browser_use_unavailable_without_package_or_key():
 def test_fallback_url_routing():
     assert default_fallback_url("주민등록등본 발급") == "https://www.gov.kr"
     assert default_fallback_url("청년월세 신청") == "https://www.bokjiro.go.kr"
+
+
+# ── browser-use 결과 추출(_extract_browser_use_result) — 버전 관용 방어 파싱 고정 ──
+from webagent.web_agent import _extract_browser_use_result  # noqa: E402
+
+
+class _FakeHist:
+    """browser-use 히스토리의 다양한 버전 모양을 흉내낸다(있는 메서드만)."""
+    def __init__(self, done=None, final=None, steps=None):
+        if done is not None:
+            self.is_done = lambda: done
+        if final is not None:
+            self.final_result = lambda: final
+        if steps is not None:
+            self.number_of_steps = lambda: steps
+
+
+def test_extract_done_with_final_and_steps():
+    done, text, extracted, steps = _extract_browser_use_result(_FakeHist(done=True, final="발급완료", steps=5))
+    assert done is True
+    assert text == "발급완료"
+    assert extracted == {"final": "발급완료"}
+    assert steps == 5
+
+
+def test_extract_not_done_defaults():
+    done, text, extracted, steps = _extract_browser_use_result(_FakeHist(done=False))
+    assert done is False and text == "" and extracted == {} and steps == 0
+
+
+def test_extract_missing_methods_no_crash():
+    # is_done/final_result/number_of_steps 가 아예 없는 객체(다른 버전) — 크래시 없이 기본값
+    done, text, extracted, steps = _extract_browser_use_result(object())
+    assert done is False and text == "" and extracted == {} and steps == 0
+
+
+def test_extract_final_result_none_is_empty():
+    # final_result가 있으나 None을 돌려주는 경우(미완) — 빈 텍스트
+    done, text, extracted, steps = _extract_browser_use_result(_FakeHist(done=False, final=None, steps=3))
+    assert text == "" and steps == 3
