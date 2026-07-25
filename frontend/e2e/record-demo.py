@@ -107,9 +107,10 @@ def main():
             pg.keyboard.press("Escape")
             pg.wait_for_timeout(400)
 
-            # 나의 복지 → 서류 준비 도우미
+            # 나의 복지 → '서류 발급' 탭 → 서류 준비 도우미 (탭 레이아웃: 기본 탭은 '담은 복지')
             pg.click("text=나의 복지"); pg.wait_for_timeout(1800)
             try:
+                pg.click("[role='tab']:has-text('서류 발급')"); pg.wait_for_timeout(600)
                 pg.get_by_text("서류 준비 도우미").scroll_into_view_if_needed(timeout=6000)
                 pg.wait_for_timeout(2200)
                 pg.mouse.wheel(0, 400); pg.wait_for_timeout(1500)

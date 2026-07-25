@@ -23,6 +23,7 @@ import { DocPlanCard } from '@/components/DocPlanCard'
 import { PaymentSchedule } from '@/components/PaymentSchedule'
 import { useAppStore, type AppStatus } from '@/store/useAppStore'
 import { hasPendingIssue, ISSUE_DOC_EVENT, ISSUE_ALL_EVENT } from '@/lib/issueBridge'
+import { countLiveIssuance } from '@/lib/liveTasks'
 import { useAuthCtx } from '@/lib/authContext'
 import { sumCashMonthly, formatWon } from '@/lib/format'
 import { StaticMascot } from '@/three/MascotCanvas'
@@ -61,6 +62,17 @@ export function My() {
       window.removeEventListener(ISSUE_DOC_EVENT, toDocs)
       window.removeEventListener(ISSUE_ALL_EVENT, toDocs)
     }
+  }, [])
+
+  // 탭 밖 진행 미니 스트립 — 서류 섹션은 숨김 상태로도 폴링을 계속하지만, 눈에 안 보이면 사용자는
+  // 멈춘 줄 안다. liveTasks(시작 remember·종결 forget)가 진실원이라 '실제로 돌고 있는 것만' 센다.
+  // 변화 기반 setState(같은 값이면 리렌더 0회 — 프로젝트 폴링 컨벤션과 동일).
+  const [liveIssuing, setLiveIssuing] = useState(0)
+  useEffect(() => {
+    const tick = () => setLiveIssuing((prev) => { const n = countLiveIssuance(); return prev === n ? prev : n })
+    tick()
+    const t = window.setInterval(tick, 4000)
+    return () => window.clearInterval(t)
   }, [])
 
   // 현금성 지원만 합산(바우처·서비스·현물 제외) — 결과화면과 동일 기준으로 과장 없이.
@@ -197,6 +209,21 @@ export function My() {
           )
         })}
       </div>
+
+      {/* 탭 밖 진행 미니 스트립 — 다른 탭에 있어도 진행 중 발급을 놓치지 않게(탭 전환 원버튼) */}
+      {tab !== 'docs' && liveIssuing > 0 && (
+        <button
+          type="button"
+          onClick={() => setTab('docs')}
+          className="mt-2 flex w-full items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-left text-sm font-bold text-amber-800 hover:bg-amber-100 transition-colors"
+        >
+          <span className="relative flex h-2.5 w-2.5 shrink-0">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
+            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-amber-500" />
+          </span>
+          서류 발급이 진행 중이에요 ({liveIssuing}건) — 진행 상황 보러 가기
+        </button>
+      )}
 
       {/* ── 탭 내용 ── */}
       <div className="mt-4">

@@ -82,3 +82,13 @@ export function listLive(kind: LiveKind): Record<string, LiveTask> {
 export function clearLive() {
   storage.remove()
 }
+
+/**
+ * 발급 계열(단건 doc + 여정 journey) 진행 중 개수 — '탭 밖 진행 미니 스트립' 표시용.
+ * liveTasks가 진실원(시작 시 remember, 종결·404 시 forget, TTL 45분)이라 '돌고 있는 것만' 센다 —
+ * 완료·실패를 진행 중으로 과장하지 않는다(정직성).
+ */
+export function countLiveIssuance(): number {
+  const s = read()
+  return Object.keys(s.doc).length + Object.keys(s.journey).length
+}
