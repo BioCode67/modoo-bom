@@ -21,7 +21,6 @@ import { DeadlineAlert } from '@/components/DeadlineAlert'
 import { WelfareRoadmap } from '@/components/WelfareRoadmap'
 import { PriorityRecommend } from '@/components/PriorityRecommend'
 import { DocPlanCard } from '@/components/DocPlanCard'
-import { DocReuseCard } from '@/components/DocReuseCard'
 import { PaymentSchedule } from '@/components/PaymentSchedule'
 import { useAppStore, type AppStatus } from '@/store/useAppStore'
 import { useAuthCtx } from '@/lib/authContext'
@@ -202,8 +201,6 @@ export function My() {
       <section id="journey-docs" className="scroll-mt-24">
         {/* 서류 중심 통합 정리 — 재사용(한 번 떼서 여러 신청)·유효기간(발급 3개월)을 한눈에 */}
         <DocPlanCard onOpen={setSelected} />
-        {/* 서류 재사용 매트릭스 — 여러 복지가 같은 서류를 쓸 때 '한 번만 준비'하도록(준비 부담↓) */}
-        <DocReuseCard policies={tracked.map((t) => POLICY_MAP[t.policyId]).filter(Boolean)} />
         <DocumentCenter />
       </section>
 

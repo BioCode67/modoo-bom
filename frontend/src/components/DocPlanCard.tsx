@@ -8,6 +8,7 @@ import { buildDocPlan, docPlanToText, type DocNeed, type DocNeedStatus } from '@
 import { freshnessLabel, freshnessTone } from '@/lib/docValidity'
 import { docGuide } from '@/lib/docGuide'
 import { batchableGroups } from '@/lib/docPortalGroups'
+import { classifyDoc } from '@/lib/sharedDocInfo'
 import { cn } from '@/lib/utils'
 
 const STATUS_UI: Record<DocNeedStatus, { badge: string; label: string; emoji: string }> = {
@@ -158,6 +159,13 @@ function DocRow({ need, expanded, onToggle, onOpenPolicy }: {
             <b className="text-sm">{need.name}</b>
             {need.issuable && <span className="rounded bg-sprout-100 px-1.5 py-0.5 text-[10px] font-bold text-sprout-700">자동발급</span>}
             {reuse >= 2 && <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-bold text-muted-foreground">{reuse}개 신청 공용</span>}
+            {/* 행정정보 공동이용 대상 — 신청서 동의 서명만으로 제출을 생략할 수 있는 서류(헛수고 방지) */}
+            {classifyDoc(need.name) === 'yes' && (
+              <span className="rounded bg-sky2-50 px-1.5 py-0.5 text-[10px] font-bold text-sky2-700"
+                title="신청서의 '행정정보 공동이용 동의'에 서명하면 담당기관이 직접 조회해요. 생략 가능 여부는 접수처에서 최종 확인하세요.">
+                동의 시 생략 가능
+              </span>
+            )}
           </span>
           {need.validity && need.validity.freshness !== 'permanent' && tone && (
             <span className={cn('mt-0.5 block text-[11px] font-semibold', tone.text)}>{freshnessLabel(need.validity)}</span>

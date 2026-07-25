@@ -4,7 +4,6 @@ import { getEligiblePolicies } from './welfare-engine'
 import { matchMyths } from './misconceptions'
 import { scanProfileGaps } from './profileGaps'
 import { applyTiming } from './applyTiming'
-import { docReuseMap } from './docReuse'
 
 /**
  * 신규 기능 종단 통합 — 대표 페르소나를 실제 엔진(getEligiblePolicies)+실데이터로 통과시켜
@@ -86,15 +85,6 @@ describe.each(Object.entries(PERSONAS))('페르소나 종단 통합 — %s', (_n
     if (firstMed >= 0) expect(urg.slice(firstMed).every((u) => u === 'medium')).toBe(true)
   })
 
-  it('서류 재사용(docReuseMap)이 공유 서류를 바르게 집계', () => {
-    const plan = docReuseMap(eligible)
-    expect(plan.totalPolicies).toBe(eligible.length)
-    for (const d of plan.shared) {
-      expect(d.count).toBeGreaterThanOrEqual(2)          // 공유(2곳+)만
-      expect(d.policyNames.length).toBe(d.count)
-    }
-    expect(plan.savedCount).toBeGreaterThanOrEqual(0)
-  })
 
 })
 
