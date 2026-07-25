@@ -16,7 +16,8 @@ import { ReturnConfirm } from '@/components/ReturnConfirm'
 import { LangSuggest } from '@/components/LangSuggest'
 const PrintSummary = lazy(() => import('@/components/PrintSummary').then((m) => ({ default: m.PrintSummary })))
 import { Onboarding } from '@/components/Onboarding'
-import { VoiceGuide } from '@/components/VoiceGuide'
+// 음성 사용법 투어도 첫 페인트 필수가 아니라 지연 로딩(ChatWidget과 동일 패턴)
+const VoiceGuide = lazy(() => import('@/components/VoiceGuide').then((m) => ({ default: m.VoiceGuide })))
 import { loadExternalCatalog } from '@/data/catalog'
 import { useAppStore } from '@/store/useAppStore'
 import { decodeHelperPayload } from '@/lib/helperLink'
@@ -137,7 +138,7 @@ export default function App() {
       <div className="no-print"><Suspense fallback={null}><SproutGuide /></Suspense></div>
       <div className="no-print"><ReturnConfirm /></div>
       <div className="no-print"><Onboarding /></div>
-      <div className="no-print"><VoiceGuide /></div>
+      <div className="no-print"><Suspense fallback={null}><VoiceGuide /></Suspense></div>
       <Suspense fallback={null}><PrintSummary /></Suspense>
     </div>
     </MotionConfig>
