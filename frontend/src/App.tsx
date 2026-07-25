@@ -7,7 +7,9 @@ import { Home } from '@/sections/Home'
 const Analyze = lazy(() => import('@/sections/Analyze').then((m) => ({ default: m.Analyze })))
 const Explore = lazy(() => import('@/sections/Explore').then((m) => ({ default: m.Explore })))
 const My = lazy(() => import('@/sections/My').then((m) => ({ default: m.My })))
-import { ChatWidget } from '@/components/ChatWidget'
+// 챗 위젯은 규칙엔진(chatAgent)과 인텐트 엔진 다수를 끌어와 첫 화면 번들을 키운다.
+// 플로팅 버튼은 즉시 필수가 아니므로 지연 로딩(로드 전엔 아무것도 안 그림 — 레이아웃 영향 없음).
+const ChatWidget = lazy(() => import('@/components/ChatWidget').then((m) => ({ default: m.ChatWidget })))
 import { ScrollTop } from '@/components/ScrollTop'
 import { SproutGuide } from '@/components/SproutGuide'
 import { ReturnConfirm } from '@/components/ReturnConfirm'
@@ -128,7 +130,7 @@ export default function App() {
         </motion.div>
       </main>
 
-      <div className="no-print"><ChatWidget /></div>
+      <div className="no-print"><Suspense fallback={null}><ChatWidget /></Suspense></div>
       <div className="no-print"><ScrollTop /></div>
       {/* 🌱 새싹이 가이드 — 분석/탐색/나의복지에서 다음 행동 한 문장 안내(홈은 히어로가 담당) */}
       <div className="no-print"><SproutGuide /></div>

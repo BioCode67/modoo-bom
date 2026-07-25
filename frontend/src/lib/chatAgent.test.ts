@@ -421,3 +421,27 @@ describe('상담 전화 인텐트', () => {
     expect(r.text).toContain('1397')
   })
 })
+
+describe('병합 계약 — 인텐트 체인 순서(양 브랜치 인텐트 공존)', () => {
+  const noCtx = { profile: null, result: null }
+  it("'뭐부터 신청?'은 우선순위 답(ELIG·ADVICE에 먹히지 않음)", () => {
+    const r = agentReply('뭐부터 신청해야 해?', { profile, result })
+    expect(r.text).toMatch(/순서|우선|먼저/)
+  })
+  it("'얼마까지 벌어도 돼?'는 소득 상한 답(ELIG보다 먼저)", () => {
+    const r = agentReply('얼마까지 벌어도 대상이야?', { profile, result })
+    expect(r.text).toMatch(/소득|중위|기준/)
+  })
+  it("'언제 신청?'(타이밍)이 '어떻게 신청'(방법)보다 먼저 잡힌다", () => {
+    const timing = agentReply('언제까지 신청해야 해?', { profile, result })
+    expect(timing.text).toMatch(/신청한 달|타이밍|서두|이번 달|기한/)
+    const how = agentReply('어떻게 신청해?', { ...noCtx, tracked: [mkT('POL-001')] })
+    expect(how.cta?.view).toBe('my')
+  })
+  it('양 브랜치 인텐트가 모두 로컬 라우팅된다(클라우드로 새지 않음)', () => {
+    for (const q of ['뭐부터 신청?', '얼마까지 벌어도 돼?', '언제 신청해야 해?',
+                     '내 상황 정리해줘', '놓친 거 없어?', '지금 바로 되는 거', '상담 전화번호']) {
+      expect(isLocalIntent(q)).toBe(true)
+    }
+  })
+})

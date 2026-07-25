@@ -29,7 +29,6 @@ import { MisconceptionCard } from '@/components/MisconceptionCard'
 import { GapProbeCard } from '@/components/GapProbeCard'
 import { ApplyTimingCard } from '@/components/ApplyTimingCard'
 import { summarizeFreshness } from '@/lib/freshness'
-import { buildWelfareReport } from '@/lib/welfareReport'
 import { quickWins } from '@/lib/quickWins'
 import { JourneyStepper } from '@/components/JourneyStepper'
 import { useAppStore } from '@/store/useAppStore'
@@ -96,6 +95,8 @@ export function ResultsView({ result, profile, onReset, helperMode = false }: { 
   // 복지 리포트 텍스트를 클립보드로 — 카톡·메일로 붙여넣어 전달 가능(이름은 기본 제외, 프라이버시)
   const copyReport = async () => {
     try {
+      // 리포트 생성기는 클릭 시에만 필요 — 지연 로딩으로 첫 화면 번들에서 제외(초기 파스 비용 절감)
+      const { buildWelfareReport } = await import('@/lib/welfareReport')
       await navigator.clipboard.writeText(buildWelfareReport(profile, result, { includeName: false, now: new Date() }))
       setReportCopied(true)
       setTimeout(() => setReportCopied(false), 2000)

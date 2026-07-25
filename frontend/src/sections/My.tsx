@@ -4,7 +4,6 @@ import { Heart, Wallet, Scale, Sparkles, Compass, Printer, Cloud, ChevronDown, W
 import type { Policy } from '@/data/policies'
 import { usePolicyMap } from '@/data/useCatalog'
 import type { EligiblePolicy, AnalysisResult } from '@/lib/welfare-engine'
-import { buildWelfareReport } from '@/lib/welfareReport'
 import { TrackedCard, STATUS_META } from '@/components/TrackedCard'
 import { PolicyDetailDrawer } from '@/components/PolicyDetailDrawer'
 import { InterestSubscribe } from '@/components/InterestSubscribe'
@@ -68,6 +67,7 @@ export function My() {
     const docs = Array.from(new Set(pols.flatMap((p) => p.required_docs || [])))
     const pseudo = { eligible_policies: pols, required_docs: docs } as unknown as AnalysisResult
     try {
+      const { buildWelfareReport } = await import('@/lib/welfareReport')  // 클릭 시에만 로드
       await navigator.clipboard.writeText(buildWelfareReport(profile, pseudo, { includeName: false, now: new Date() }))
       setReportCopied(true)
       setTimeout(() => setReportCopied(false), 2000)
