@@ -219,7 +219,15 @@ export const useAppStore = create<AppState>()(
             if (t.policyId !== policyId) return t
             // 신청 완료·수급 중으로 바뀌는 순간 시점 기록(심사 기간·갱신 시기 계산 기준).
             //   'done'을 신청 단계 없이 바로 골라도 오래된 savedAt이 갱신 기준이 돼 즉시 '갱신 임박' 오알림 뜨던 문제 방지.
-            const appliedAt = (status === 'applied' || status === 'done') && !t.appliedAt ? Date.now() : t.appliedAt
+            //   applied↔done 사이 이동은 같은 신청 건이라 기존 시점을 보존하되, 준비 상태(idle/tracking)에서
+            //   applied/done으로 '다시 들어올' 땐 항상 지금 시각으로 갱신 — 반려로 되돌렸다 재신청해도 옛
+            //   appliedAt이 남아 재신청 당일에 '신청 60일째' 심사지연 오경보가 뜨던 결함 수정.
+            //   (되돌림 시 삭제가 아니라 재진입 갱신을 택한 이유: 지우면 sync freshness(lib/sync.ts)가 낮아져
+            //    클라우드의 옛 applied 사본이 병합에서 이겨 되돌림이 유실됨. 모니터링·캘린더는 applied/done
+            //    상태에서만 appliedAt을 읽으므로 되돌림 상태의 잔존값은 오판정을 일으키지 않는다.)
+            const wasApplied = t.status === 'applied' || t.status === 'done'
+            const isApplied = status === 'applied' || status === 'done'
+            const appliedAt = isApplied && !(wasApplied && t.appliedAt) ? Date.now() : t.appliedAt
             return { ...t, status, appliedAt }
           }),
         })),

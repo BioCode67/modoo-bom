@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseProfileFromText } from './parseQuery'
+import { parseProfileFromText, profileSignalCount } from './parseQuery'
 
 describe('parseProfileFromText', () => {
   it('_ageExplicit: 정확한 나이(N세/살)만 명시로, 추정(청년→27·기본 30·N0대)은 되물음 대상', () => {
@@ -382,6 +382,47 @@ describe('감사 3라운드 회귀 — 자연어 오귀속 방지(2026-07)', () 
     // 명시적 자기지칭은 그대로
     expect(parseProfileFromText('저는 남자예요').gender).toBe('male')
     expect(parseProfileFromText('저는 여자예요').gender).toBe('female')
+  })
+})
+
+describe('검색 파서 2차 재감사 회귀(2026-07-25)', () => {
+  it("표준 표기 '전셋집·월셋집'의 '셋'을 다자녀 명수로 오인하지 않음(셋째 전용 혜택 과장 방지)", () => {
+    // 자녀 1명 + 주거 표현이 '아이.*셋' 부분문자열에 걸려 다자녀가구로 오분류되던 회귀
+    expect(parseProfileFromText('아이 하나 키우면서 전셋집에 살아요').household_type).not.toBe('다자녀가구')
+    expect(parseProfileFromText('아이랑 월셋집에 살아요').household_type).not.toBe('다자녀가구')
+    expect(parseProfileFromText('자녀 한 명과 전셋집 삽니다').household_type).not.toBe('다자녀가구')
+    expect(parseProfileFromText('아이 데리고 셋방 살아요').household_type).not.toBe('다자녀가구')
+    // 진짜 명수 표기는 그대로 다자녀 — 주거 표현과 공존해도 유지(경계)
+    expect(parseProfileFromText('전셋집에서 아이 셋 키워요').household_type).toBe('다자녀가구')
+    expect(parseProfileFromText('아이가 세 명이에요').household_type).toBe('다자녀가구')
+    // 오분류가 신호 수까지 부풀려(가구형태 +1) 통화/챗 즉시 분석을 잘못 발동시키던 것도 정상화
+    expect(profileSignalCount('아이 하나 키우면서 전셋집에 살아요')).toBe(1) // 자녀 신호만
+  })
+
+  it("'5살배기 아이'의 '배기' 필러 — 자녀 나이로 잡고 부모 나이로 오귀속하지 않음", () => {
+    const p = parseProfileFromText('5살배기 아이를 키워요')
+    expect(p.children_ages).toEqual([5])  // 기본 3세로 뭉개지지 않음
+    expect(p.age).toBe(30)                // 자녀 나이 5를 신청자 나이로 오인 금지
+    expect(p._ageExplicit).toBe(false)    // 되물음 방어선 유지
+    expect(parseProfileFromText('7살배기 딸이 있어요').children_ages).toEqual([7])
+    // '짜리'도 같은 계열 — 기존 테스트는 자녀 나이만 고정했고 부모 나이 오귀속(age=5 실측)은 미커버였음 → 함께 고정
+    const q = parseProfileFromText('5살짜리 아이를 키워요')
+    expect(q.age).toBe(30)
+    expect(q._ageExplicit).toBe(false)
+    expect(q.children_ages).toEqual([5])
+    // 필러 단독(자녀 명사 없음)은 여전히 본인 나이로 잡힘(경계 — 과차단 방지)
+    expect(parseProfileFromText('40살 정도 됐어요').age).toBe(40)
+  })
+
+  it("'N세대'(가구 구성)를 신청자 나이로 오파싱하지 않음 — 공백 있는 'N세 대학생'은 유지", () => {
+    const p = parseProfileFromText('3세대가 함께 살아요')
+    expect(p.age).toBe(30)                // 3세 신청자는 불가능한 값 — 기본값 유지
+    expect(p._ageExplicit).toBe(false)    // 대화형 진입이 나이를 되묻게
+    // 붙여 쓴 '세대'만 제외 — 공백 있는 정상 나이 표기는 그대로 명시 나이(경계)
+    const q = parseProfileFromText('30세 대학생입니다')
+    expect(q.age).toBe(30)
+    expect(q._ageExplicit).toBe(true)
+    expect(parseProfileFromText('25세 대학생이에요').age).toBe(25)
   })
 })
 

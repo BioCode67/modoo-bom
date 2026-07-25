@@ -92,3 +92,80 @@ describe('resetForNextUser — 복지관 공용PC 상담 전환 시 이전 어�
     expect(['kakao', 'pass', 'naver', 'toss']).toContain(useAppStore.getState().rpaInfo.auth_provider || 'kakao')
   })
 })
+
+import type { TrackedItem } from './useAppStore'
+import { monitorItem } from '@/lib/monitoring'
+
+const DAY = 86400000
+
+describe('setStatus — appliedAt 시점 관리(감사 STORE-1 회귀)', () => {
+  /** 60일 전 신청(applied) 상태의 추적 항목 주입 — 반려·되돌림 시나리오의 출발점 */
+  const seed = (over: Partial<TrackedItem> = {}) => {
+    useAppStore.setState({
+      tracked: [{
+        policyId: 'P1', name: '기초연금', category: '노인', status: 'applied',
+        savedAt: Date.now() - 70 * DAY, appliedAt: Date.now() - 60 * DAY, checkedDocs: [], ...over,
+      }],
+    })
+  }
+  const item = () => useAppStore.getState().tracked[0]
+
+  it('결함 재현: 반려 후 되돌림(tracking)→재신청(applied)이면 appliedAt이 이번 신청 시점으로 갱신된다', () => {
+    // 실사용 흐름: 60일 전 신청 → 반려 → TrackedCard로 '준비 중' 되돌림 → 서류 보완 후 오늘 재신청.
+    // 수정 전엔 !t.appliedAt 가드 때문에 60일 전 시점이 그대로 남아 모니터링이 재신청 당일에
+    // '신청 60일째 · 심사 기간을 한참 지났어요'(high)로 즉시 오판정했다.
+    seed()
+    useAppStore.getState().setStatus('P1', 'tracking') // 반려 → 준비 중 되돌림
+    useAppStore.getState().setStatus('P1', 'applied')  // 오늘 재신청 표시
+    const t = item()
+    expect(t.appliedAt).toBeDefined()
+    expect(Date.now() - (t.appliedAt ?? 0)).toBeLessThan(DAY) // '신청 0일째'여야 함
+    const m = monitorItem(t, undefined)
+    expect(m.daysApplied).toBe(0)
+    expect(m.alerts.some((a) => a.level === 'high' && a.kind === 'recheck')).toBe(false) // 재신청 0일째에 high 오경보 금지
+  })
+
+  it('결함 재현(경계): idle까지 되돌렸다 재신청해도 동일하게 갱신된다', () => {
+    seed()
+    useAppStore.getState().setStatus('P1', 'idle')
+    useAppStore.getState().setStatus('P1', 'applied')
+    expect(Date.now() - (item().appliedAt ?? 0)).toBeLessThan(DAY)
+  })
+
+  it('비회귀: applied→done 전이는 신청 시점을 보존한다(같은 신청 건 — 갱신 시기 계산 기준)', () => {
+    const past = Date.now() - 20 * DAY
+    seed({ appliedAt: past })
+    useAppStore.getState().setStatus('P1', 'done')
+    expect(item().appliedAt).toBe(past)
+  })
+
+  it('비회귀: done→applied 되돌림(오클릭 수정)도 같은 신청 건이라 시점을 보존한다', () => {
+    const past = Date.now() - 20 * DAY
+    seed({ status: 'done', appliedAt: past })
+    useAppStore.getState().setStatus('P1', 'applied')
+    expect(item().appliedAt).toBe(past)
+  })
+
+  it("비회귀: 신청 단계 없이 바로 'done'을 골라도 지금 시각을 기록(옛 savedAt 기준 '갱신 임박' 오알림 방지)", () => {
+    seed({ status: 'idle', appliedAt: undefined })
+    useAppStore.getState().setStatus('P1', 'done')
+    expect(Date.now() - (item().appliedAt ?? 0)).toBeLessThan(DAY)
+  })
+
+  it('비회귀(레거시): appliedAt 없는 applied 항목이 done으로 넘어가면 지금 시각을 기록', () => {
+    seed({ appliedAt: undefined })
+    useAppStore.getState().setStatus('P1', 'done')
+    expect(item().appliedAt).toBeDefined()
+  })
+
+  it('의도 고정: 되돌림(tracking) 상태에선 옛 appliedAt을 지우지 않고 남긴다(sync freshness 보존)', () => {
+    // 지우면 lib/sync.ts freshness(max of savedAt/appliedAt/lastChecked)가 낮아져 클라우드의
+    // 옛 applied 사본이 병합에서 이겨 사용자의 되돌림이 유실된다. 모니터링·캘린더는 applied/done
+    // 상태에서만 appliedAt을 읽으므로 잔존값은 오판정을 일으키지 않는다.
+    const past = Date.now() - 60 * DAY
+    seed({ appliedAt: past })
+    useAppStore.getState().setStatus('P1', 'tracking')
+    expect(item().appliedAt).toBe(past)
+    expect(monitorItem(item(), undefined).daysApplied).toBeNull() // 되돌림 상태에선 미사용 확인
+  })
+})
