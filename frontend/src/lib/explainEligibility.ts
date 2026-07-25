@@ -34,7 +34,7 @@ export interface Explanation {
   verdict: string                      // checkPolicy 이유(요약형은 안내 문구)
   gates: Gate[]                        // precise 모드에서만 채움
   matchedFacts: string[]               // 프로필이 부합하는 조건(matchFacts)
-  ceiling: number | null               // 소득 상한(하위 %)
+  ceiling: number | null               // 소득 상한(기준 중위소득 % — 실효 기준에 걸린 경우 실측값)
   incomeOver: number | null            // 내 소득% − 상한(>0 초과)
   fixableByIncome: boolean             // 소득만 낮추면 대상이 되는가(near-miss)
   blocker: 'intake' | 'demographic' | 'income' | 'other' | null // 부적격의 주 사유
@@ -73,6 +73,18 @@ export function explainEligibility(policy: Policy, p: UserProfile): Explanation 
   const demoFail = demographicMismatch(policy.name, doc, p)
   const incomeFail = ceil !== null && p.income_percentile > ceil
 
+  // 실효 소득 상한 실측 — 문서 표기 상한(incomeCeiling 근사)은 안인데 종합 탈락이고 다른 게이트도 통과인
+  //   정책(수급가구+취약구성원 ≤40% 등 엔진 내부 결합룰이 표기보다 엄격한 경우), '소득 요건 충족'이라
+  //   표시해 놓고 사유 없이 탈락(blocker other)시키던 자기모순 방지(감사 ENG-4). checkPolicy가 단일
+  //   진실원이므로 소득만 낮춰 실측한다 — 어떤 소득에서도 안 되면 진짜 other(생애이벤트 필요 등).
+  let effCeil: number | null = null
+  if (!result.eligible && !closed && !demoFail && !incomeFail && ceil !== null) {
+    for (let q = Math.min(ceil, p.income_percentile - 1); q >= 1; q--) {
+      if (checkPolicy(policy, { ...p, income_percentile: q }).eligible) { effCeil = q; break }
+    }
+  }
+  const strictIncome = effCeil !== null // 표기 상한보다 엄격한 실제 소득 기준에 걸린 상태
+
   const gates: Gate[] = [
     closed
       ? { key: 'intake', label: '신규 접수', status: 'fail', detail: '지금은 신규 신청을 받지 않는 정책이에요.' }
@@ -80,11 +92,16 @@ export function explainEligibility(policy: Policy, p: UserProfile): Explanation 
     demoFail
       ? { key: 'demographic', label: '대상 요건', status: 'fail', detail: '연령·성별·장애 등 대상 요건이 프로필과 달라요.' }
       : { key: 'demographic', label: '대상 요건', status: 'pass', detail: '연령·성별·장애 등 대상 제한에 걸리지 않아요.' },
+    // 표기 단위는 값의 실제 단위인 '기준 중위소득 %' — income_percentile을 '소득 하위 N%'(분포 백분위)로
+    //   쓰면 '하위 150%'(정의상 불가)·기초연금 '상한 하위 100%'(=전 국민 통과, 실제는 소득 하위 70%) 같은
+    //   허위 문장이 나온다(감사 ENG-5 — incomeCeiling이 하위→중위로 환산한 값을 도로 '하위'로 라벨링하던 것).
     ceil === null
       ? { key: 'income', label: '소득 요건', status: 'info', detail: '명시된 소득 상한이 없어요(상세에서 확인).' }
       : incomeFail
-        ? { key: 'income', label: '소득 요건', status: 'fail', detail: `소득 하위 ${p.income_percentile}%로 상한(하위 ${ceil}%)을 넘어요.` }
-        : { key: 'income', label: '소득 요건', status: 'pass', detail: `소득 하위 ${p.income_percentile}% ≤ 상한 하위 ${ceil}% — 충족해요.` },
+        ? { key: 'income', label: '소득 요건', status: 'fail', detail: `소득 수준 중위 ${p.income_percentile}%로 상한(중위 ${ceil}%)을 넘어요.` }
+        : strictIncome
+          ? { key: 'income', label: '소득 요건', status: 'fail', detail: `표기 상한(중위 ${ceil}%) 안이지만, 이 제도의 실제 판정 기준(중위 ${effCeil}% 이하 — 수급 기준 등 조건 결합)에는 걸려요.` }
+          : { key: 'income', label: '소득 요건', status: 'pass', detail: `소득 수준 중위 ${p.income_percentile}% ≤ 상한 중위 ${ceil}% — 충족해요.` },
     {
       key: 'verdict', label: '종합 판정',
       status: result.eligible ? 'pass' : 'fail',
@@ -93,11 +110,12 @@ export function explainEligibility(policy: Policy, p: UserProfile): Explanation 
   ]
 
   let blocker: Explanation['blocker'] = null
-  if (!result.eligible) blocker = closed ? 'intake' : demoFail ? 'demographic' : incomeFail ? 'income' : 'other'
+  if (!result.eligible) blocker = closed ? 'intake' : demoFail ? 'demographic' : (incomeFail || strictIncome) ? 'income' : 'other'
 
-  // 소득만 상한까지 낮추면 실제로 대상이 되는지 엔진으로 재확인(near-miss와 동일 방식)
-  const fixableByIncome = !result.eligible && !closed && !demoFail && ceil !== null && p.income_percentile > ceil
-    && checkPolicy(policy, { ...p, income_percentile: ceil }).eligible
+  // 소득만 상한까지 낮추면 실제로 대상이 되는지 엔진으로 재확인(near-miss와 동일 방식).
+  //   실효 상한에 걸린 경우(strictIncome)는 실측으로 이미 '낮추면 대상' 확인됨.
+  const fixableByIncome = strictIncome || (!result.eligible && !closed && !demoFail && ceil !== null && p.income_percentile > ceil
+    && checkPolicy(policy, { ...p, income_percentile: ceil }).eligible)
 
   return {
     mode: 'precise',
@@ -107,7 +125,8 @@ export function explainEligibility(policy: Policy, p: UserProfile): Explanation 
     verdict: result.reason,
     gates,
     matchedFacts: facts,
-    ceiling: ceil,
+    // 실효 기준에 걸린 경우 상한도 실측값으로 — blockerHint·recovery가 '넘지도 않은 표기 상한'을 안내하지 않게
+    ceiling: strictIncome ? effCeil : ceil,
     incomeOver,
     fixableByIncome,
     blocker,
@@ -122,8 +141,8 @@ export function blockerHint(ex: Explanation): string | null {
     case 'demographic': return '이 복지의 대상(연령·성별·장애 등)과 프로필이 달라요.'
     case 'income':
       return ex.fixableByIncome
-        ? `소득 조건만 아깝게 벗어났어요(상한 하위 ${ex.ceiling}%). 소득이 줄면 대상이 될 수 있어요.`
-        : `소득이 상한(하위 ${ex.ceiling}%)을 넘어요.`
+        ? `소득 조건만 아깝게 벗어났어요(상한 중위 ${ex.ceiling}%). 소득이 줄면 대상이 될 수 있어요.`
+        : `소득이 상한(중위 ${ex.ceiling}%)을 넘어요.`
     default: return '세부 조건이 맞지 않아요. 상세에서 자격 요건을 확인하세요.'
   }
 }

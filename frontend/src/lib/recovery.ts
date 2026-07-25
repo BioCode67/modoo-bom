@@ -30,7 +30,7 @@ export function recoveryPlan(ex: Explanation): RecoveryPlan | null {
   switch (ex.blocker) {
     case 'income':
       if (ex.fixableByIncome) {
-        steps.push({ icon: '📉', title: '소득이 줄면 다시 대상', detail: `소득인정액이 상한(하위 ${ex.ceiling}%) 이하가 되면 신청할 수 있어요. 소득인정액은 신청할 때마다 다시 계산돼요.` })
+        steps.push({ icon: '📉', title: '소득이 줄면 다시 대상', detail: `소득인정액이 상한(중위 ${ex.ceiling}%) 이하가 되면 신청할 수 있어요. 소득인정액은 신청할 때마다 다시 계산돼요.` })
         steps.push({ icon: '🧮', title: '정밀 계산으로 확인', detail: '소득인정액 계산기로 재산·부채를 반영해 정확한 여유를 확인하세요.' })
       } else {
         steps.push({ icon: '🏠', title: '재산 공제 확인', detail: '부채·기본재산액 공제를 빠뜨리지 않았는지 확인하세요. 재산 환산이 크면 소득이 낮아도 초과될 수 있어요.' })
