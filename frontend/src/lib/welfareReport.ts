@@ -3,6 +3,8 @@ import { formatWon, sumCashMonthly, isCashBenefit, parseMonthly } from '@/lib/fo
 import { applyTiming } from '@/lib/applyTiming'
 import { getInsights } from '@/lib/insights'
 import { quickWins } from '@/lib/quickWins'
+import { rankPolicies, DIFFICULTY_LABEL } from '@/lib/priority'
+import { buildPaymentSchedule, dDayLabel, formatPayDate } from '@/lib/paymentSchedule'
 
 /**
  * 복지 리포트 생성 — 분석 결과를 '복사·저장·전달 가능한 한 덩이 텍스트'로 만든다(순수 함수).
@@ -14,7 +16,7 @@ import { quickWins } from '@/lib/quickWins'
 export function buildWelfareReport(
   profile: UserProfile | null,
   result: AnalysisResult | null,
-  opts: { dateLabel?: string; includeName?: boolean } = {},
+  opts: { dateLabel?: string; includeName?: boolean; now?: Date } = {},
 ): string {
   const eligible = result?.eligible_policies ?? []
   const lines: string[] = ['■ 모두봄 복지 리포트']
@@ -59,6 +61,28 @@ export function buildWelfareReport(
       lines.push('')
       lines.push(`● 지금 바로 온라인으로 신청 가능: ${qw.length}개`)
       qw.slice(0, 5).forEach((w) => lines.push(`  ⚡ ${w.policy.name}${w.noDocs ? ' (서류 없이 바로)' : ''}`))
+    }
+
+    // 신청 순서 — 투명 점수(금액·시급성·확실성·편의) 기준 상위. '뭐부터 하지?'에 답한다.
+    const ranked = rankPolicies(base)
+    if (ranked.length >= 2) {
+      lines.push('')
+      lines.push('● 이 순서로 신청하면 좋아요(점수 기준 · 추정)')
+      ranked.slice(0, 5).forEach((r, i) => {
+        lines.push(`  ${i + 1}. ${r.policy.name} — 신청 ${DIFFICULTY_LABEL[r.difficulty]}${r.urgent ? ' · 마감 임박' : ''}`)
+      })
+    }
+
+    // 다음 입금 예정일 — 지급일이 알려진 복지만(없는 건 지어내지 않음)
+    if (opts.now) {
+      const pays = buildPaymentSchedule(base, opts.now)
+      if (pays.length) {
+        lines.push('')
+        lines.push('● 다음 입금 예정일(추정)')
+        pays.slice(0, 5).forEach((p) => {
+          lines.push(`  ${formatPayDate(p.nextDate)} ${p.policy.name} (${dDayLabel(p.dDay)})${p.weekendAdjusted ? ' · 주말/공휴일이면 앞당겨 지급' : ''}`)
+        })
+      }
     }
 
     const timing = profile ? applyTiming(profile, eligible) : []

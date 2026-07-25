@@ -52,3 +52,23 @@ describe('buildWelfareReport — 복지 리포트 텍스트', () => {
     expect(buildWelfareReport(null, null)).toContain('■ 모두봄 복지 리포트')
   })
 })
+
+describe('buildWelfareReport — 통합 후 확장 섹션', () => {
+  it('신청 순서(우선순위 점수 기반) 섹션을 담는다', () => {
+    const rpt = buildWelfareReport(SENIOR, runAnalysis(SENIOR))
+    expect(rpt).toContain('이 순서로 신청하면 좋아요')
+    expect(rpt).toMatch(/신청 (쉬움|보통|어려움)/)
+  })
+  it('now를 주면 입금 예정일 섹션(있을 때만), 안 주면 생략', () => {
+    const res = runAnalysis(SENIOR)
+    const withNow = buildWelfareReport(SENIOR, res, { now: new Date('2026-07-25T00:00:00Z') })
+    const without = buildWelfareReport(SENIOR, res)
+    expect(without).not.toContain('다음 입금 예정일')
+    // 지급일이 알려진 복지가 있으면 섹션이 뜬다(없으면 지어내지 않음)
+    if (withNow.includes('다음 입금 예정일')) expect(withNow).toMatch(/추정/)
+  })
+  it('확장 섹션이 붙어도 정직성 푸터는 유지', () => {
+    const rpt = buildWelfareReport(SENIOR, runAnalysis(SENIOR), { now: new Date('2026-07-25T00:00:00Z') })
+    expect(rpt).toMatch(/최종 자격·금액은 신청 후 행정 심사/)
+  })
+})

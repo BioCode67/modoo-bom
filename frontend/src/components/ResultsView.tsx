@@ -96,7 +96,7 @@ export function ResultsView({ result, profile, onReset, helperMode = false }: { 
   // 복지 리포트 텍스트를 클립보드로 — 카톡·메일로 붙여넣어 전달 가능(이름은 기본 제외, 프라이버시)
   const copyReport = async () => {
     try {
-      await navigator.clipboard.writeText(buildWelfareReport(profile, result, { includeName: false }))
+      await navigator.clipboard.writeText(buildWelfareReport(profile, result, { includeName: false, now: new Date() }))
       setReportCopied(true)
       setTimeout(() => setReportCopied(false), 2000)
     } catch { /* 클립보드 미허용 등 무시 */ }

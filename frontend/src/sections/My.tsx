@@ -68,7 +68,7 @@ export function My() {
     const docs = Array.from(new Set(pols.flatMap((p) => p.required_docs || [])))
     const pseudo = { eligible_policies: pols, required_docs: docs } as unknown as AnalysisResult
     try {
-      await navigator.clipboard.writeText(buildWelfareReport(profile, pseudo, { includeName: false }))
+      await navigator.clipboard.writeText(buildWelfareReport(profile, pseudo, { includeName: false, now: new Date() }))
       setReportCopied(true)
       setTimeout(() => setReportCopied(false), 2000)
     } catch { /* 클립보드 미허용 등 무시 */ }
