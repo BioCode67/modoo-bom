@@ -11,10 +11,10 @@ const My = lazy(() => import('@/sections/My').then((m) => ({ default: m.My })))
 // 플로팅 버튼은 즉시 필수가 아니므로 지연 로딩(로드 전엔 아무것도 안 그림 — 레이아웃 영향 없음).
 const ChatWidget = lazy(() => import('@/components/ChatWidget').then((m) => ({ default: m.ChatWidget })))
 import { ScrollTop } from '@/components/ScrollTop'
-import { SproutGuide } from '@/components/SproutGuide'
+const SproutGuide = lazy(() => import('@/components/SproutGuide').then((m) => ({ default: m.SproutGuide })))
 import { ReturnConfirm } from '@/components/ReturnConfirm'
 import { LangSuggest } from '@/components/LangSuggest'
-import { PrintSummary } from '@/components/PrintSummary'
+const PrintSummary = lazy(() => import('@/components/PrintSummary').then((m) => ({ default: m.PrintSummary })))
 import { Onboarding } from '@/components/Onboarding'
 import { loadExternalCatalog } from '@/data/catalog'
 import { useAppStore } from '@/store/useAppStore'
@@ -133,10 +133,10 @@ export default function App() {
       <div className="no-print"><Suspense fallback={null}><ChatWidget /></Suspense></div>
       <div className="no-print"><ScrollTop /></div>
       {/* 🌱 새싹이 가이드 — 분석/탐색/나의복지에서 다음 행동 한 문장 안내(홈은 히어로가 담당) */}
-      <div className="no-print"><SproutGuide /></div>
+      <div className="no-print"><Suspense fallback={null}><SproutGuide /></Suspense></div>
       <div className="no-print"><ReturnConfirm /></div>
       <div className="no-print"><Onboarding /></div>
-      <PrintSummary />
+      <Suspense fallback={null}><PrintSummary /></Suspense>
     </div>
     </MotionConfig>
     </AuthProvider>
