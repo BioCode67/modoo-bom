@@ -37,19 +37,32 @@ function atMidnight(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate())
 }
 
+/** 토/일이면 직전 금요일로 당김(평일은 그대로) */
+function pullToWeekday(target: Date): Date {
+  const dow = target.getDay()
+  if (dow === 6) return new Date(target.getFullYear(), target.getMonth(), target.getDate() - 1)      // 토 → 금
+  if (dow === 0) return new Date(target.getFullYear(), target.getMonth(), target.getDate() - 2)      // 일 → 금
+  return target
+}
+
 /**
  * 지급일(day) 기준 '다음 입금 예정일'을 계산. now 이후 가장 가까운 지급일.
  * 주말이면 직전 금요일로 당긴다(공휴일은 데이터가 없어 미보정 — 실제로는 더 앞당겨질 수 있음).
+ * 당긴 날짜가 오늘보다 과거면(예: 오늘이 주말 지급일 당일) 이미 지급된 회차 →
+ * 다음 달 지급일로 넘긴다(그 회차도 같은 주말 보정 적용).
  */
 export function nextPaymentDate(day: number, now: Date): Date {
+  const todayMid = atMidnight(now).getTime()
   const y = now.getFullYear()
   const m = now.getMonth()
-  const today = now.getDate()
   // 이번 달 지급일이 오늘 이후(오늘 포함)면 이번 달, 지났으면 다음 달
-  let target = day >= today ? new Date(y, m, day) : new Date(y, m + 1, day)
-  const dow = target.getDay()
-  if (dow === 6) target = new Date(target.getFullYear(), target.getMonth(), target.getDate() - 1)      // 토 → 금
-  else if (dow === 0) target = new Date(target.getFullYear(), target.getMonth(), target.getDate() - 2) // 일 → 금
+  let base = day >= now.getDate() ? new Date(y, m, day) : new Date(y, m + 1, day)
+  let target = pullToWeekday(base)
+  // 주말 보정이 과거로 되돌린 회차는 지난 지급 — 다음 회차로(보정 재적용)
+  while (target.getTime() < todayMid) {
+    base = new Date(base.getFullYear(), base.getMonth() + 1, day)
+    target = pullToWeekday(base)
+  }
   return target
 }
 

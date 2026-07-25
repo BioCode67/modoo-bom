@@ -1,4 +1,4 @@
-import { medianIncome, qualifyingBenefits } from '@/lib/medianIncome'
+import { medianIncome, benefitCutoffs } from '@/lib/medianIncome'
 
 /**
  * 소득인정액 계산 — 기초생활보장·기초연금 등 '자산조사형' 복지의 실제 심사 기준.
@@ -138,14 +138,19 @@ export function computeRecognition(income: IncomeInput, property: PropertyInput,
   }
 }
 
-/** 소득인정액(월) → 기준 중위소득 대비 % (가구원수 기준) */
+/** 소득인정액(월) → 기준 중위소득 대비 % (가구원수 기준) — 표시용 반올림값. 자격 판정엔 쓰지 않는다. */
 export function recognitionPercentile(total: number, size: number): number {
   const m = medianIncome(size)
   if (m <= 0) return 0
   return Math.round((total / m) * 100)
 }
 
-/** 소득인정액으로 판정되는 급여(기준 이하) — medianIncome.qualifyingBenefits 재사용 */
+/**
+ * 소득인정액으로 판정되는 급여(기준 이하) — 선정기준액(원)과 원 단위로 직접 비교.
+ * 공식 기준은 '소득인정액 ≤ 선정기준액(원)'이다. 반올림한 %(recognitionPercentile)로 비교하면
+ * 기준을 중위소득 최대 0.5%(1인 약 1.3만~7인 약 4.8만원) 초과한 소득도 자격으로 오판해,
+ * 같은 화면의 원 단위 비교(benefitCeilings.eligibleNow 등)와 모순됐다. %는 표시용으로만 쓴다.
+ */
 export function judgeBenefits(total: number, size: number) {
-  return qualifyingBenefits(recognitionPercentile(total, size))
+  return benefitCutoffs(size).filter((b) => total <= b.cutoff)
 }

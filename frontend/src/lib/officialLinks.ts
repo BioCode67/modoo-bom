@@ -204,7 +204,22 @@ export function isRpaSupported(doc: string, channel?: 'ext' | 'local'): boolean 
 export const APPLY_AUTOMATABLE = [
   '기초연금', '아동수당', '부모급여', '청년 내일저축계좌', '첫만남이용권', '기초생활 생계급여',
 ]
+// 접두 일치 시 허용하는 잔여 문자열 — quickApply.borrowApplyUrl(GENERIC_SUFFIX_RE)과 동일 취지.
+//   무의미 접미어(동일 제도 표기변형: '아동수당 지급'·'부모급여 지원')와 '…(을) 신청(해줘)' 문장형
+//   (webAgent 목표 문장)만 인정. '플러스'·'미수급자'·'특별' 등 한정어는 별개 사업이라 거부.
+const APPLY_GENERIC_SUFFIX_RE = /^(지원|사업|지급|서비스|제도)*$/
+const APPLY_VERB_TAIL_RE = /^(을|를)?(신청|접수)/
 export function isApplyAutomatable(name: string): boolean {
   const n = (name || '').replace(/\s/g, '')
-  return APPLY_AUTOMATABLE.some((s) => n.includes(s.replace(/\s/g, '')) || s.replace(/\s/g, '').includes(n))
+  if (!n) return false
+  // ⚠️ 과거 양방향 substring 포함('장애아동수당 미수급자 지원' ⊃ '아동수당')이 별개 사업을 자동신청
+  //    지원으로 오판(감사 확정) — 백엔드는 정확일치 6종(+딥링크)만 수락해 버튼이 400 막다른 길이 됐다.
+  //    → 정확 일치 또는 '지원명으로 시작 + 무의미 접미어/신청 동사'만 허용(borrowApplyUrl 수정과 동급).
+  return APPLY_AUTOMATABLE.some((s) => {
+    const t = s.replace(/\s/g, '')
+    if (n === t) return true
+    if (!n.startsWith(t)) return false
+    const rest = n.slice(t.length)
+    return APPLY_GENERIC_SUFFIX_RE.test(rest) || APPLY_VERB_TAIL_RE.test(rest)
+  })
 }

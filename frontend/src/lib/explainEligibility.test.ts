@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { explainEligibility, blockerHint, isSummaryLike, type Gate } from './explainEligibility'
 import type { Policy } from '@/data/policies'
 import type { UserProfile } from '@/lib/welfare-engine'
+import { getPolicyMap } from '@/data/catalog'
 
 const P = (over: Partial<Policy>): Policy => ({
   id: 'POL-T', name: '테스트복지', category: '기타', target: '', eligibility: '', benefit: '월 20만원',
@@ -84,6 +85,23 @@ describe('explainEligibility — 요약/심사형은 하드 판정 대신 상황
   })
   it('PRV(민간재단)도 summary 모드', () => {
     expect(explainEligibility(P({ id: 'PRV-1', name: '재단장학' }), U({ age: 22 })).mode).toBe('summary')
+  })
+})
+
+describe('2차 엔진 감사 회귀(2026-07-25) ENG-2 — 소득 게이트와 종합 판정의 자기모순 해소', () => {
+  it('POL-123 평생교육바우처(중위 65% 이하·차상위 포함) 34세/60%: 소득 pass + 종합도 pass', () => {
+    // 수정 전: 엔진이 '차상위' 포함 문구로 50% 분기에 먼저 걸려 종합 fail(blocker other)인데
+    //   소득 게이트는 상한 65로 pass → '소득 충족인데 탈락' 자기모순 설명이 나오던 결함.
+    const pol = getPolicyMap()['POL-123']
+    const ex = explainEligibility(pol, U({ age: 34, income_percentile: 60 }))
+    expect(ex.ceiling).toBe(65)
+    expect(gate(ex.gates, 'income').status).toBe('pass')
+    expect(gate(ex.gates, 'verdict').status).toBe('pass')
+    expect(ex.eligible).toBe(true)
+    // 66%는 소득·종합 모두 fail로 일관(경계 밖)
+    const over = explainEligibility(pol, U({ age: 34, income_percentile: 66 }))
+    expect(gate(over.gates, 'income').status).toBe('fail')
+    expect(over.eligible).toBe(false)
   })
 })
 

@@ -359,8 +359,22 @@ function checkPolicyDoc(doc: string, name: string, p: UserProfile): CheckResult 
   //   있어, 더 넓은 연령 상한(만 12세/18세)이 함께 적힌 정책은 영아 게이트로 좁히지 않는다 — 아이돌봄(만 12세)이
   //   자녀 2~12세에게 통째로 오배제되던 결함(데모 페르소나 흐엉·한결에서 노출, 감사 Finding 2 E2)
   if (anyIn(doc, ['만 0~1세', '만 0~23개월', '영아']) && !doc.includes('만 12세') && !doc.includes('만 18세')) {
-    if (p.has_children && (p.children_ages || []).some((a) => a < 2))
+    if (p.has_children && (p.children_ages || []).some((a) => a < 2)) {
+      // ⚠️ 대상군 한정형 저소득 영아 지원(기저귀·조제분유 등): '기초·차상위·한부모=소득 무관 / 장애인·다자녀=
+      //   중위소득 N% 이하'처럼 대상 그룹을 명시 한정한 정책은 '영아'만으로 통과 금지 — 어느 그룹에도 안 속하는
+      //   일반가구·중위 90% 부모에게 high/0.96로 오추천되던 결함(감사 ENG-3, 페르소나 박보람 확정 FP).
+      const restricted = /(?:기초생활|차상위|한부모)[^.]*소득\s*무관/.test(doc) && /(?:장애인|다자녀)[^.]*중위\s*소득/.test(doc)
+      if (restricted) {
+        const minors = (p.children_ages || []).filter((a) => a < 18).length
+        const multiChild = minors >= 2 || (p.household_type || '').includes('다자녀')
+        // 기초·차상위는 소득 프록시(≤50, 엔진 공통 기준)·한부모/조손은 소득 무관
+        const freeGroup = p.income_percentile <= 50 || /한부모|조손/.test(p.household_type || '')
+        // 장애인·다자녀는 문서의 명시 상한(중위 100% 등, incomeCeiling)까지
+        const condGroup = (p.disability || hasDisabledChild(p) || multiChild) && p.income_percentile <= (incomeCeiling(doc) ?? 50)
+        if (!freeGroup && !condGroup) return NO
+      }
       return { eligible: true, reason: '영아(만 0~1세) 자녀 보유', priority: 'high', confidence: 0.96 }
+    }
     return NO
   }
   // 영유아 좁은 구간(만 0~2세)만 a<3으로. '만 0~5세'와 한 그룹으로 두면 만 3~5세가 오배제됨(보육료 등).
@@ -424,8 +438,16 @@ function checkPolicyDoc(doc: string, name: string, p: UserProfile): CheckResult 
     // 교육급여는 초·중·고 재학생(자녀) 대상 — 학령기(만 6~18세) 자녀가 없으면 대상 아님(무자녀에게 과노출 방지)
     if (name.includes('교육급여') && !(p.has_children && (p.children_ages || []).some((a) => a >= 6 && a <= 18)))
       return NO
-    if (p.income_percentile <= 50)
-      return { eligible: true, reason: `소득 중위소득 ${p.income_percentile}%로 교육급여·차상위 기준 충족`, priority: 'medium', confidence: 0.84 }
+    // ⚠️ '차상위 포함' 같은 포함(inclusion) 문구로 이 분기에 걸렸는데 문서의 명시 상한이 50보다 넓으면
+    //   (평생교육바우처 '중위 65% 이하 … 차상위 포함' 등) 넓은 명시 상한을 적용 — 위 '가장 넓은 기준' 원칙 복원
+    //   (감사 ENG-2: 중위 51~65% 자격자 오탈락). incomeCeiling 재사용으로 부모·부양의무자 절은 넓히지 않음.
+    //   단 '중위소득 50%'가 명시된 정책은 50이 진짜 상한이므로 그대로(내일저축 기본 트랙 등 과확대 금지).
+    const explicit = doc.includes('중위소득 50%') ? null : incomeCeiling(doc)
+    const cap = explicit !== null && explicit > 50 ? explicit : 50
+    if (p.income_percentile <= cap)
+      return cap > 50
+        ? { eligible: true, reason: `소득 중위소득 ${p.income_percentile}%로 기준(중위 ${cap}% 이하) 충족`, priority: 'medium', confidence: 0.82 }
+        : { eligible: true, reason: `소득 중위소득 ${p.income_percentile}%로 교육급여·차상위 기준 충족`, priority: 'medium', confidence: 0.84 }
     return NO
   }
   if (anyIn(doc, ['주거급여', '중위소득 48%'])) {
@@ -679,7 +701,17 @@ export function isClosedForNew(policy: Policy): boolean {
   const doc = `${policy.eligibility} ${policy.benefit} ${policy.target}`
   // '접수'까지 포함 — '신규 접수 종료'(청년내일채움공제 등)도 잡는다. '일몰'은 종료의 관용 표기라 함께.
   //   ⚠️ '부양의무자 폐지'·'계절 상한 폐지'처럼 '폐지'가 '개선'을 뜻하는 오탐을 피해 '폐지' 단독은 쓰지 않는다.
-  return /신규\s*(모집|가입|신청|접수)\s*[^,.·(]{0,8}(종료|중단|불가)|모집\s*종료|신규가입.{0,6}종료|일몰(?!제?\s*폐지)/.test(doc)
+  const closed = /신규\s*(모집|가입|신청|접수)\s*[^,.·(]{0,8}(종료|중단|불가)|모집\s*종료|신규가입.{0,6}종료|일몰(?!제?\s*폐지)/g
+  let m: RegExpExecArray | null
+  while ((m = closed.exec(doc)) !== null) {
+    // ⚠️ 부분 트랙 한정 종료는 전체 종료가 아님 — 종료 문구 바로 앞에 스코프 한정어(~트랙·~유형·~코스·~과정·
+    //   '일부')가 붙으면 그 트랙만 닫힌 것이므로 건너뛴다. (감사 ENG-1: 내일저축계좌 '중위 50~100% 청년트랙
+    //   신규가입 중단'이 전체 종료로 오판돼 기본 트랙(중위 50% 이하, 현행 모집) 대상자 전원이 오배제되던 결함)
+    const before = doc.slice(Math.max(0, m.index - 12), m.index)
+    if (/(?:트랙|유형|코스|과정|일부)\s*$/.test(before)) continue
+    return true
+  }
+  return false
 }
 
 // 공개 API: 정책 1건 자격 판별. doc = eligibility + ' ' + target + ' ' + name (mock_eligibility/estimate와 동일).

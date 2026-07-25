@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { readFileSync } from 'node:fs'
 import { applyLink, docLink, isRpaSupported, isApplyAutomatable, isCertIssuable, certKind, CERT_WALLET } from './officialLinks'
 
 describe('applyLink', () => {
@@ -147,6 +148,44 @@ describe('RPA/자동신청 지원 판별', () => {
   it('자동신청 가능 서비스 식별', () => {
     expect(isApplyAutomatable('기초연금')).toBe(true)
     expect(isApplyAutomatable('산림복지서비스이용권')).toBe(false)
+  })
+})
+
+describe('isApplyAutomatable — 별개 사업 오탐 차단(감사 확정 회귀)', () => {
+  // 과거 양방향 substring 포함이 '장애아동수당 …'(별개 사업)을 '아동수당' 지원으로 오판 →
+  // 활성 자동신청 버튼이 백엔드 400(정확일치 6종 + 딥링크 없음)으로 확정 막다른 길이 되던 결함.
+  it('지원 서비스명을 부분 포함해도 별개 사업이면 false — 실카탈로그 실재 이름 그대로', () => {
+    expect(isApplyAutomatable('장애아동수당')).toBe(false) // GOV-WLF00003198 — 아동수당과 다른 제도
+    expect(isApplyAutomatable('장애아동수당 미수급자 지원')).toBe(false) // LOC-WLF00005404(방문형)
+    expect(isApplyAutomatable('장애아동수당 시비특별지원')).toBe(false) // LOC-WLF00002750(방문형)
+    expect(isApplyAutomatable('장애아동수당 추가지원')).toBe(false) // LOC-WLF00000881
+    expect(isApplyAutomatable('아동수당플러스 지원 사업')).toBe(false) // LOC-WLF00004041 — '플러스'는 한정어
+  })
+  it('실카탈로그(policies.json) 대조 — 감사 오탐 3건은 false, 동일 제도 표기변형은 true 유지', () => {
+    const ext = JSON.parse(readFileSync(new URL('../../public/policies.json', import.meta.url), 'utf-8'))
+    const byId = new Map<string, string>(ext.map((p: { id: string; name: string }) => [p.id, p.name]))
+    for (const id of ['LOC-WLF00005404', 'LOC-WLF00002750', 'LOC-WLF00004041']) {
+      expect(byId.get(id), `${id} 실데이터 존재 전제`).toBeTruthy()
+      expect(isApplyAutomatable(byId.get(id)!), `${id} ${byId.get(id)}`).toBe(false)
+    }
+    // 백엔드 SERVICE_APPLY_URLS와 같은 wlfareInfoId를 가진 동일 제도의 공공데이터 표기 — 계속 허용
+    expect(isApplyAutomatable(byId.get('GOV-WLF00001171')!)).toBe(true) // '아동수당 지급'(WLF00001171)
+    expect(isApplyAutomatable(byId.get('GOV-WLF00004657')!)).toBe(true) // '부모급여 지원'(WLF00004657)
+  })
+  it('역방향 substring 오탐 제거 — 서비스명 조각·빈 문자열은 false', () => {
+    expect(isApplyAutomatable('아동')).toBe(false)
+    expect(isApplyAutomatable('수당')).toBe(false)
+    expect(isApplyAutomatable('연금')).toBe(false)
+    expect(isApplyAutomatable('')).toBe(false) // 과거엔 ''.includes 로 무조건 true
+  })
+  it('의도된 허용 유지 — 정확 일치 6종·공백 변형·무의미 접미어·문장형(webAgent 계약)', () => {
+    for (const s of ['기초연금', '아동수당', '부모급여', '청년 내일저축계좌', '첫만남이용권', '기초생활 생계급여'])
+      expect(isApplyAutomatable(s), s).toBe(true)
+    expect(isApplyAutomatable('청년내일저축계좌')).toBe(true) // 공백 무시 동등
+    expect(isApplyAutomatable('아동수당 지급')).toBe(true) // 무의미 접미어(동일 제도)
+    expect(isApplyAutomatable('부모급여 지원')).toBe(true)
+    expect(isApplyAutomatable('기초연금 신청')).toBe(true) // webAgent 목표 문장(webAgent.test.ts 고정)
+    expect(isApplyAutomatable('기초연금을 신청해줘')).toBe(true)
   })
 })
 

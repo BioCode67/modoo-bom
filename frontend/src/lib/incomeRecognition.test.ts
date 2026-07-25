@@ -4,6 +4,9 @@ import {
   recognitionPercentile, judgeBenefits, BASIC_PROPERTY, CONVERSION_RATE, REGION_LABEL,
   type IncomeInput, type PropertyInput, type RecognitionOptions,
 } from './incomeRecognition'
+import { benefitCutoffs } from './medianIncome'
+import { benefitCeilings } from './benefitCeiling'
+import { diffScenarios } from './scenarioDiff'
 
 const inc = (o: Partial<IncomeInput> = {}): IncomeInput => ({ earned: 0, other: 0, careExpense: 0, ...o })
 const prop = (o: Partial<PropertyInput> = {}): PropertyInput => ({ residential: 0, general: 0, financial: 0, car: 0, ...o })
@@ -107,6 +110,58 @@ describe('recognitionPercentile · judgeBenefits — 급여 판정', () => {
   it('소득인정액이 매우 낮으면 생계급여까지 전부 해당', () => {
     const keys = judgeBenefits(500_000, 4).map((b) => b.key)
     expect(keys).toContain('livelihood') // ≤32%
+  })
+})
+
+describe('judgeBenefits — 원 단위 경계 판정(반올림 오판 회귀)', () => {
+  // 회귀(MONEY-01): 예전엔 정수 %로 반올림한 뒤 비교해, 선정기준액(원)을 최대 약 4.8만원(7인)
+  // 초과한 소득도 '해당 가능'으로 오판했다(같은 화면의 benefitCeilings.eligibleNow와 모순).
+  // 판정은 benefitCutoffs의 선정기준액(원)과 원 단위로 직접 비교해야 한다. %는 표시용.
+  const cutoffOf = (size: number, key: string) => benefitCutoffs(size).find((b) => b.key === key)!.cutoff
+
+  it('1인 830,000원(생계 기준 820,556원 초과)은 생계급여 미해당 — 결함 시나리오 그대로', () => {
+    expect(cutoffOf(1, 'livelihood')).toBe(820_556)
+    expect(recognitionPercentile(830_000, 1)).toBe(32) // 반올림 %는 32로 보여도
+    const keys = judgeBenefits(830_000, 1).map((b) => b.key)
+    expect(keys).not.toContain('livelihood') // 판정은 원 단위 → 미해당
+    expect(keys).toContain('medical') // 의료급여(40%) 기준 이하는 그대로 해당(비회귀)
+  })
+
+  it('경계: 정확히 선정기준액은 해당, +1원은 미해당', () => {
+    const c = cutoffOf(1, 'livelihood')
+    expect(judgeBenefits(c, 1).map((b) => b.key)).toContain('livelihood')
+    expect(judgeBenefits(c + 1, 1).map((b) => b.key)).not.toContain('livelihood')
+  })
+
+  it('7인 3,090,000원(기준 초과)도 생계급여 미해당 — 가구가 클수록 벌어지던 오표시 창', () => {
+    expect(3_090_000).toBeGreaterThan(cutoffOf(7, 'livelihood'))
+    expect(judgeBenefits(3_090_000, 7).map((b) => b.key)).not.toContain('livelihood')
+  })
+
+  it('같은 입력에서 benefitCeilings.eligibleNow(원 단위)와 판정이 일치 — 한 화면 모순 제거', () => {
+    const total = 830_000
+    const liv = benefitCeilings({
+      size: 1, currentTotal: total,
+      property: prop(), opts: opt(), other: 0, careExpense: 0,
+    }).find((r) => r.key === 'livelihood')!
+    expect(liv.eligibleNow).toBe(false)
+    expect(judgeBenefits(total, 1).map((b) => b.key)).not.toContain('livelihood')
+  })
+
+  it('시나리오 비교: 실제 상한을 넘는 소득 변화(820,000→833,000)는 생계급여 잃음으로 보고', () => {
+    const d = diffScenarios({ total: 820_000, size: 1 }, { total: 833_000, size: 1 })
+    expect(d.lost.map((x) => x.key)).toContain('livelihood')
+    expect(d.unchanged).toBe(false)
+  })
+
+  it('반환 행은 칩 표시에 쓰는 label·emoji·pct 필드를 유지(비회귀)', () => {
+    const rows = judgeBenefits(500_000, 1)
+    expect(rows.length).toBeGreaterThan(0)
+    for (const r of rows) {
+      expect(typeof r.label).toBe('string')
+      expect(typeof r.emoji).toBe('string')
+      expect(typeof r.pct).toBe('number')
+    }
   })
 })
 

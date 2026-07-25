@@ -4,6 +4,7 @@ import {
   estimateBenefits, runAnalysis, checkPolicy, incomeCeiling, situationRelevance, sidoOf, guOf, demographicMismatch, disabilityLabel, collapseProgramDuplicates, type UserProfile,
 } from './welfare-engine'
 import type { Policy } from '@/data/policies'
+import { getPolicyMap } from '@/data/catalog'
 
 const base: UserProfile = {
   name: '', age: 30, gender: 'other', region: '', household_type: '',
@@ -535,6 +536,85 @@ describe('incomeCeiling — 부모/부양의무자 소득요건은 본인 상한
   })
   it('본인 단일 상한은 그대로', () => {
     expect(incomeCeiling('기준 중위소득 100% 이하')).toBe(100)
+  })
+})
+
+describe('2차 엔진 감사 회귀(2026-07-25) ENG-1 — 부분 트랙 종료 문구를 전체 종료로 오판하지 않음', () => {
+  const mk = (eligibility: string): Policy => ({
+    id: 'T', name: '테스트', category: '기타', target: '', benefit: '',
+    eligibility, required_docs: [], application: '', department: '', renewal: '',
+  })
+  it('스코프 한정어(~트랙·일부)가 붙은 신규가입 중단은 전체 종료가 아님', () => {
+    // POL-006 실문구 그대로 — 기본 트랙(중위 50% 이하)은 현행 모집인데 무조건 제외되던 결함
+    expect(isClosedForNew(mk('기준 중위소득 50% 이하 (2026, 중위 50~100% 청년트랙 신규가입 중단)'))).toBe(false)
+    expect(isClosedForNew(mk('일부 신규 모집 중단, 기본 과정은 상시 접수'))).toBe(false)
+    // 한정어 없는 전체 종료·혼재(부분+전체) 문구는 여전히 종료로 잡아야 함
+    expect(isClosedForNew(mk('신규 모집 종료 — 기존 가입자만 유지'))).toBe(true)
+    expect(isClosedForNew(mk('청년트랙 신규가입 중단, 신규 접수 종료'))).toBe(true)
+  })
+  it('실카탈로그: POL-006(부분 트랙 중단)은 열림, POL-040·POL-080(진짜 전체 종료)은 닫힘', () => {
+    const map = getPolicyMap()
+    expect(isClosedForNew(map['POL-006'])).toBe(false)
+    expect(isClosedForNew(map['POL-040'])).toBe(true)
+    expect(isClosedForNew(map['POL-080'])).toBe(true)
+  })
+  it('결함 시나리오 그대로: 26세 재직·중위 40%(명시 대상)에게 POL-006 노출', () => {
+    const p: UserProfile = { ...base, age: 26, income_percentile: 40, employment_status: 'employed' }
+    expect(checkPolicy(getPolicyMap()['POL-006'], p).eligible).toBe(true)
+    expect(getEligiblePolicies(p).some((x) => x.id === 'POL-006')).toBe(true)
+    // 경계: 기본 트랙 상한(50%) 밖은 여전히 미노출 — 중단된 50~100% 트랙으로 과확대 금지
+    expect(getEligiblePolicies({ ...p, income_percentile: 60 }).some((x) => x.id === 'POL-006')).toBe(false)
+  })
+})
+
+describe('2차 엔진 감사 회귀(2026-07-25) ENG-2 — 명시 % 상한이 50보다 넓으면 넓은 쪽 적용(포함 문구가 좁히지 않음)', () => {
+  const mk = (eligibility: string): Policy => ({
+    id: 'T', name: '테스트', category: '기타', target: eligibility, benefit: '',
+    eligibility, required_docs: [], application: '', department: '', renewal: '',
+  })
+  const at = (pct: number): UserProfile => ({ ...base, age: 34, income_percentile: pct })
+  it('POL-123 평생교육바우처(중위 65% 이하, 차상위 포함): 51~65% 적격, 66% 탈락', () => {
+    const pol = getPolicyMap()['POL-123']
+    expect(checkPolicy(pol, at(51)).eligible).toBe(true)
+    expect(checkPolicy(pol, at(60)).eligible).toBe(true)
+    expect(checkPolicy(pol, at(65)).eligible).toBe(true)  // 경계(명시 상한)
+    expect(checkPolicy(pol, at(66)).eligible).toBe(false) // 경계 밖
+    expect(getEligiblePolicies(at(60)).some((x) => x.id === 'POL-123')).toBe(true)
+  })
+  it("합성 문구(명시 65% + '차상위 포함')도 넓은 명시 상한이 판정 기준", () => {
+    const doc = '가구 기준 중위소득 65% 이하(1인 가구는 120% 이하). 기초생활수급자·차상위 포함'
+    expect(checkPolicy(mk(doc), at(60)).eligible).toBe(true)
+    expect(checkPolicy(mk(doc), at(66)).eligible).toBe(false)
+  })
+  it("비회귀: '차상위' 단독(명시 % 없음)·'중위소득 50%' 명시는 그대로 50/51 경계", () => {
+    expect(checkPolicy(mk('차상위계층'), at(50)).eligible).toBe(true)
+    expect(checkPolicy(mk('차상위계층'), at(51)).eligible).toBe(false)
+    // '중위소득 50%'가 명시된 정책은 다른 %가 함께 있어도 50이 진짜 상한(과확대 금지)
+    expect(checkPolicy(mk('기준 중위소득 50% 이하. 기초생활수급자·차상위 포함'), at(51)).eligible).toBe(false)
+  })
+  it('비회귀: 부모 소득요건(중위 100%)은 본인 상한을 넓히지 않음', () => {
+    expect(checkPolicy(mk('차상위 포함, 부모 소득 중위 100% 이하'), at(60)).eligible).toBe(false)
+  })
+})
+
+describe('2차 엔진 감사 회귀(2026-07-25) ENG-3 — 대상군 한정 영아 지원(POL-050 기저귀·조제분유)', () => {
+  const infant = (over: Partial<UserProfile>): UserProfile =>
+    ({ ...base, age: 32, has_children: true, children_ages: [0], ...over })
+  const pol050 = () => getPolicyMap()['POL-050']
+  it('결함 시나리오 그대로: 일반가구·중위 90%(박보람 페르소나)는 부적격 — 어느 대상군에도 안 속함', () => {
+    const p = infant({ income_percentile: 90, household_type: '신혼부부' })
+    expect(checkPolicy(pol050(), p).eligible).toBe(false)
+    expect(getEligiblePolicies(p).some((x) => x.id === 'POL-050')).toBe(false)
+  })
+  it('대상군은 유지: 기초·차상위(≤50%) / 한부모(소득 무관) / 장애인·다자녀(중위 100% 이하)', () => {
+    expect(checkPolicy(pol050(), infant({ income_percentile: 45 })).eligible).toBe(true)                                   // 기초·차상위(소득 프록시)
+    expect(checkPolicy(pol050(), infant({ income_percentile: 90, household_type: '한부모가족' })).eligible).toBe(true)       // 한부모: 소득 무관
+    expect(checkPolicy(pol050(), infant({ income_percentile: 90, disability: true, disability_grade: '4급' })).eligible).toBe(true) // 장애인 ≤100%
+    expect(checkPolicy(pol050(), infant({ income_percentile: 90, children_ages: [0, 3] })).eligible).toBe(true)             // 다자녀 ≤100%
+    expect(checkPolicy(pol050(), infant({ income_percentile: 110, disability: true, disability_grade: '4급' })).eligible).toBe(false) // 조건부 상한 초과
+  })
+  it('비회귀: 대상군 한정 없는 영아 정책(부모급여 POL-005)은 일반가구 90%도 그대로 적격', () => {
+    expect(getEligiblePolicies(infant({ income_percentile: 90 })).some((x) => x.id === 'POL-005')).toBe(true)
   })
 })
 
