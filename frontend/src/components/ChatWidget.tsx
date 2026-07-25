@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { consumePendingVoiceCall, markVoiceCallHandled } from '@/lib/callBridge'
 import { motion, AnimatePresence } from 'framer-motion'
 import { MessageCircleHeart, X, Send, Mic, Compass, Sparkles, ArrowRight, Plus, Check, Phone } from 'lucide-react'
 import type { Policy } from '@/data/policies'
@@ -28,14 +29,20 @@ export function ChatWidget() {
   const [callLang, setCallLang] = useState<string | undefined>(undefined)
   const [callBriefing, setCallBriefing] = useState(false) // 결과 화면 '📞 전화로 설명 듣기' — 인사 대신 결과 브리핑으로 시작
   useEffect(() => {
-    const onCall = (e: Event) => {
-      const d = (e as CustomEvent).detail
+    const openCall = (d?: { lang?: string; briefing?: boolean } | null) => {
       setCallLang(d?.lang)
       setCallBriefing(!!d?.briefing)
       setCallOpen(true)
       setOpen(false)
     }
+    const onCall = (e: Event) => {
+      markVoiceCallHandled() // 실수신 → pending 소거(마운트 이어받기와 중복 방지)
+      openCall((e as CustomEvent).detail)
+    }
     window.addEventListener('modoobom:voice-call', onCall)
+    // 위젯이 지연 로딩이라, 청크가 뜨기 전에 눌린 통화 요청(pending)을 마운트 시 이어받는다(유실 방지)
+    const p = consumePendingVoiceCall()
+    if (p) openCall(p)
     return () => window.removeEventListener('modoobom:voice-call', onCall)
   }, [])
   const [msgs, setMsgs] = useState<Msg[]>([])

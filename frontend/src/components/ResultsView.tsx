@@ -35,6 +35,7 @@ import { useAppStore } from '@/store/useAppStore'
 import { encodeHelperLink, decodeHelperPayload } from '@/lib/helperLink'
 import { useBackend } from '@/lib/useBackend'
 import { requestIssueAll } from '@/lib/issueBridge'
+import { requestVoiceCall } from '@/lib/callBridge'
 
 export function ResultsView({ result, profile, onReset, helperMode = false }: { result: AnalysisResult; profile: UserProfile; onReset: () => void; helperMode?: boolean }) {
   const [selected, setSelected] = useState<Policy | EligiblePolicy | null>(null)
@@ -199,7 +200,7 @@ export function ResultsView({ result, profile, onReset, helperMode = false }: { 
             {/* 📞 결과를 '전화'로 — 통화가 열리며 결과를 조목조목 읽어주고, 이어서 말로 묻고 담을 수 있다(도우미 모드 제외 — 남의 결과를 내 통화 기록에 섞지 않음) */}
             {!helperMode && (
               <button
-                onClick={() => window.dispatchEvent(new CustomEvent('modoobom:voice-call', { detail: { briefing: true } }))}
+                onClick={() => requestVoiceCall({ briefing: true })}
                 className="btn-secondary !py-2.5"
                 aria-label="결과를 전화로 설명 듣기"
               >
