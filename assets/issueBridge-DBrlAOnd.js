@@ -1,1 +1,0 @@
-const s="modoobom:issue-doc";let t="";function a(e){t=e;try{window.dispatchEvent(new CustomEvent(s,{detail:e}))}catch{}}function c(){const e=t;return t="",e}const o="modoobom:issue-all";let n=!1;function u(){n=!0;try{window.dispatchEvent(new Event(o))}catch{}}function i(){const e=n;return n=!1,e}export{s as I,o as a,c as b,a as c,u as r,i as t};
