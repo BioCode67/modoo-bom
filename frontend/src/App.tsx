@@ -52,6 +52,16 @@ class RouteBoundary extends Component<{ children: ReactNode }, { failed: boolean
   }
 }
 
+/** 부속 위젯(lazy 청크) 로드 실패 시 조용히 null 강등 — 챗·가이드 같은 부가 위젯 청크 1건의
+ *  네트워크 실패가 루트 ErrorBoundary까지 전파돼 앱 전체(+데이터 초기화 유도)를 죽이면 본말전도.
+ *  위젯별로 따로 감싸 한 위젯 실패가 다른 위젯까지 지우지 않게 한다(GuideBoundary 패턴). */
+class WidgetBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+  state = { failed: false }
+  static getDerivedStateFromError() { return { failed: true } }
+  componentDidCatch(err: unknown) { console.warn('[modoobom] 부속 위젯 로드 실패 — 조용히 숨김', err) }
+  render() { return this.state.failed ? null : this.props.children }
+}
+
 export default function App() {
   const { view, elderly, highContrast } = useAppStore()
 
@@ -132,14 +142,14 @@ export default function App() {
         </motion.div>
       </main>
 
-      <div className="no-print"><Suspense fallback={null}><ChatWidget /></Suspense></div>
+      <div className="no-print"><WidgetBoundary><Suspense fallback={null}><ChatWidget /></Suspense></WidgetBoundary></div>
       <div className="no-print"><ScrollTop /></div>
       {/* 🌱 새싹이 가이드 — 분석/탐색/나의복지에서 다음 행동 한 문장 안내(홈은 히어로가 담당) */}
-      <div className="no-print"><Suspense fallback={null}><SproutGuide /></Suspense></div>
+      <div className="no-print"><WidgetBoundary><Suspense fallback={null}><SproutGuide /></Suspense></WidgetBoundary></div>
       <div className="no-print"><ReturnConfirm /></div>
       <div className="no-print"><Onboarding /></div>
-      <div className="no-print"><Suspense fallback={null}><VoiceGuide /></Suspense></div>
-      <Suspense fallback={null}><PrintSummary /></Suspense>
+      <div className="no-print"><WidgetBoundary><Suspense fallback={null}><VoiceGuide /></Suspense></WidgetBoundary></div>
+      <WidgetBoundary><Suspense fallback={null}><PrintSummary /></Suspense></WidgetBoundary>
     </div>
     </MotionConfig>
     </AuthProvider>

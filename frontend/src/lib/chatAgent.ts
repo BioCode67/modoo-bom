@@ -282,7 +282,9 @@ export function issueReply(doc: string): AgentReply {
   }
 }
 
-const SAVE_RE = /담(아|어|을|기|아줘|아둬|아주|아 줘)|저장|추가|찜|관심\s*목록|넣어/
+// '추가'는 실행형(추가해/추가하/추가로 담)만 — 단독 '추가'가 "추가로 받을 수 있어?"(숨은자격 질문)를
+// 전체 일괄 저장으로 가로채던 결함(감사 실측) 차단.
+const SAVE_RE = /담(아|어|을|기|아줘|아둬|아주|아 줘)|저장|추가해|추가하|추가할|추가로 ?담|찜|관심\s*목록|넣어/
 // 조회 의도 — "관심목록 보여줘/찜 목록 알려줘/저장된 거 뭐야"는 저장이 아니라 '보기' 요청.
 // SAVE_RE 단독 판정 시 조회 문장이 전체 저장으로 오인되던 결함(감사 실측) 차단.
 const VIEW_RE = /보여|알려|확인|볼래|뭐(야|가|지|있)|목록\s*(좀)?$|현황|얼마나/
@@ -297,6 +299,9 @@ const ORD: Record<string, number> = { 첫: 0, 1: 0, 하나: 0, 두: 1, 2: 1, 둘
 export function matchSaveIntent(raw: string, context: Policy[], explicitOnly = false): Policy[] | null {
   if (!context.length || !SAVE_RE.test(raw)) return null
   if (VIEW_RE.test(raw)) return null // 조회("보여줘·알려줘·뭐야")는 저장 아님
+  // 숨은자격 질문("추가로 받을 수 있는 거 있어?")은 저장이 아니라 질의 — 질문 인텐트가 저장보다
+  // 항상 우선(감사 실측: 조회 의도가 관심목록 전체 무단 저장으로 오작동하던 결함의 이중 방어)
+  if (GAP_RE.test(raw)) return null
   const t = raw.replace(/\s/g, '')
   if (/(다|전부|모두|전체|모든|다들)담|담.*(다|전부|모두)|이것들|그것들|다넣/.test(t)) return context
   // 'N개/N가지/N건'은 '개수'(앞에서 N건) — 서수(N번째)보다 먼저 판정해 "3개 담아줘"가 '3번째 하나'로 오해되지 않게(감사)
@@ -307,10 +312,14 @@ export function matchSaveIntent(raw: string, context: Policy[], explicitOnly = f
   const KCNT: Record<string, number> = { 한: 1, 하나: 1, 두: 2, 둘: 2, 세: 3, 셋: 3, 네: 4, 넷: 4 }
   const kcnt = t.match(/(하나|둘|셋|넷|한|두|세|네)(개|가지|건)/)
   if (kcnt && KCNT[kcnt[1]] !== undefined) return context.slice(0, KCNT[kcnt[1]])
-  const ord = t.match(/(첫|두|세|네|하나|둘|셋|넷|[1-4])(번째|째|번)?/)
-  if (ord && ORD[ord[1]] !== undefined && context[ORD[ord[1]]]) return [context[ORD[ord[1]]]]
+  // 이름 직접 지목이 서수보다 우선 — "65세인데 기초연금 담아줘"처럼 이름과 서수 유사어가 섞여도
+  // 사용자가 지목한 정책이 항상 이긴다(감사: 엉뚱한 정책 저장+거짓 확인 방지)
   const byName = context.filter((p) => t.includes(p.name.replace(/\s/g, '')))
   if (byName.length) return byName
+  // 서수는 접미사(번째·째·번) 필수 — '65세'의 '세', 긍정 응답 '네'(네 담아줘), '두시'의 '두'를
+  // 서수로 오인해 엉뚱한 항목 하나만 저장하던 결함(감사 실측) 차단
+  const ord = t.match(/(첫|두|세|네|하나|둘|셋|넷|[1-4])(번째|째|번)/)
+  if (ord && ORD[ord[1]] !== undefined && context[ORD[ord[1]]]) return [context[ORD[ord[1]]]]
   if (explicitOnly) return null // 폴백 컨텍스트에선 명시적 지시 없으면 저장하지 않음
   if (/(그거|이거|저거|그것|이것|그걸|이걸)/.test(t) || context.length === 1) return [context[0]]
   return context // 밋밋한 "담아줘" + 여러 개(직접 보여준 목록) → 보여준 것 전부
@@ -327,8 +336,10 @@ const MYTH_HINTS: { id: string; re: RegExp }[] = [
   { id: 'foreigner', re: /외국인|이주민|귀화|다문화/ },
   { id: 'single', re: /1인 ?가구|혼자 ?살|혼자 ?사는|독거/ },
   { id: 'middle-income', re: /중산층|소득이 ?높|많이 ?벌|중간 ?소득|잘 ?살|어중간/ },
-  // 태도 장벽(마음가짐) — 자격이 아니라 '복잡해서/건강해서 안 한다'
-  { id: 'complex', re: /복잡|어려워|어렵|막막|엄두|귀찮|모르겠/ },
+  // 태도 장벽(마음가짐) — 자격이 아니라 '복잡해서/건강해서 안 한다'.
+  //   다의적 어간(어렵·막막·모르겠)은 절차 맥락(신청·절차·서류…) 동반 시에만 — "생활이 어려워요"
+  //   같은 생계 호소를 '절차는 간단해요' 격려문으로 오라우팅하던 결함(감사 실측) 차단.
+  { id: 'complex', re: /(신청|절차|서류|방법|어떻게).{0,10}(복잡|어렵|어려워|막막|모르겠)|(복잡|어렵|어려워|막막).{0,10}(신청|절차|서류)|복잡해서|엄두가?\s*안|귀찮/ },
   { id: 'healthy', re: /건강|멀쩡|아프지|병\s*없|아픈\s*데\s*없/ },
 ]
 const DOUBT_RE = /못 ?받|못 ?하|안 ?될|안 ?돼|안 ?되|안 ?하|자격.*(안|없|미달)|해당\s*(사항\s*)?(안|없)|어차피|소용없|끊|잘려|중단|끝이|되겠|될까|안 ?나오|힘들|어려|포기|엄두|막막|귀찮|필요\s*없|받을 ?(게|거|수) ?없|대상\s*(이\s*)?아니/
@@ -336,6 +347,9 @@ const DOUBT_RE = /못 ?받|못 ?하|안 ?될|안 ?돼|안 ?되|안 ?하|자격.*
 /** 오해(통념) 발화인지 — 통념 대상 규칙 id를 돌려준다(아니면 null). 포기/의심 신호가 있어야만 잡는다. */
 export function matchMisconceptionIntent(raw: string): string | null {
   const t = raw || ''
+  // 생계 호소("생활/형편/생계가 어려워요")는 오해가 아니라 도움 요청 — parseQuery의 저소득 신호와
+  // 같은 어간이라 여기서 잡으면 생계급여·긴급복지 검색 대신 무관한 답이 나간다(감사) → 검색으로 흘린다.
+  if (/(생활|형편|생계|살기|먹고\s*살)\S{0,4}\s*(어렵|어려|힘[들듭드든]|막막|곤란|빠듯)/.test(t)) return null
   if (!DOUBT_RE.test(t)) return null
   for (const h of MYTH_HINTS) if (h.re.test(t)) return h.id
   return null
@@ -456,7 +470,9 @@ export function incomeThresholdReply(): AgentReply {
     return `• ${b.label}(중위 ${b.pct}%): ${amts}`
   })
   return {
-    text: `복지 자격은 대부분 ‘소득인정액’(월 소득 + 재산을 소득으로 환산한 값)이 기준 중위소득의 몇 % 이하냐로 정해져요. 2026년 기준 급여별 소득인정액 월 상한이에요:\n${lines.join('\n')}\n\n근로·사업소득은 30% 공제 후 반영되고 재산도 소득으로 환산돼요. 재산까지 넣은 정확한 계산은 ‘탐색 > 기초생활보장 계산기 > 재산까지 넣어 정밀 계산’에서 할 수 있어요.`,
+    // ⚠️ 정직성: 이 표는 기초생활보장·차상위 기준일 뿐 — 기초연금 등 개별 복지를 이 표로 오독해
+    //   자격이 있는데 포기하는 거짓음성을 막기 위해 적용 범위를 서두에 명시(감사).
+    text: `이 표는 기초생활보장(생계·의료·주거·교육)·차상위 기준이에요. 기초연금·청년월세지원 등 개별 복지는 별도 기준이라, 정책 이름으로 물어보시면 그 기준을 알려드려요.\n\n복지 자격은 대부분 ‘소득인정액’(월 소득 + 재산을 소득으로 환산한 값)이 기준 중위소득의 몇 % 이하냐로 정해져요. 2026년 기준 급여별 소득인정액 월 상한이에요:\n${lines.join('\n')}\n\n근로·사업소득은 30% 공제 후 반영되고 재산도 소득으로 환산돼요. 재산까지 넣은 정확한 계산은 ‘탐색 > 기초생활보장 계산기 > 재산까지 넣어 정밀 계산’에서 할 수 있어요.`,
     cta: { view: 'explore', label: '소득인정액 계산하기' },
   }
 }
@@ -505,14 +521,33 @@ export function agentReply(raw: string, ctx: { profile: UserProfile | null; resu
     if (doc) return issueReply(doc)
   }
   // 우선순위('뭐부터 신청?')는 방법(APPLY '신청 해야')·자격(ELIG)보다 먼저 — 순서 신호가 가장 구체적.
-  if (PRIORITY_RE.test(q)) return priorityReply(ctx.result, ctx.tracked ?? [])
+  if (PRIORITY_RE.test(q)) {
+    // '서류 뭐부터 준비/떼야?'는 신청 순위가 아니라 서류 질문 — 서류 문맥이면 서류 안내로 직행
+    // ('떼'만 있고 '서류'가 없는 문장은 DOCS_RE에 안 걸려 폴스루 시 검색으로 새므로 직행이 정답, 감사)
+    if (/(서류|준비물|구비|발급|떼)/.test(q)) return docsReply(ctx.tracked ?? [], ctx.agentOn ?? false)
+    return priorityReply(ctx.result, ctx.tracked ?? [])
+  }
   if (DOCS_RE.test(q)) return docsReply(ctx.tracked ?? [], ctx.agentOn ?? false)
   // 신청 '타이밍'(언제·소급·미리)은 '방법'(어떻게·어디서)보다 먼저 — APPLY_RE에 가로채이지 않게.
   if (TIMING_RE.test(q)) return timingReply(ctx.profile, ctx.result)
   if (APPLY_RE.test(q)) return applyReply(ctx.tracked ?? [], ctx.agentOn ?? false)
   // 소득 기준 질문은 자격(ELIG)보다 먼저 — '얼마까지 벌어도 받아요?'를 상한표로 답한다.
-  if (INCOME_RE.test(q)) return incomeThresholdReply()
-  if (ELIG_RE.test(q)) return eligibilityReply(ctx.profile, ctx.result)
+  if (INCOME_RE.test(q)) {
+    // 단, "기초연금 소득 기준"처럼 특정 정책을 지목하면 기초생활보장 상한표가 아니라 그 정책으로 —
+    // 표만 보고 '전 기준 초과→나는 안 되네'로 오독하는 거짓음성 방지(감사). 시드(POL-)·이름 4자 이상만
+    // 대조해 오탐을 막고, 공백 무시 대조는 matchIssueIntent와 같은 방식.
+    const tq = q.replace(/\s/g, '')
+    const namesPolicy = getCatalog().some((p) => {
+      if (!p.id.startsWith('POL-')) return false
+      const n = p.name.replace(/\s/g, '')
+      return n.length >= 4 && tq.includes(n)
+    })
+    if (namesPolicy) return searchReply(q, ctx.profile)
+    return incomeThresholdReply()
+  }
+  // 숨은자격 질의('추가로/더 받을 수 있어?')는 ELIG('받을 수 있')와 겹침 — 질문의 초점(놓친 것)이
+  // 더 구체적이므로 GAP이 이긴다(감사: SAVE_RE 가로챔 수정과 함께 GAP 데드 패스 해소).
+  if (ELIG_RE.test(q) && !GAP_RE.test(q)) return eligibilityReply(ctx.profile, ctx.result)
   // 오해 바로잡기('재산 있어서 안 될 것 같아요')·숨은 자격('놓친 거 없어?') — 검색 폴백보다 먼저,
   // 단 좁게 게이트해(포기·의심 신호+통념 / 명시적 '놓침' 표현) 일반 검색 질의를 가로채지 않는다.
   const myth = matchMisconceptionIntent(q)

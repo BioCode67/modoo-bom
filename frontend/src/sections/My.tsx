@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Heart, Wallet, Scale, Sparkles, Compass, Printer, Cloud, ChevronDown, Wrench, UserPlus, FileText, BellRing } from 'lucide-react'
 import type { Policy } from '@/data/policies'
@@ -22,6 +22,7 @@ import { PriorityRecommend } from '@/components/PriorityRecommend'
 import { DocPlanCard } from '@/components/DocPlanCard'
 import { PaymentSchedule } from '@/components/PaymentSchedule'
 import { useAppStore, type AppStatus } from '@/store/useAppStore'
+import { hasPendingIssue, ISSUE_DOC_EVENT, ISSUE_ALL_EVENT } from '@/lib/issueBridge'
 import { useAuthCtx } from '@/lib/authContext'
 import { sumCashMonthly, formatWon } from '@/lib/format'
 import { StaticMascot } from '@/three/MascotCanvas'
@@ -41,11 +42,26 @@ export function My() {
   const { tracked, setView, resetForNextUser, profile } = useAppStore()
   const [filter, setFilter] = useState<AppStatus | 'all'>('all')
   const [reportCopied, setReportCopied] = useState(false) // '리포트 복사' 피드백
-  const [tab, setTab] = useState<MyTab>('saved') // 잡다한 세로 스크롤 대신 한 번에 한 섹션만 — 정보 과다 완화
+  // 잡다한 세로 스크롤 대신 한 번에 한 섹션만 — 정보 과다 완화.
+  // 챗·통화·오토파일럿의 발급 명령(issueBridge 보류)을 안고 착지하면 '서류 발급' 탭으로 바로 —
+  // 기본 탭(담은 복지)에 가려 발급이 시작조차 안 되거나, 한참 뒤 탭 진입 때 돌발 시작되는 것 방지.
+  const [tab, setTab] = useState<MyTab>(() => (hasPendingIssue() ? 'docs' : 'saved'))
   const [selected, setSelected] = useState<Policy | EligiblePolicy | null>(null)
   const [compare, setCompare] = useState(false)
   const [showTools, setShowTools] = useState(false) // 보조 도구(캘린더·가구분석·자동화요약) 접기 — 요소 과다로 길 잃지 않게
   const POLICY_MAP = usePolicyMap()  // 반응형 — 외부 정책 지연 병합 시 자동 갱신(담아둔 공공데이터 정책 깨짐 방지)
+
+  // My가 이미 떠 있는 동안 발급 명령이 오면(챗 CTA 등) 탭만 '서류 발급'으로 —
+  // 보류 소비·발급 시작은 상시 마운트된 DocumentCenter의 기존 리스너가 그대로 맡는다(이중 소비 없음).
+  useEffect(() => {
+    const toDocs = () => setTab('docs')
+    window.addEventListener(ISSUE_DOC_EVENT, toDocs)
+    window.addEventListener(ISSUE_ALL_EVENT, toDocs)
+    return () => {
+      window.removeEventListener(ISSUE_DOC_EVENT, toDocs)
+      window.removeEventListener(ISSUE_ALL_EVENT, toDocs)
+    }
+  }, [])
 
   // 현금성 지원만 합산(바우처·서비스·현물 제외) — 결과화면과 동일 기준으로 과장 없이.
   const totalMonthly = useMemo(
@@ -201,6 +217,7 @@ export function My() {
                   <button
                     key={f.key}
                     onClick={() => setFilter(f.key)}
+                    aria-pressed={filter === f.key}
                     className={cn('shrink-0 rounded-full px-4 py-2 text-sm font-semibold border-2 transition-all',
                       filter === f.key ? 'bg-sprout-700 border-sprout-700 text-white' : 'bg-white border-sprout-100 text-muted-foreground hover:border-sprout-200')}
                   >
@@ -228,14 +245,14 @@ export function My() {
           </section>
         )}
 
-        {/* 서류 발급 — 담은 복지에 필요한 서류를 미리 준비 */}
-        {tab === 'docs' && (
-          <section id="journey-docs" aria-label="서류 발급">
-            {/* 서류 중심 통합 정리 — 재사용·유효기간(3개월)·공동이용 생략 배지를 한눈에 */}
-            <DocPlanCard onOpen={setSelected} />
-            <DocumentCenter />
-          </section>
-        )}
+        {/* 서류 발급 — 담은 복지에 필요한 서류를 미리 준비.
+            발급·여정 진행 중 다른 탭으로 옮겨도 폴링·인증 대기 알림음이 끊기지 않게(8분 인증 타임아웃 방지)
+            언마운트하지 않고 hidden(display:none)으로 숨기기만 한다 — 숨김 중 포커스·스크린리더 노출 없음. */}
+        <section id="journey-docs" aria-label="서류 발급" className={tab === 'docs' ? undefined : 'hidden'}>
+          {/* 서류 중심 통합 정리 — 재사용·유효기간(3개월)·공동이용 생략 배지를 한눈에 */}
+          <DocPlanCard onOpen={setSelected} />
+          <DocumentCenter />
+        </section>
 
         {/* 진행 관리 — 마감·갱신·점검 알림(사후관리) */}
         {tab === 'manage' && (

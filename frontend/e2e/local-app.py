@@ -94,8 +94,11 @@ def main() -> int:
             pg.on("request", lambda rq: health_hits.append(rq.url) if "/api/health" in rq.url else None)
             pg.goto(url, wait_until="load")
             pg.wait_for_timeout(1500)
-            # 나의 복지로 이동
+            # 나의 복지로 이동 → '서류 발급' 탭(탭 레이아웃 — 자동발급 UI·인증 폼은 이 탭에 렌더,
+            # 기본 탭(담은 복지)에선 display:none이라 innerText 검사에 안 잡힌다)
             pg.evaluate("(kw)=>{const b=[...document.querySelectorAll('button')].find(x=>x.textContent&&x.textContent.includes(kw));if(b)b.click();}", "나의")
+            pg.wait_for_timeout(1500)
+            pg.evaluate("(kw)=>{const b=[...document.querySelectorAll(\"[role='tab']\")].find(x=>x.textContent&&x.textContent.includes(kw));if(b)b.click();}", "서류 발급")
             pg.wait_for_timeout(4500)
             body = pg.inner_text("body")
             health = pg.evaluate("async()=>{try{const r=await fetch('/api/health');const j=await r.json();return j.capabilities.rpa;}catch(e){return 'ERR '+e.message;}}")

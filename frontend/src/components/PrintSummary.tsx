@@ -1,10 +1,44 @@
 import { useMemo } from 'react'
 import { useAppStore } from '@/store/useAppStore'
 import { getPolicyMap } from '@/data/catalog'
-import { runAnalysis } from '@/lib/welfare-engine'
+import { runAnalysis, type EligiblePolicy } from '@/lib/welfare-engine'
 import { parseMonthly, formatWon, isCashBenefit, sumCashMonthly } from '@/lib/format'
 import { applyLink } from '@/lib/officialLinks'
 import { STATUS_META } from '@/components/TrackedCard'
+import type { Policy } from '@/data/policies'
+
+/**
+ * 인쇄 헤더의 합산·건수 — 화면 헤더(ResultsView)·통화 브리핑·복지 리포트와 동일한 보수 기준(순수 함수).
+ * · 분석 결과 경로(fromResult=true): 금액은 POL- 정밀추천 중 강력추천(high)의 '현금성'만 합산.
+ *   관련복지(GOV-/LOC- 저신뢰 추론)·중간/낮음 우선순위까지 더하면 화면보다 부풀린 금액이
+ *   '주민센터 지참용' 종이로 나간다(금액 과장 금지). 건수도 '맞춤 N건 · 관련 M건'으로 분리 표기.
+ * · 관심목록 폴백(fromResult=false): 사용자가 직접 담은 목록(priority 없음)이라 전체 현금성 합산 유지.
+ */
+export function printHeadline(
+  policies: (Policy | EligiblePolicy)[],
+  fromResult: boolean,
+): { monthlyTotal: number; countLabel: string; amountLabel: string } {
+  const list = Array.isArray(policies) ? policies : []
+  if (fromResult) {
+    const primary = list.filter((p) => /^POL-/.test(p.id))
+    const strong = primary.filter((p) => (p as EligiblePolicy).priority === 'high')
+    const relatedCount = list.length - primary.length
+    const monthlyTotal = sumCashMonthly(strong)
+    return {
+      monthlyTotal,
+      countLabel: `맞춤 ${primary.length}건${relatedCount > 0 ? ` · 관련 ${relatedCount}건` : ''}`,
+      amountLabel: monthlyTotal > 0
+        ? ` · 강력추천 현금성만 보수 합산 월 최대 ${formatWon(monthlyTotal)}(중복수급 미반영)`
+        : '',
+    }
+  }
+  const monthlyTotal = sumCashMonthly(list)
+  return {
+    monthlyTotal,
+    countLabel: `수혜 가능 ${list.length}건`,
+    amountLabel: monthlyTotal > 0 ? ` · 예상 현금성 월 합계 최대 ${formatWon(monthlyTotal)}(중복수급 미반영)` : '',
+  }
+}
 
 /**
  * 인쇄/PDF 전용 "내 복지 안내서" — 화면에는 숨김(print-only).
@@ -30,9 +64,10 @@ export function PrintSummary() {
   const helperTracked = isHelper ? (helper?.tracked ?? []).map((t) => map[t.policyId]).filter(Boolean) : []
   const fromTracked = isHelper ? helperTracked : tracked.map((t) => map[t.policyId]).filter(Boolean)
   const policies = fromResult.length > 0 ? fromResult : fromTracked
-  // ⚠️ 화면 헤드라인과 동일하게 '현금성'만 합산한다(isCashBenefit). raw parseMonthly로 전부 더하면
-  //   서비스 이용 한도액·바우처·감면·고용주 지원까지 개인 현금소득처럼 부풀려져 인쇄물이 과장된다.
-  const monthlyTotal = sumCashMonthly(policies)
+  // ⚠️ 화면 헤더와 동일 기준: 분석 결과 경로에선 POL- 강력추천(high)의 현금성만 보수 합산한다.
+  //   전체 eligible(관련복지·중간/낮음 포함)을 더하면 화면(핵심 현금지원)보다 부풀린 금액·건수가
+  //   종이 문서로 나간다(과거 결함 — printHeadline이 단일 기준, 관심목록 폴백은 전체 현금성 유지).
+  const head = printHeadline(policies, fromResult.length > 0)
 
   if (policies.length === 0) return null
 
@@ -42,7 +77,7 @@ export function PrintSummary() {
         <h1>모두봄 · {isHelper ? '가족 복지 안내서' : '내 복지 안내서'} 🌱</h1>
         <p className="print-sub">
           {displayName ? `${displayName} 님` : '신청자'} 맞춤 복지 정리 ·
-          수혜 가능 {policies.length}건{monthlyTotal > 0 ? ` · 예상 현금성 월 합계 최대 ${formatWon(monthlyTotal)}(중복수급 미반영)` : ''}
+          {' '}{head.countLabel}{head.amountLabel}
         </p>
       </header>
 

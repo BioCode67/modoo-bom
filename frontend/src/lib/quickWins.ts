@@ -29,8 +29,11 @@ function noVisitDoc(doc: string): boolean {
  * 지금 바로 온라인 완결 가능한 복지 목록.
  * 흐름:
  *  ① 복지로 온라인 신청 딥링크가 있는 복지만(방문형 제외) 후보.
- *  ② 후보의 필요 서류가 전부 방문 없이 준비 가능한지 검사(하나라도 방문/기관발급이면 제외).
- *  ③ 현금성 월 최대 큰 순으로 정렬(같으면 서류 없는 것 우선).
+ *  ② 요약형 공공데이터(GOV-/LOC-)는 서류 정보가 비어 있으면 제외 — ETL 원천에 서류 데이터가 없어
+ *     빈 배열은 '서류 없음'이 아니라 '서류 정보 미상'이다. 이를 '서류 없이 바로'로 단정하면 기관
+ *     운영지원·방문형 사업까지 즉시완결로 오보한다(정직성 — POL- 등 검증 시드는 실측이라 유지).
+ *  ③ 후보의 필요 서류가 전부 방문 없이 준비 가능한지 검사(하나라도 방문/기관발급이면 제외).
+ *  ④ 현금성 월 최대 큰 순으로 정렬(같으면 서류 없는 것 우선).
  */
 export function quickWins(policies: (Policy | EligiblePolicy)[]): QuickWin[] {
   const list = Array.isArray(policies) ? policies : []
@@ -38,6 +41,8 @@ export function quickWins(policies: (Policy | EligiblePolicy)[]): QuickWin[] {
   for (const p of list) {
     if (!isBokjiroApplyable(p.application, p.name, p.id)) continue
     const docs = p.required_docs || []
+    // 요약형: 서류 정보 원천 부재 — '서류 없음' 단정 금지(데이터 부재를 사실로 날조하지 않는다)
+    if (docs.length === 0 && /^(GOV|LOC)-/.test(p.id)) continue
     if (!docs.every(noVisitDoc)) continue
     const monthly = isCashBenefit(p.benefit, `${p.name} ${p.category}`) ? parseMonthly(p.benefit) : 0
     out.push({ policy: p, monthly, noDocs: docs.length === 0 })

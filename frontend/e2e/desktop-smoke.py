@@ -48,6 +48,18 @@ def server_up() -> bool:
         return False
 
 
+def goto_my_docs(pg):
+    """'나의 복지' 진입 → '서류 발급' 탭 클릭 — 탭 레이아웃(기본: 담은 복지)에서 서류 도우미를 띄운다.
+
+    ⚠️ 6.85(대화→발급 다리)·6.97(오토파일럿)에서는 쓰지 말 것 — 그 스텝들은 issueBridge 보류/이벤트로
+    '서류 발급' 탭이 스스로 열리는 자동 전환 계약을 검증하므로, 미리 눌러주면 검증이 무효가 된다.
+    """
+    pg.click("text=나의 복지")
+    pg.wait_for_selector("[role='tab']:has-text('서류 발급')", timeout=15000)
+    pg.click("[role='tab']:has-text('서류 발급')")
+    pg.wait_for_selector("text=서류 준비 도우미", timeout=15000)
+
+
 def main() -> int:
     if not server_up():
         print("[desktop] ❌ local_server(:8000)가 떠 있지 않아요 — 파일 상단 실행법 참고")
@@ -84,8 +96,7 @@ def main() -> int:
             pg.add_init_script(SEED)
             pg.goto(BASE, wait_until="domcontentloaded", timeout=30000)
             pg.wait_for_selector("text=정부·지자체·민간 복지", timeout=20000)
-            pg.click("text=나의 복지")
-            pg.wait_for_selector("text=서류 준비 도우미", timeout=15000)
+            goto_my_docs(pg)
 
             # 1) 상태 스트립
             pg.wait_for_selector("text=에이전트 연결됨", timeout=8000)
@@ -153,13 +164,17 @@ def main() -> int:
             pg.wait_for_selector("span:has-text('첨부 후보')", timeout=8000)
             print("[desktop] ✅ 3. 서류함 등록 → 목록 갱신 + 첨부 후보 배지")
 
-            # 4) 신청 전 자동첨부 미리보기
+            # 4) 신청 전 자동첨부 미리보기 — 담은 복지 카드는 '담은 복지' 탭에 있다(탭 레이아웃)
+            pg.click("[role='tab']:has-text('담은 복지')")
             pg.get_by_role("button", name="청년월세지원", exact=True).first.click()
             pg.wait_for_selector("text=에이전트 자동 신청", timeout=8000)
             pg.wait_for_selector("text=자동첨부 후보예요", timeout=8000)
             print("[desktop] ✅ 4. 신청 전 자동첨부 미리보기")
             pg.keyboard.press("Escape")
             pg.wait_for_timeout(500)
+            # 이후 단계(서류함·발급 패널)는 '서류 발급' 탭 — 명시 복귀(4.7의 자동 전환 계약은 6.85가 검증)
+            pg.click("[role='tab']:has-text('서류 발급')")
+            pg.wait_for_selector("text=서류 준비 도우미", timeout=8000)
 
             # 4.7) 💬→🚀 "서류 전부 발급해줘" — 원클릭 연쇄가 챗 CTA 한 번으로 시작(여기선 인증정보
             #      미입력 시점이라 연쇄 대신 '정직한 가드 + 입력칸 포커스'가 떠야 한다 — 실행·가드 동시 검증)
@@ -382,8 +397,7 @@ def main() -> int:
             pg.evaluate("([tid,tok])=>sessionStorage.setItem('modoobom-live-v1',JSON.stringify({doc:{'주민등록등본':{taskId:tid,token:tok,at:Date.now()}},apply:{},journey:{}}))", [tid, tok])
             pg.reload(wait_until="domcontentloaded")
             pg.wait_for_selector("text=정부·지자체·민간 복지", timeout=20000)
-            pg.click("text=나의 복지")
-            pg.wait_for_selector("text=서류 준비 도우미", timeout=15000)
+            goto_my_docs(pg)
             pg.wait_for_function(
                 "()=>{const t=document.body.innerText; return t.includes('다시 연결 중')||t.includes('브라우저를 실행할 수')||t.includes('인증')||t.includes('발급')}",
                 timeout=12000)
@@ -532,12 +546,16 @@ def main() -> int:
             # 6.85) 💬→🖨 대화→발급 다리 — "초본 발급해줘" 한마디 → CTA 한 번 → 나의 복지에서 발급이 '실제로' 시작.
             #       (인증정보는 6.5에서 입력됨 → 실발급 태스크가 뜨고 컨테이너에선 곧 정직한 오류/진행 표시 —
             #        어느 쪽이든 '초본' 상태줄이 나타나는 것이 다리 성립의 증거. 시작된 태스크는 [중단]으로 정리)
+            #       ⚠️ 탭을 미리 누르지 않는다 — '담은 복지' 탭에 있어도 발급 명령이 '서류 발급' 탭을
+            #       스스로 열어야 한다(자동 전환 계약). 서류 도우미가 숨김 중에도 살아 있는 상시 마운트 검증 겸용.
+            pg.click("[role='tab']:has-text('담은 복지')")
+            pg.wait_for_timeout(300)
             pg.locator("button[aria-label='복지 도우미 챗봇 열기']").click()
             pg.fill("input[aria-label='질문 입력']", "초본 발급해줘")
             pg.keyboard.press("Enter")
             pg.wait_for_selector("button:has-text('주민등록초본 자동발급 시작')", timeout=10000)  # 실행 CTA
             pg.locator("button:has-text('주민등록초본 자동발급 시작')").click()
-            pg.wait_for_selector("text=서류 준비 도우미", timeout=10000)   # 나의 복지로 자동 이동
+            pg.wait_for_selector("text=서류 준비 도우미", timeout=10000)   # '서류 발급' 탭 자동 전환(무클릭)
             pg.wait_for_selector("text=주민등록초본 —", timeout=15000)     # 카드 밖 상태줄에 발급 시작 표시
             if pg.locator("button:has-text('⏹ 중단')").count():           # 시작된 실태스크 정리(후속 단계 오염 방지)
                 pg.locator("button:has-text('⏹ 중단')").first.click()
@@ -554,8 +572,7 @@ def main() -> int:
                         "journey:{current:{taskId:'j-resume',token:'t',docs:['소득금액증명'],at:Date.now()}}}))")
             pg.reload(wait_until="domcontentloaded")
             pg.wait_for_selector("text=정부·지자체·민간 복지", timeout=20000)
-            pg.click("text=나의 복지")
-            pg.wait_for_selector("text=서류 준비 도우미", timeout=15000)
+            goto_my_docs(pg)
             pg.wait_for_selector("text=연쇄 자동발급 진행 중", timeout=15000)  # 무클릭 헤더 복원
             assert "소득금액증명" in pg.inner_text("body")
             # 종결로 전환해 폴링을 닫고 다음 단계로(기억 정리까지)
@@ -575,8 +592,7 @@ def main() -> int:
             pg.wait_for_timeout(300)  # keep effect가 sessionStorage에 반영될 시간
             pg.reload(wait_until="domcontentloaded")
             pg.wait_for_selector("text=정부·지자체·민간 복지", timeout=20000)
-            pg.click("text=나의 복지")
-            pg.wait_for_selector("text=서류 준비 도우미", timeout=15000)
+            goto_my_docs(pg)
             assert pg.locator("label:has-text('이 탭에서는 기억하기') input").is_checked(), "옵트인 상태 미복원"
             pg.wait_for_function(  # 마운트 후 hydrate effect가 채울 때까지(레이스 방지)
                 "() => document.querySelector(\"input[placeholder*='실명']\")?.value === '김기억'", timeout=5000)
@@ -595,7 +611,7 @@ def main() -> int:
             pg.wait_for_selector("[data-testid='autopilot-cta']", timeout=45000)
             before = pg.evaluate("()=>JSON.parse(localStorage.getItem('modoobom-store')).state.tracked.length")
             pg.locator("[data-testid='autopilot-cta']").click()
-            pg.wait_for_selector("text=서류 준비 도우미", timeout=15000)          # 나의 복지로 자동 이동
+            pg.wait_for_selector("text=서류 준비 도우미", timeout=15000)          # 나의 복지 이동+'서류 발급' 탭 자동 전환(무클릭)
             # 연쇄 이어받기 성립 증거 — 부족 서류가 있으면 '먼저 입력' 가드, 서류함이 이미 다 채웠으면
             # 자유 선택 패널 자동 오픈(둘 다 설계된 정직한 경로 — 실PC 서류함 상태와 무관하게 통과)
             pg.locator("text=실명·생년월일·휴대폰을 먼저 입력해 주세요").or_(

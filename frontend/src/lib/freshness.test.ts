@@ -146,6 +146,55 @@ describe('assessRecord — 신선도', () => {
   })
 })
 
+describe('assessRecord — 적용범위 연도는 노후 신호가 아니다(첫만남이용권 결함 회귀)', () => {
+  // POL-007형 픽스처 — 연도 토큰이 영구 적용범위 문구('2022년 1월 1일 이후 출생')뿐인 2026 검증 시드
+  const firstMeeting = mk({
+    id: 'POL-007',
+    name: '첫만남이용권',
+    category: '아동·영유아',
+    target: '출생 아동 (2022년 1월 1일 이후 출생)',
+    benefit: '첫째 200만원, 둘째 이상 300만원 국민행복카드 바우처 (출생 후 2년 내 사용)',
+    eligibility: '2022년 1월 1일 이후 출생아, 주민등록 등재 아동 (소득·재산 무관)',
+    required_docs: ['출생신고 완료', '주민등록등본', '신청인 신분증'],
+    application: '복지로(www.bokjiro.go.kr), 정부24, 주민센터 방문 (출생 후 60일 이내 신청)',
+    renewal: '1회 (출생 후 2년 이내 사용)',
+  })
+
+  it("'2022년 1월 1일 이후 출생'만 있으면 possibly_stale이 아니다(stale_year 플래그 없음)", () => {
+    const r = assessRecord(firstMeeting, NOW)
+    expect(r.freshness).not.toBe('possibly_stale')
+    expect(r.flags.some((f) => f.kind === 'stale_year')).toBe(false)
+    expect(r.advisories.some((a) => a.includes('표기된 연도가 지났을 수 있어'))).toBe(false)
+  })
+
+  it("월·일 없는 '2022년 이후 출생'도 적용범위로 보고 노후 신호에서 제외", () => {
+    const r = assessRecord(mk({ eligibility: '2022년 이후 출생 아동, 주민등록 등재' }), NOW)
+    expect(r.yearSeen).toBeNull()
+    expect(r.freshness).toBe('unknown')
+  })
+
+  it("적용범위 문구와 진짜 기준연도('2021년 기준')가 함께 있으면 노후 감지는 유지", () => {
+    const r = assessRecord(
+      mk({ id: 'GOV-Y', eligibility: '2022년 1월 1일 이후 출생아', benefit: '월 5만원 (2021년 기준)' }),
+      NOW,
+    )
+    expect(r.yearSeen).toBe(2021) // 적용범위 2022는 배제, 기준연도 2021만 채택
+    expect(r.freshness).toBe('possibly_stale')
+  })
+
+  it('적용범위 문구와 현재 기준연도가 함께 있으면 current(최댓값 채택 불변)', () => {
+    const r = assessRecord(mk({ eligibility: '2022년 1월 1일 이후 출생아 (2026년 기준)' }), NOW)
+    expect(r.yearSeen).toBe(2026)
+    expect(r.freshness).toBe('current')
+  })
+
+  it('summarizeFreshness 집계도 오염되지 않는다(staleCount·verifyCount 0)', () => {
+    const s = summarizeFreshness([firstMeeting], NOW)
+    expect(s.staleCount).toBe(0)
+    expect(s.verifyCount).toBe(0)
+  })
+})
+
 describe('assessRecord — 금액 유무는 parseMonthly로만 판단(재계산 아님)', () => {
   it("'월' 없는 금액(축하금 50만원)은 검증금액으로 보지 않는다", () => {
     const r = assessRecord(mk({ benefit: '검정고시 합격 축하금 50만원' }), NOW)

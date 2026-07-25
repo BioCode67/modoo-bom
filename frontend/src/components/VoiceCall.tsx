@@ -10,10 +10,10 @@ import { localRpaDocs } from '@/lib/officialLinks'
 import { requestIssueDoc, requestIssueAll } from '@/lib/issueBridge'
 import { startAutopilot } from '@/lib/autopilot'
 import type { Policy } from '@/data/policies'
-import { parseProfileFromText, profileSignalCount } from '@/lib/parseQuery'
+import { parseProfileFromText } from '@/lib/parseQuery'
 import { VOICE_LANGS, voiceStrings, voiceRouteLang, routeReplyFor } from '@/lib/voiceI18n'
 import { runAnalysis } from '@/lib/welfare-engine'
-import { formatWon, sumCashMonthly } from '@/lib/format'
+import { shouldVoiceDiagnose, buildVoiceDiagText } from '@/lib/voiceDiag'
 import { speakableText } from '@/lib/speakable'
 import { buildResultBriefing } from '@/lib/voiceBriefing'
 import { cn } from '@/lib/utils'
@@ -126,26 +126,22 @@ export function VoiceCall({ open, onClose, presetLang, onTranscript, briefing }:
       // 📞→진단: "72세 혼자 사는데 소득이 적어요"처럼 프로필 신호가 2개 이상 담긴 '상황 문장'이면
       // 질문 응대가 아니라 그 자리에서 분석까지 실행하고 결과를 말로 브리핑한다(전화 한 통 완주).
       // "기초연금 알려줘"(신호 0~1)는 기존 지식·행동 답변 그대로.
-      if (profileSignalCount(q) >= 2) {
+      // 단, "65세 혼자 사는데 등본 떼줘"처럼 실행 명령이 섞이면 발급·오토파일럿이 우선(챗위젯 순서
+      // 파리티) — 진단이 명시적 명령을 삼키지 않게 실행 의도를 먼저 거른다(lib/voiceDiag).
+      const issueDocs = agentOn ? localRpaDocs() : []
+      if (shouldVoiceDiagnose(q, agentOn, issueDocs)) {
         const prof = parseProfileFromText(q)
         const res = runAnalysis(prof)
-        setAnalysis(prof, res)
-        // 결과 화면 헤더와 '같은 기준'의 보수 합산(정밀추천 POL- 중 강력추천의 현금성만) —
-        // portfolio_summary.total_monthly(전체 적격 이론 최대)를 읽어주면 화면(64만)과 통화(228만)가
-        // 3배 넘게 어긋나는 과장 안내가 된다(엔진 주석의 'UI 헤드라인 금지' 값)
-        const primary = res.eligible_policies.filter((p) => /^POL-/.test(p.id))
-        const top = (primary.length ? primary : res.eligible_policies).slice(0, 3).map((p) => p.name)
-        const monthly = sumCashMonthly(primary.filter((p) => p.priority === 'high'))
-        const text =
-          `말씀하신 상황으로 바로 찾아봤어요. 지금 신청해볼 만한 복지가 ${res.eligible_policies.length}개 있어요.\n` +
-          `대표적으로 ${top.join(', ')} 이에요.` +
-          (monthly > 0 ? `\n핵심 현금지원만 적게 잡아 더하면 월 ${formatWon(monthly)} 정도예요 — 실제 조건·중복수급에 따라 달라질 수 있어요.` : '') +
-          `\n자세한 자격과 신청 방법은 결과 화면에서 하나씩 짚어드릴게요.`
-        say({ text, cta: { view: 'analyze', label: '결과 화면에서 자세히 보기' } })
+        // 위저드로 정밀 입력한 기존 프로필·결과가 있으면 즉시 덮지 않는다 — CTA를 '눌렀을 때만' 교체
+        // (이 파일의 act 원칙 재사용: 한 문장의 거친 파싱값이 persist 프로필을 무단 열화하지 않게).
+        if (!profile) setAnalysis(prof, res)
+        // 낭독 개수·금액은 결과 화면 헤더와 같은 기준(정밀추천 POL-·보수 합산) — lib/voiceDiag 주석 참고
+        say({ text: buildVoiceDiagText(res), cta: { view: 'analyze', label: '결과 화면에서 자세히 보기' } },
+          undefined, profile ? () => setAnalysis(prof, res) : undefined)
       } else {
         // 📞→🖨 "등본 발급해줘"/"전부 발급해줘"도 통화에서 실동작 — 챗과 같은 인텐트·브리지 재사용.
         //   act는 CTA를 '눌렀을 때만'(외국어 핸드오프와 동일 원칙 — 스테일 보류 잔존 방지).
-        const r = agentReply(q, { profile, result, tracked, agentOn, issueDocs: agentOn ? localRpaDocs() : [] })
+        const r = agentReply(q, { profile, result, tracked, agentOn, issueDocs })
         // 🚀 "알아서 다 해줘"(run)는 담기+연쇄 보류+이동을 헬퍼가 일괄 수행(CTA의 setView와 목적지 동일)
         const act = r.autopilot === 'run' ? () => { startAutopilot() }
           : r.issueAll ? () => requestIssueAll() : r.issueDoc ? () => requestIssueDoc(r.issueDoc!) : undefined

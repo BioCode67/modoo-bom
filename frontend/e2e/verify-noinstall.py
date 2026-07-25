@@ -95,8 +95,10 @@ def main() -> int:
             page = ctx.new_page()
             page.on("pageerror", lambda e: errors.append(str(e)))
 
-            # 1) 나의 복지 → 서류 준비 도우미
+            # 1) 나의 복지 → '서류 발급' 탭 → 서류 준비 도우미(탭 레이아웃 — 기본 탭은 '담은 복지')
             page.goto(BASE + "?go=my", wait_until="domcontentloaded", timeout=30000)
+            page.wait_for_selector("[role='tab']:has-text('서류 발급')", timeout=15000)
+            page.click("[role='tab']:has-text('서류 발급')")
             page.wait_for_selector("text=서류 준비 도우미", timeout=15000)
             print("[verify] ✅ 1. 서류 준비 도우미 렌더(기초연금 시드)")
 
@@ -119,6 +121,8 @@ def main() -> int:
 
             # 새로고침 후에도 기억(persist) — 앱이 ?go를 지우므로(replaceState) 재진입은 ?go=my로
             page.goto(BASE + "?go=my", wait_until="domcontentloaded", timeout=30000)
+            page.wait_for_selector("[role='tab']:has-text('서류 발급')", timeout=15000)  # 재진입도 기본 탭은 '담은 복지'
+            page.click("[role='tab']:has-text('서류 발급')")
             page.wait_for_selector("text=발급 완료로 표시했어요", timeout=10000)
             print("[verify] ✅ 3.5 새로고침 후에도 발급 완료 유지(persist)")
 

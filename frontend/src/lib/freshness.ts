@@ -65,18 +65,27 @@ const STALE_GAP = 2
 
 const norm = (s: unknown): string => (typeof s === 'string' ? s.replace(/\s+/g, ' ').trim() : '')
 
+// 적용범위 문구 필터 — '2022년 1월 1일 이후 출생(아)'·'2022년 이후 출생' 같은 연도는
+// 제도의 '영구 대상 범위'이지 데이터 기준연도가 아니다. 이를 노후 신호로 오판하면
+// 2026 검증 시드(첫만남이용권 POL-007 등)에 '오래됐을 수 있음' 거짓 경고가 붙는다(정직성 위반).
+// 월·일은 생략될 수 있어 선택 매칭, '이후·이전·부터 출생' 문맥일 때만 제거(진짜 기준연도 '2021년 기준'은 유지).
+const SCOPE_YEAR_RE = /20\d{2}년(?:\s*\d{1,2}월(?:\s*\d{1,2}일)?)?\s*(?:이후|이전|부터)\s*출생아?/g
+
 /**
  * 연도 토큰(2020~2030)의 최댓값을 파싱한다.
  * 흐름:
  *  1) name/target/benefit/eligibility/renewal 만 이어붙인다(application은 bokjiro URL의
  *     숫자 id가 연도처럼 잡히는 오탐이 있어 제외 — 'moveTWAT52011M' 등).
- *  2) 앞뒤가 숫자가 아닌 경계에서만 202x·2030을 매칭(긴 숫자열 속 부분매칭 방지).
- *  3) 매칭 중 최댓값(가장 최근 개정 신호)을 채택. 없으면 null(날조 금지).
+ *  2) 적용범위 문구('20XX년 (M월 D일) 이후 출생' 등)를 먼저 제거 — 대상 범위 연도는
+ *     데이터 기준연도가 아니므로 신선도 신호에서 배제(SCOPE_YEAR_RE).
+ *  3) 앞뒤가 숫자가 아닌 경계에서만 202x·2030을 매칭(긴 숫자열 속 부분매칭 방지).
+ *  4) 매칭 중 최댓값(가장 최근 개정 신호)을 채택. 없으면 null(날조 금지).
  */
 function maxYear(policy: Policy): number | null {
   const text = [policy.name, policy.target, policy.benefit, policy.eligibility, policy.renewal]
     .map((x) => (typeof x === 'string' ? x : ''))
     .join(' ')
+    .replace(SCOPE_YEAR_RE, '')
   const re = /(?<![0-9])(202[0-9]|2030)(?![0-9])/g
   let m: RegExpExecArray | null
   let best: number | null = null

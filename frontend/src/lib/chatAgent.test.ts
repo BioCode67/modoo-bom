@@ -422,6 +422,102 @@ describe('상담 전화 인텐트', () => {
   })
 })
 
+describe('감사 회귀(5) — 서수 오인 방지: 접미사 필수 + 이름 지목 우선', () => {
+  const ctx5 = [mkP('A', '기초연금'), mkP('B', '아동수당'), mkP('C', '주거급여'), mkP('D', '에너지바우처'), mkP('E', '문화누리카드')]
+  it('"65세인데 기초연금 담아줘" — 나이의 \'세\'를 서수로 오인하지 않고 지목한 기초연금을 담는다', () => {
+    expect(matchSaveIntent('65세인데 기초연금 담아줘', ctx)?.map((p) => p.id)).toEqual(['A'])
+  })
+  it('"네 담아줘"(긍정 응답) — \'네\'를 서수 4로 오인하지 않고 보여준 것 전부', () => {
+    expect(matchSaveIntent('네 담아줘', ctx5)).toHaveLength(5)
+  })
+  it('"두시인데 담아줘" — 시각의 \'두\'를 서수로 오인하지 않음(보여준 것 전부)', () => {
+    expect(matchSaveIntent('두시인데 담아줘', ctx)).toHaveLength(3)
+  })
+  it('접미사 있는 서수("3번/두번째")는 여전히 해당 항목', () => {
+    expect(matchSaveIntent('3번 담아줘', ctx)?.[0].id).toBe('C')
+    expect(matchSaveIntent('두번째 담아줘', ctx)?.[0].id).toBe('B')
+  })
+  it('이름 지목이 서수 유사어와 섞여도 이름이 이긴다("둘째 말고 기초연금 담아줘")', () => {
+    expect(matchSaveIntent('둘째 말고 기초연금 담아줘', ctx)?.map((p) => p.id)).toEqual(['A'])
+  })
+  it('"65세인데 담아줘"(이름 지목 없음) — 3번째 하나가 아니라 보여준 것 전부', () => {
+    expect(matchSaveIntent('65세인데 담아줘', ctx)).toHaveLength(3)
+  })
+})
+
+describe('감사 회귀(6) — SAVE_RE 단독 "추가"가 숨은자격 질문을 가로채지 않음', () => {
+  it('"추가로 받을 수 있는 거 있어?"는 저장 의도가 아니다(전체 무단 저장 금지)', () => {
+    expect(matchSaveIntent('추가로 받을 수 있는 거 있어?', ctx)).toBeNull()
+    expect(matchSaveIntent('추가로 받을 수 있는게 있나요', ctx)).toBeNull()
+  })
+  it('실행형 "추가해줘"는 여전히 저장 의도', () => {
+    expect(matchSaveIntent('아동수당 추가해줘', ctx)?.[0].id).toBe('B')
+  })
+  it('실행형 "추가로 담아줘"도 여전히 저장 의도(보여준 것 전부)', () => {
+    expect(matchSaveIntent('추가로 담아줘', ctx)).toHaveLength(3)
+  })
+  it('agentReply는 이 질의에 숨은자격(gapReply)으로 답한다 — 자격 나열(ELIG)에 먹히지 않음', () => {
+    const r = agentReply('추가로 받을 수 있는 거 있어?', { profile: null, result: null })
+    expect(r.text).toContain('놓친')
+    expect(r.cta?.view).toBe('analyze')
+  })
+})
+
+describe('감사 회귀(7) — 생활고 호소를 complex(절차 격려)로 오라우팅하지 않음', () => {
+  it('생계 호소 문장은 misconception이 아니다(검색·긴급복지 경로 보존)', () => {
+    expect(matchMisconceptionIntent('생활이 어려워요')).toBeNull()
+    expect(matchMisconceptionIntent('형편이 어려워서 도움이 필요해요')).toBeNull()
+    expect(matchMisconceptionIntent('생계가 어려워요')).toBeNull()
+  })
+  it('절차 맥락의 complex는 유지', () => {
+    expect(matchMisconceptionIntent('신청이 너무 복잡해서 못 하겠어요')).toBe('complex')
+    expect(matchMisconceptionIntent('절차가 어려워요')).toBe('complex')
+  })
+  it('agentReply가 생활고 호소에 절차 격려문을 답하지 않는다', () => {
+    const r = agentReply('생활이 어려워요', { profile: null, result: null })
+    expect(r.text).not.toMatch(/주민센터 방문 한 번/)
+  })
+  it('isLocalIntent도 생계 호소를 misconception으로 잡지 않는다(LLM 경로 회복)', () => {
+    expect(isLocalIntent('생활이 어려워요')).toBe(false)
+  })
+})
+
+describe('감사 회귀(8) — 정책 지목 소득기준 질문은 상한표가 아니라 그 정책으로', () => {
+  it('"기초연금 소득 기준 알려줘" → 기초연금 카드(기초생활보장 표 아님)', () => {
+    const r = agentReply('기초연금 소득 기준 알려줘', { profile: null, result: null })
+    expect((r.policies ?? []).some((p) => p.name.includes('기초연금'))).toBe(true)
+    expect(r.text).not.toMatch(/생계급여\(중위 32%\)/)
+  })
+  it('"청년월세지원 소득 조건이 뭐예요?"도 정책 카드로', () => {
+    const r = agentReply('청년월세지원 소득 조건이 뭐예요?', { profile: null, result: null })
+    expect((r.policies ?? []).some((p) => p.name.replace(/\s/g, '').includes('청년월세지원'))).toBe(true)
+    expect(r.text).not.toMatch(/생계급여\(중위 32%\)/)
+  })
+  it('정책 지목 없는 일반 소득 질문은 여전히 상한표 + 별도 기준 정직 고지', () => {
+    const r = agentReply('소득 기준이 얼마예요?', { profile: null, result: null })
+    expect(r.text).toMatch(/생계급여.*32%/)
+    expect(r.text).toMatch(/별도 기준/) // 표 오독(거짓음성) 방지 고지
+  })
+})
+
+describe('감사 회귀(10) — "서류 뭐부터"는 신청 순위가 아니라 서류 안내', () => {
+  it('"서류 뭐부터 준비해야 해요?" → docsReply(서류 요약·CTA my)', () => {
+    const r = agentReply('서류 뭐부터 준비해야 해요?', { profile: null, result: null, tracked: [mkT('POL-001')] })
+    expect(r.text).not.toMatch(/순서로 챙기/)
+    expect(r.text).toContain('서류')
+    expect(r.cta?.view).toBe('my')
+  })
+  it('"서류 뭐부터 떼야 하나요?"도 서류 안내로(\'떼\'는 DOCS_RE 미포함이라 직행이 정답)', () => {
+    const r = agentReply('서류 뭐부터 떼야 하나요?', { profile, result, tracked: [mkT('POL-001')] })
+    expect(r.text).not.toMatch(/순서로 챙기/)
+    expect(r.cta?.view).toBe('my')
+  })
+  it('서류 토큰 없는 "뭐부터 신청해야 해?"는 여전히 우선순위', () => {
+    const r = agentReply('뭐부터 신청해야 해?', { profile, result, tracked: [] })
+    expect(r.text).toMatch(/순서로 챙기/)
+  })
+})
+
 describe('병합 계약 — 인텐트 체인 순서(양 브랜치 인텐트 공존)', () => {
   const noCtx = { profile: null, result: null }
   it("'뭐부터 신청?'은 우선순위 답(ELIG·ADVICE에 먹히지 않음)", () => {

@@ -75,6 +75,10 @@ def main():
             pg.screenshot(path=str(OUT/"12-my-full.png"), full_page=True)
             print("✅ 12-my-full")
             # 서류 준비 도우미(서류 자동발급/링크 UI)가 실제로 떠야 함 — 저장이 됐다는 증거
+            # 탭 레이아웃(기본: 담은 복지) — 저장 실패로 tracked=0이면 탭 자체가 없으니 클릭 실패는 무시하고
+            # 아래 미노출 검출이 잡는다(원인 그대로 보고).
+            try: pg.click("[role='tab']:has-text('서류 발급')", timeout=5000)
+            except Exception: pass
             try:
                 pg.get_by_text("서류 준비 도우미").scroll_into_view_if_needed(timeout=6000)
                 pg.wait_for_timeout(600)

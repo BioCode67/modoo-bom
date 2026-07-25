@@ -21,8 +21,12 @@ export function buildResultBriefing(result: AnalysisResult, profile: UserProfile
   const monthly = sumCashMonthly(primary.filter((p) => p.priority === 'high'))
   const docs = result.required_docs ?? []
 
+  // 정밀추천(POL-) 0건 폴백: 저신뢰 '관련 복지'(GOV-/LOC- 추론·PRV- 심사선발형)만 남은 상태 —
+  // 화면(ResultsView)·리포트(welfareReport)와 같은 구분 표기로, '맞춤/강력 추천'으로 승격해 읽지 않는다(정직성).
   const lines: string[] = [
-    `분석 결과를 전화로 짚어드릴게요. 맞춤 복지가 ${base.length}개, 그중 강력 추천이 ${high.length}개예요.`,
+    primary.length
+      ? `분석 결과를 전화로 짚어드릴게요. 맞춤 복지가 ${base.length}개, 그중 강력 추천이 ${high.length}개예요.`
+      : `분석 결과를 전화로 짚어드릴게요. 정밀 기준에 딱 맞는 복지는 못 찾았지만, 살펴볼 관련 복지가 ${base.length}개 있어요 — 자격은 상세 확인이 필요해요.`,
   ]
   top.forEach((p, i) => {
     lines.push(`${i + 1}번, ${p.name}${p.reason ? ` — ${p.reason}` : ''}`)

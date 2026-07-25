@@ -74,9 +74,12 @@ def main():
             pg.wait_for_timeout(600); hof("home")
             print("[mobile] ✅ 홈 로드(오버플로 0)")
             mclick("나의 복지")
+            # 탭 레이아웃(기본: 담은 복지) — 서류 도우미는 '서류 발급' 탭에 있다(desktop-smoke goto_my_docs와 동일 패턴)
+            pg.wait_for_selector("[role='tab']:has-text('서류 발급')", timeout=15000)
+            pg.click("[role='tab']:has-text('서류 발급')")
             pg.wait_for_selector("text=서류 준비 도우미", timeout=15000)
             pg.wait_for_timeout(600); hof("나의복지")
-            print("[mobile] ✅ 하단탭 → 나의 복지 · 서류 도우미")
+            print("[mobile] ✅ 하단탭 → 나의 복지 · 서류 발급 탭 · 서류 도우미")
             btn = pg.locator("button:has-text('📷 촬영')").first
             btn.scroll_into_view_if_needed(); btn.click()
             pg.wait_for_selector("div[role='dialog'][aria-label*='촬영']", timeout=8000)

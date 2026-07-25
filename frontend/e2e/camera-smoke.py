@@ -96,8 +96,11 @@ def main() -> int:
                 pass
 
             page.click("text=나의 복지")
+            # 탭 레이아웃(기본: 담은 복지) — 서류 도우미는 '서류 발급' 탭에 있다(desktop-smoke goto_my_docs와 동일 패턴)
+            page.wait_for_selector("[role='tab']:has-text('서류 발급')", timeout=15000)
+            page.click("[role='tab']:has-text('서류 발급')")
             page.wait_for_selector("text=서류 준비 도우미", timeout=15000)
-            print("[cam] ✅ 나의 복지 → 서류 준비 도우미(청년월세지원 서류 노출)")
+            print("[cam] ✅ 나의 복지 → 서류 발급 탭 → 서류 준비 도우미(청년월세지원 서류 노출)")
 
             # 임대차계약서 = 본인 준비물 → 📷 촬영 버튼(웹에서도 노출: userProvided)
             cam_btn = page.locator("button:has-text('📷 촬영')").first
@@ -164,6 +167,7 @@ def main() -> int:
             # 추가 검증: 자동신청 버튼 노출(데모 최대 결함 수정) — 청년월세지원 상세에 '에이전트 자동 신청' 카드가 뜨는가.
             #   과거 application이 표시문자열이라 버튼이 통째로 숨었다(showApply=false→return null). 지금은 복지로 딥링크
             #   해석(isBokjiroLocal)으로 노출돼야 한다(백엔드 없는 프리뷰는 '공식 신청 페이지' 폴백 카드로, 제목은 동일).
+            page.click("[role='tab']:has-text('담은 복지')")  # 담은 복지 카드는 기본 탭에 있다(탭 레이아웃)
             page.get_by_role("button", name="청년월세지원", exact=True).first.click()
             page.wait_for_selector("text=에이전트 자동 신청", timeout=8000)
             print("[cam] ✅ 청년월세지원 상세 → '에이전트 자동 신청' 카드 노출(자동신청 숨김 결함 수정 확인)")

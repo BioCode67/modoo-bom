@@ -31,6 +31,22 @@ describe('buildResultBriefing — 📞 결과 음성 브리핑', () => {
   it('적격 0건이면 null(브리핑 없음)', () => {
     expect(buildResultBriefing({ eligible_policies: [], required_docs: [] } as never)).toBeNull()
   })
+
+  it('정밀추천(POL-) 0건 폴백: 저신뢰 관련 복지를 "맞춤/강력 추천"으로 승격해 읽지 않는다', () => {
+    // GOV- 추론 결과만 남은 상태 — 리포트(welfareReport)·화면(ResultsView)과 같은 강등 표기여야 한다
+    const related = [
+      { id: 'GOV-000001', name: '지역 복지 서비스', priority: 'high', reason: '텍스트 추론', benefit: '' },
+      { id: 'LOC-000002', name: '동네 지원 사업', priority: 'medium', reason: '텍스트 추론', benefit: '' },
+    ]
+    const b = buildResultBriefing({ eligible_policies: related, required_docs: [] } as never)!
+    expect(b).not.toBeNull()
+    expect(b.text).not.toContain('맞춤 복지가')
+    expect(b.text).not.toContain('강력 추천이')
+    expect(b.text).toContain('살펴볼 관련 복지가 2개')
+    expect(b.text).toContain('자격은 상세 확인이 필요해요')
+    // top3 동반은 유지(담기 대화 성립) — 승격 없이 안내만 바뀐다
+    expect(b.policies.length).toBe(2)
+  })
 })
 
 describe('buildResultBriefing — 프로필 인사이트 덧붙임', () => {
