@@ -7,7 +7,7 @@
   본선 발표자료(PDF만 허용) — 7/20 제출용 10분 덱(16장). 3분 라이브 피치는 docs/기획서자료/발표-대본.md 참조.
   · 텍스트는 이 파일에서 바로 수정 → docs/발표/render-deck.py 실행하면 PDF 재생성.
   · 팀 정보 기입 완료: 영남대학교 · 팀 모두봄 · 김주형·류다영·신주현·이준영·장지웅.
-  · 수치는 CLAUDE.md v0.3.2 기준(테스트 1,412+397=1,809·데이터 5,300여·E2E 12스위트) — 제출 직전 재확인.
+  · 수치는 CLAUDE.md v0.3.2 기준(테스트 1,415+397=1,812·데이터 5,300여·E2E 12스위트) — 제출 직전 재확인.
 -->
 <style>
   @font-face { font-family: 'Pretendard Variable'; font-weight: 100 900; font-style: normal;
@@ -146,10 +146,10 @@
           <div class="muted" style="font-size:14px; font-weight:600; margin-top:3px;">정적 배포 + 온디바이스 AI</div>
         </div>
         <div class="card" style="flex:1;">
-          <div style="font-size:42px; font-weight:900; color:#ea580c; line-height:1;">1,809</div>
+          <div style="font-size:42px; font-weight:900; color:#ea580c; line-height:1;">1,812</div>
           <div style="width:36px; height:4px; border-radius:99px; background:#ea580c; margin:12px 0 11px;"></div>
           <div style="font-size:18px; font-weight:800;">자동화 품질 테스트</div>
-          <div class="muted" style="font-size:14px; font-weight:600; margin-top:3px;">프론트 1,412 + 백엔드 397</div>
+          <div class="muted" style="font-size:14px; font-weight:600; margin-top:3px;">프론트 1,415 + 백엔드 397</div>
         </div>
         <div class="card" style="flex:1;">
           <div style="font-size:42px; font-weight:900; color:#15803d; line-height:1;">15<span style="font-size:20px;"> 종</span></div>
@@ -419,7 +419,7 @@
     <h2>숫자마다 <span class="grad">검증 근거를 붙였습니다</span></h2>
     <div class="row" style="margin-top:26px;">
       <div class="card" style="flex:1; text-align:center;"><div class="stat-n">약 5,300건</div><div class="stat-l">실데이터 — 공공데이터 OpenAPI(중앙 460·지자체 4,683) + 실측 큐레이션 190</div></div>
-      <div class="card" style="flex:1; text-align:center;"><div class="stat-n">1,809</div><div class="stat-l">자동테스트 — 프론트 1,412 · 백엔드 397 (전부 통과 상태로 배포)</div></div>
+      <div class="card" style="flex:1; text-align:center;"><div class="stat-n">1,812</div><div class="stat-l">자동테스트 — 프론트 1,415 · 백엔드 397 (전부 통과 상태로 배포)</div></div>
       <div class="card" style="flex:1; text-align:center;"><div class="stat-n">12스위트</div><div class="stat-l">실브라우저 E2E 회귀 — 웹 10여정 · 데스크탑앱 30종 · 접근성 axe 위반 0 · 모바일·촬영·흐름</div></div>
       <div class="card" style="flex:1; text-align:center;"><div class="stat-n">환각 0</div><div class="stat-l">결과·금액은 전부 규칙·데이터 기반 — AI 답변도 검색결과로만 생성</div></div>
     </div>
@@ -526,7 +526,7 @@
         <span style="display:inline-block; width:190px; vertical-align:middle;"><span style="font-weight:800; color:#16281c; font-size:19px;">창의성</span> <span style="font-weight:900; color:#15803d; font-size:26px; margin-left:2px;">30</span><span style="color:#8aa79a; font-weight:700; font-size:15px; margin-left:1px;">점</span></span><span style="display:inline-block; width:calc(100% - 214px); vertical-align:middle; font-size:16px; font-weight:600; padding-left:20px;">추천을 넘어 <b>행동</b>(실제 정부24 자동조작) · <b>민간재단 21건</b> · 온디바이스 — 기존에 없는 조합</span>
       </div>
       <div class="card" style="padding:22px 28px;">
-        <span style="display:inline-block; width:190px; vertical-align:middle;"><span style="font-weight:800; color:#16281c; font-size:19px;">구현 완성도</span> <span style="font-weight:900; color:#15803d; font-size:26px; margin-left:2px;">25</span><span style="color:#8aa79a; font-weight:700; font-size:15px; margin-left:1px;">점</span></span><span style="display:inline-block; width:calc(100% - 214px); vertical-align:middle; font-size:16px; font-weight:600; padding-left:20px;">자동테스트 <b>1,809</b>(프론트 1,412·백엔드 397) · 실브라우저 E2E <b>12스위트</b> · 실데이터 약 <b>5,300건</b> · 환각 0 설계</span>
+        <span style="display:inline-block; width:190px; vertical-align:middle;"><span style="font-weight:800; color:#16281c; font-size:19px;">구현 완성도</span> <span style="font-weight:900; color:#15803d; font-size:26px; margin-left:2px;">25</span><span style="color:#8aa79a; font-weight:700; font-size:15px; margin-left:1px;">점</span></span><span style="display:inline-block; width:calc(100% - 214px); vertical-align:middle; font-size:16px; font-weight:600; padding-left:20px;">자동테스트 <b>1,812</b>(프론트 1,415·백엔드 397) · 실브라우저 E2E <b>12스위트</b> · 실데이터 약 <b>5,300건</b> · 환각 0 설계</span>
       </div>
       <div class="card" style="padding:22px 28px;">
         <span style="display:inline-block; width:190px; vertical-align:middle;"><span style="font-weight:800; color:#16281c; font-size:19px;">사용자 편의성</span> <span style="font-weight:900; color:#15803d; font-size:26px; margin-left:2px;">20</span><span style="color:#8aa79a; font-weight:700; font-size:15px; margin-left:1px;">점</span></span><span style="display:inline-block; width:calc(100% - 214px); vertical-align:middle; font-size:16px; font-weight:600; padding-left:20px;">큰글씨·음성·TTS·통화·<b>7개 언어</b>·PWA · Lighthouse 접근성 <b>96</b></span>
