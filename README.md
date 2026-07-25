@@ -17,7 +17,7 @@
 
 > 모두봄의 AI는 **브라우저에서 직접 도는 온디바이스 AI**입니다 — 복지 추천·다국어 의미검색·급여계산이 회원가입도, 서버 전송도 없이 항상 즉시 동작합니다.
 
-![tests](https://img.shields.io/badge/frontend_tests-1373_passed-brightgreen) ![pytest](https://img.shields.io/badge/backend_pytest-397_passed-brightgreen) ![e2e](https://img.shields.io/badge/E2E_실브라우저-12스위트·에러0-brightgreen) ![data](https://img.shields.io/badge/실데이터-5,300여건_검증-blue) ![lighthouse](https://img.shields.io/badge/Lighthouse-A11y100·BP100·SEO100-blue)
+![tests](https://img.shields.io/badge/frontend_tests-1412_passed-brightgreen) ![pytest](https://img.shields.io/badge/backend_pytest-397_passed-brightgreen) ![e2e](https://img.shields.io/badge/E2E_실브라우저-12스위트·에러0-brightgreen) ![data](https://img.shields.io/badge/실데이터-5,300여건_검증-blue) ![lighthouse](https://img.shields.io/badge/Lighthouse-A11y100·BP100·SEO100-blue)
 
 회원가입·백엔드 없이 바로 동작합니다. 프론트엔드는 **전국 약 5,300건 복지**(보건복지부 검증 큐레이션 124 + 정부지원사업·청년주택·서민금융 45
 + 민간재단 큐레이션 21 + 한국사회보장정보원 공공데이터 5,143(중앙460·지자체4,683) — 현대차 정몽구 스칼러십·심장재단 수술비 등
@@ -47,7 +47,7 @@
 - **접근성** — 음성 입력·음성 안내(TTS), 큰글씨, 인쇄/PDF("내 복지 안내서"), reduced-motion
 - **3D 카툰 UI / PWA** — 새싹 마스코트(React Three Fiber, 지연 로딩) + framer-motion, 반응형, 설치형·오프라인 PWA
 
-품질: ESLint(0) · 단위 테스트(프론트 vitest 1,373 · 백엔드 pytest 397) · 실브라우저 E2E 12스위트(웹·데스크탑·모바일·촬영·흐름·접근성) · TypeScript · ErrorBoundary · 주요 복지 금액 2026년 공식 출처 검증
+품질: ESLint(0) · 단위 테스트(프론트 vitest 1,412 · 백엔드 pytest 397) · 실브라우저 E2E 12스위트(웹·데스크탑·모바일·촬영·흐름·접근성) · TypeScript · ErrorBoundary · 주요 복지 금액 2026년 공식 출처 검증
 
 ### 자동 서류발급 · 자동 신청
 
@@ -320,7 +320,7 @@ modoo-bom/
     │   │                            #   EmergencyHelp, DocumentCenter, AgentSubmitButton,
     │   │                            #   DocVault(서류함), AgentStatusStrip(점검), DocCameraModal(촬영),
     │   │                            #   PolicyCard/Drawer, BenefitCharts, ChatWidget, ShareButton …
-    │   └── src/**/*.test.ts         # vitest 1,373 (엔진·검색·모니터링·docScan·authCue …)
+    │   └── src/**/*.test.ts         # vitest 1,412 (엔진·검색·모니터링·docScan·authCue …)
     └── public/                      # favicon, 404.html, robots.txt, (policies.json: ETL 생성)
 ```
 
@@ -400,7 +400,7 @@ modoo-bom/
 
 - **정직성 코드화**: 민간재단·서민금융은 심사·상환형이라 `priority high/신뢰도 0.68↑` 표시가 테스트에서 거부됨.
   현금성 합산은 보수적(바우처·대출 제외). 모집종료 정책은 추천 제외(`isClosedForNew`).
-- **품질 게이트**: 프론트 vitest 1,373 · 백엔드 pytest 397 · 실브라우저 E2E 12스위트(웹 10여정·데스크탑 31종·모바일·촬영·흐름·접근성 axe 0
+- **품질 게이트**: 프론트 vitest 1,412 · 백엔드 pytest 397 · 실브라우저 E2E 12스위트(웹 10여정·데스크탑 31종·모바일·촬영·흐름·접근성 axe 0
   +대화온보딩·저장흐름·확장연동·라이브체크 전용 게이트) · lint 0 · tsc 0 — 매 변경마다 실행.
 - **멀티에이전트 상호감사**: 29개 AI 에이전트가 데이터·URL·코드·문구·보안 5차원을 감사하고 발견마다 별도 검증자가 반박 시도 —
   확정 23건 전부 즉시 정정(오탐 1건은 반박으로 기각). "AI가 만들고 AI가 감사하는" 개발 프로세스 자체가 차별점.
