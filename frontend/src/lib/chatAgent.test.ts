@@ -69,6 +69,48 @@ describe('agentReply — 개인화·행동형 응답', () => {
   })
 })
 
+describe('agentReply — 소득 기준(얼마까지 벌어도 되나) 인텐트', () => {
+  it('"소득 기준 얼마" → 급여별 소득인정액 상한표 + 계산기 CTA', () => {
+    const r = agentReply('소득 기준이 얼마예요?', { profile: null, result: null })
+    expect(r.text).toMatch(/소득인정액/)
+    expect(r.text).toMatch(/생계급여.*32%/)
+    expect(r.text).toMatch(/만원/) // 가구원수별 월 상한 금액
+    expect(r.cta?.view).toBe('explore')
+  })
+  it('"얼마까지 벌어도 받아요?"도 소득 인텐트로(자격 인텐트보다 우선)', () => {
+    const r = agentReply('얼마까지 벌어도 받을 수 있어요?', { profile: null, result: null })
+    expect(r.text).toMatch(/소득인정액|급여별/)
+  })
+  it('"얼마나 받아요?"(수령액)는 소득 인텐트가 아니다(오발동 방지)', () => {
+    const r = agentReply('얼마나 받아요?', { profile: null, result: null })
+    expect(r.text).not.toMatch(/급여별 소득인정액 월 상한/)
+  })
+  it('isLocalIntent가 소득 질문을 로컬로 처리(클라우드 미전송)', () => {
+    expect(isLocalIntent('소득 얼마까지 벌어도 되나요')).toBe(true)
+  })
+})
+
+describe('agentReply — 우선순위(뭐부터 신청?) 인텐트', () => {
+  it('"뭐부터 신청해야 해?" → 점수순 추천 + 나의복지 CTA', () => {
+    const r = agentReply('뭐부터 신청해야 해?', { profile, result, tracked: [] })
+    expect(r.text).toMatch(/순서로 챙기/)
+    expect(r.text).toMatch(/기초연금/)
+    expect((r.policies ?? []).length).toBeGreaterThan(0)
+    expect(r.cta?.view).toBe('my')
+  })
+  it('담은 것·결과 모두 없으면 분석 유도', () => {
+    const r = agentReply('우선순위 알려줘', { profile: null, result: null, tracked: [] })
+    expect(r.cta?.view).toBe('analyze')
+  })
+  it('"뭐 받을 수 있어?"(자격)는 우선순위 인텐트가 아니다', () => {
+    const r = agentReply('뭐 받을 수 있어?', { profile, result, tracked: [] })
+    expect(r.text).not.toMatch(/순서로 챙기/)
+  })
+  it('isLocalIntent가 우선순위 질문을 로컬 처리', () => {
+    expect(isLocalIntent('뭐부터 신청해?')).toBe(true)
+  })
+})
+
 const mkP = (id: string, name: string): Policy =>
   ({ id, name, category: '', target: '', benefit: '', eligibility: '', application: '', required_docs: [], department: '', renewal: '' } as Policy)
 const ctx = [mkP('A', '기초연금'), mkP('B', '아동수당'), mkP('C', '주거급여')]
@@ -90,6 +132,11 @@ describe('matchSaveIntent — 대화 맥락 기억(직전 복지를 가리켜 �
     expect(matchSaveIntent('3개 담아줘', ctx)).toHaveLength(3)   // 3번째 하나가 아니라 3건
     expect(matchSaveIntent('2개 저장해줘', ctx)?.map((p) => p.id)).toEqual(['A', 'B'])
     expect(matchSaveIntent('2가지 담아줘', ctx)).toHaveLength(2)
+  })
+  it('한글 수사 개수("두 개/세 개/한 개") → 앞에서 N건(서수 오인 방지)', () => {
+    expect(matchSaveIntent('두 개 담아줘', ctx)?.map((p) => p.id)).toEqual(['A', 'B']) // 2번째 하나가 아니라 2건
+    expect(matchSaveIntent('세 개 저장해줘', ctx)).toHaveLength(3)
+    expect(matchSaveIntent('한 개만 담아줘', ctx)?.map((p) => p.id)).toEqual(['A'])
   })
   it('이름 직접 언급 → 해당 정책', () => {
     expect(matchSaveIntent('아동수당 담아줘', ctx)?.[0].id).toBe('B')

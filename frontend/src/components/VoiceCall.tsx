@@ -229,7 +229,7 @@ export function VoiceCall({ open, onClose, presetLang, onTranscript, briefing }:
           <SproutLogo withFace className="h-11 w-11" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="font-extrabold text-xl">새싹이 복지 상담</p>
+          <p className="font-extrabold text-xl">새싹이 복지 상담 <span className="align-middle rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-bold text-violet-700">베타</span></p>
           <p className="text-sm text-muted-foreground" aria-live="polite">
             {speech.listening ? L.statusListening : thinking ? L.statusThinking : tts.speaking ? L.statusSpeaking : L.statusIdle}
           </p>

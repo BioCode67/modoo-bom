@@ -5,7 +5,7 @@ import os
 import pathlib
 import sys
 from datetime import datetime
-from typing import Optional, Callable
+from typing import Optional
 
 
 def get_launch_options(slow_mo: int = None, headless: bool | None = None) -> dict:
@@ -284,8 +284,43 @@ def _looks_valid_doc(path: pathlib.Path) -> bool:
         return False
 
 
+async def _probe_content_frames(page):
+    """프레임별 '실제 그려진 본문' 크기 — (메인 프레임 면적, 최대 자식 프레임, 그 면적).
+    면적 = 로드 완료(complete)된 큰 이미지·캔버스의 픽셀 면적 합. 실패는 0/None(무해)."""
+    js = (
+        "() => [...document.querySelectorAll('img,canvas')]"
+        ".filter(e => (e.tagName === 'CANVAS') ? (e.width > 150 && e.height > 150)"
+        " : (e.complete && e.naturalWidth > 150 && e.naturalHeight > 150))"
+        ".reduce((s, e) => s + ((e.naturalWidth || e.width || 0) * (e.naturalHeight || e.height || 0)), 0)"
+    )
+    main_area = 0
+    try:
+        r = await page.evaluate(js)
+        main_area = int(r) if isinstance(r, (int, float)) else 0
+    except Exception:
+        pass
+    best_fr, best_area = None, 0
+    try:
+        for fr in list(getattr(page, "frames", None) or []):
+            if fr is getattr(page, "main_frame", None):
+                continue
+            try:
+                r = await fr.evaluate(js)
+                a = int(r) if isinstance(r, (int, float)) else 0
+            except Exception:
+                continue
+            if a > best_area:
+                best_fr, best_area = fr, a
+    except Exception:
+        pass
+    return main_area, best_fr, best_area
+
+
 async def save_document(page, name: str, user_name: str = "") -> Optional[str]:
     """발급된 서류 페이지를 파일로 '반드시' 저장한다.
+    0순위: 본문이 '자식 프레임에만' 그려진 문서출력 창은 그 iframe 요소를 스크린샷(PNG).
+      ⚠️ 실사용 확정(시연 아침, 등본 빈 PDF): printToPDF 는 교차출처 iframe 을 빈 종이로 찍는다 —
+      스크린샷은 합성(컴포지터) 기반이라 교차출처여도 화면 픽셀 그대로 담긴다.
     1순위 PDF(CDP Page.printToPDF — headed에서도 시도), 실패 시 전체 스크린샷(PNG) 폴백.
     저장 후 무결성(_looks_valid_doc)까지 통과해야 성공 — 깨진 PDF는 지우고 PNG로 폴백.
     저장 경로를 반환하고, 완전 실패 시 None.
@@ -298,10 +333,32 @@ async def save_document(page, name: str, user_name: str = "") -> Optional[str]:
     if base.with_suffix(".pdf").exists() or base.with_suffix(".png").exists():
         # 같은 분(分)에 재발급 — 초를 붙여 덮어쓰기 방지
         base = DOCS_DIR / f"{base.name}_{datetime.now().strftime('%S')}"
-    # 1) PDF (Chrome DevTools Protocol)
+    # 0) 본문이 자식 프레임에만 있으면 iframe 요소 스크린샷이 유일하게 '내용이 담기는' 캡처다
+    try:
+        main_area, child_fr, child_area = await _probe_content_frames(page)
+        if child_fr is not None and child_area >= 200 * 200 and main_area < 200 * 200:
+            el = await child_fr.frame_element()
+            out = base.with_suffix(".png")
+            await el.screenshot(path=str(out))
+            if _looks_valid_doc(out):
+                return str(out)
+            out.unlink(missing_ok=True)
+    except Exception:
+        pass
+    # 1) PDF (Chrome DevTools Protocol) — 문서가 A4 폭보다 넓으면(가로 스크롤 해제 후 등)
+    #    축소 배율로 전체 폭을 담는다(실사용: 인쇄가 보이는 폭만 찍어 우측이 잘리던 것 방지).
     try:
         client = await page.context.new_cdp_session(page)
-        res = await client.send("Page.printToPDF", {"printBackground": True})
+        _pdf_params = {"printBackground": True}
+        try:
+            _w = await page.evaluate(
+                "() => Math.max(document.documentElement.scrollWidth, document.body ? document.body.scrollWidth : 0)"
+            )
+            if isinstance(_w, (int, float)) and _w > 850:  # A4 세로 ≈ 794px(96dpi)
+                _pdf_params["scale"] = max(0.35, min(1.0, 794.0 / float(_w)))
+        except Exception:
+            pass
+        res = await client.send("Page.printToPDF", _pdf_params)
         data = res.get("data")
         if data:
             out = base.with_suffix(".pdf")
@@ -322,21 +379,20 @@ async def save_document(page, name: str, user_name: str = "") -> Optional[str]:
     except Exception:
         return None
 
-# 카카오 간편인증 버튼 선택자 (각 사이트에서 공통적으로 사용)
-KAKAO_SELECTORS = [
-    "a:has-text('카카오')",
-    "button:has-text('카카오')",
-    "img[alt*='카카오']",
-    ".kakao-login",
-    "[class*='kakao']",
-    "a[href*='kakao']",
-]
-
 # ★ 카카오톡(TALK) 전용 선택자 — 카카오뱅크/카카오스토리와 구분
 # plus.gov.kr 간편인증(oacx 위젯)은 카카오톡을 라디오형 label/li + img[alt='카카오톡'] 로 노출.
 KAKAOTALK_SELECTORS = [
     "a[title='카카오톡']",
     "img[alt='카카오톡']",
+    # ⚠️ 복지로 실측(2026-07-21): 제공자 로고 링크가 가시 텍스트·img alt 없이 'aria-label'로만 이름을 준다
+    #    (흐름기록: name='카카오톡'인데 text 없음). 아래 aria-label 셀렉터가 없으면 카카오톡 타일이 안 눌린다.
+    #    정확/부분 일치 모두 '카카오톡'만 — '카카오뱅크'(aria-label='카카오뱅크')엔 '카카오톡'이 없어 오클릭 없음.
+    "[aria-label='카카오톡']",
+    "a[aria-label*='카카오톡']",
+    "button[aria-label*='카카오톡']",
+    # text= 는 Playwright가 '해당 텍스트를 담는 가장 작은 요소'를 잡는다 — 신형(2026-07) 민간인증서
+    # 타일 그리드(로고+라벨 div 타일, li/a/button 아님)에서 라벨 스팬을 정확히 클릭(실사용 제보).
+    "text=카카오톡",
     "label:has-text('카카오톡')",
     "li:has-text('카카오톡')",
     "a:has-text('카카오톡')",
@@ -357,6 +413,18 @@ AUTH_FORM_SELECTORS = [
     "button:has-text('전체동의')",
     "label:has-text('전체동의')",
     "input[type='checkbox']",
+]
+
+# 간편인증 '인증 완료' 버튼 — 폰에서 승인한 뒤 이 버튼을 눌러야 로그인이 완료된다.
+#   (사용자 요청) 폰 승인만 하면 앱이 이 버튼을 자동으로 눌러준다 — 승인 전 클릭은 gov24가 '미완료'
+#   안내만 띄우고 무해하므로, 간격을 두고 재시도해 승인되는 순간 완료된다. 실제 본인인증(폰)은 사용자 몫.
+AUTH_CONFIRM_SELECTORS = [
+    "button:has-text('인증 완료')",
+    "button:has-text('인증완료')",
+    "a:has-text('인증 완료')",
+    "a:has-text('인증완료')",
+    "input[value*='인증 완료']",
+    "input[value*='인증완료']",
 ]
 
 AUTH_FORM_USER_GUIDE = (
@@ -396,12 +464,16 @@ LOGIN_PAGE_URL_KEYWORDS = [
 # ── 간편인증 제공자 정의 — 어르신 다수가 카카오 미사용(통신사 PASS 등)이라 수단 선택 필수(복지관 현장) ──
 # labels: has-text/alt 정확 매칭용 표시 라벨 · tokens: JS 텍스트 포함 매칭 · loose: 최후 폴백 · exclude: 오클릭 방지
 AUTH_PROVIDERS = {
+    # ⚠️ exclude 는 '느슨한 매칭(loose)'이 페이지 전체를 뒤질 때의 오클릭 차단 목록.
+    #   '스토리/story'는 실사용 확정 사고(2026-07-20 새벽 데모): 간편인증 iframe 을 못 찾은 폴백에서
+    #   loose '카카오'가 정부24 푸터의 '카카오스토리' SNS 링크(페이지 마지막 매칭)를 클릭해
+    #   story.kakao.com 새 탭이 열림. 네이버도 푸터 '네이버블로그' 링크가 같은 계열이라 함께 차단.
     "kakao": {"labels": ["카카오톡"], "tokens": ["카카오톡", "kakaotalk"], "loose": ["카카오", "kakao"],
-              "exclude": ["뱅크", "bank"], "display": "카카오톡"},
+              "exclude": ["뱅크", "bank", "스토리", "story"], "display": "카카오톡"},
     "pass":  {"labels": ["통신사PASS", "통신사 PASS", "PASS"], "tokens": ["통신사pass", "통신사 pass", "pass(통신사)"],
               "loose": ["pass", "통신사"], "exclude": ["카카오", "kakao", "password", "페이코", "payco"], "display": "통신사 PASS"},
     "naver": {"labels": ["네이버"], "tokens": ["네이버", "naver"], "loose": ["네이버"],
-              "exclude": ["뱅크", "bank", "페이", "웨일"], "display": "네이버"},
+              "exclude": ["뱅크", "bank", "페이", "웨일", "블로그", "blog"], "display": "네이버"},
     "toss":  {"labels": ["토스"], "tokens": ["토스", "toss"], "loose": ["토스"],
               "exclude": ["뱅크", "bank"], "display": "토스"},
 }
@@ -412,49 +484,89 @@ def provider_display(provider: str) -> str:
     return AUTH_PROVIDERS.get(str(provider or "").lower(), AUTH_PROVIDERS["kakao"])["display"]
 
 
-async def click_provider_in_anyid(page, provider: str = "kakao", attempts: int = 4) -> bool:
+async def click_provider_in_anyid(page, provider: str = "kakao", attempts: int = 4):
     """간편인증 위젯에서 선택 제공자를 클릭 — 위젯 내부가 늦게 렌더돼도 되도록 재시도(감사 확정).
 
     위젯 iframe 이 'URL 등장 즉시' 반환된 뒤 내부 버튼이 아직 안 그려졌을 때 1회 클릭은 불발한다.
-    → 짧은 간격으로 여러 번 시도해 버튼이 나타나는 순간 클릭한다. (기본 4회 × ~1.2초)"""
+    → 짧은 간격으로 여러 번 시도해 버튼이 나타나는 순간 클릭한다. (기본 4회 × ~1.2초)
+
+    반환: "trusted"(Playwright 신뢰 클릭·위젯에 실제 등록됨) | "js"(JS 클릭·위젯이 무시 가능·미확정)
+          | False(실패). 호출부는 truthy 로 '클릭 시도됨'을 보고, **선택이 확실해야 하는** 자동 인증요청은
+          == "trusted" 로 게이트한다(미선택 상태 요청 시 '인증서비스를 선택하여 주십시오' 오류 방지)."""
     if str(provider or "").lower() not in AUTH_PROVIDERS:
         provider = "kakao"  # 비표준/오타 값은 카카오로(프론트는 유효값만 보내나 방어)
     for i in range(max(1, attempts)):
-        if await _click_provider_once(page, provider):
-            return True
+        r = await _click_provider_once(page, provider)
+        if r:
+            return r  # "trusted" | "js"
         await asyncio.sleep(1.0)  # 위젯 내부 렌더 대기 후 재시도
     return False
 
 
-async def _click_provider_once(page, provider: str = "kakao") -> bool:
-    """제공자 클릭 1회 시도 — 정확 셀렉터 → JS 토큰 매칭 → 느슨한 폴백(뱅크/페이 오클릭은 exclude로 차단)."""
-    p = AUTH_PROVIDERS.get(str(provider or "").lower(), AUTH_PROVIDERS["kakao"])
+def _sibling_contexts(ctx):
+    """주어진 컨텍스트(Page|Frame)를 맨 앞에, 같은 브라우저 컨텍스트의 다른 프레임·창을 뒤에 붙인 목록.
 
-    # 1단계: Playwright 선택자 — 카카오는 검증된 테이블, 그 외는 라벨 기반 생성
+    ⚠️ 실사용 확정(2026-07-20 시연 리허설): 신형 plus.gov.kr 로그인 간편인증 창은 '민간인증서'
+    제공자 그리드와 '본인인증 정보 입력' 폼이 **서로 다른 프레임**에 렌더된다 — 폼 프레임(auth_ctx)만
+    뒤지면 자동입력은 되는데 카카오톡 타일 클릭만 불발. 그래서 제공자 클릭은 형제 프레임(나아가
+    형제 창)까지 순서대로 탐색한다. 프레임 접근 실패·페이크 객체(테스트)는 조용히 [ctx]만 반환."""
+    out = [ctx]
+    seen = {id(ctx)}
+    try:
+        pages = []
+        pg = ctx if getattr(ctx, "frames", None) is not None else getattr(ctx, "page", None)  # Page | Frame.page
+        if pg is not None:
+            pages.append(pg)
+            bctx = getattr(pg, "context", None)  # 브라우저 컨텍스트 — 별창(팝업) 레이아웃 대응
+            for p2 in (getattr(bctx, "pages", None) or []):
+                if id(p2) not in {id(x) for x in pages}:
+                    pages.append(p2)
+        for p2 in pages:
+            try:
+                if getattr(p2, "is_closed", None) and p2.is_closed():
+                    continue
+                for fr in [p2] + list(getattr(p2, "frames", None) or []):
+                    if id(fr) not in seen:
+                        seen.add(id(fr))
+                        out.append(fr)
+            except Exception:
+                continue
+    except Exception:
+        pass
+    return out
+
+
+async def _provider_click_selectors(ctx, p):
+    """1단계: Playwright 신뢰 클릭 — 카카오는 검증 테이블, 그 외는 라벨 기반 생성."""
     if p is AUTH_PROVIDERS["kakao"]:
         selectors = KAKAOTALK_SELECTORS
     else:
         selectors = []
         for lab in p["labels"]:
             selectors += [
-                f"a[title*='{lab}']", f"img[alt*='{lab}']",
+                f"a[title*='{lab}']", f"img[alt*='{lab}']", f"[aria-label*='{lab}']", f"text={lab}",
                 f"label:has-text('{lab}')", f"li:has-text('{lab}')",
                 f"a:has-text('{lab}')", f"button:has-text('{lab}')",
             ]
     for sel in selectors:
         try:
-            el = page.locator(sel).first
+            el = ctx.locator(sel).first
             if await el.count() > 0:
                 await el.scroll_into_view_if_needed()
                 await el.click()
                 await asyncio.sleep(1.2)
-                return True
+                return True  # Playwright 신뢰 클릭 — 정부24 위젯이 실제 선택으로 등록
         except Exception:
             continue
+    return False
 
-    # 2단계: JS — 토큰 포함 + exclude 제외 (텍스트·alt·title·data-*·클래스 종합)
+
+async def _provider_click_tokens_js(ctx, p):
+    """2단계: JS — 토큰 포함 + exclude 제외 (텍스트·alt·title·data-*·클래스 종합).
+    후보는 텍스트 길이 오름차순(가장 안쪽 요소 우선 — 문서순 첫 후보는 그리드 전체를 감싼
+    바깥 div일 수 있어 엉뚱한 지점 클릭) 후 가까운 클릭 가능 조상으로 승격해 누른다."""
     try:
-        result = await page.evaluate("""
+        result = await ctx.evaluate("""
             (cfg) => {
                 const all = [...document.querySelectorAll('a, button, li, span, img, div')];
                 const candidates = all.filter(el => {
@@ -462,6 +574,7 @@ async def _click_provider_once(page, provider: str = "kakao") -> bool:
                         (el.textContent || '') +
                         (el.getAttribute('alt') || '') +
                         (el.getAttribute('title') || '') +
+                        (el.getAttribute('aria-label') || '') +
                         (el.getAttribute('data-id') || '') +
                         (el.getAttribute('data-provider') || '') +
                         el.className
@@ -470,10 +583,9 @@ async def _click_provider_once(page, provider: str = "kakao") -> bool:
                            !cfg.exclude.some(x => text.includes(x));
                 });
                 if (candidates.length > 0) {
+                    candidates.sort((a, b) => (a.textContent || '').length - (b.textContent || '').length);
                     const el = candidates[0];
-                    const clickTarget = el.tagName === 'IMG'
-                        ? (el.closest('a') || el.closest('label') || el.closest('li') || el.closest('button') || el)
-                        : el;
+                    const clickTarget = (el.closest && el.closest('a, button, li, label, [role=button], [onclick]')) || el;
                     clickTarget.click();
                     return true;
                 }
@@ -482,17 +594,20 @@ async def _click_provider_once(page, provider: str = "kakao") -> bool:
         """, {"tokens": [t.lower() for t in p["tokens"]], "exclude": [x.lower() for x in p["exclude"]]})
         if result:
             await asyncio.sleep(1.2)
-            return True
+            return True  # JS 클릭 — 위젯이 무시할 수 있어 '미확정'(자동 인증요청 게이트에서 제외)
     except Exception:
         pass
+    return False
 
-    # 3단계: JS — 느슨한 매칭의 마지막 항목(위젯 목록에서 본계열이 보통 하단)
+
+async def _provider_click_loose_js(ctx, p):
+    """3단계: JS — 느슨한 매칭의 마지막 항목(위젯 목록에서 본계열이 보통 하단)."""
     try:
-        result = await page.evaluate("""
+        result = await ctx.evaluate("""
             (cfg) => {
                 const all = [...document.querySelectorAll('a, button, li')];
                 const items = all.filter(el => {
-                    const t = (el.textContent + el.className).toLowerCase();
+                    const t = (el.textContent + (el.getAttribute('aria-label') || '') + el.className).toLowerCase();
                     return cfg.loose.some(k => t.includes(k)) && !cfg.exclude.some(x => t.includes(x));
                 });
                 if (items.length > 0) {
@@ -504,49 +619,124 @@ async def _click_provider_once(page, provider: str = "kakao") -> bool:
         """, {"loose": [k.lower() for k in p["loose"]], "exclude": [x.lower() for x in p["exclude"]]})
         if result:
             await asyncio.sleep(1.2)
-            return True
+            return True  # JS 클릭 — 위젯이 무시할 수 있어 '미확정'(자동 인증요청 게이트에서 제외)
     except Exception:
         pass
-
     return False
 
 
-async def click_kakaotalk_in_anyid(page) -> bool:
-    """(호환 래퍼) anyid 모달에서 카카오톡 클릭 — click_provider_in_anyid('kakao')."""
-    return await click_provider_in_anyid(page, "kakao")
+async def _click_provider_once(page, provider: str = "kakao"):
+    """제공자 클릭 1회 시도 — 정확 셀렉터 → JS 토큰 매칭 → 느슨한 폴백(뱅크/페이 오클릭은 exclude로 차단).
+
+    각 단계를 '주어진 컨텍스트 → 형제 프레임·창' 순으로 훑는다: 신뢰 클릭(trusted)을 모든 프레임에서
+    먼저 소진한 뒤에야 JS 폴백으로 내려간다(자동 인증요청 게이트는 trusted만 통과하므로 순서가 중요)."""
+    p = AUTH_PROVIDERS.get(str(provider or "").lower(), AUTH_PROVIDERS["kakao"])
+    ctxs = _sibling_contexts(page)
+    for c in ctxs:
+        if await _provider_click_selectors(c, p):
+            return "trusted"
+    for c in ctxs:
+        if await _provider_click_tokens_js(c, p):
+            return "js"
+    for c in ctxs:
+        if await _provider_click_loose_js(c, p):
+            return "js"
+    return False
 
 
 async def detect_auth_form(page) -> bool:
-    """본인인증 정보 입력 폼이 열렸는지 감지"""
-    for sel in AUTH_FORM_SELECTORS:
-        try:
-            el = page.locator(sel).first
-            if await el.count() > 0:
-                return True
-        except Exception:
-            continue
+    """본인인증 정보 입력 폼이 열렸는지 감지 — 메인뿐 아니라 형제 프레임·창까지 살핀다.
+
+    ⚠️ 신형 plus.gov.kr 등은 인증 폼이 '자식 프레임'에 렌더된다(제공자 클릭·'인증 완료' 클릭과 같은
+    프레임 분리 갭). 메인 page 만 보던 기존 판정은 그 화면에서 폼을 '없음'으로 오판해, 폼을 채워야 하는
+    사용자에게 '폰 승인만 하세요'라는 잘못된 안내를 띄웠다(work24는 폼 자동입력이 없어 특히 치명적 —
+    어르신이 빈 폼을 두고 승인부터 시도). page 를 맨 앞에 두므로 폼이 메인에 있으면 동작 불변(순수 확장).
+    gov24/apply 는 이미 프레임 인지 컨텍스트를 넘겨 결과 불변, work24(bare page)만 실제로 교정된다."""
+    for ctx in _sibling_contexts(page):
+        for sel in AUTH_FORM_SELECTORS:
+            try:
+                if await ctx.locator(sel).first.count() > 0:
+                    return True
+            except Exception:
+                continue
     return False
 
 
 async def take_screenshot(page) -> str:
     try:
         buf = await page.screenshot(full_page=False, type="jpeg", quality=75)
-        return base64.b64encode(buf).decode()
+        b64 = base64.b64encode(buf).decode()
     except Exception:
         return ""
+    # 🎬 흐름 기록(RPA_FLOW_RECORD=1 일 때만; 기본 OFF·심사/일반 사용 무영향) — 화면이 바뀔 때마다 그 구조를
+    #    중복 없이 한 파일에 남긴다. 개발 환경에서 실제 gov 화면을 직접 못 보는 제약을 우회: 사용자가 실행 한 번
+    #    뒤 파일 하나만 공유하면 전 단계 구조를 한 번에 파악한다(단계별 스샷 촬영 대체). 값 미수집·실패 무해.
+    #    record_step 이 스스로 게이트(flow_recording_on)를 확인하므로 여기선 무조건 위임(단일 소스).
+    try:
+        from rpa import diagnostics as _dg
+        await _dg.record_step(page)
+    except Exception:
+        pass
+    return b64
 
 
-async def try_click_kakao(page) -> bool:
-    """카카오 로그인 버튼 자동 클릭 시도. 성공 여부 반환."""
-    for sel in KAKAO_SELECTORS:
+# 간편인증 '안내' 팝업 문구 — 폰 승인 전 클릭(gov24 '완료되지 않았습니다') 또는 입력정보 진행 불가
+#   (복지로 '입력하신 정보로 인증을 진행할 수 없습니다 … 다시 시도하세요'). 이 [확인]만 닫는다(위젯 '닫기' 금지).
+_AUTH_NOTICE_KEYS = ("완료되지 않", "완료되지않", "미완료", "진행할 수 없", "다시 시도")
+
+
+async def _dismiss_auth_notice(ctx_page) -> bool:
+    """간편인증 '안내' 팝업이 떠 있으면 [확인]만 눌러 닫는다 → 닫았으면 True.
+
+    ⚠️ 실사용 제보(2026-07-21): 이 안내 팝업이 '인증 완료' 버튼을 덮고 있으면, 다음 주기의 클릭이 모달에
+    막혀(el.click 인터셉트) 그 뒤의 팝업 닫기 로직까지 도달 못 해 '대기상태로 복귀'가 안 됐다. 그래서
+    '인증 완료'를 누르기 '전에' 먼저 안내 팝업을 치운다 → [확인] 닫고 대기 → 다음 주기에 인증완료 재시도."""
+    for ctx in _sibling_contexts(ctx_page):
         try:
-            el = page.locator(sel).first
-            if await el.count() > 0:
-                await el.click()
-                await asyncio.sleep(1.5)
-                return True
+            body = await ctx.evaluate("() => document.body ? document.body.innerText : ''")
         except Exception:
-            continue
+            body = ""
+        if any(k in (body or "") for k in _AUTH_NOTICE_KEYS):
+            try:
+                if await click_by_text(ctx, ["확인"]):
+                    await asyncio.sleep(0.6)
+                    return True
+            except Exception:
+                continue
+    return False
+
+
+async def _click_auth_confirm_any(ctx_page) -> bool:
+    """'인증 완료' 버튼을 메인 page 뿐 아니라 형제 프레임·창까지 훑어 누른다 → 눌렀으면 True.
+
+    ⚠️ 실사용 배경(2026-07-20 리허설): 신형 plus.gov.kr 간편인증은 '정보 입력 폼·인증 완료 버튼'이
+    자식 프레임에 렌더된다 — 메인 page 만 보던 기존 자동 클릭은 폰 승인 뒤에도 '인증 완료'를 못 눌러
+    로그인이 끝나지 않는 경우가 있었다(제공자 클릭은 이미 _sibling_contexts 로 해결한 것과 같은 갭).
+    page 를 맨 앞에 두므로 버튼이 메인에 있으면 동작은 기존과 100% 동일 — 순수 확장(최악도 기존과 같음).
+
+    승인 전 클릭이면 gov24 가 '완료되지 않았습니다' 안내만 띄우므로, 그 안내의 '확인'만 닫고(메인 팝업
+    '닫기'는 절대 건드리지 않음) 다음 주기에 재시도한다. 실제 본인인증(폰 [인증 허용])은 여전히 사용자 몫."""
+    # 먼저 '안내' 팝업이 떠 있으면 닫아 대기상태로 복귀 — 팝업이 '인증 완료'를 덮어 클릭을 막던 실사용 갭 해소.
+    await _dismiss_auth_notice(ctx_page)
+    for ctx in _sibling_contexts(ctx_page):
+        for sel in AUTH_CONFIRM_SELECTORS:
+            try:
+                el = ctx.locator(sel).first
+                if await el.count() > 0 and await el.is_visible():
+                    await el.click()
+                    await asyncio.sleep(1.2)
+                    try:
+                        body = await ctx.evaluate("() => document.body ? document.body.innerText : ''")
+                    except Exception:
+                        body = ""
+                    # 폰 승인 전 클릭이면 '안내'창이 뜬다 → 그 [확인]만 닫아 다음 주기에 '인증 완료'를 재시도한다.
+                    #   gov24='완료되지 않았습니다' · 복지로='입력하신 정보로 인증을 진행할 수 없습니다'(실사용 제보).
+                    #   인증 위젯 자체의 [닫기]는 건드리지 않는다('확인'만 클릭).
+                    if any(k in (body or "") for k in ("완료되지 않", "완료되지않", "미완료", "진행할 수 없", "다시 시도")):
+                        await click_by_text(ctx, ["확인"])
+                    return True
+            except Exception:
+                continue
     return False
 
 
@@ -567,6 +757,10 @@ async def wait_for_login(
     """
     report_interval = 15  # 15초마다 진행상황 스크린샷
     last_report = 0
+    # '인증 완료' 자동 클릭(사용자 요청) — 폰 승인 뒤 앱이 완료 버튼을 눌러준다. 승인 전 클릭은 무해
+    #   ('미완료' 안내만 뜸)하므로 간격을 두고 재시도. 폰 승인 시간을 먼저 주려 20초부터 시작.
+    confirm_start, confirm_interval = 20, 12
+    last_confirm = 0
 
     for elapsed in range(timeout_sec):
         # 취소·창닫힘 즉시 탈출(닫힌 창 상대로 최대 timeout_sec 유령 대기하던 것 차단, 감사 확정)
@@ -582,6 +776,21 @@ async def wait_for_login(
         if elapsed < min_wait_sec:
             await asyncio.sleep(1)
             continue
+
+        # 🔵 '인증 완료' 자동 클릭 — 사용자가 폰에서 승인만 하면 앱이 완료 버튼을 눌러 로그인을 마무리한다.
+        #   ⚠️ 실제 본인인증(폰 [인증 허용])은 여전히 사용자 몫(HITL 유지). 이 클릭은 승인 후의 기계적 마무리.
+        #   승인 전이면 gov24가 '완료되지 않았습니다' 안내만 띄우므로, 그 안내의 확인만 닫고(메인 팝업 '닫기'는
+        #   절대 건드리지 않음) 다음 주기에 재시도한다. 승인되면 다음 URL 체크에서 완료로 잡힌다.
+        if elapsed >= confirm_start and (elapsed - last_confirm) >= confirm_interval:
+            last_confirm = elapsed
+            try:
+                # 메인 page 뿐 아니라 형제 프레임·창까지 훑어 '인증 완료'를 누른다 — 신형 plus.gov.kr은
+                #   완료 버튼이 자식 프레임에 있어 메인만 보던 기존 클릭이 폰 승인 뒤에도 불발하던 실사용
+                #   갭을, 제공자 클릭과 동일한 _sibling_contexts 순회로 해소. page 우선이라 메인이면 동작 불변.
+                await _click_auth_confirm_any(page)
+            except Exception:
+                pass
+
         try:
             current_url = page.url
 
@@ -597,13 +806,17 @@ async def wait_for_login(
                 if login_url not in current_url and not is_login_page:
                     return True
 
-            # 로그아웃 버튼 감지 — '보이는' 요소만(숨겨진 로그아웃 링크 오탐 방지)
-            for sel in LOGIN_SUCCESS_SELECTORS:
-                try:
-                    if await page.locator(sel).first.is_visible():
-                        return True
-                except Exception:
-                    pass
+            # 로그아웃 버튼 감지 — '보이는' 요소만(숨겨진 로그아웃 링크 오탐 방지). 메인뿐 아니라 형제
+            #   프레임·창까지 살핀다: 신형 plus.gov.kr 은 로그인 마커(로그아웃 링크)가 자식 프레임/별창에
+            #   렌더돼, 인증 완료 클릭은 됐는데 감지만 놓쳐 5~8분 타임아웃되던 갭(제공자·완료 클릭과 동일
+            #   프레임 분리 대응). page 를 맨 앞에 두므로 마커가 메인에 있으면 동작 불변(순수 확장).
+            for ctx in _sibling_contexts(page):
+                for sel in LOGIN_SUCCESS_SELECTORS:
+                    try:
+                        if await ctx.locator(sel).first.is_visible():
+                            return True
+                    except Exception:
+                        pass
 
             # 일정 간격으로 대기 중 스크린샷 업데이트
             if elapsed - last_report >= report_interval and elapsed > 0:
@@ -659,7 +872,7 @@ async def click_eform_button(page_or_frame, text: str) -> bool:
     복지로 등은 로그인·간편인증 버튼을 표준 a/button이 아니라 .cl-button / [role=button] /
     .cl-text-wrapper / .cl-output div 로 렌더한다. 게다가 eForm은 합성 JS click 에 반응하지
     않으므로(신뢰된 이벤트 필요), 요소의 화면 좌표를 구해 실제 마우스 클릭을 날린다.
-    (메인 프레임에서만 좌표 클릭; iframe 내부는 JS click 폴백.) 성공 여부 반환."""
+    iframe 내부는 프레임 요소의 화면 오프셋을 더해 Page 마우스로 신뢰 클릭한다. 성공 여부 반환."""
     # 1) 텍스트로 대상 요소를 찾아 중심 좌표(뷰포트 기준) 계산 + 스크롤
     try:
         box = await page_or_frame.evaluate(
@@ -687,7 +900,7 @@ async def click_eform_button(page_or_frame, text: str) -> bool:
         box = None
     if not box:
         return False
-    # 2) Page면 신뢰된 마우스 클릭(eForm 정답). Frame이면 좌표 오프셋이 달라 JS click 폴백.
+    # 2) Page면 바로, Frame이면 iframe의 메인 뷰포트 좌표를 더해 신뢰된 마우스 클릭.
     mouse = getattr(page_or_frame, "mouse", None)
     if mouse is not None:
         try:
@@ -695,6 +908,17 @@ async def click_eform_button(page_or_frame, text: str) -> bool:
             return True
         except Exception:
             pass
+    try:
+        frame_element = await page_or_frame.frame_element()
+        frame_box = await frame_element.bounding_box()
+        frame_page = page_or_frame.page
+        frame_mouse = getattr(frame_page, "mouse", None)
+        if frame_box and frame_mouse is not None:
+            await frame_mouse.click(frame_box["x"] + box["x"], frame_box["y"] + box["y"])
+            return True
+    except Exception:
+        pass
+    # 특수 프레임/교차 출처에서 좌표를 얻지 못할 때만 합성 클릭을 마지막 폴백으로 사용.
     try:
         return await page_or_frame.evaluate(
             """(t) => {

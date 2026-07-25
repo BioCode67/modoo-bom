@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Bot, CheckCircle2, Loader2, AlertCircle, Stethoscope, ClipboardCopy, X, Volume2 } from 'lucide-react'
+import { Bot, CheckCircle2, Loader2, AlertCircle, Stethoscope, ClipboardCopy, X, Volume2, Film } from 'lucide-react'
 import { getRpaBase } from '@/lib/backend'
+import { copyAgentDiagnostic, copyFlowRecord } from '@/lib/diag'
 import { isAuthVoice, setAuthVoice } from '@/lib/authCue'
 import { useBackend } from '@/lib/useBackend'
 
@@ -16,6 +17,7 @@ export function AgentStatusStrip() {
   const { ready, caps } = useBackend()
   const [pf, setPf] = useState<'idle' | 'running' | 'error' | PfResult>('idle')
   const [diagDone, setDiagDone] = useState(false) // 진단 복사 완료 표시(훅은 조기 return 앞에)
+  const [flowDone, setFlowDone] = useState(false) // 🎬 흐름 기록 복사 완료 표시
   const [voice, setVoice] = useState(() => isAuthVoice()) // 🔊 인증 음성 안내(기기 기억, 옵트인)
   const [autoOk, setAutoOk] = useState(false) // 조용한 자가점검이 '통과'했음(무소음 ✓ 표기용)
 
@@ -74,14 +76,16 @@ export function AgentStatusStrip() {
     }
   }
 
-  // 🩺 진단 복사 — 발급이 안 될 때 개발자에게 그대로 붙여넣는 기술 정보(PII 무포함, 서버에서 걸러줌).
+  // 🩺 진단 복사 — 기술정보(_diag) + 실패 화면 구조(자가진단)를 한 번에(공용 lib/diag). 개발 환경에서
+  //   실제 gov 사이트에 접속 못 하는 제약을, 사용자가 스샷 대신 이 한 번의 복사로 메운다.
   const copyDiag = async () => {
-    try {
-      const r = await fetch(`${getRpaBase()}/api/_diag`)
-      const j = await r.json()
-      await navigator.clipboard.writeText(`[모두봄 에이전트 진단]\n${JSON.stringify(j, null, 2)}`)
-      setDiagDone(true); setTimeout(() => setDiagDone(false), 2500)
-    } catch { /* 클립보드 미지원 등 — 조용히 무시(부가 기능) */ }
+    if (await copyAgentDiagnostic()) { setDiagDone(true); setTimeout(() => setDiagDone(false), 2500) }
+  }
+
+  // 🎬 흐름 기록 복사 — record-flow.bat 로 실행하며 자동발급/신청을 한 번 진행하면 '지나간 화면들'의 구조가
+  //   쌓인다(값 없음). 이 버튼이 그걸 한 덩어리로 복사 → 개발자가 스샷 없이 다음 화면·새 팝업까지 한 번에 파악.
+  const copyFlow = async () => {
+    if (await copyFlowRecord()) { setFlowDone(true); setTimeout(() => setFlowDone(false), 2500) }
   }
 
   return (
@@ -89,7 +93,16 @@ export function AgentStatusStrip() {
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className="inline-flex items-center gap-1.5 font-bold text-sprout-700">
           <Bot className="h-3.5 w-3.5" /> {caps.rpaRemote ? '원격 에이전트' : caps.shared ? '공유 에이전트' : '내 PC 에이전트'} 연결됨
-          {caps.version && <span className="font-semibold text-muted-foreground">v{caps.version}</span>}
+          {caps.version && (
+            /* 버전·빌드일·커밋을 함께 — '이 exe가 최신 코드인지'를 한눈에(구버전이면 날짜/커밋이 다름).
+               버전은 백엔드(로컬 에이전트), 빌드일·커밋은 지금 보는 프론트 번들 — 데스크탑앱은 함께 빌드된다.
+               ⚠️ 사용자가 '어느 버전인지 헷갈린다' 제보 → 은은한 muted 텍스트를 '테두리 알약'으로 승격해 눈에 띄게. */
+            <span className="inline-flex items-center gap-1 rounded-full border border-sprout-300 bg-white px-2 py-0.5 font-mono text-[10.5px] leading-none"
+              title={`앱 버전 v${caps.version} · 프론트 빌드 ${__BUILD_DATE__}${__BUILD_SHA__ ? ` (${__BUILD_SHA__})` : ''} — 최신 배포와 커밋/날짜가 같으면 최신본입니다`}>
+              <span className="font-extrabold text-sprout-700">모두봄 v{caps.version}</span>
+              <span className="font-normal text-muted-foreground">· 빌드 {__BUILD_DATE__}{__BUILD_SHA__ ? ` · ${__BUILD_SHA__}` : ''}</span>
+            </span>
+          )}
         </span>
         {slots && <span className={busy ? 'font-semibold text-amber-700' : 'text-muted-foreground'}>{busy ? `혼잡 — ${slots}` : slots}</span>}
         {autoOk && !result && (
@@ -129,6 +142,15 @@ export function AgentStatusStrip() {
             className="rounded-lg border border-sprout-200 bg-white px-2 py-1 font-semibold text-sprout-700 hover:bg-sprout-50 inline-flex items-center gap-1">
             <ClipboardCopy className="h-3 w-3" /> {diagDone ? '복사됨 ✓' : '진단 복사'}
           </button>
+          {caps.flowRecord && (
+            /* 🎬 흐름 기록 모드에서만 노출(run-local-app.bat 는 자동 켬 · 설치 EXE는 미설정이라 심사위원에겐 안 보임).
+               자동발급/신청을 한 번 끝까지 진행한 뒤 이 버튼으로 '지나간 화면 구조'(값 없음)를 복사해 개발자에게. */
+            <button onClick={copyFlow}
+              title="지나간 화면 구조를 기록 중이에요 — 자동발급/신청을 한 번 진행한 뒤 이 버튼으로 화면 구조(개인정보 없음)를 복사해 개발자에게 붙여넣어 주세요"
+              className="rounded-lg border border-violet-300 bg-violet-50 px-2 py-1 font-semibold text-violet-700 hover:bg-violet-100 inline-flex items-center gap-1">
+              <Film className="h-3 w-3" /> {flowDone ? '복사됨 ✓' : '흐름 기록 복사'}
+            </button>
+          )}
         </span>
       </div>
       {result && (

@@ -6,6 +6,8 @@ import { getCatalog, getPolicyMap } from '@/data/catalog'
 import { searchPolicies } from '@/lib/search'
 import { buildActionFeed } from '@/lib/monitoring'
 import { parseMonthly, formatWon, isCashBenefit } from '@/lib/format'
+import { medianIncome, BENEFIT_THRESHOLDS } from '@/lib/medianIncome'
+import { rankPolicies } from '@/lib/priority'
 import { applyLink } from '@/lib/officialLinks'
 import { MYTH_RULES, pickEvidence } from '@/lib/misconceptions'
 import { scanProfileGaps } from '@/lib/profileGaps'
@@ -75,6 +77,10 @@ export function greetingReply(profile: UserProfile | null, tracked: TrackedItem[
 }
 
 const ELIG_RE = /(내가|나).*(받|대상|자격|해당)|받을\s*수\s*있|자격|대상.*되|혜택.*뭐|뭐.*받|추천|어떤.*복지|맞는.*복지/
+// 소득 기준(얼마까지 벌어도 되나) 질문 — 자격(ELIG)보다 먼저 잡아 소득 상한표로 답한다.
+const INCOME_RE = /(소득|수입|중위소득|소득인정액)\s*(기준|얼마|상한|조건|제한|컷|커트라인|몇\s*%|퍼센트|되)|얼마(까지|나)?\s*(벌|버는|버시|소득|수입)|(벌어도|벌면|버는데)\s*(되|받|자격|대상)/
+// 우선순위(뭐부터 신청?) 질문 — 자격(ELIG)보다 먼저 잡아 점수순 추천으로 답한다.
+const PRIORITY_RE = /우선\s*순위|뭐\s*부터|무엇\s*부터|어떤\s*(것|거)\s*(부터|먼저)|먼저\s*(신청|해야|챙|받)|신청\s*순서|가장\s*급한|제일\s*(중요|급)/
 const GREET_RE = /^(안녕|하이|hello|hi|반가|ㅎㅇ)/i
 
 /** 저장된 분석결과/프로필로 '내가 받을 수 있는' 질문에 개인화 답변 */
@@ -296,6 +302,11 @@ export function matchSaveIntent(raw: string, context: Policy[], explicitOnly = f
   // 'N개/N가지/N건'은 '개수'(앞에서 N건) — 서수(N번째)보다 먼저 판정해 "3개 담아줘"가 '3번째 하나'로 오해되지 않게(감사)
   const cnt = t.match(/([1-9])(개|가지|건)/)
   if (cnt) return context.slice(0, parseInt(cnt[1], 10))
+  // 한글 수사 개수('두 개/세 개/한 개')도 개수로 — 서수(N번째)보다 먼저 판정(안 그러면 '두 개'가
+  //   '2번째 하나'로 오인됨). 반드시 세는말(개·가지·건)이 붙을 때만 → '65세 …'의 '세'는 여기 안 걸린다.
+  const KCNT: Record<string, number> = { 한: 1, 하나: 1, 두: 2, 둘: 2, 세: 3, 셋: 3, 네: 4, 넷: 4 }
+  const kcnt = t.match(/(하나|둘|셋|넷|한|두|세|네)(개|가지|건)/)
+  if (kcnt && KCNT[kcnt[1]] !== undefined) return context.slice(0, KCNT[kcnt[1]])
   const ord = t.match(/(첫|두|세|네|하나|둘|셋|넷|[1-4])(번째|째|번)?/)
   if (ord && ORD[ord[1]] !== undefined && context[ORD[ord[1]]]) return [context[ORD[ord[1]]]]
   const byName = context.filter((p) => t.includes(p.name.replace(/\s/g, '')))
@@ -437,11 +448,43 @@ function adviceReply(profile: UserProfile | null, result: AnalysisResult | null)
   }
 }
 
+/** 소득 기준(급여별 소득인정액 상한) 안내 — medianIncome 공식값으로 가구원수별 월 상한을 표로. */
+export function incomeThresholdReply(): AgentReply {
+  const sizes = [1, 2, 3, 4]
+  const lines = BENEFIT_THRESHOLDS.map((b) => {
+    const amts = sizes.map((s) => `${s}인 ${formatWon(Math.floor((medianIncome(s) * b.pct) / 100))}`).join(' · ')
+    return `• ${b.label}(중위 ${b.pct}%): ${amts}`
+  })
+  return {
+    text: `복지 자격은 대부분 ‘소득인정액’(월 소득 + 재산을 소득으로 환산한 값)이 기준 중위소득의 몇 % 이하냐로 정해져요. 2026년 기준 급여별 소득인정액 월 상한이에요:\n${lines.join('\n')}\n\n근로·사업소득은 30% 공제 후 반영되고 재산도 소득으로 환산돼요. 재산까지 넣은 정확한 계산은 ‘탐색 > 기초생활보장 계산기 > 재산까지 넣어 정밀 계산’에서 할 수 있어요.`,
+    cta: { view: 'explore', label: '소득인정액 계산하기' },
+  }
+}
+
+/** 우선순위 안내 — 담은(없으면 분석결과) 복지를 점수순으로 '먼저 챙기세요' */
+export function priorityReply(result: AnalysisResult | null, tracked: TrackedItem[]): AgentReply {
+  const map = getPolicyMap()
+  const pool = tracked.length
+    ? tracked.map((t) => map[t.policyId]).filter((p): p is Policy => !!p)
+    : (result?.eligible_policies ?? [])
+  const ranked = rankPolicies(pool).slice(0, 3)
+  if (ranked.length === 0) {
+    return { text: '먼저 어떤 복지가 되는지 분석해볼까요? 담아둔 복지가 있으면 금액·시급성·확실성으로 신청 순서를 매겨드려요.', cta: { view: 'analyze', label: '내 복지 분석' } }
+  }
+  const lines = ranked.map((r, i) => `${i + 1}. ${r.policy.name} (${r.score}점 · 신청 ${['쉬움', '보통', '어려움'][['easy', 'medium', 'hard'].indexOf(r.difficulty)]})`)
+  return {
+    text: `이 순서로 챙기시길 추천해요 (금액·시급성·자격 확실성·신청 편의 종합):\n${lines.join('\n')}\n\n‘나의 복지’에서 항목별 점수 근거도 볼 수 있어요.`,
+    policies: ranked.map((r) => r.policy as Policy),
+    cta: { view: 'my', label: '우선순위 자세히' },
+  }
+}
+
 /** 로컬(행동·개인화) 의도인가 — 이 의도들은 클라우드 LLM이 있어도 로컬 에이전트가 처리한다
- *  (담기·서류·자격·오해교정·숨은자격·신청타이밍·종합조언은 스토어/프로필/규칙과 결합돼 LLM보다 정확·즉시·무환각). */
+ *  (담기·서류·자격·소득기준·우선순위·오해교정·숨은자격·신청타이밍·종합조언은 스토어/프로필/규칙과
+ *   결합돼 LLM보다 정확·즉시·무환각). */
 export function isLocalIntent(raw: string): boolean {
   const q = raw.trim()
-  return GREET_RE.test(q) || DOCS_RE.test(q) || APPLY_RE.test(q) || ELIG_RE.test(q)
+  return GREET_RE.test(q) || DOCS_RE.test(q) || APPLY_RE.test(q) || INCOME_RE.test(q) || PRIORITY_RE.test(q) || ELIG_RE.test(q)
     || TIMING_RE.test(q) || GAP_RE.test(q) || ADVICE_RE.test(q) || QUICKWIN_RE.test(q) || HOTLINE_RE.test(q) || matchMisconceptionIntent(q) !== null
 }
 
@@ -461,10 +504,14 @@ export function agentReply(raw: string, ctx: { profile: UserProfile | null; resu
     const doc = matchIssueIntent(q, ctx.issueDocs)
     if (doc) return issueReply(doc)
   }
+  // 우선순위('뭐부터 신청?')는 방법(APPLY '신청 해야')·자격(ELIG)보다 먼저 — 순서 신호가 가장 구체적.
+  if (PRIORITY_RE.test(q)) return priorityReply(ctx.result, ctx.tracked ?? [])
   if (DOCS_RE.test(q)) return docsReply(ctx.tracked ?? [], ctx.agentOn ?? false)
   // 신청 '타이밍'(언제·소급·미리)은 '방법'(어떻게·어디서)보다 먼저 — APPLY_RE에 가로채이지 않게.
   if (TIMING_RE.test(q)) return timingReply(ctx.profile, ctx.result)
   if (APPLY_RE.test(q)) return applyReply(ctx.tracked ?? [], ctx.agentOn ?? false)
+  // 소득 기준 질문은 자격(ELIG)보다 먼저 — '얼마까지 벌어도 받아요?'를 상한표로 답한다.
+  if (INCOME_RE.test(q)) return incomeThresholdReply()
   if (ELIG_RE.test(q)) return eligibilityReply(ctx.profile, ctx.result)
   // 오해 바로잡기('재산 있어서 안 될 것 같아요')·숨은 자격('놓친 거 없어?') — 검색 폴백보다 먼저,
   // 단 좁게 게이트해(포기·의심 신호+통념 / 명시적 '놓침' 표현) 일반 검색 질의를 가로채지 않는다.

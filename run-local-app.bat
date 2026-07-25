@@ -47,9 +47,11 @@ if not exist "frontend\dist-app\index.html" (
 )
 
 rem 2) 파이썬 인터프리터 선택 (전용 경량 venv-local 우선 → 기존 venv → 시스템 python)
+rem    ⚠️ 절대경로(%~dp0)로 잡는다 — 아래 'pushd backend' 후 상대경로면 backend\backend\... 로 찾아
+rem       "The system cannot find the path specified." 로 서버가 안 뜬다(실사용 확정 버그).
 set "PY=python"
-if exist "backend\venv\Scripts\python.exe" set "PY=backend\venv\Scripts\python.exe"
-if exist "backend\venv-local\Scripts\python.exe" set "PY=backend\venv-local\Scripts\python.exe"
+if exist "%~dp0backend\venv\Scripts\python.exe" set "PY=%~dp0backend\venv\Scripts\python.exe"
+if exist "%~dp0backend\venv-local\Scripts\python.exe" set "PY=%~dp0backend\venv-local\Scripts\python.exe"
 
 rem 3) RPA 활성 + 루프백 바인딩(개인정보 보호)으로 백엔드 기동
 rem    시스템 Chrome 을 그대로 구동(RPA_BROWSER_CHANNEL=chrome) — 실제 브라우저라 정부24 안티매크로에
@@ -62,6 +64,10 @@ set "RPA_TASK_TIMEOUT=1800"
 rem 자동첨부 유효창(발급→신청 사이) — 개인 PC(1인)라 EXE(agent_entry)와 동일하게 1시간.
 rem 기본 20분은 공용PC 교차유출 방어값이라, 시연 페이스가 느리면 먼저 발급한 서류가 첨부에서 빠졌다.
 set "RPA_ATTACH_MAX_AGE=3600"
+rem 🎬 흐름 기록 — 소스(git)로 실행하는 개발/시연 PC에선 자동 켬. 자동발급/신청이 '지나간 화면들'의
+rem   구조(버튼·입력칸·팝업, 값은 없음)를 한 파일에 남겨, 화면 오른쪽 위 [🎬 흐름 기록 복사]로 개발자에게
+rem   한 번에 전달(단계별 스샷 촬영 대체). 값 미수집이라 안전 · 설치 EXE(심사용)엔 미설정이라 안 켜짐.
+set "RPA_FLOW_RECORD=1"
 set "PYTHONUTF8=1"
 set "MODOO_ENV=local"
 set "HOST=127.0.0.1"

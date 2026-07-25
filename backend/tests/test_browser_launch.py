@@ -149,6 +149,124 @@ def test_bogus_channel_still_falls_back(monkeypatch):
     assert order[1:] == ["chrome", "msedge", ""]  # 실제 후보로 폴백 경로 확보
 
 
+def test_provider_loose_match_excludes_sns_links():
+    """느슨한 매칭(loose) 오클릭 차단 — 실사용 확정 사고(2026-07-20 새벽 데모) 회귀 고정.
+
+    간편인증 iframe 폴백에서 loose '카카오'가 정부24 푸터의 '카카오스토리' SNS 링크를 클릭해
+    story.kakao.com 탭이 열렸다. _click_provider_once 3단계 JS 와 동일한 술어로 검증:
+    t = (텍스트+클래스).lower() 에 loose 포함 && exclude 미포함."""
+    from rpa.base import AUTH_PROVIDERS
+
+    def loose_hit(provider: str, text_and_class: str) -> bool:
+        p = AUTH_PROVIDERS[provider]
+        t = text_and_class.lower()
+        return any(k.lower() in t for k in p["loose"]) and not any(x.lower() in t for x in p["exclude"])
+
+    # 사고 재현: 푸터 SNS 링크는 차단돼야 한다
+    assert not loose_hit("kakao", "정부24 카카오스토리")           # 실제 사고 링크 텍스트
+    assert not loose_hit("kakao", "kakaostory sns-link")          # 영문 클래스 변형
+    assert not loose_hit("naver", "정부24 네이버 블로그")          # 같은 계열(푸터 블로그 링크)
+    # 정상 인증 버튼은 계속 매칭돼야 한다(차단 과잉 방지)
+    assert loose_hit("kakao", "카카오 인증서")
+    assert loose_hit("kakao", "카카오톡 지갑")
+    assert loose_hit("naver", "네이버 인증서")
+
+
+class _FakeEl:
+    """click_provider_in_anyid 의 Playwright locator 최소 흉내(반환 계약 검증용)."""
+    def __init__(self, count):
+        self._count = count
+    async def count(self):
+        return self._count
+    async def scroll_into_view_if_needed(self):
+        return None
+    async def click(self):
+        return None
+
+
+def _fake_page(stage1_count, evaluate_result):
+    """stage1(Playwright) 매칭 수 + stage2/3(JS evaluate) 반환을 주입하는 가짜 page."""
+    class _Loc:
+        first = _FakeEl(stage1_count)
+    class _Page:
+        def locator(self, sel):
+            return _Loc()
+        async def evaluate(self, script, arg=None):
+            return evaluate_result
+    return _Page()
+
+
+def test_click_provider_returns_trusted_on_playwright_click():
+    """Playwright 신뢰 클릭 성공 → 'trusted' — 자동 '인증 요청' 게이트를 통과하는 유일한 값(회귀 고정).
+
+    gov24_rpa 는 kakaotalk_clicked == 'trusted' 일 때만 인증요청을 자동 클릭한다. 이 계약이 깨지면
+    '인증서비스를 선택하여 주십시오' 오류(실사용 확정 버그)가 재발하므로 여기서 못박는다."""
+    r = _run(base.click_provider_in_anyid(_fake_page(1, False), "kakao", attempts=1))
+    assert r == "trusted"
+
+
+def test_click_provider_returns_js_on_evaluate_fallback():
+    """stage1 미스 + JS 폴백 클릭 성공 → 'js'(미확정) — 자동 인증요청 게이트에서 제외돼야 한다."""
+    r = _run(base.click_provider_in_anyid(_fake_page(0, True), "kakao", attempts=1))
+    assert r == "js"
+
+
+def test_click_provider_returns_false_when_nothing_matches():
+    """아무것도 못 찾으면 False — 게이트에서 '요청 안 함'으로 이어져 오류를 피한다."""
+    r = _run(base.click_provider_in_anyid(_fake_page(0, False), "kakao", attempts=1))
+    assert r is False
+
+
+def test_health_probe_url_uses_loopback_ipv4():
+    """브라우저 자동오픈용 health 폴링은 127.0.0.1 로 — 'localhost'가 IPv6(::1)로 풀려
+    서버(127.0.0.1 바인드) 확인이 빗나가 창이 안 열리던 것 방지(실사용 제보 회귀 고정)."""
+    import local_server
+    assert local_server._health_probe_url("http://localhost:8000/") == "http://127.0.0.1:8000/api/health"
+    # 이미 127.0.0.1 이면 그대로, api/health 만 붙는다
+    assert local_server._health_probe_url("http://127.0.0.1:8000/") == "http://127.0.0.1:8000/api/health"
+
+
+def test_open_app_ui_non_win32_uses_default_browser(monkeypatch):
+    """맥·리눅스: 앱 UI는 기본 브라우저(webbrowser.open)로 연다(기존 동작 불변)."""
+    import local_server
+    monkeypatch.setattr(local_server.sys, "platform", "darwin")
+    opened = []
+    monkeypatch.setattr(local_server.webbrowser, "open", lambda u: opened.append(u) or True)
+    local_server._open_app_ui("http://localhost:8000/")
+    assert opened == ["http://localhost:8000/"]
+
+
+def test_open_app_ui_win32_prefers_chrome(monkeypatch):
+    """윈도우: 기본 브라우저가 크롬이 아니어도 크롬을 '먼저' 띄운다(webbrowser.open 미사용)."""
+    import subprocess
+
+    import local_server
+    monkeypatch.setattr(local_server.sys, "platform", "win32")
+    # 크롬 실행파일만 '존재'하는 것으로 위장
+    monkeypatch.setattr(local_server.os.path, "exists", lambda p: p.endswith("chrome.exe"))
+    launched, fell_back = [], []
+    monkeypatch.setattr(subprocess, "Popen", lambda args, **k: launched.append(args) or None)
+    monkeypatch.setattr(local_server.webbrowser, "open", lambda u: fell_back.append(u) or True)
+    local_server._open_app_ui("http://localhost:8000/")
+    assert launched and launched[0][0].endswith("chrome.exe")  # 크롬으로 열림
+    assert launched[0][1] == "http://localhost:8000/"
+    assert fell_back == []  # 기본 브라우저 폴백 안 함
+
+
+def test_open_app_ui_win32_falls_back_when_no_chrome_edge(monkeypatch):
+    """윈도우에서 크롬·엣지 실행파일이 모두 없으면 기본 브라우저로 폴백(무슨 일이 있어도 창은 열림)."""
+    import subprocess
+
+    import local_server
+    monkeypatch.setattr(local_server.sys, "platform", "win32")
+    monkeypatch.setattr(local_server.os.path, "exists", lambda p: False)  # 크롬·엣지 없음
+    fell_back = []
+    monkeypatch.setattr(subprocess, "Popen", lambda *a, **k: (_ for _ in ()).throw(AssertionError("Popen 호출 금지")))
+    monkeypatch.setattr(local_server.webbrowser, "open", lambda u: fell_back.append(u) or True)
+    local_server._open_app_ui("http://localhost:8000/")
+    assert fell_back == ["http://localhost:8000/"]
+
+
 def test_no_sandbox_only_for_bundled_chromium(monkeypatch):
     """--no-sandbox 는 번들 Chromium에만 — 정부 로그인을 하는 실사용 Chrome/Edge의 샌드박스(보안 계층)는 유지."""
     monkeypatch.setattr(base.sys, "platform", "win32")
@@ -192,3 +310,72 @@ def test_launch_rebuilds_args_per_candidate(monkeypatch):
     assert "--no-sandbox" not in by_channel["chrome"]
     assert "--no-sandbox" not in by_channel["msedge"]
     assert "--no-sandbox" in by_channel[""]
+
+
+def _chromium_path():
+    import glob
+    hits = glob.glob("/opt/pw-browsers/chromium-*/chrome-linux/chrome")
+    return hits[0] if hits else None
+
+
+@pytest.mark.skipif(_chromium_path() is None, reason="컨테이너 chromium 없음 — 실브라우저 e2e 스킵")
+def test_auth_confirm_click_reaches_child_frame():
+    """'인증 완료' 버튼이 자식 프레임에 있어도 눌린다 — 신형 plus.gov.kr 프레임 분리 대응(실사용 갭).
+
+    메인 page 만 보던 기존 로직은 이 버튼을 못 눌러 폰 승인 뒤에도 로그인이 안 끝났다.
+    _click_auth_confirm_any 가 형제 프레임까지 훑어 누르는지 실브라우저로 검증(회귀 락)."""
+    from playwright.async_api import async_playwright
+
+    async def run():
+        async with async_playwright() as pw:
+            b = await pw.chromium.launch(executable_path=_chromium_path())
+            pg = await (await b.new_context()).new_page()
+            # 메인엔 '인증 완료'가 없고, 자식 프레임(about:blank)에만 있다 — 실사용 프레임 분리 재현
+            await pg.set_content('<h1>간편인증 진행 중</h1><iframe id="f" src="about:blank" width="360" height="140"></iframe>')
+            # 자식 프레임이 붙을 때까지 잠깐 대기 후 버튼 주입(클릭 시 title 로 신호)
+            for _ in range(20):
+                if len(pg.frames) > 1:
+                    break
+                await asyncio.sleep(0.1)
+            child = pg.frames[1]
+            await child.set_content(
+                "<button id='ok' onclick=\"document.title='clicked'\">인증 완료</button>")
+            # ⬅️ 기존 방식(메인 page 만)으론 이 버튼이 안 잡힌다는 것도 함께 증명
+            main_only = await pg.locator("button:has-text('인증 완료')").first.count()
+            ok = await base._click_auth_confirm_any(pg)
+            title = await child.title()
+            await b.close()
+            return main_only, ok, title
+
+    main_only, ok, title = _run(run())
+    assert main_only == 0            # 메인 page 로케이터로는 자식 프레임 버튼이 안 잡힘(기존 갭 재현)
+    assert ok is True                # 형제 프레임 순회로 눌렀다
+    assert title == "clicked"        # 실제로 그 버튼이 클릭됨
+
+
+@pytest.mark.skipif(_chromium_path() is None, reason="컨테이너 chromium 없음 — 실브라우저 e2e 스킵")
+def test_detect_auth_form_sees_child_frame():
+    """인증 폼이 자식 프레임에 있어도 감지된다 — work24 처럼 폼 자동입력이 없는 모듈이 '폼 있음'을 알고
+    올바른 안내(폼을 채우세요)를 띄우게 하는 근거(신형 plus.gov.kr 프레임 분리 대응)."""
+    from playwright.async_api import async_playwright
+
+    async def run():
+        async with async_playwright() as pw:
+            b = await pw.chromium.launch(executable_path=_chromium_path())
+            pg = await (await b.new_context()).new_page()
+            # 메인엔 인증 폼 요소가 전혀 없고(체크박스 포함 X), 자식 프레임에만 '이름' 입력칸이 있다
+            await pg.set_content('<h1>간편인증</h1><iframe id="f" src="about:blank" width="360" height="160"></iframe>')
+            for _ in range(20):
+                if len(pg.frames) > 1:
+                    break
+                await asyncio.sleep(0.1)
+            child = pg.frames[1]
+            await child.set_content("<input placeholder='이름'><input placeholder='생년월일'>")
+            main_only = await pg.locator("input[placeholder*='이름']").first.count()
+            detected = await base.detect_auth_form(pg)
+            await b.close()
+            return main_only, detected
+
+    main_only, detected = _run(run())
+    assert main_only == 0     # 메인 page 로케이터로는 자식 프레임 입력칸이 안 잡힘(기존 갭 재현)
+    assert detected is True   # 형제 프레임 순회로 폼을 감지

@@ -12,3 +12,5 @@ interface ImportMeta {
 // (스테일 캐시 제보 대응: 화면의 v·빌드일이 최신 배포와 다르면 새로고침 안내로 1초 판정)
 declare const __APP_VERSION__: string
 declare const __BUILD_DATE__: string
+// 빌드 커밋 short SHA(git 없으면 빈 문자열) — 데스크탑 exe 신선도를 커밋 단위로 확정
+declare const __BUILD_SHA__: string

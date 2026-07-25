@@ -10,13 +10,15 @@ import { benefitTypeOf, BENEFIT_TYPE_META, type BenefitType } from '@/lib/benefi
 import { useAppStore } from '@/store/useAppStore'
 import { IncomeCalculator } from '@/components/IncomeCalculator'
 import { parseMonthly, isCashBenefit } from '@/lib/format'
+import { applyDifficulty } from '@/lib/priority'
+import { applyChannel } from '@/lib/roadmap'
 import { buildAiAnswer } from '@/lib/aiAnswer'
 import { supportsOnDeviceTranslation, getTranslator, zhTarget } from '@/lib/onDeviceTranslate'
 import { queryConcepts, relevance } from '@/lib/search'
 import { cn } from '@/lib/utils'
 import type { Policy } from '@/data/policies'
 import { useCatalog } from '@/data/useCatalog'
-import { sidoOf, guOf, collapseProgramDuplicates, type EligiblePolicy } from '@/lib/welfare-engine'
+import { sidoOf, guOf, collapseProgramDuplicates, isClosedForNew, type EligiblePolicy } from '@/lib/welfare-engine'
 import { PolicyCard } from '@/components/PolicyCard'
 import { PolicyDetailDrawer } from '@/components/PolicyDetailDrawer'
 import { Glossary } from '@/components/Glossary'
@@ -46,7 +48,8 @@ const BUCKETS: { key: string; label: string; emoji: string; match?: string[]; te
   { key: 'farm', label: '농어민', emoji: '🌾', match: ['농어'] },
 ]
 
-type SortKey = 'default' | 'amount' | 'name'
+type SortKey = 'default' | 'amount' | 'name' | 'ease'
+const DIFF_RANK = { easy: 0, medium: 1, hard: 2 } as const
 const PAGE = 60 // '더 보기' 1회당 추가 노출 수
 // 첫 화면·검색어 변경 직후 노출 수 — 검색 중 지연 커밋(카드 마운트) 비용을 낮춘다.
 // CPU×4 실측: 60장 커밋이 타이핑 중 100~600ms 롱태스크의 주범(구형 PC 타이핑 끊김). 24장도 2~3화면 분량.
@@ -175,6 +178,9 @@ export function Explore() {
 
   // 비검색 필터(분류·지역·현금성·혜택유형) 공통 술어 — 목록과 AI 답변이 '같은 결과'를 보게 hoist(감사 Finding 1)
   const passNonSearch = useCallback((p: Policy) => {
+    // 신규 신청이 종료된(모집·접수·가입 종료·일몰) 정책은 탐색에서도 숨긴다 — 결과 화면과 동일 원칙.
+    //   '신청할 수 있는 것만' 보여줘 사용자가 종료된 혜택에 헛걸음하지 않게(사용자 요청).
+    if (isClosedForNew(p)) return false
     const b = BUCKETS.find((x) => x.key === bucket)
     if (b?.test) { if (!b.test(p)) return false }
     else if (b?.match && !b.match.some((m) => p.category.includes(m))) return false
@@ -268,6 +274,12 @@ export function Explore() {
       const cashAmt = (p: Policy) => (isCashBenefit(p.benefit, `${p.name} ${p.category}`) ? parseMonthly(p.benefit) : 0)
       out = [...list].sort((a, b2) => cashAmt(b2) - cashAmt(a))
     } else if (sort === 'name') out = [...list].sort((a, b2) => a.name.localeCompare(b2.name, 'ko'))
+    else if (sort === 'ease') {
+      // 신청 쉬운 순 — 자동발급/온라인·서류 적은 순(applyDifficulty), 동급이면 현금액 높은 순
+      const cashAmt = (p: Policy) => (isCashBenefit(p.benefit, `${p.name} ${p.category}`) ? parseMonthly(p.benefit) : 0)
+      const diff = (p: Policy) => DIFF_RANK[applyDifficulty(applyChannel(p.application), (p.required_docs || []).length)]
+      out = [...list].sort((a, b2) => diff(a) - diff(b2) || cashAmt(b2) - cashAmt(a))
+    }
     // 같은 프로그램 중복(문화누리 3중복 등) 접기 — 결과 뷰와 동일 기준. POL- 시드에만 적용, 외부 데이터는 그대로.
     return collapseProgramDuplicates(out)
   }, [dq, catalog, sort, aiMode, aiHits, passNonSearch])
@@ -448,7 +460,7 @@ export function Explore() {
         {/* 정렬·필터 */}
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <ArrowDownWideNarrow className="h-4 w-4 text-muted-foreground" />
-          {([['default', '기본순'], ['amount', '금액 높은순'], ['name', '이름순']] as [SortKey, string][]).map(([k, l]) => (
+          {([['default', '기본순'], ['amount', '금액 높은순'], ['ease', '신청 쉬운 순'], ['name', '이름순']] as [SortKey, string][]).map(([k, l]) => (
             <button key={k} onClick={() => setSort(k)}
               className={cn('rounded-full px-3 py-1.5 text-xs font-semibold border transition-colors', sort === k ? 'bg-sprout-700 border-sprout-700 text-white' : 'bg-white border-sprout-100 text-muted-foreground hover:border-sprout-200')}>
               {l}
@@ -501,7 +513,7 @@ export function Explore() {
       <div className="mt-5 flex items-center justify-between gap-2 flex-wrap">
         <p className="text-sm text-muted-foreground" role="status" aria-live="polite">
           {aiMode && aiHits ? <>🌍 <b className="text-foreground">AI</b>가 의미로 찾은 </> : '총 '}
-          <b className="text-foreground">{filtered.length}</b>개 정책{onlyCash ? ' · 현금 지원' : ''}{sort === 'amount' ? ' · 금액순' : sort === 'name' ? ' · 이름순' : ''}
+          <b className="text-foreground">{filtered.length}</b>개 정책{onlyCash ? ' · 현금 지원' : ''}{sort === 'amount' ? ' · 금액순' : sort === 'ease' ? ' · 신청 쉬운 순' : sort === 'name' ? ' · 이름순' : ''}
         </p>
         <Glossary />
       </div>
@@ -509,7 +521,7 @@ export function Explore() {
       {aiMode && aiAnswer && (
         <div className="mt-3 rounded-2xl border-2 border-sprout-200 bg-gradient-to-br from-sprout-50 to-emerald-50 p-4">
           <div className="flex items-start gap-2.5">
-            <span className="text-xl leading-none">🤖</span>
+            <span className="text-xl leading-none">✨</span>
             <div className="min-w-0 flex-1">
               <p className="text-xs font-bold text-sprout-700">AI 답변</p>
               <p className="mt-0.5 text-sm leading-relaxed text-foreground">{aiAnswer}</p>
@@ -595,7 +607,7 @@ export function Explore() {
               <div key={p.id} className="relative">
                 {aiMode && aiScore.has(p.id) && (
                   <span className="absolute left-2 top-2 z-10 inline-flex items-center gap-1 rounded-full bg-sprout-600 px-2 py-0.5 text-[10px] font-bold text-white shadow-soft">
-                    🤖 AI 매칭
+                    ✨ AI 매칭
                   </span>
                 )}
                 <PolicyCard policy={p} index={Math.min(i, 12)} onOpen={setSelected} translateTo={translateTo} />

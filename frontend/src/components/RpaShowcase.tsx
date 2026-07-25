@@ -3,8 +3,10 @@ import { MessageCircleHeart, MousePointerClick, Smartphone, ShieldCheck, PlayCir
 import { SectionHeading } from '@/ui/SectionHeading'
 import { DemoAutomation } from '@/components/DemoAutomation'
 
-// 데스크탑 앱(Windows 전용) — 설치 exe '직접 다운로드'(릴리스 게시 확인됨: app-v0.3.0 ModooBom-Setup.exe).
+// 데스크탑 앱(Windows 전용) — 설치 exe '직접 다운로드'(릴리스 게시: app-v0.3.2 ModooBom-Setup.exe).
 // latest/download 는 최신 릴리스의 동명 자산을 따라가므로 버전이 올라가도 링크가 유지된다.
+// ⚠️ 새 버전 게시 시 여기 APP_VERSION 만 릴리스 태그(app-vX.Y.Z)와 맞춰 바꾸면 화면 표기가 따라간다.
+const APP_VERSION = 'v0.3.2'
 const AGENT_SETUP_URL = 'https://github.com/BioCode67/modoo-bom/releases/latest/download/ModooBom-Setup.exe'
 const AGENT_RELEASES_URL = 'https://github.com/BioCode67/modoo-bom/releases'
 const isWindows = typeof navigator !== 'undefined' && /Windows/.test(navigator.userAgent)
@@ -61,12 +63,13 @@ export function RpaShowcase() {
           </div>
           <div className="flex-1">
             <p className="font-bold">더 자동으로도 — 원하는 분만 (선택)</p>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              데스크탑 앱에서는 <b className="text-foreground">🚀 원클릭 연쇄</b> — <b className="text-foreground">🔑 로그인 인증 한 번</b>으로 필요한 서류를 순서대로 자동 발급하고
-              (일시 오류는 자동 재시도), 방금 발급분을 복지로 신청 양식에 <b className="text-foreground">자동 첨부</b>한 뒤 <b className="text-foreground">제출 직전에 멈춰요</b>.
-              발급물은 <b className="text-foreground">🗂 서류함</b>이 유효기간까지 관리하고, 이미 있는 서류는 건너뛰어 <b className="text-foreground">부족한 것만</b> 발급해요.
-              📱 카카오 인증 승인과 최종 제출만 본인이요(명의도용 방지 안전장치).
-              <br className="hidden sm:block" />앞으로는 <b className="text-foreground">공공 마이데이터</b>로 <b className="text-foreground">인증 한 번이면 완전 자동</b> — 설치 없이 안전하게 준비 중이에요.
+            <p className="text-sm text-muted-foreground mt-0.5 leading-relaxed">
+              웹에서는 공식 신청 페이지로 안내까지, <b className="text-foreground">데스크탑 앱에서는 실제 서류 발급·신청까지</b> 대신해 드려요.
+              로그인 인증을 <b className="text-foreground">한 번만</b> 하면 필요한 서류(주민등록등본·소득금액증명 등)를 정부24에서 순서대로 자동 발급하고
+              (일시 오류는 자동 재시도), 방금 받은 서류를 복지로 신청 양식에 <b className="text-foreground">자동으로 첨부</b>한 뒤 정보까지 채워 <b className="text-foreground">제출 직전에 멈춰요</b>.
+              발급한 서류는 <b className="text-foreground">서류함</b>이 유효기간까지 관리해, 이미 있는 건 건너뛰고 <b className="text-foreground">부족한 것만</b> 받아요.
+              <b className="text-foreground">본인인증 승인과 최종 제출</b>, 이 둘만 직접 하시면 돼요(명의도용을 막는 안전장치예요).
+              <br className="hidden sm:block" />앞으로는 <b className="text-foreground">공공 마이데이터</b>로 인증 한 번이면 완전 자동 — 설치 없이 안전하게 준비 중이에요.
             </p>
           </div>
           <div className="flex flex-col items-center gap-2 shrink-0">
@@ -75,9 +78,10 @@ export function RpaShowcase() {
                 <a
                   href={AGENT_SETUP_URL}
                   className="btn-primary !py-2 !px-4 text-xs whitespace-nowrap"
-                  title="Windows 설치 파일을 바로 내려받아요 — 실행 후 '추가 정보 → 실행'을 누르면 설치돼요"
+                  title={`Windows 설치 파일(${APP_VERSION})을 바로 내려받아요 — 실행 후 '추가 정보 → 실행'을 누르면 설치돼요`}
                 >
                   <Download className="h-4 w-4" /> Windows 앱 바로 받기
+                  <span className="ml-1.5 rounded-full bg-white px-1.5 py-0.5 text-[10px] font-extrabold text-sprout-700">{APP_VERSION}</span>
                 </a>
                 <a
                   href={AGENT_RELEASES_URL} target="_blank" rel="noopener noreferrer"

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Calculator, Check, X, ArrowRight } from 'lucide-react'
 import { medianIncome, incomePercentile, benefitCutoffs, livelihoodPayment, isApprox, MEDIAN_YEAR, won } from '@/lib/medianIncome'
+import { IncomeRecognitionCalc } from '@/components/IncomeRecognitionCalc'
 import { cn } from '@/lib/utils'
 
 /**
@@ -28,6 +29,7 @@ export function IncomeCalculator({
 }) {
   const [size, setSize] = useState(1)
   const [income, setIncome] = useState<string>('')
+  const [showDetail, setShowDetail] = useState(false)
 
   const monthly = parseInt(income.replace(/[^0-9]/g, ''), 10) || 0
   const median = medianIncome(size)
@@ -46,7 +48,7 @@ export function IncomeCalculator({
         <label className="block text-xs font-bold mb-1">가구원 수</label>
         <div className="flex flex-wrap gap-1.5">
           {[1, 2, 3, 4, 5, 6, 7].map((n) => (
-            <button key={n} onClick={() => setSize(n)}
+            <button key={n} onClick={() => setSize(n)} aria-pressed={n === 7 ? size >= 7 : size === n}
               className={cn('rounded-lg px-3 py-1.5 text-sm font-semibold border transition-colors', (n === 7 ? size >= 7 : size === n) ? 'bg-sky2-700 border-sky2-700 text-white' : 'bg-white border-sprout-100 text-muted-foreground hover:border-sky2-200')}>
               {n}{n === 7 ? '+' : ''}
             </button>
@@ -158,10 +160,21 @@ export function IncomeCalculator({
         </button>
       )}
       <p className="mt-2 text-[10px] text-muted-foreground">
-        ※ 실제 ‘소득인정액’은 집·예금 등 재산 환산이 포함돼 달라질 수 있어요. 재산까지 반영한 정확한 계산은{' '}
+        ※ 실제 ‘소득인정액’은 집·예금 등 재산 환산이 포함돼 달라질 수 있어요. 아래에서 재산까지 넣어 직접 계산하거나,{' '}
         <a href="https://www.bokjiro.go.kr" target="_blank" rel="noopener noreferrer" className="font-semibold text-sky2-700 hover:underline">복지로 모의계산</a>{' '}
-        또는 주민센터에서 확인하세요.
+        ·주민센터에서 확인하세요.
       </p>
+
+      {/* 재산 환산까지 반영한 소득인정액 정밀 계산 — 링크로 넘기던 것을 앱 안에서 */}
+      <button
+        onClick={() => setShowDetail((v) => !v)}
+        aria-expanded={showDetail}
+        className="mt-2 w-full flex items-center justify-center gap-1.5 rounded-xl border border-sky2-100 bg-white px-3 py-2 text-xs font-bold text-sky2-700 hover:border-sky2-200 transition-colors"
+      >
+        <ArrowRight className={cn('h-3.5 w-3.5 transition-transform', showDetail && 'rotate-90')} />
+        {showDetail ? '정밀 계산 닫기' : '재산까지 넣어 소득인정액 정밀 계산'}
+      </button>
+      {showDetail && <IncomeRecognitionCalc initialSize={size} onApply={onApply} />}
     </div>
   )
 }

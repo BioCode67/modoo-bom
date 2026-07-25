@@ -49,14 +49,16 @@ def main():
             pg.wait_for_timeout(800)
             # 대화형 기본 노출 확인
             pg.wait_for_selector("text=모두봄 에이전트", timeout=8000)
-            pg.wait_for_selector("text=어떻게 불러드릴까요", timeout=5000)
+            pg.wait_for_selector("text=성함을 알려주세요", timeout=5000)
             pg.screenshot(path=str(OUT/"30-chat-start.png"))
             print("✅ 대화형 온보딩 기본 노출")
             # name: 건너뛰기
             pg.click("text=건너뛰기")
             pg.wait_for_timeout(500)
-            # age: 65세 이상 어르신
-            pg.click("text=65세 이상 어르신")
+            # age: 생년월일 입력(토스/PASS식) — 1955.01.01 → 만 70대(어르신 리액션 유도)
+            pg.fill('[aria-label="생년월일"]', "19550101")
+            pg.wait_for_timeout(300)
+            pg.click("button:has-text('다음')")
             pg.wait_for_timeout(600)
             # 🔄 새로고침 복원 — '입력하다 상태 잃음' 불만 대응 검증: 리로드 후 대화가 이어져야 함
             pg.reload(wait_until="networkidle"); pg.wait_for_timeout(1200)
@@ -73,8 +75,10 @@ def main():
             # income: 소득이 적은 편이에요
             pg.click("text=소득이 적은 편이에요")
             pg.wait_for_timeout(600)
-            # household: 1인가구
+            # household: 1인가구 (복수선택 → 다음 버튼)
             pg.click("text=1인가구")
+            pg.wait_for_timeout(300)
+            pg.click("text=1개 골랐어요, 다음 →")
             pg.wait_for_timeout(600)
             pg.screenshot(path=str(OUT/"31-chat-mid.png"))
             # situations: 해당 없어요, 다음
@@ -99,11 +103,13 @@ def main():
             try:
                 pg.click("text=다시 분석", timeout=5000); pg.wait_for_timeout(800)
                 pg.click("text=건너뛰기", timeout=5000); pg.wait_for_timeout(400)
-                pg.click("text=35~49세"); pg.wait_for_timeout(500)
+                pg.fill('[aria-label="생년월일"]', "19840101"); pg.wait_for_timeout(300)  # 만 40대
+                pg.click("button:has-text('다음')"); pg.wait_for_timeout(500)
                 pg.click("text=딱 가운데쯤이에요"); pg.wait_for_timeout(500)
-                pg.click("text=신혼부부"); pg.wait_for_timeout(500)
+                pg.click("text=신혼부부"); pg.wait_for_timeout(300)
+                pg.click("text=1개 골랐어요, 다음 →"); pg.wait_for_timeout(500)  # household 복수선택 다음
                 pg.click("text=최근 아기를 낳았어요"); pg.wait_for_timeout(300)
-                pg.click("text=1개 골랐어요, 다음 →"); pg.wait_for_timeout(600)
+                pg.click("text=1개 골랐어요, 다음 →"); pg.wait_for_timeout(600)  # situations 다음
                 pg.wait_for_selector("text=자녀가 몇 살인가요", timeout=5000)
                 pg.click("text=0~1세 (영아)"); pg.wait_for_timeout(300)
                 pg.click("text=1개 골랐어요, 다음 →"); pg.wait_for_timeout(500)

@@ -11,14 +11,19 @@ export interface DeadlineHint {
   urgent: boolean // true면 단기(일 단위)·한시·마감 → 강조(빨강)
 }
 
-// [정규식, 라벨 생성, urgent]. 위에서부터 첫 매칭 사용(구체적인 것 우선).
-const PATTERNS: { re: RegExp; label: (m: RegExpMatchArray) => string; urgent: boolean }[] = [
+// [정규식, 라벨 생성, urgent, skipIf?]. 위에서부터 첫 매칭 사용(구체적인 것 우선).
+//   skipIf: 매칭돼도 이 조건이면 건너뛴다(오탐 억제).
+const PATTERNS: { re: RegExp; label: (m: RegExpMatchArray) => string; urgent: boolean; skipIf?: (t: string) => boolean }[] = [
   { re: /(출생|출산)\s*후\s*(\d+)\s*일\s*(?:이내|내|안)/, label: (m) => `${m[1]} 후 ${m[2]}일 내 신청`, urgent: true },
   { re: /(출생|출산)\s*후\s*(\d+)\s*(개월|년)\s*(?:이내|내)/, label: (m) => `${m[1]} 후 ${m[2]}${m[3]} 내 신청`, urgent: false },
-  { re: /(퇴직|이직|실직|퇴사)\s*후\s*(\d+)\s*(일|개월|년)\s*(?:이내|내)?/, label: (m) => `${m[1]} 후 ${m[2]}${m[3]} 내 신청`, urgent: true },
+  // 종결어(이내/내/신청 등) 필수 — '실직 후 3개월간 지원'(지속 기간)을 '마감'으로 오인해 가짜 긴급 배지를
+  //   달던 문제 방지(감사). '퇴직 후 1년 이내 신청'처럼 실제 기한형만 잡는다.
+  { re: /(퇴직|이직|실직|퇴사)\s*후\s*(\d+)\s*(일|개월|년)\s*(?:이내|내|안|신청|신고|접수)/, label: (m) => `${m[1]} 후 ${m[2]}${m[3]} 내 신청`, urgent: true },
   { re: /(\d+)\s*일\s*(?:이내|내|안)\s*(?:신청|신고|접수)/, label: (m) => `${m[1]}일 내 신청`, urgent: true },
   { re: /(\d+)\s*일\s*이내/, label: (m) => `${m[1]}일 내 신청`, urgent: true },
-  { re: /한시\s*(?:사업|지원|운영|적용)?/, label: () => '한시 사업 (기간 한정)', urgent: true },
+  // '한시'는 '상시사업 전환' 등 이제 상시가 된 제도엔 배지를 달지 않는다
+  //   (오탐: '청년 월세 한시 특별지원'은 이름에 한시가 있지만 benefit이 '2026 상시사업 전환' — 감사 실결함).
+  { re: /한시\s*(?:사업|지원|운영|적용)?/, label: () => '한시 사업 (기간 한정)', urgent: true, skipIf: (t) => /상시\s*(?:사업|운영|지원|전환|화)/.test(t) },
   { re: /(신청|접수|모집)\s*기간|기간\s*내\s*신청|마감/, label: () => '신청 기간 한정', urgent: false },
 ]
 
@@ -27,7 +32,7 @@ export function deadlineHint(policy: Policy | EligiblePolicy): DeadlineHint | nu
   const text = `${policy.name} ${policy.eligibility || ''} ${policy.benefit || ''} ${policy.application || ''}`
   for (const p of PATTERNS) {
     const m = text.match(p.re)
-    if (m) return { label: p.label(m), urgent: p.urgent }
+    if (m && !(p.skipIf && p.skipIf(text))) return { label: p.label(m), urgent: p.urgent }
   }
   return null
 }

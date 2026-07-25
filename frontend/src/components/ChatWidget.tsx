@@ -59,6 +59,9 @@ export function ChatWidget() {
   const agentOn = ready === true && !!caps?.rpa // 데스크탑 에이전트 — 서류/신청 답변이 자동화 경로를 안내
   const endRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  // 상담 전환(resetNonce) 이후에 '이전 사용자의 클라우드 답변'이 뒤늦게 도착해 새 대화에 끼어드는 것 차단용 —
+  //   send 시점의 nonce를 붙잡아 응답 콜백에서 최신값과 비교(다르면 폐기). 프라이버시(현장 상담 전환) 보장.
+  const resetNonceRef = useRef(resetNonce)
 
   /** 지식형 질문을 백엔드 LLM(/ws/chat)에 물어본다 — 실패·지연(12s)이면 null(로컬 폴백) */
   const askCloud = (q: string): Promise<{ answer: string; names: string[] } | null> =>
@@ -98,6 +101,7 @@ export function ChatWidget() {
 
   // 상담 전환('다음 분 상담 시작')이면 대화 내용(이전 어르신 실명·상담)을 비운다 — resetNonce 신호.
   useEffect(() => {
+    resetNonceRef.current = resetNonce // 최신 nonce 추적(진행 중 클라우드 응답의 stale 판정 기준)
     if (resetNonce === 0) return
     setMsgs([]); setInput(''); setStep(-1)
     setAnswers({ situations: [] }); setMultiSel([]); setGuideName(''); setGuideAge('')
@@ -179,6 +183,7 @@ export function ChatWidget() {
       // 각 대기 버블에 고유 id — 연속 질문 시 '자기' 버블만 지운다(과거엔 첫 응답이 모든 pending 을 일괄
       //   제거해 두 번째 질문이 침묵하던 결함, 적대 리뷰 확정).
       const pid = `p${Date.now()}-${Math.round(Math.random() * 1e6)}`
+      const startNonce = resetNonceRef.current // 이 질문이 속한 상담 세션 — 응답 도착 시 상담이 전환됐으면 폐기
       setMsgs((m) => [...m, {
         role: 'bot',
         text: aiChat ? '관련 복지를 찾아보고 있어요…' : 'AI 에이전트를 깨우는 중이에요… 첫 접속은 30초쯤 걸릴 수 있어요 🌱',
@@ -189,6 +194,9 @@ export function ChatWidget() {
         ? Promise.resolve(true)
         : Promise.race([checkBackend(), new Promise<boolean>((r) => setTimeout(() => r(false), 25000))])
       gate.then((ok) => (ok && getCapabilities()?.ai ? askCloud(q) : null)).then((res) => {
+        // ⚠️ 상담 전환(resetNonce 변경) 이후 뒤늦게 도착한 '이전 사용자의 답변'은 새 대화에 넣지 않는다
+        //    (지우기만으론 진행 중 요청이 안 취소돼 답변이 끼어들던 결함 — 현장 상담 전환 프라이버시 보장, 감사 #2).
+        if (resetNonceRef.current !== startNonce) return
         setMsgs((m) => m.filter((x) => x.pendingId !== pid))
         if (res && res.answer) {
           // 관련 정책명을 카탈로그와 매칭해 '담기' 칩으로(행동 연결)
@@ -296,7 +304,7 @@ export function ChatWidget() {
                 onClick={() => { setCallOpen(true); setOpen(false) }}
                 className="rounded-full p-2 bg-white/15 hover:bg-white/25"
                 aria-label="음성 통화 상담으로 전환"
-                title="📞 새싹이와 통화하기 — 말로만 상담"
+                title="📞 새싹이와 통화하기 (베타) — 말로만 상담"
               >
                 <Phone className="h-[18px] w-[18px]" />
               </button>

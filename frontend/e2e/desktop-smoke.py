@@ -2,9 +2,9 @@
 """데스크탑앱 스모크 — local_server(:8000)가 dist-app을 서빙하는 '진짜 배포 셋업'에서
 데스크탑 전용 기능을 실브라우저로 회귀 검증한다(웹 프리뷰 스모크로는 localAgent 기능이 안 보임).
 
-검증 30종(번호는 추가 순서 — 실행 순서는 코드 순):
+검증 31종(번호는 추가 순서 — 실행 순서는 코드 순):
   1 상태 스트립 · 2 진단 복사(PII 0) · 2.5 발급 전 점검(6항목·서류함 무결성) · 3 서류함 등록+첨부 후보 배지 · 3.5 🖍 가리기
-  4 자동첨부 미리보기 · 4.7 💬→🚀 챗 전부발급 연쇄 · 5 개별 삭제(2탭) · 5.5 유효기간 배지+📦 ZIP · 5.55 👁 파일 열람 · 5.6 종류별 그룹핑(최신본 대표) · 5.65 🧹 이전 버전 정리 · 5.7 부족분만 발급→📨 자동신청만 · 5.8 자유 선택 일괄발급 · 5.85 🔁 손상 원탭 재발급 · 5.87 🔎 앱 내 실측 확인 · 5.88 후보 칩·자동신청 실측 정직 실패 · 5.9 빈 상태 슬림 모드 · 5.95 🩺 조용한 자가점검
+  4 자동첨부 미리보기 · 4.7 💬→🚀 챗 전부발급 연쇄 · 5 개별 삭제(2탭) · 5.5 유효기간 배지+📦 ZIP · 5.55 👁 파일 열람 · 5.6 종류별 그룹핑(최신본 대표) · 5.65 🧹 이전 버전 정리 · 5.7 부족분만 발급→📨 자동신청만 · 5.8 자유 선택 일괄발급 · 5.85 🔁 손상 원탭 재발급 · 5.87 🔎 앱 내 실측 확인 · 5.88 후보 칩·자동신청 실측 정직 실패 · 5.9 빈 상태 슬림 모드 · 5.92 👁 민감입력 보기 토글 · 5.95 🩺 조용한 자가점검
   6 새로고침 복원+실태스크 정리 · 6.5 인증 알림음+🔊 음성(옵트인)+발급 자동 기억
   6.8 챗 에이전트 인지 · 6.85 💬→🖨 대화→발급 다리 · 6.9 여정 이어보기 · 6.95 인증정보 탭-기억 옵트인 · 6.97 🚀 오토파일럿
   7.5 원클릭 연쇄+⏭ 스킵+📨 기록 CTA · 7.6 여정 오류 경로(정직 요약) · 7 검증형 리셋 · 8 🌱 새싹이 가이드
@@ -343,9 +343,23 @@ def main() -> int:
             pg2.click("text=나의 복지")
             pg2.wait_for_selector("text=아직 담은 복지가 없어요", timeout=15000)
             pg2.wait_for_selector("text=서류 발급 도우미", timeout=10000)          # 슬림 모드 헤더
-            pg2.wait_for_selector("text=원하는 서류 골라 일괄발급", timeout=8000)   # 패널 자동 펼침
+            # 자동 펼침 제거(사용자 요청: 필요 서류만 기본 표시) — 패널은 접힌 opt-in 버튼으로만 열린다
+            assert pg2.locator("text=원하는 서류 골라 일괄발급").count() == 0, "자유발급 패널 자동 펼침(제거된 동작 회귀)"
+            pg2.click("text=서류를 골라 발급하기")                                  # 접힌 버튼 opt-in
+            pg2.wait_for_selector("text=원하는 서류 골라 일괄발급", timeout=8000)   # 클릭 후 펼침
             assert pg2.locator("input.accent-sky2-600").count() == n_server, "슬림 모드 지원 그리드 수 불일치(동적 배선)"
             pg2.wait_for_selector("text=내 서류함", timeout=8000)                  # 서류함도 동작
+
+            # 5.92) 👁 민감 입력 보기 토글 — 기본 password(가림), [보기]로 양칸 동시 text, [가리기]로 복귀
+            _rrn = pg2.locator("input[aria-label*='주민등록번호 뒷자리']").first
+            assert _rrn.get_attribute("type") == "password", "뒷자리 입력이 기본 가림(password)이 아님"
+            pg2.click("text=👁 보기")
+            assert _rrn.get_attribute("type") == "text", "👁 보기 클릭 후에도 가려져 있음"
+            assert pg2.locator("input[aria-label*='부 또는 모 성명']").first.get_attribute("type") == "text", \
+                "부/모 성명 칸이 함께 안 열림"
+            pg2.click("text=🙈 가리기")
+            assert _rrn.get_attribute("type") == "password", "가리기 후 password 복귀 실패"
+            print("[desktop] ✅ 5.92. 👁 민감 입력 보기/가리기 — 기본 가림·양칸 동시 전환·복귀")
 
             # 5.95) 🩺 조용한 자가점검 — 새 탭(새 세션)에서 클릭 없이 스스로 점검이 돌아야 한다.
             #       이식성: 문제가 있으면(컨테이너: 정부망 차단) 결과 패널 자동 표시, 전부 정상(실PC)이면
@@ -355,7 +369,7 @@ def main() -> int:
                 assert "서류함 무결성" in pg2.inner_text("body"), "자가점검 결과에 점검 항목 미표시"
             pg2.close()
             print("[desktop] ✅ 5.95. 🩺 조용한 자가점검 — 무클릭 자동 실행(문제=패널·정상=✓)")
-            print("[desktop] ✅ 5.9. 슬림 모드 — 담은 복지 0에서도 발급 도우미·15종 패널·서류함 동작")
+            print("[desktop] ✅ 5.9. 슬림 모드 — 담은 복지 0에서도 발급 도우미·옵트인 일괄발급·서류함 동작")
 
             # 6) 세션 연속성 — 실태스크(곧 종결) 기억 → 새로고침 → 자동 재연결
             r = pg.evaluate("""async()=>{
@@ -461,7 +475,10 @@ def main() -> int:
                 else:
                     body = {"status": "completed", "current": None, "steps": [
                         {"name": "주민등록등본", "status": "cancelled", "kind": "doc"},
-                        {"name": "청년월세지원", "status": "done", "kind": "apply"}]}
+                        {"name": "청년월세지원", "status": "done", "kind": "apply",
+                         "success": True, "result_status": "form_ready",
+                         "filled_fields": ["이름", "생년월일", "휴대폰"],
+                         "attached_docs": ["주민등록등본 → '첨부서류'"]}]}
                 r.fulfill(status=200, content_type="application/json", body=json.dumps(body))
             pg.route("**/api/journey/status/**", onjstatus)
             def onskip(r):
@@ -632,7 +649,7 @@ def main() -> int:
         for i in issues[:10]:
             print("  ", i)
         return 1
-    print("✅ 데스크탑 기능 30종 + pageerror 0 — 전부 통과")
+    print("✅ 데스크탑 기능 31종 + pageerror 0 — 전부 통과")
     return 0
 
 

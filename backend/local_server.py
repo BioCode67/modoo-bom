@@ -141,6 +141,10 @@ class DocRequest(BaseModel):
     sido: str = ""
     sigungu: str = ""
     auth_provider: str = "kakao"  # 간편인증 수단: kakao|pass|naver|toss (어르신 다수 PASS)
+    # 🔒 가족관계증명서(efamily)용 선택 정보 — 발급 자동입력에만 쓰고 서버는 저장·로그하지 않는다.
+    rrn_back: str = ""       # 주민등록번호 뒷 7자리(선택 — 있으면 efamily 인증 요청까지 자동)
+    parent_kind: str = "부"  # 추가정보확인 종류: 부|모
+    parent_name: str = ""    # 부 또는 모 성명(선택)
 
 
 class DemoRequest(BaseModel):
@@ -173,6 +177,10 @@ class JourneyRunRequest(BaseModel):
     sido: str = ""
     sigungu: str = ""
     profile: dict = {}
+    # 🔒 가족관계증명서(efamily)용 — DocRequest와 동일(저장·로그 금지, 자동입력 전용)
+    rrn_back: str = ""
+    parent_kind: str = "부"
+    parent_name: str = ""
 
 
 # ── 상태 ──
@@ -195,6 +203,9 @@ async def health():
             # 🔒 공유(터널) 배포 여부 — 프론트가 서류함/점검 등 '본인 PC 전용' UI를 스스로 숨기게(403 충돌 방지).
             #   동일출처로 터널을 직접 여는 경우 rpaRemote 감지가 없어 이 플래그가 유일한 신호다.
             "shared": os.getenv("RPA_SHARED", "").strip().lower() in ("1", "true", "yes"),
+            # 🎬 흐름 기록 모드(RPA_FLOW_RECORD=1 — run-local-app.bat 가 자동으로 켬)에서만 true — 프론트가
+            #   [🎬 흐름 기록 복사] 버튼을 이때만 노출(설치 EXE는 미설정 → 심사위원에겐 안 보임).
+            "flow_record": os.getenv("RPA_FLOW_RECORD", "").strip().lower() in ("1", "true", "on", "yes"),
         },
     }
 
@@ -319,7 +330,7 @@ async def diagnostics():
     태스크는 상태별 '개수'와 최근 오류의 기술 문구(잘라냄)만."""
     import platform
     import sys as _sys
-    from rpa.manager import _rpa_tasks, _MAX_CONCURRENT, _active, _waiting
+    from rpa.manager import _rpa_tasks, _MAX_CONCURRENT, _active, _waiting, _strip_pii_lines, SUPPORTED_DOC_NAMES
     from rpa.base import DOCS_DIR
     from rpa.config import rpa_enabled
     from rpa.gov24_rpa import EXTRA_DOC_NAMES
@@ -331,8 +342,14 @@ async def diagnostics():
             st = str(d.get("status") or "?")
             counts[st] = counts.get(st, 0) + 1
             if st == "error":
-                # 기술 오류 문구만(발급 실패 원인) — 이름·서류명이 섞일 수 있는 안내문은 첫 줄 200자로 제한
-                last_error = str(d.get("current_step") or "")[:200]
+                # 기술 오류 문구만(발급 실패 원인) — 실명 줄·저장경로 줄을 제거하고(공용 _strip_pii_lines),
+                #   오류문에 섞인 민감 서류종(장애인·한부모 등)까지 '(서류)'로 가린 뒤 200자로 제한한다.
+                #   (공용 PC '다음 분 상담'·터널 배포에서 남의 서류종이 진단으로 새던 실결함 — 감사 확정)
+                _e = _strip_pii_lines(str(d.get("current_step") or ""))
+                for _dn in SUPPORTED_DOC_NAMES:
+                    if _dn and _dn in _e:
+                        _e = _e.replace(_dn, "(서류)")
+                last_error = _e[:200]
     except Exception:
         pass
     docs_count = 0
@@ -364,6 +381,40 @@ async def diagnostics():
         "extra_docs_count": len(EXTRA_DOC_NAMES),
         "docs_corrupt_count": sum(1 for i in _scan_documents() if not i.get("intact", True)),
     }
+
+
+@app.get("/api/_diagnostics/latest")
+async def latest_diagnostic():
+    """가장 최근 저장된 '실패 자가 진단'(실화면 구조·PII 없음)을 반환 — 프론트 [🔬 진단 복사]가 이 하나를
+    개발자에게 전달하면, 접속 못 하는 실화면 구조를 정확히 파악해 고칠 수 있다. 스크린샷 반복을 대체한다.
+    🔒 본인 PC 전용(공유 배포 403). 값(이름·주민번호 등)은 애초에 담기지 않는다(diagnostics 모듈 계약)."""
+    _shared_mode_guard()
+    import glob as _glob
+    import json as _json
+    from rpa.base import DOCS_DIR
+    ddir = os.path.join(str(DOCS_DIR), "_diagnostics")
+    try:
+        files = sorted(_glob.glob(os.path.join(ddir, "*.json")), key=os.path.getmtime, reverse=True)
+    except Exception:
+        files = []
+    if not files:
+        return {"available": False}
+    try:
+        data = _json.loads(open(files[0], encoding="utf-8").read())
+        return {"available": True, "file": os.path.basename(files[0]), "count": len(files), "diagnostic": data}
+    except Exception as e:
+        return {"available": False, "error": str(e)[:120]}
+
+
+@app.get("/api/_diagnostics/flow")
+async def flow_record():
+    """🎬 이번 실행이 '지나간 화면들'의 구조(값 없음)를 한 번에 반환 — RPA_FLOW_RECORD=1(run-local-app.bat
+    자동 켬)일 때만 쌓인다. 프론트 [🎬 흐름 기록 복사]가 이 하나를 개발자에게 전달하면, 성공하며 지나가는
+    '다음 화면·새 팝업'까지 스크린샷 없이 한 번에 파악해 전 단계를 함께 고칠 수 있다(단계별 촬영을 대체).
+    🔒 본인 PC 전용(공유 배포 403)·값 미수집(diagnostics 모듈 계약)."""
+    _shared_mode_guard()
+    from rpa import diagnostics as _dg
+    return _dg.read_flow()
 
 
 # ── RPA 서류 발급 ──
@@ -481,7 +532,8 @@ async def rpa_issue(req: DocRequest):
     if req.doc_name not in SUPPORTED_DOC_NAMES:
         raise HTTPException(status_code=400, detail=f"지원하지 않는 서류: {req.doc_name}\n지원 목록: {', '.join(SUPPORTED_DOC_NAMES)}")
     user_info = {"user_name": req.user_name, "birth_date": req.birth_date, "phone": req.phone,
-                 "carrier": req.carrier, "sido": req.sido, "sigungu": req.sigungu, "auth_provider": req.auth_provider}
+                 "carrier": req.carrier, "sido": req.sido, "sigungu": req.sigungu, "auth_provider": req.auth_provider,
+                 "rrn_back": req.rrn_back, "parent_kind": req.parent_kind, "parent_name": req.parent_name}
     task_id = start_rpa_task(req.doc_name, req.user_name, user_info)
     _t = get_task(task_id)
     token = getattr(_t, "download_token", "") if _t is not None and not isinstance(_t, dict) else (_t or {}).get("download_token", "")
@@ -886,7 +938,8 @@ async def journey_run(req: JourneyRunRequest):
     if not can_accept():
         raise HTTPException(status_code=503, detail="지금 자동화 이용자가 많아요. 잠시 후 다시 시도하거나 공식 사이트에서 바로 진행하실 수 있어요.")
     user_info = {"user_name": req.user_name, "birth_date": req.birth_date, "phone": req.phone, "carrier": req.carrier, "auth_provider": req.auth_provider,
-                 "sido": req.sido, "sigungu": req.sigungu}
+                 "sido": req.sido, "sigungu": req.sigungu,
+                 "rrn_back": req.rrn_back, "parent_kind": req.parent_kind, "parent_name": req.parent_name}
     jid, accepted_docs, accepted_svcs = start_journey(req.doc_names, req.service_names, req.user_name, user_info, req.profile)
     return {"journey_id": jid, "status": "started", "download_token": journey_token(jid),
             "docs": accepted_docs, "services": accepted_svcs}
@@ -918,7 +971,16 @@ async def journey_status(journey_id: str, t: str = ""):
 
 @app.exception_handler(Exception)
 async def _unhandled(request, exc):
-    return JSONResponse(status_code=500, content={"detail": "로컬 에이전트에서 문제가 발생했어요. 잠시 후 다시 시도해 주세요."})
+    # ⚠️ 최외곽 예외 핸들러 응답은 CORSMiddleware를 거치지 않아 CORS 헤더가 없다 — gh-pages→로컬 에이전트
+    #   브릿지에서 미처리 500이 나면 브라우저가 응답을 차단해 프론트가 detail(안내 문구)을 못 읽고 네트워크
+    #   오류(failStreak)로만 처리하던 갭(감사 확정). 허용 오리진이면 CORS 헤더를 실어 프론트가 문구를 읽게 한다.
+    origin = request.headers.get("origin")
+    headers = {}
+    if origin in _ALLOWED_ORIGINS:
+        headers = {"Access-Control-Allow-Origin": origin, "Access-Control-Allow-Credentials": "true", "Vary": "Origin"}
+    return JSONResponse(status_code=500,
+                        content={"detail": "로컬 에이전트에서 문제가 발생했어요. 잠시 후 다시 시도해 주세요."},
+                        headers=headers)
 
 
 # ── 프론트(dist-app) 동일 출처 서빙 — API 라우트 등록 뒤 '/'에 마운트(우선순위 보장) ──
@@ -963,20 +1025,68 @@ def _port_in_use(host: str, port: int) -> bool:
             return False
 
 
+def _open_app_ui(url: str) -> None:
+    """앱 UI를 연다 — **크롬/엣지를 먼저** 시도하고, 없으면 기본 브라우저로 폴백.
+
+    자동발급 RPA와 달리 앱 UI는 어떤 최신 브라우저에서도 동작하지만, 3D 히어로·온디바이스
+    AI(번역 API 등)는 크롬/엣지에서 가장 잘 보인다. 그래서 사용자의 '기본 브라우저'가 크롬이
+    아니어도(엣지·파폭·웨일 등) 우선 크롬→엣지로 열어 최상의 데모 경험을 보장하고, 둘 다 없거나
+    실행 실패면 반드시 기본 브라우저로 폴백한다(어떤 경우든 창은 열린다).
+    """
+    if sys.platform == "win32":
+        import subprocess
+        pf = os.environ.get("ProgramFiles", r"C:\Program Files")
+        pfx86 = os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")
+        local = os.environ.get("LocalAppData", "")
+        candidates = [
+            os.path.join(pf, "Google", "Chrome", "Application", "chrome.exe"),
+            os.path.join(pfx86, "Google", "Chrome", "Application", "chrome.exe"),
+            os.path.join(local, "Google", "Chrome", "Application", "chrome.exe") if local else "",
+            os.path.join(pfx86, "Microsoft", "Edge", "Application", "msedge.exe"),
+            os.path.join(pf, "Microsoft", "Edge", "Application", "msedge.exe"),
+        ]
+        for exe in candidates:
+            if exe and os.path.exists(exe):
+                try:
+                    subprocess.Popen([exe, url])
+                    return
+                except Exception:
+                    pass  # 실행 실패 → 다음 후보/기본 브라우저
+    # 폴백: OS 기본 브라우저(맥·리눅스 포함) — 무슨 일이 있어도 앱은 열린다.
+    try:
+        webbrowser.open(url)
+    except Exception:
+        pass
+
+
+def _health_probe_url(url: str) -> str:
+    """health 폴링 주소 — 바인드 주소(127.0.0.1)로 맞춘다. 윈도우에서 'localhost'가 IPv6(::1)로
+    먼저 풀려 서버(127.0.0.1 바인드) 확인이 느려지거나 빗나가는 것 방지(브라우저 자동오픈 실패 원인)."""
+    return url.replace("//localhost", "//127.0.0.1") + "api/health"
+
+
 def _open_browser_when_ready(url: str):
-    """서버 health가 실제로 뜨면 기본 브라우저로 앱을 연다(최대 ~15초, 안 뜨면 안 엶)."""
+    """서버 health가 뜨면 크롬/엣지 우선으로 앱을 연다.
+    ⚠️ 실사용 제보: run-local-app 에서 브라우저가 안 열림 → 원인은 (1) 첫 기동(콜드 임포트)이 15초를
+       넘겨 폴링이 조용히 포기, (2) localhost→::1 로 풀려 확인 실패. 대응:
+       - 폴링 상한을 ~60초로 넉넉히(첫 실행은 느릴 수 있음), 주소는 127.0.0.1 로.
+       - 60초 안에 확인 못 해도 '마지막엔 그냥 연다' — 서버가 느리게라도 떴으면 창은 열려야 한다
+         (사용자가 새로고침 가능). '조용히 안 열림'이 최악이라 이 폴백을 둔다."""
     import threading
     import time
     import urllib.request
 
+    probe = _health_probe_url(url)
+
     def _worker():
-        for _ in range(30):
+        for _ in range(120):  # 최대 ~60초 — 첫 실행(콜드 임포트·시딩)은 느릴 수 있어 넉넉히
             try:
-                urllib.request.urlopen(url + "api/health", timeout=1)
-                webbrowser.open(url)
+                urllib.request.urlopen(probe, timeout=1)
+                _open_app_ui(url)
                 return
             except Exception:
                 time.sleep(0.5)
+        _open_app_ui(url)  # 확인 못 해도 마지막엔 연다 — '조용히 안 열림' 방지(서버는 대개 떠 있음)
     threading.Thread(target=_worker, daemon=True).start()
 
 
@@ -990,10 +1100,7 @@ def main(open_browser: bool = True):
     # 이미 실행 중이면(더블클릭 두 번 등) 새로 띄우지 않고 기존 창을 브라우저로 연다 → 포트 충돌 스택트레이스 방지.
     if _port_in_use(host, port):
         print(f"[모두봄] 이미 실행 중이에요. 브라우저에서 {url} 을 여세요.")
-        try:
-            webbrowser.open(url)
-        except Exception:
-            pass
+        _open_app_ui(url)  # 크롬/엣지 우선 오픈(기본 브라우저 폴백)
         return
 
     # 서버가 뜨면 브라우저 자동 오픈(중복 오픈 방지 위해 여기 한 곳에서만 — agent_entry/bat는 위임).

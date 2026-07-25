@@ -7,6 +7,8 @@ import type { Policy } from '@/data/policies'
 import { getCatalog } from '@/data/catalog'
 import type { EligiblePolicy } from '@/lib/welfare-engine'
 import { generateGuides, matchFacts } from '@/lib/welfare-engine'
+import { EligibilityExplainer } from '@/components/EligibilityExplainer'
+import { docCoverage, coverageLabel } from '@/lib/docCoverage'
 import { categoryMeta, parseMonthly, formatWon, isCashBenefit, PRIORITY_META } from '@/lib/format'
 import { deadlineHint } from '@/lib/deadline'
 import { docLink, isApplyAutomatable } from '@/lib/officialLinks'
@@ -302,6 +304,10 @@ function DrawerBody({
           </div>
         )}
 
+        {/* 자격 판정 근거(왜 되는지/안 되는지) — 프로필이 있으면 정밀 정책에 한해 조건별 통과/탈락 설명.
+            특히 담은 게 아니라 '탐색/검색으로 연' 부적격 정책의 이유·개선점을 알려준다(위 초록 블록은 적격만 노출). */}
+        <EligibilityExplainer policy={policy} profile={profile} />
+
         {(() => {
           // 공공데이터 요약본(대상=혜택=자격이 동일)이면 한 섹션으로 깔끔하게
           const summaryOnly = policy.target === policy.benefit && policy.benefit === policy.eligibility
@@ -389,6 +395,16 @@ function DrawerBody({
                   <div className="h-full rounded-full bg-sprout-500 transition-all" style={{ width: `${Math.round((doneCount / total) * 100)}%` }} />
                 </div>
               )}
+              {/* 자동발급 커버리지 — 앱이 대신 뗄 수 있는 서류 비율(에이전트 연결 시) */}
+              {(() => {
+                const cov = docCoverage(policy)
+                return cov.issuable > 0 ? (
+                  <p className="mb-2 flex items-start gap-1 text-[11px] text-sprout-700">
+                    <span aria-hidden>🤖</span>
+                    <span>{coverageLabel(cov)}{cov.manual > 0 ? <span className="text-muted-foreground"> · 직접 준비: {cov.manualDocs.slice(0, 2).join('·')}{cov.manualDocs.length > 2 ? ' 외' : ''}</span> : ''}</span>
+                  </p>
+                ) : null
+              })()}
               <ul className="space-y-1.5">
                 {policy.required_docs.map((d: string) => {
                   const dl = docLink(d)
@@ -509,7 +525,7 @@ function DrawerBody({
         )}
         {/* AI 의미기반 비슷한 복지(옵트인) */}
         {onOpen && (
-          <Section title="🤖 AI로 비슷한 복지">
+          <Section title="✨ AI로 비슷한 복지">
             {!aiRelated && !aiRelErr && (
               <button
                 onClick={findAiRelated}

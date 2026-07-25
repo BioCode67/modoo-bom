@@ -16,8 +16,17 @@ describe('deadlineHint', () => {
     const h = deadlineHint(mk({ eligibility: '퇴직 후 1년 이내 신청 가능' }))
     expect(h?.urgent).toBe(true)
   })
+  it('기간형("실직 후 3개월간 지원")은 마감 아님 — 가짜 긴급 배지 방지(감사)', () => {
+    expect(deadlineHint(mk({ benefit: '실직 후 3개월간 지원' }))).toBeNull()
+    expect(deadlineHint(mk({ eligibility: '퇴직 후 3년 경과자 대상' }))).toBeNull()
+  })
   it('한시 사업 → 긴급', () => {
     expect(deadlineHint(mk({ name: '한시 긴급생활지원' }))?.urgent).toBe(true)
+  })
+  it('상시사업 전환된 제도는 이름의 한시로 긴급 배지가 뜨지 않음(오탐 방지)', () => {
+    // '청년 월세 한시 특별지원'(POL-055): 이름엔 한시지만 benefit이 '2026 상시사업 전환' → 긴급 배지 X
+    const h = deadlineHint(mk({ name: '청년 월세 한시 특별지원', benefit: '월 최대 20만원 × 최대 24개월 (2026년 상시사업 전환)', application: '복지로 온라인' }))
+    expect(h).toBeNull()
   })
   it('신청기간 → 비긴급(기간 한정 안내)', () => {
     const h = deadlineHint(mk({ application: '매년 신청 기간 내 접수' }))

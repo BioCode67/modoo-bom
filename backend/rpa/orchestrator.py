@@ -93,7 +93,10 @@ def journey_view(journey_id: str, t: str = ""):
 
     ⚠️ 인가(감사 확정): 정부 페이지 스크린샷(주민번호 가능)·실명·저장경로는 시작자 토큰(?t=) 일치 시에만 노출.
        download_token 자체는 어떤 경우에도 응답에 넣지 않는다."""
-    from rpa.manager import get_task, token_ok
+    # 🔒 팀원 확인 요망(감사 확정 프라이버시): 단건 status(manager.redact_status)와 편집 기준을 정합화한다.
+    #   기존엔 top-level saved_docs·user_name 만 가리고 steps[].saved_path(실명 포함 파일 경로)·
+    #   current_message(원시 PII 줄)·서류종(name/current)이 무토큰 폴러에게 그대로 새던 실결함.
+    from rpa.manager import get_task, token_ok, _strip_pii_lines
     j = _journeys.get(journey_id)
     if j is None:
         return None
@@ -103,18 +106,25 @@ def journey_view(journey_id: str, t: str = ""):
     if not authorized:
         view.pop("user_name", None)
         view["saved_docs"] = ["(발급됨)" for _ in view.get("saved_docs", [])]  # 파일 경로(PII) 숨김, 개수만
+        if view.get("current"):
+            view["current"] = "(진행 중)"  # 현재 단계 서류종 숨김(단건 doc_name 제거와 파리티)
     # 단계별 정보 병합 — 현재 단계는 라이브 메시지/스크린샷, 인가 시 각 단계의 다운로드 토큰(문서 회수용)도.
     cur = j.get("current")
     steps_view = []
     for step in j.get("steps", []):
         s = dict(step)
+        if not authorized:
+            s.pop("saved_path", None)  # 실명 포함 저장 경로 — 최우선 유출 차단
+            if s.get("name"):
+                s["name"] = "(서류)" if s.get("kind") == "doc" else "(신청)"  # 민감 서류종 숨김
         tid = step.get("task_id")
         if tid:
             task = get_task(tid)
             if task is not None:
                 d = task.to_dict() if hasattr(task, "to_dict") else dict(task)
                 if step.get("name") == cur:
-                    view["current_message"] = d.get("current_step") or ""
+                    _msg = d.get("current_step") or ""
+                    view["current_message"] = _msg if authorized else _strip_pii_lines(_msg)
                     view["current_status"] = d.get("status") or ""
                     if authorized:
                         view["current_screenshot"] = d.get("screenshot_b64")
@@ -321,6 +331,13 @@ async def _run_journey(jid, user_info, profile):
                     j["saved_docs"].append(saved)
                 # 단계의 '진짜 성공' 여부 — status 는 미발급도 done(⚠️)일 수 있어 result.success 로 판정(감사 :226)
                 step["success"] = bool(r.get("success"))
+                if step["kind"] == "apply":
+                    # 프론트가 '태스크 종료'와 '신청 양식 준비 성공'을 혼동하지 않도록 실제 결과를 전달한다.
+                    step["result_status"] = r.get("status")
+                    step["form_detected"] = bool(r.get("form_detected"))
+                    step["manual_apply"] = bool(r.get("manual_apply"))
+                    step["filled_fields"] = list(r.get("filled_fields") or [])
+                    step["attached_docs"] = list(r.get("attached_docs") or [])
                 st = task.status
                 if st in ("done", "completed", "error", "cancelled"):
                     step["status"] = st

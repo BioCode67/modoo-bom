@@ -2,9 +2,19 @@ import { describe, it, expect } from 'vitest'
 import { parseProfileFromText } from './parseQuery'
 
 describe('parseProfileFromText', () => {
+  it('_ageExplicit: 정확한 나이(N세/살)만 명시로, 추정(청년→27·기본 30·N0대)은 되물음 대상', () => {
+    // 실제 수치를 말하면 명시 → 되묻지 않음
+    expect(parseProfileFromText('27세 청년입니다')._ageExplicit).toBe(true)
+    expect(parseProfileFromText('만 65세예요')._ageExplicit).toBe(true)
+    // '청년'·기본값·'30대'는 추정 → 대화형 진입이 정확한 나이를 되묻게 false
+    expect(parseProfileFromText('청년인데 월세 지원 받고 싶어요')._ageExplicit).toBe(false)
+    expect(parseProfileFromText('월세 지원 받고 싶어요')._ageExplicit).toBe(false)
+    expect(parseProfileFromText('30대인데 일자리 찾아요')._ageExplicit).toBe(false)
+  })
   it('72세 혼자 사는 저소득 어르신', () => {
     const p = parseProfileFromText('72세 혼자 사는데 소득이 적어요')
     expect(p.age).toBe(72)
+    expect(p._ageExplicit).toBe(true)
     expect(p.household_type).toBe('1인가구')
     expect(p.income_percentile).toBeLessThanOrEqual(40)
   })

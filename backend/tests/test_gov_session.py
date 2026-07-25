@@ -180,9 +180,149 @@ def test_auto_attach_alias_matching():
              _Input("자격득실확인서"), _Input("신분증 사본")]
     issued = [("소득금액증명_홍길동", "/d/소득.pdf"), ("건강보험 자격득실확인서_홍길동", "/d/득실.pdf")]
 
-    attached = _run(_auto_attach(_Page(slots), issued, applicant_name="홍길동"))
+    # 실제 신청 화면처럼 입력칸이 메인 페이지와 iframe에 나뉘어 있어도 전체를 함께 탐색해야 한다.
+    attached = _run(_auto_attach([_Page(slots[:2]), _Page(slots[2:])], issued, applicant_name="홍길동"))
     assert slots[0].attached == "/d/소득.pdf"          # 동의어 라벨('소득 증빙') ← 소득금액증명
     assert slots[1].attached == "/d/득실.pdf"          # 전체명 라벨 — 기존 경로 유지
     assert slots[2].attached is None                   # 같은 서류는 한 번만(중복 첨부 금지)
     assert slots[3].attached is None                   # 무관한 칸(신분증)엔 안 붙는다
     assert len(attached) == 2
+
+
+def test_apply_form_readiness_requires_real_form_signal():
+    """클릭 성공·팝업 추가만으로는 양식 준비 성공이 아니며 실제 입력/첨부/양식 문구가 필요하다."""
+    from rpa.apply_rpa import _is_apply_form_ready
+
+    before = {
+        "context_count": 1, "urls": ("https://bokjiro/detail",),
+        "profile_controls": 0, "file_inputs": 0, "generic_controls": 1, "markers": (),
+    }
+    popup_only = {
+        "context_count": 2, "urls": ("https://bokjiro/detail", "https://bokjiro/popup"),
+        "profile_controls": 0, "file_inputs": 0, "generic_controls": 1, "markers": (),
+    }
+    assert _is_apply_form_ready(before, popup_only) is False
+
+    with_profile_field = {**popup_only, "profile_controls": 1, "generic_controls": 2}
+    assert _is_apply_form_ready(before, with_profile_field) is True
+
+    with_form_marker = {**popup_only, "markers": ("신청인 정보",)}
+    assert _is_apply_form_ready(before, with_form_marker) is True
+
+    renamed_form = {**popup_only, "generic_controls": 3}
+    assert _is_apply_form_ready(before, renamed_form) is True
+
+
+def test_apply_contexts_excludes_auth_pages_and_frames():
+    """본인인증 창의 이름/전화 입력칸을 복지 신청 양식으로 오인하지 않는다."""
+    from rpa.apply_rpa import _apply_contexts
+
+    class _Frame:
+        def __init__(self, url):
+            self.url = url
+
+    class _Page:
+        def __init__(self, url, child_frames=()):
+            self.url = url
+            self.main_frame = _Frame(url)
+            self.frames = [self.main_frame, *child_frames]
+        def is_closed(self):
+            return False
+
+    form_frame = _Frame("https://www.bokjiro.go.kr/eform/apply")
+    auth_frame = _Frame("https://4user.yeskey.or.kr/fincert/auth")
+    normal = _Page("https://www.bokjiro.go.kr/service", [form_frame, auth_frame])
+    auth_popup = _Page("https://auth.anyid.go.kr/login")
+
+    class _Context:
+        pages = [normal, auth_popup]
+
+    contexts = _apply_contexts(_Context(), normal)
+    assert contexts == [normal, form_frame]
+
+
+def test_fill_profile_fields_across_frames():
+    """신청인 정보가 iframe에 있더라도 이름·생년월일·휴대폰을 찾아 입력한다."""
+    from rpa.apply_rpa import _fill_profile_fields
+
+    class _Missing:
+        async def count(self):
+            return 0
+        @property
+        def first(self):
+            return self
+
+    class _Field:
+        def __init__(self):
+            self.value = None
+        async def count(self):
+            return 1
+        async def is_visible(self):
+            return True
+        async def fill(self, value):
+            self.value = value
+
+    class _Locator:
+        def __init__(self, field=None):
+            self._field = field or _Missing()
+        @property
+        def first(self):
+            return self._field
+
+    class _Ctx:
+        def __init__(self, fields=None):
+            self.fields = fields or {}
+        def locator(self, selector):
+            return _Locator(self.fields.get(selector))
+        def get_by_label(self, _label, exact=False):
+            return _Missing()
+
+    name = _Field()
+    birth = _Field()
+    phone = _Field()
+    main = _Ctx()
+    frame = _Ctx({
+        "input[name='aplcntNm']": name,
+        "input[placeholder*='생년월일']": birth,
+        "input[placeholder*='휴대폰']": phone,
+    })
+
+    filled = _run(_fill_profile_fields(
+        [main, frame],
+        {"name": "홍길동", "birth_date": "1998-01-02", "phone": "010-1234-5678"},
+    ))
+    assert filled == ["이름", "생년월일", "휴대폰"]
+    assert name.value == "홍길동"
+    assert birth.value == "19980102"
+    assert phone.value == "01012345678"
+
+
+def test_click_eform_button_uses_trusted_mouse_for_frame():
+    """eForm 버튼이 iframe 안에 있어도 JS 합성 click 대신 Page 마우스로 좌표 클릭한다."""
+    from rpa.base import click_eform_button
+
+    class _Mouse:
+        def __init__(self):
+            self.clicks = []
+        async def click(self, x, y):
+            self.clicks.append((x, y))
+
+    class _FrameElement:
+        async def bounding_box(self):
+            return {"x": 100, "y": 200, "width": 500, "height": 400}
+
+    class _PageWithMouse:
+        def __init__(self):
+            self.mouse = _Mouse()
+
+    class _Frame:
+        def __init__(self):
+            self.page = _PageWithMouse()
+        async def evaluate(self, _js, _text):
+            return {"x": 20, "y": 30}
+        async def frame_element(self):
+            return _FrameElement()
+
+    frame = _Frame()
+    assert _run(click_eform_button(frame, "신청하기")) is True
+    assert frame.page.mouse.clicks == [(120, 230)]

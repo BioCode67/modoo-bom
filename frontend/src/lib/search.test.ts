@@ -138,6 +138,11 @@ describe('실사용 질의 회귀(2026-07 품질 스윕)', () => {
     expect(searchPolicies(HS, '청년 월세 지원')[0].id).toBe('T-9') // 띄어쓴 이름도 #1
     expect(searchPolicies(HS, '청년월세지원')[0].id).toBe('T-9')   // 붙여쓴 이름도 #1
   })
+
+  it('department 필드 매칭 — 이름에 없는 기관 약어(SH)로도 검색됨(감사)', () => {
+    const p = { ...P('SH-1', '행복주택 공급', '주거'), department: '서울주택도시공사(SH)' }
+    expect(searchPolicies([p], 'SH').length).toBeGreaterThan(0)
+  })
 })
 
 describe('expandQuery — 생활어 2차 확장', () => {

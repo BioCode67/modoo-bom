@@ -26,6 +26,9 @@ export interface Capabilities {
   rpaRemote?: boolean
   /** 🔒 공유(터널) 배포 서버(health.capabilities.shared) — 서류함 등 '본인 PC 전용' UI 를 숨긴다 */
   shared?: boolean
+  /** 🎬 흐름 기록 모드(health.capabilities.flow_record; RPA_FLOW_RECORD=1 — run-local-app.bat 자동 켬)에서만 true.
+   *  이때만 [🎬 흐름 기록 복사] 버튼을 노출한다(평소엔 숨김 → 심사위원·일반 사용에는 안 보임). */
+  flowRecord?: boolean
   ai_provider?: string
   rag?: string
   /** 에이전트 버전(health.version) — 상태 스트립 표시·구버전 안내용 */
@@ -116,10 +119,11 @@ async function fetchHealth(base: string, ms: number): Promise<Capabilities | nul
     clearTimeout(t)
     if (!res.ok) return null
     const j = await res.json().catch(() => ({}))
-    const c = (j.capabilities as Capabilities & { rpa_capacity?: Capabilities['rpaCapacity'] }) ?? { ai: j.mode === 'production', rpa: false }
+    const c = (j.capabilities as Capabilities & { rpa_capacity?: Capabilities['rpaCapacity']; flow_record?: boolean }) ?? { ai: j.mode === 'production', rpa: false }
     // 상태 스트립용 부가정보 — 버전(top-level)과 발급 동시성(rpa_capacity)을 함께 실어온다
     if (j.version) c.version = String(j.version)
     if (c.rpa_capacity) c.rpaCapacity = c.rpa_capacity
+    if (c.flow_record) c.flowRecord = true  // 🎬 흐름 기록 모드(snake→camel) — 버튼 노출 게이트
     return c
   } catch {
     return null
@@ -233,6 +237,7 @@ function finalizeCaps(
     version: rpaSrc?.version,
     rpaCapacity: rpaSrc?.rpaCapacity,
     shared: !!rpaSrc?.shared, // 서버가 공유 배포(RPA_SHARED)라고 밝히면 프론트도 개인 서류함 UI 를 숨김
+    flowRecord: rpaSrc?.flowRecord, // 🎬 흐름 기록 모드 → [🎬 흐름 기록 복사] 버튼 노출(안 실으면 fetchHealth가 채워도 여기서 유실)
   }
 }
 

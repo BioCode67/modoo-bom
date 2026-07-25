@@ -258,6 +258,127 @@ def test_status_redacts_pii_without_token():
         manager._rpa_tasks.pop("pii1", None)
 
 
+def test_latest_diagnostic_returns_saved_and_shared_gated(monkeypatch, tmp_path):
+    """실패 자가진단 최신본 조회 — 저장된 구조 JSON을 반환(스크린샷 대체). 공유(터널) 배포에선 403."""
+    from rpa import base
+    monkeypatch.setattr(base, "DOCS_DIR", tmp_path)
+    # 진단 파일 하나 저장(diagnostics.save 규약과 동일 위치)
+    from rpa import diagnostics as dg
+    diag = {"label": "등본-주소선택", "note": "시군구 실패", "frames": [{"i": 0, "n": 5, "markers": ["카카오"]}]}
+    dg.save(diag, str(tmp_path))
+    # 비어있지 않은 최신본 반환
+    r = client.get("/api/_diagnostics/latest").json()
+    assert r["available"] is True and r["diagnostic"]["label"] == "등본-주소선택"
+    assert r["diagnostic"]["frames"][0]["markers"] == ["카카오"]
+    # 🔒 공유 모드면 403(본인 PC 전용 — 남의 진단 유출 차단)
+    monkeypatch.setenv("RPA_SHARED", "1")
+    assert client.get("/api/_diagnostics/latest").status_code == 403
+    monkeypatch.delenv("RPA_SHARED", raising=False)
+
+
+def test_status_scrubs_pii_lines_in_current_step_without_token():
+    """진행 문구(current_step/steps)에 '이름: 값'처럼 원시 PII가 섞여도 무토큰 폴러에겐 그 줄만 제거되고
+    비민감 안내/진행 문구는 유지된다(RPA_SHARED 무토큰 유출 이중 방어 — 감사 실결함 회귀 락)."""
+    from rpa import manager
+    step = ("폼 입력 완료\n이름: 홍길동 / 생년월일: 19900101 / 전화: 010-1234-5678\n"
+            "다음: 인증 요청 → 카카오 승인")
+    manager._rpa_tasks["pii2"] = {"status": "running", "download_token": "tok2", "current_step": step,
+                                  "steps": [{"time": "12:00:00", "msg": "이름: 홍길동 / 생년월일: 19900101"}]}
+    try:
+        d = client.get("/api/documents/rpa-status/pii2").json()
+        cs = d.get("current_step", "")
+        assert "홍길동" not in cs and "19900101" not in cs and "010-1234-5678" not in cs  # PII 줄 제거
+        assert "폼 입력 완료" in cs and "인증 요청" in cs  # 비민감 진행/안내 문구는 유지
+        assert all("홍길동" not in s.get("msg", "") for s in d.get("steps", []))  # steps도 심층 스크럽
+        # 토큰 있으면(본인) 원문 유지 — 소유자 편의 보존
+        d2 = client.get("/api/documents/rpa-status/pii2?t=tok2").json()
+        assert "홍길동" in d2.get("current_step", "")
+    finally:
+        manager._rpa_tasks.pop("pii2", None)
+
+
+def test_status_redacts_result_saved_path_without_token():
+    """result.saved_path(파일명='서류종_실명_날짜.pdf')·doc_name 은 무토큰 폴러에게 값이 가려지고,
+    토큰이 있으면 원문 유지된다(top-level 을 가려도 result 로 실명+서류종이 재유출되던 실결함 회귀 락)."""
+    from rpa import manager
+    manager._rpa_tasks["pii3"] = {
+        "status": "done", "download_token": "tok3",
+        "result": {"success": True, "doc_name": "장애인증명서",
+                   "saved_path": "/home/kim/모두봄서류/장애인증명서_홍길동_2026-07-20_1430.pdf",
+                   "manual_save": False},
+    }
+    try:
+        d = client.get("/api/documents/rpa-status/pii3").json()
+        r = d.get("result") or {}
+        assert r.get("saved_path") is None and r.get("doc_name") is None  # 값 가림
+        assert r.get("success") is True  # 성공 여부(비민감)는 유지 — 진행 판단 보존
+        d2 = client.get("/api/documents/rpa-status/pii3?t=tok3").json()
+        assert d2["result"]["saved_path"].endswith(".pdf")  # 본인은 원문(다운로드용)
+        assert d2["result"]["doc_name"] == "장애인증명서"
+    finally:
+        manager._rpa_tasks.pop("pii3", None)
+
+
+def test_status_strips_saved_path_line_from_current_step():
+    """'자동 저장됨: <실명 경로>' 진행 문구는 무토큰 폴러에게 그 줄째 제거된다(라벨:값 아닌 경로 유출 차단)."""
+    from rpa import manager
+    step = ("✅ 발급 완료!\n📄 자동 저장됨: C:\\Users\\kim\\모두봄서류\\건강보험 자격득실확인서_홍길동_2026.pdf\n"
+            "브라우저는 2분 후 자동 종료됩니다.")
+    manager._rpa_tasks["pii4"] = {"status": "done", "download_token": "tok4", "current_step": step}
+    try:
+        cs = client.get("/api/documents/rpa-status/pii4").json().get("current_step", "")
+        assert "홍길동" not in cs and ".pdf" not in cs  # 저장경로 줄 제거
+        assert "발급 완료" in cs and "자동 종료" in cs   # 비민감 안내는 유지
+        cs2 = client.get("/api/documents/rpa-status/pii4?t=tok4").json().get("current_step", "")
+        assert "홍길동" in cs2  # 본인은 경로 확인 가능
+    finally:
+        manager._rpa_tasks.pop("pii4", None)
+
+
+def test_journey_status_redacts_saved_path_and_doc_type_without_token():
+    """여정 status: 무토큰 폴러에게 steps[].saved_path(실명 경로)·서류종(name/current)·current_message
+    PII 가 전부 가려지고, 토큰이 있으면 원문 유지(단건 status 와 편집 기준 파리티 — 감사 확정)."""
+    from rpa import orchestrator, manager
+    manager._rpa_tasks["jt-doc"] = {"status": "running", "download_token": "x",
+                                    "current_step": "이름: 홍길동 / 진행 중\n카카오 승인 대기"}
+    orchestrator._journeys["JID"] = {
+        "journey_id": "JID", "user_name": "홍길동", "status": "running", "current": "장애인증명서",
+        "download_token": "jtok", "saved_docs": ["/x/장애인증명서_홍길동_.pdf"], "total": 1, "done_count": 0,
+        "steps": [{"kind": "doc", "name": "장애인증명서", "status": "running", "task_id": "jt-doc",
+                   "saved_path": "/x/장애인증명서_홍길동_2026.pdf"}],
+    }
+    try:
+        j = client.get("/api/journey/status/JID").json()
+        assert j.get("user_name") is None
+        assert j["saved_docs"] == ["(발급됨)"] and j.get("current") == "(진행 중)"
+        st = j["steps"][0]
+        assert "saved_path" not in st or st.get("saved_path") is None  # 실명 경로 제거
+        assert st["name"] == "(서류)"                                   # 서류종 숨김
+        assert "홍길동" not in (j.get("current_message") or "")          # current_message PII 제거
+        # 토큰(본인)이면 전부 원문
+        j2 = client.get("/api/journey/status/JID?t=jtok").json()
+        assert j2["steps"][0]["name"] == "장애인증명서"
+        assert j2["steps"][0]["saved_path"].endswith(".pdf")
+        assert j2.get("current") == "장애인증명서"
+    finally:
+        orchestrator._journeys.pop("JID", None)
+        manager._rpa_tasks.pop("jt-doc", None)
+
+
+def test_diag_last_error_redacts_doc_type_and_pii():
+    """/_diag last_error 는 실명 줄·저장경로 줄을 제거하고 민감 서류종을 '(서류)'로 가린다
+    (공용 PC·터널에서 남의 서류종이 진단으로 새던 실결함 회귀 락)."""
+    from rpa import manager
+    manager._rpa_tasks["derr"] = {"status": "error",
+                                  "current_step": "지원하지 않는 문서: 한부모가족 증명서\n이름: 김복순"}
+    try:
+        le = client.get("/api/_diag").json().get("last_error", "")
+        assert "한부모가족 증명서" not in le and "김복순" not in le
+        assert "(서류)" in le  # 서류종은 가림 표식으로 대체(기술 맥락은 유지)
+    finally:
+        manager._rpa_tasks.pop("derr", None)
+
+
 # ── '내 서류함' 사용자 서류 등록(/api/documents/register) ──
 #   자동발급 불가 서류(임대차계약서·신분증 등)를 발급 폴더에 발급물과 같은 이름 규칙으로 저장 →
 #   복지 신청의 자동첨부가 함께 찾도록. multipart 파서 필요 → 미설치 환경은 스킵(실행환경엔 설치됨).

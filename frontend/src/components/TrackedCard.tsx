@@ -6,6 +6,7 @@ import type { Policy } from '@/data/policies'
 import { useAppStore, type AppStatus, type TrackedItem } from '@/store/useAppStore'
 import { categoryMeta, parseMonthly, formatWon, isCashBenefit } from '@/lib/format'
 import { docLink } from '@/lib/officialLinks'
+import { bestApplyInfo } from '@/lib/quickApply'
 import { monitorItem } from '@/lib/monitoring'
 import { cn } from '@/lib/utils'
 
@@ -52,6 +53,7 @@ export function TrackedCard({ item, policy, onOpen }: { item: TrackedItem; polic
           <button
             key={s}
             onClick={() => setStatus(item.policyId, s)}
+            aria-pressed={item.status === s}
             className={cn('rounded-xl py-1.5 text-[11px] font-bold transition-all',
               item.status === s ? STATUS_META[s].cls + ' ring-2 ring-offset-1 ring-current/30' : 'bg-muted/60 text-muted-foreground hover:bg-muted')}
           >
@@ -64,6 +66,18 @@ export function TrackedCard({ item, policy, onOpen }: { item: TrackedItem; polic
       <div className="mt-3 rounded-xl bg-sprout-50 px-3 py-2">
         <p className="text-[11px] font-bold text-sprout-700">다음 할 일</p>
         <p className="text-xs text-sprout-700 mt-0.5 leading-relaxed">{mon.nextAction}</p>
+        {/* 공식 신청 링크 — 자동신청(복지로)이 안 되는 혜택(고용24·방문형 등)도 '어디서 신청하는지'는
+            카드에서 바로 이어지게(실사용 제보: 서류 다 준비했는데 신청 경로가 안 보임). 라벨은 최종
+            목적지 기준(bestApplyInfo). 신청 완료 후엔 아래 '진행상황 점검'이 그 역할을 대신한다. */}
+        {policy && item.status !== 'applied' && item.status !== 'done' && (
+          <a
+            href={bestApplyInfo(policy.application, policy.name, policy.id).url}
+            target="_blank" rel="noopener noreferrer"
+            className="mt-2 inline-flex items-center gap-1 rounded-lg bg-white border border-sprout-200 px-2.5 py-1 text-[11px] font-bold text-sprout-700 hover:bg-sprout-50 transition-colors"
+          >
+            📮 {bestApplyInfo(policy.application, policy.name, policy.id).label} <ExtLink className="h-3 w-3" />
+          </a>
+        )}
         {item.status === 'applied' && (
           <a
             href={mon.statusCheck.url}

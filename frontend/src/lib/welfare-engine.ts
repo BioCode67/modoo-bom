@@ -20,6 +20,8 @@ export interface UserProfile {
   life_events: string[]
   /** 자연어 질의 원문(선택) — 주제어(틀니·전세·창업 등)를 랭킹에 반영하기 위해 보관. 자격판정엔 영향 없음. */
   _query?: string
+  /** 대화형 파싱이 나이를 '명시적으로' 잡았는지(false=대략 추정/기본값). 대화 진입에서 정확한 나이를 되물을지 판단용. */
+  _ageExplicit?: boolean
 }
 
 export interface EligiblePolicy extends Policy {
@@ -109,10 +111,11 @@ export function extractKeywords(p: UserProfile): { summary: string; keywords: st
     if (p.income_percentile <= 40) keywords = keywords.concat(['의료급여'])
     if (p.income_percentile <= 32) keywords = keywords.concat(['기초생활', '생계급여'])
   }
-  if (p.household_type === '한부모가족' || p.household_type === '조손가구') {
+  // 가구유형은 복수 선택('다문화가족·한부모가족')일 수 있어 정확일치(===) 대신 부분매칭으로 본다(대화형 복수선택 대응).
+  if (/한부모|조손/.test(p.household_type || '')) {
     keywords = keywords.concat(['한부모', '양육비'])
   }
-  if (p.household_type === '다문화가족') {
+  if ((p.household_type || '').includes('다문화')) {
     keywords = keywords.concat(['다문화', '방문교육'])
   }
   const events = p.life_events || []
@@ -246,6 +249,17 @@ function checkPolicyDoc(doc: string, name: string, p: UserProfile): CheckResult 
       confidence: cashType ? 0.85 : 0.75,
     }
   }
+  // ── 일경험·미취업 전용 경쟁형 청년 프로그램(예: 미래내일 일경험 SUP-020) ──
+  //   ⚠️ '만 15~34세' 나이 분기보다 먼저 — 안 그러면 나이만으로 high가 잡혀 '미취업 조건'이 무시된다(감사 실결함:
+  //   학생·미상 24세에게 미취업 전용 일경험이 강력추천으로 오노출). '미취업'을 명시한 일경험 계열은:
+  //   재직/자영/은퇴는 대상 아님(NO), 그 외(미취업·학생·미상)는 경쟁·선발형이라 과장 없이 medium으로만 노출.
+  //   (국민취업지원·구직촉진 계열은 위 취업지원 게이트에서 이미 처리되어 여기 오지 않는다.)
+  if (/일경험/.test(doc) && /미취업/.test(doc)) {
+    if (['employed', 'self', 'retired'].includes(p.employment_status)) return NO
+    if (p.age >= 15 && p.age <= 39)
+      return { eligible: true, reason: `만 ${p.age}세 미취업 청년 대상 (일경험·경쟁 선발형)`, priority: 'medium', confidence: 0.7 }
+    return NO
+  }
   // ── 청년 계열 ──
   // 만 19~20세 전용(예: 청년 문화예술패스) — 넓은 청년 룰보다 먼저 정밀 판정(21~34세 오노출 방지)
   if (anyIn(doc, ['만 19~20세', '19~20세', '만 19세·20세'])) {
@@ -306,7 +320,7 @@ function checkPolicyDoc(doc: string, name: string, p: UserProfile): CheckResult 
   // ── 다문화 계열 ── (아동 분기보다 먼저: eligibility의 '또는 만 12세 이하 자녀'가 하드 자녀요건으로 오인돼
   //   임신 중·무자녀 다문화가족이 배제되던 문제. 가구유형으로 먼저 매칭한다.)
   if (anyIn(doc, ['다문화가족', '결혼이민자', '귀화자'])) {
-    if (p.household_type === '다문화가족')
+    if ((p.household_type || '').includes('다문화'))
       // 사각지대 대표(대회 주제) — 다문화 전용 지원은 high로. medium이면 나이만 겹친 청년 정책(전부 high)에 묻힘
       return { eligible: true, reason: '다문화가족 확인', priority: 'high', confidence: 0.9 }
     return NO
@@ -314,7 +328,7 @@ function checkPolicyDoc(doc: string, name: string, p: UserProfile): CheckResult 
   // ── 외국인 근로자·이주노동자 지원(체불임금·법률·산재 등) — 다문화/이주 신호 있으면 관련복지로 노출(사각지대, 감사 확정 FN) ──
   //   '외국인' 단독은 과매칭 위험이라 '외국인 근로자/노동자·이주노동자'로 한정. Korean 일반 프로필엔 노출 안 함.
   if (/외국인\s*근로자|외국인\s*노동자|이주\s*노동자|이주노동자|이주민\s*근로/.test(doc)) {
-    if (p.household_type === '다문화가족' || (p.life_events || []).some((e) => /외국인|이주|다문화/.test(e)))
+    if ((p.household_type || '').includes('다문화') || (p.life_events || []).some((e) => /외국인|이주|다문화/.test(e)))
       return { eligible: true, reason: '외국인·이주민 근로자 지원 관련', priority: 'medium', confidence: 0.7 }
     return NO
   }
@@ -663,7 +677,9 @@ export function incomeCeiling(doc: string): number | null {
  */
 export function isClosedForNew(policy: Policy): boolean {
   const doc = `${policy.eligibility} ${policy.benefit} ${policy.target}`
-  return /신규\s*(모집|가입|신청)\s*[^,.·(]{0,8}(종료|중단|불가)|모집\s*종료|신규가입.{0,6}종료/.test(doc)
+  // '접수'까지 포함 — '신규 접수 종료'(청년내일채움공제 등)도 잡는다. '일몰'은 종료의 관용 표기라 함께.
+  //   ⚠️ '부양의무자 폐지'·'계절 상한 폐지'처럼 '폐지'가 '개선'을 뜻하는 오탐을 피해 '폐지' 단독은 쓰지 않는다.
+  return /신규\s*(모집|가입|신청|접수)\s*[^,.·(]{0,8}(종료|중단|불가)|모집\s*종료|신규가입.{0,6}종료|일몰(?!제?\s*폐지)/.test(doc)
 }
 
 // 공개 API: 정책 1건 자격 판별. doc = eligibility + ' ' + target + ' ' + name (mock_eligibility/estimate와 동일).
@@ -906,6 +922,24 @@ function queryTopicBoost(text: string, query: string): number {
   return Math.min(boost, 8) // 대표 현금급여(기초연금 rel≈9~13)를 덮지 않도록 상한 하향
 }
 
+/**
+ * 자녀 나이에 따라 월액이 다른 급여를 사용자 자녀 나이에 맞게 개인화한다(감사 실결함 수정).
+ * 부모급여(POL-005)는 0세 월 100만·1세 월 50만인데, parseMonthly는 첫 매칭(0세 100만)만 잡아
+ * '1세만 있는 부모'에게 50만을 100만으로 과대계상했다. 적용 나이대 금액을 문구 앞에 세우면
+ * parseMonthly를 쓰는 모든 소비처(카드 배지·헤드라인 합계·차트·비교·인쇄)가 일괄 정확해진다.
+ * (⚠️ 하드코딩 금액은 data/policies.ts의 POL-005 benefit과 동기 유지 — 요율 변경 시 함께 갱신)
+ */
+function personalizeBenefit(policy: Policy, p: UserProfile): string {
+  if (policy.id === 'POL-005') {
+    const infant = (p.children_ages || []).filter((a) => typeof a === 'number' && a >= 0 && a <= 1)
+    // 0세가 없고 1세만 있으면 1세 요율(50만)을 앞세운다. 0세가 있으면 원문(100만 우선) 유지.
+    if (infant.length && !infant.includes(0)) {
+      return '1세 월 50만원 (0세는 월 100만원, 어린이집 이용 시 보육료 바우처로 지급, 차액 현금 지급)'
+    }
+  }
+  return policy.benefit
+}
+
 export function getEligiblePolicies(p: UserProfile): EligiblePolicy[] {
   const userSido = sidoOf(p.region)
   const precise: EligiblePolicy[] = []
@@ -928,7 +962,7 @@ export function getEligiblePolicies(p: UserProfile): EligiblePolicy[] {
     if (!policy.id.startsWith('PRV-') && !policy.id.startsWith('LOC-') && !policy.id.startsWith('FIN-')) {
       const c = checkPolicy(policy, p)
       if (c.eligible) {
-        precise.push({ ...policy, reason: c.reason, priority: c.priority, confidence: c.confidence })
+        precise.push({ ...policy, benefit: personalizeBenefit(policy, p), reason: c.reason, priority: c.priority, confidence: c.confidence })
         continue
       }
     }

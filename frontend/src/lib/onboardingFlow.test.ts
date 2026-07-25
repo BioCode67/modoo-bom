@@ -1,9 +1,33 @@
 import { describe, it, expect } from 'vitest'
 import {
   EMPTY_PROFILE, AGE_BRACKETS, applySituations, nextStep, isStepActive,
-  progressOf, mascotReaction, STEP_ORDER,
+  progressOf, mascotReaction, STEP_ORDER, ageFromBirth, parseBirthInput, formatBirth,
 } from './onboardingFlow'
 import { runAnalysis } from './welfare-engine'
+
+describe('생년월일 입력(토스/PASS 방식) 헬퍼', () => {
+  const today = new Date(2026, 6, 21) // 2026-07-21 (월 0-based)
+  it('ageFromBirth — 생일 지났으면 그 나이, 아직이면 -1', () => {
+    expect(ageFromBirth('19550101', today)).toBe(71) // 1월생 → 지남
+    expect(ageFromBirth('19551231', today)).toBe(70) // 12월생 → 아직
+    expect(ageFromBirth('20000721', today)).toBe(26) // 오늘이 생일 → 만 나이 됨
+    expect(ageFromBirth('20000722', today)).toBe(25) // 내일 생일 → 아직
+  })
+  it('ageFromBirth — 잘못된 입력은 null(미래·형식오류·불가능한 날짜)', () => {
+    expect(ageFromBirth('20991231', today)).toBeNull() // 미래
+    expect(ageFromBirth('1955010', today)).toBeNull()  // 7자리
+    expect(ageFromBirth('19551301', today)).toBeNull() // 13월
+    expect(ageFromBirth('abcdefgh', today)).toBeNull()
+  })
+  it('parseBirthInput — 구분자 섞인 입력에서 8자리를 뽑아 {yyyymmdd, age}', () => {
+    expect(parseBirthInput('1960.01.01', today)).toEqual({ yyyymmdd: '19600101', age: 66 })
+    expect(parseBirthInput('1960-01-01', today)).toEqual({ yyyymmdd: '19600101', age: 66 })
+    expect(parseBirthInput('196001', today)).toBeNull() // 6자리 → 불충분(연도 모호 방지)
+  })
+  it('formatBirth — YYYYMMDD → YYYY.MM.DD', () => {
+    expect(formatBirth('19600101')).toBe('1960.01.01')
+  })
+})
 
 describe('onboardingFlow — 대화형 온보딩 로직', () => {
   it('나이 구간 대표값이 정책 임계값 안에 안전(청년 19~34, 어르신 65+)', () => {

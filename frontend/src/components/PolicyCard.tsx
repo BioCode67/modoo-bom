@@ -101,7 +101,7 @@ export function PolicyCard({
             {agentOn && isBokjiroApplyable(policy.application, policy.name, policy.id) && (
               <span className="text-[10px] font-semibold text-sprout-700 bg-sprout-50 rounded-full px-1.5 py-0.5"
                 title="이 복지는 상세에서 에이전트가 신청 양식 작성까지 자동으로 진행해요(제출 직전 정지)">
-                🤖 자동신청
+                ✨ 자동신청
               </span>
             )}
           </div>

@@ -91,12 +91,58 @@ def test_work24_reports_incomplete_when_button_not_reached():
     assert '"success": False' in src
 
 
+def test_work24_unissued_paths_report_error_not_done():
+    """work24 미발급 경로(후보 클릭했으나 결과 미확인 / 발급버튼 미도달)는 status='error'로 보고한다.
+    done/completed 는 프론트(DocumentCenter)가 '✅ 발급 완료' 배지를 띄우므로, 미발급(success:False)을
+    done 으로 두면 거짓 완료 신호가 된다(nhis 미완료가 error 인 것과 파리티, 감사 확정)."""
+    src = open("rpa/work24_rpa.py", encoding="utf-8").read()
+    for msg in ("고용보험 이력내역서 발급 화면까지 진행했어요",
+                "발급 버튼까지 도달하지 못했어요"):
+        i = src.index(msg)
+        # 이 안내문 직전의 task.update(...) 상태 인자 — 들여쓰기 무관하게 마지막 호출만 잘라 확인
+        status_arg = src[i - 200:i].split("task.update(")[-1]
+        assert '"error"' in status_arg, f"{msg}: error 로 보고해야 함"
+        assert '"done"' not in status_arg, f"{msg}: done 이면 거짓 '발급 완료' 배지"
+
+
+def test_efamily_does_not_blindly_submit_on_auth_timeout():
+    """가족관계증명서(efamily): 8분 내 폰 승인이 확인되지 않으면(auth_done False) 맹목적으로 [신청하기]로
+    진행하지 않고 error 로 정직 보고한다 — 로그인 대기 타임아웃을 error 로 보고하는 _login_on_www_gov 와
+    대칭(맹목 클릭·거짓 성공 방지, 감사 확정)."""
+    src = open("rpa/gov24_rpa.py", encoding="utf-8").read()
+    assert "auth_done = False" in src   # 루프 진입 전 초기화
+    assert "auth_done = True" in src    # 신청 폼(인증 완료 화면) 도달에서만 True
+    assert "if not auth_done:" in src   # 타임아웃 가드
+    # 가드 블록은 success=False + error 로 종결(맹목 신청 대신)
+    guard = src[src.index("if not auth_done:"):][:600]
+    assert '"success": False' in guard
+    assert '"error"' in guard
+
+
+def test_gov24_unissued_else_paths_report_error_not_done():
+    """gov24 미발급/미저장 else 경로가 status='error'로 보고한다 — 본류(등본·초본 등 really_issued False)와
+    efamily(β 저장 실패) 모두. done/completed 는 프론트(titleBadge)가 '✅ 발급 완료' 배지를 띄우므로
+    미발급(success:False)을 done 으로 두면 거짓 완료 신호(work24·nhis 미완료가 error 인 것과 파리티, 감사 확정).
+    여정에선 이 error 가 '문서 단계 1회 자동 재시도'(자가 치유)까지 발동 — 미발급 else 라 이중발급 없음."""
+    src = open("rpa/gov24_rpa.py", encoding="utf-8").read()
+    for msg in ("아직 발급이 '완료되지 않았어요'",       # 본류(run_gov24_rpa) else
+                "자동 저장까지는 확인하지 못했어요"):        # efamily else
+        i = src.index(msg)
+        status_arg = src[i - 260:i].split("task.update(")[-1]
+        assert '"error"' in status_arg, f"{msg}: error 로 보고해야 함"
+        assert '"done"' not in status_arg, f"{msg}: done 이면 거짓 '발급 완료' 배지"
+
+
 def test_nhis_success_gates_on_completion_not_save():
     """nhis 성공 판정이 '저장(saved)'이 아니라 '완료 신호(completed)'로만 이뤄지는지 계약 고정.
     save_document 는 어떤 화면이든 저장(스샷 폴백)하므로, 저장 성공을 발급 성공으로 쓰면 미발급 화면도
     '발급 완료!'로 오보된다(감사 HIGH). 성공 게이트는 completed(출력/완료화면) 단독이어야 한다."""
     src = open("rpa/nhis_rpa.py", encoding="utf-8").read()
-    assert "completed = printed or len(context.pages) > 1" in src
+    # 성공 게이트는 completed(=printed) 단독 — printed 는 _wait_print 가 baseline 대비 '새 창'·출력
+    #   다이얼로그·완료텍스트 등 genuine 신호일 때만 True(버튼 클릭·절대 len>1 잔탭 오탐 제거, 감사 확정).
+    assert "completed = printed\n" in src
+    assert "_base_ids = {id(p) for p in context.pages}" in src
+    assert "completed = printed or len(context.pages) > 1" not in src  # 옛 절대 len>1 판정 제거 확인
     assert "if completed:" in src
     # 옛 'if saved:' 성공 분기(저장만으로 성공 오보)가 남아있으면 안 된다
     assert "if saved:" not in src
@@ -125,6 +171,40 @@ def test_journey_success_from_result_not_status():
     assert 'ok = any(s.get("success") for s in j["steps"])' in src
     # 옛 status 기반 ok 계산이 남아있으면 안 된다
     assert 'any(s["status"] in ("done", "completed") for s in j["steps"])' not in src
+
+
+def test_manual_apply_result_stays_unsuccessful_in_journey(monkeypatch):
+    """신청 페이지 도달만 한 단계는 done으로 종료돼도 성공/양식준비로 집계되지 않는다."""
+    from rpa import orchestrator
+
+    async def run():
+        async def manual_only(task, service_name, profile):
+            task.result = {
+                "success": False,
+                "status": "manual_required",
+                "manual_apply": True,
+                "form_detected": False,
+                "filled_fields": [],
+                "attached_docs": [],
+            }
+            task.update("done", "신청 페이지 안내 완료")
+
+        from rpa import apply_rpa
+        monkeypatch.setattr(apply_rpa, "run_apply_rpa", manual_only)
+        jid, _, _ = orchestrator.start_journey([], ["청년월세지원"], "홍", {}, {})
+        for _ in range(200):
+            await asyncio.sleep(0.01)
+            if orchestrator._journeys[jid]["status"] in ("completed", "error", "cancelled"):
+                break
+        journey = orchestrator._journeys.pop(jid)
+        step = journey["steps"][0]
+        assert step["status"] == "done"       # 러너 자체는 정상 종료
+        assert step["success"] is False       # 양식 준비 성공은 아님
+        assert step["result_status"] == "manual_required"
+        assert step["manual_apply"] is True
+        assert journey["status"] == "error"  # 성공 단계 0건
+
+    _run(run())
 
 
 def test_journey_uses_bounded_cleanup_not_wait_for():
@@ -293,3 +373,22 @@ def test_wait_any_visible_early_exit_and_ceiling():
         assert time.monotonic() - t0 < 1.0
 
     asyncio.get_event_loop_policy().new_event_loop().run_until_complete(run())
+
+
+def test_auth_confirm_dismisses_bokjiro_retry_popup():
+    """복지로 '인증 완료'를 폰 승인 전 누르면 뜨는 '진행할 수 없습니다' 안내창의 [확인]을 닫아
+    다음 주기에 '인증 완료'를 재시도하도록, dismissal 조건에 복지로 팝업 문구가 포함돼야 한다(실사용 제보)."""
+    src = open("rpa/base.py", encoding="utf-8").read()
+    assert "진행할 수 없" in src            # 복지로: '입력하신 정보로 인증을 진행할 수 없습니다'
+    assert "완료되지 않" in src             # gov24: '완료되지 않았습니다' (기존 문구 유지)
+    assert 'click_by_text(ctx, ["확인"])' in src  # 위젯 [닫기]는 건드리지 않고 안내창 [확인]만
+
+
+def test_auth_notice_dismissed_before_confirm_click():
+    """안내 팝업이 '인증 완료' 버튼을 덮어 다음 클릭이 막히던 실사용 갭 — '인증 완료'를 누르기 '전에' 먼저
+    안내 팝업을 닫아 대기상태로 복귀해야 한다. _click_auth_confirm_any 가 _dismiss_auth_notice 를 선행 호출한다."""
+    src = open("rpa/base.py", encoding="utf-8").read()
+    assert "async def _dismiss_auth_notice" in src
+    # _click_auth_confirm_any 본문 안에서 _dismiss_auth_notice 를 먼저 호출(확인 루프 진입 전)
+    body = src.split("async def _click_auth_confirm_any", 1)[1].split("async def wait_for_login", 1)[0]
+    assert "_dismiss_auth_notice(ctx_page)" in body

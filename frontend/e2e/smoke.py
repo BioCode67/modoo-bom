@@ -59,10 +59,15 @@ def wait_port(port: int, timeout: float = 30) -> bool:
 def main() -> int:
     # 전용 출력 폴더(e2e-dist)로 직접 빌드 — 같은 폴더에서 병행 작업(다른 세션)의
     # dist 빌드와 경합해 index.html/assets가 어긋나는 문제를 원천 차단한다.
+    #   ⚠️ 'app' 모드(.env.app, VITE_API_BASE='')로 빌드한다 — 이 스모크의 목적은 '클라이언트 여정'
+    #   (라우팅·번들·렌더·화면 조립) 검증이지 외부 클라우드 의존이 아니다. production 빌드는
+    #   VITE_API_BASE=onrender 를 심어 checkBackend가 콜드 백엔드를 최대 ~60초 웨이크 → ready===null
+    #   창에서 챗 지식질문이 콜드스타트 게이트로 빠져 지연(외부 서비스 상태에 스모크가 흔들림).
+    #   app 빌드는 백엔드 미탐지로 즉시 규칙 응답 → 결정론적·빠름(desktop-smoke도 build:app 사용).
     print("[e2e] e2e-dist 빌드 중 …")
     log = open(os.path.join(str(FRONTEND), "e2e", "preview.log"), "w", encoding="utf-8")
     r = subprocess.run(
-        "npm run build -- --outDir e2e-dist --emptyOutDir --base /",
+        "npm run build:app -- --outDir e2e-dist --emptyOutDir --base /",
         cwd=str(FRONTEND), shell=True, stdout=log, stderr=subprocess.STDOUT,
     )
     if r.returncode != 0:

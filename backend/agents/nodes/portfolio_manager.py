@@ -18,23 +18,37 @@ def _is_cash_benefit(benefit_text: str, context: str = "") -> bool:
     return True
 
 
+def _is_annual_or_onetime(benefit_text: str) -> bool:
+    """'월 합계'에 넣으면 안 되는 연/1회성 금액인지 — 연·회차·일시금 신호가 있고 월 지속 신호가 없을 때만.
+    (catalog amount_krw는 기간 정보가 없어 연 금액을 그대로 월로 더하면 12배 과대계상됐다 — 감사)."""
+    t = benefit_text or ""
+    if re.search(r"월\s*\d|매월|월\s*최대|월\s*약", t):
+        return False  # 월 지속 신호가 있으면 월액으로 본다(연 환산 병기여도)
+    return bool(re.search(r"연\s*\d|연간|1회|1회성|일시금|한\s*번|회차|분기", t))
+
+
 def _estimate_monthly_benefit(policy_name: str, benefit_text: str) -> int:
     """benefit 텍스트에서 월 금액 추출 (원 단위). 없으면 0."""
     # "월 최대 N원" / "월 N만원" 패턴
+    compact = benefit_text.replace(" ", "")  # 정규식·'만' 근접 판정을 '같은 문자열'에서 수행(위치 불일치 방지)
     patterns = [
-        r"월\s*최대?\s*([\d,]+)원",
+        # '만?' 추가 — '월 최대 20만원'처럼 숫자와 '원' 사이에 '만'이 오는 표기를 놓쳐 0으로 과소계산되던
+        #   문제 수정(프론트 parseMonthly와 패리티). '만' 여부는 아래 근접 판정에서 *10000 처리.
+        r"월\s*최대?\s*([\d,]+)만?\s*원",
         r"월\s*([\d,]+)만?\s*원",
         r"([\d,]+)원\s*지급",
     ]
     for pat in patterns:
-        m = re.search(pat, benefit_text.replace(" ", ""))
+        m = re.search(pat, compact)
         if m:
             raw = m.group(1).replace(",", "")
             if not raw:  # 정규식이 콤마만 매칭한 경우(예: "월 ,원") — int("") ValueError 방지
                 continue
             val = int(raw)
-            # "만원" 단위 처리
-            if "만" in benefit_text[max(0, benefit_text.find(raw)-2):benefit_text.find(raw)+len(raw)+3]:
+            # "만원" 단위 처리 — 매칭된 '숫자 바로 뒤'에 '만'이 붙는지로 판정한다.
+            #   ⚠️ 과거엔 콤마 제거 전 원문에서 find(raw)로 위치를 찾아, 콤마 있는 수('100,000')는
+            #   find→-1→슬라이스가 문장 앞부분을 읽어 '만 8세…' 같은 무관한 '만'을 오검출(1만배 과대). 감사 실결함.
+            if "만" in compact[m.start(1):m.end(1) + 3]:
                 val *= 10000
             return val
     return 0
@@ -67,7 +81,9 @@ async def portfolio_manager_node(state: AgentState) -> dict:
         amt = cat.get("amount_krw") or _estimate_monthly_benefit(p.get("name", ""), benefit_text)
         # 정직한 합산: 현금성만(프론트와 동일 원칙) — 바우처·대출·납입형이 섞이면 비현실 합계가 된다
         is_cash = bool(cat.get("is_cash")) or _is_cash_benefit(benefit_text, p.get("name", ""))
-        if is_cash and amt:
+        # ⚠️ '월 합계'이므로 연/1회성 금액(장학금 '연 500만원' 등)은 더하지 않는다 — catalog amount_krw는
+        #   기간 정보가 없어 그대로 더하면 12배 과대계상됐다(감사). 정책 목록엔 그대로 노출(누락 아님).
+        if is_cash and amt and not _is_annual_or_onetime(benefit_text):
             total_monthly += amt
             cash_count += 1
 

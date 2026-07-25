@@ -4,9 +4,52 @@
 정직성 계약: enabled=True + 코드 형식(영숫자 6~20) 통과분만 병합, 내장 서류는 항상 우선,
 손상 파일은 부팅을 깨지 않고 무시. manager 지원목록·URL 맵·발급 라우팅(gov24)까지 전파.
 """
+import glob
 import importlib
 import json
 import sys
+
+import pytest
+
+
+def _chromium_path():
+    hits = glob.glob("/opt/pw-browsers/chromium-*/chrome-linux/chrome")
+    return hits[0] if hits else None
+
+
+@pytest.mark.skipif(_chromium_path() is None, reason="컨테이너 chromium 없음 — 실브라우저 e2e 스킵")
+def test_doc_form_options_semantic_real_browser():
+    """🧠 서류 발급 폼 옵션 의미 선택(실Chromium) — 발급목적은 '관공서 제출용', 귀속연도는 최신,
+    의미 규칙 없는 select는 첫 유효 옵션. 다른 서류(소득금액증명·지방세·국세납세 등) 발급 완결 강화."""
+    import asyncio
+    from rpa.gov24_rpa import _select_doc_form_options
+    from playwright.async_api import async_playwright
+
+    HTML = ("<!doctype html><meta charset=utf-8><body><table>"
+            "<tr><th>발급 목적</th><td><select id=purpose><option>선택하세요</option>"
+            "<option>본인확인용</option><option>관공서 제출용</option><option>은행 제출용</option></select></td></tr>"
+            "<tr><th>귀속 연도</th><td><select id=year><option>선택</option>"
+            "<option>2022년</option><option>2024년</option><option>2023년</option></select></td></tr>"
+            "<tr><th>증명 구분</th><td><select id=kind><option>선택</option>"
+            "<option>일반</option><option>상세</option></select></td></tr></table></body>")
+
+    async def run():
+        async with async_playwright() as pw:
+            b = await pw.chromium.launch(executable_path=_chromium_path())
+            pg = await (await b.new_context()).new_page()
+            await pg.set_content(HTML)
+            await _select_doc_form_options(pg, "소득금액증명")
+            v = await pg.evaluate(
+                "() => ({purpose: document.getElementById('purpose').selectedOptions[0].text,"
+                " year: document.getElementById('year').selectedOptions[0].text,"
+                " kind: document.getElementById('kind').selectedOptions[0].text})")
+            await b.close()
+            return v
+
+    v = asyncio.new_event_loop().run_until_complete(run())
+    assert "관공서" in v["purpose"], f"발급목적 오선택: {v['purpose']}"   # 첫 옵션(본인확인용) 아님
+    assert "2024" in v["year"], f"귀속연도 최신 아님: {v['year']}"          # 최신 연도
+    assert v["kind"] == "일반"                                              # 의미 규칙 없음 → 첫 유효
 
 
 def test_load_extra_validation(tmp_path, monkeypatch):
@@ -66,3 +109,221 @@ def test_reload_merges_into_supported_and_urls(tmp_path, monkeypatch):
                 setattr(_pkg, k.split(".")[1], v)
             else:
                 sys.modules.pop(k, None)
+
+
+def test_maintenance_notice_detection():
+    """정부24 '서비스 점검 중' 팝업을 특정 감지 — 외부기관 연계 서류(가족관계=대법원, 소득=홈택스)의
+    야간·점검 시간 실패를 4분 헛돌지 않고 '앱 오류 아님·낮에 재시도'로 정직하게 전환(실사용 데모 제보)."""
+    from rpa.gov24_rpa import _is_maintenance_notice
+    # 실제 팝업 문구(사용자 스크린샷) + 공백 변형
+    assert _is_maintenance_notice("안내\n서비스 점검 중입니다.\n닫기")
+    assert _is_maintenance_notice("점검중입니다")
+    assert _is_maintenance_notice("현재 서비스 점검 중 이니 잠시 후 이용하세요")
+    # 연계기관(대법원 시스템 등) 점검 문구 변형도 감지
+    assert _is_maintenance_notice("전자가족관계등록시스템 시스템 점검 중")
+    assert _is_maintenance_notice("점검으로 인해 서비스를 이용할 수 없습니다")
+    # 정상 발급 화면·빈 문자열은 오탐 없음(정상 흐름을 끊지 않음)
+    assert not _is_maintenance_notice("발급 폼 로드 — 신청하기 진행")
+    assert not _is_maintenance_notice("문서출력 처리완료")
+    # ⚠️ '점검' 단독(정기 점검 안내문 등)은 오탐하지 않아야 한다 — 상태 못박는 구절만 매칭
+    assert not _is_maintenance_notice("정기 점검 시간은 매일 새벽 3시입니다")
+    assert not _is_maintenance_notice("서류를 점검하세요")
+    assert not _is_maintenance_notice("")
+    assert not _is_maintenance_notice(None)  # 방어적: None 안전
+
+
+def test_birth6_conversion():
+    """efamily 주민번호 앞 6자리 변환 — 생년월일 8자리('20010601')→'010601', 6자리 그대로, 불량 입력은 ''."""
+    from rpa.gov24_rpa import _birth6
+    assert _birth6("20010601") == "010601"
+    assert _birth6("2001-06-01") == "010601"
+    assert _birth6("010601") == "010601"
+    assert _birth6("") == ""
+    assert _birth6(None) == ""
+    assert _birth6("19") == ""  # 자릿수 부족 — 엉뚱한 값 넣지 않음
+
+
+def test_efamily_route_constants_and_valve():
+    """가족관계증명서 efamily 직행(β) — 실측 URL 상수와 흐름 함수 존재 + RPA_FAMILY_EFAMILY 밸브 계약.
+    (실 사이트 검증은 사용자 PC에서 — 컨테이너는 정부망 차단. 여기선 배선 회귀만 고정)"""
+    from rpa import gov24_rpa as g
+    assert g.EFAMILY_HOME.startswith("https://efamily.scourt.go.kr")
+    assert "PtFrrpApplrInfoInqW" in g.EFAMILY_APPLY  # 실측 신청인 정보조회 URL
+    assert callable(g._issue_family_cert_efamily)
+
+
+def test_privacy_masking_env_valve_and_result():
+    """🔒 개인정보 최소화 선택 계약 — ①선택표시 전환 ②뒷자리 비공개를 실제 한 것만 보고(dict),
+    RPA_PRIVACY_MASK=0 안전밸브로 전체를 끌 수 있음을 고정."""
+    import asyncio, os
+    from rpa.gov24_rpa import _select_privacy_masking
+
+    class _Page:
+        # evaluate 1회차=선택표시(picked bool), 2회차=뒷자리(clicked count) — 순서대로 반환
+        def __init__(self, results):
+            self._results = list(results)
+        async def evaluate(self, _js):
+            r = self._results.pop(0) if self._results else 0
+            if isinstance(r, Exception):
+                raise r
+            return r
+
+    def run(page):
+        loop = asyncio.new_event_loop()
+        try:
+            return loop.run_until_complete(_select_privacy_masking(page))
+        finally:
+            loop.close()
+
+    assert run(_Page([True, 2])) == {"display": True, "rrn": True}    # 둘 다 수행
+    assert run(_Page([False, 2])) == {"display": False, "rrn": True}  # 뒷자리만(전체표시 그룹 없음)
+    assert run(_Page([True, 0])) == {"display": True, "rrn": False}   # 선택표시만
+    assert run(_Page([False, 0])) == {"display": False, "rrn": False} # 해당 옵션 없음 → 침묵(무해)
+    assert run(_Page([RuntimeError("x"), RuntimeError("x")])) == {"display": False, "rrn": False}  # 실패도 침묵
+    os.environ["RPA_PRIVACY_MASK"] = "0"
+    try:
+        assert run(_Page([True, 2])) == {"display": False, "rrn": False}  # 안전밸브: 시도 자체를 안 함
+    finally:
+        del os.environ["RPA_PRIVACY_MASK"]
+
+
+def test_fill_registered_address_contract():
+    """🏠 주민등록상 주소 자동 선택 계약 — 실제 선택된 것만 True(dict), 입력 없으면 시도 자체를 안 함.
+    신형 등본 폼(시도/시군구 2단 드롭다운, 2026-07-20 실측) 대응 — 호출부는 사실만 안내한다."""
+    import asyncio
+    from rpa.gov24_rpa import _fill_registered_address
+
+    class _Page:
+        def __init__(self, results):
+            self._results = list(results)
+            self.calls = 0
+        async def evaluate(self, _js, *args):
+            self.calls += 1
+            r = self._results.pop(0) if self._results else False
+            if isinstance(r, Exception):
+                raise r
+            return r
+
+    def run(page, ui):
+        loop = asyncio.new_event_loop()
+        try:
+            return loop.run_until_complete(_fill_registered_address(page, ui))
+        finally:
+            loop.close()
+
+    # 시도+시군구 모두 1회차에 성공
+    assert run(_Page([True, True]), {"sido": "경상북도", "sigungu": "구미시"}) == {"sido": True, "sigungu": True}
+    # 시군구만 제공 — 시도 평가 없이 시군구만
+    pg = _Page([True])
+    assert run(pg, {"sigungu": "구미시"}) == {"sido": False, "sigungu": True}
+    assert pg.calls == 1
+    # 입력 없음 — 아무 것도 하지 않음(evaluate 0회)
+    pg2 = _Page([])
+    assert run(pg2, {}) == {"sido": False, "sigungu": False}
+    assert pg2.calls == 0
+
+
+def test_fill_income_cert_form_contract():
+    """🧾 소득금액증명 폼 채움 계약 — 기간은 직전 과세연도, 실제 한 것만 보고(dict),
+    용도 검색 버튼이 없으면 purpose=False 로 침묵(무해·막힘 유예가 커버)."""
+    import asyncio
+    from datetime import datetime
+    from rpa.gov24_rpa import _fill_income_cert_form
+
+    class _Page:
+        # evaluate 1회차=기간 입력 수, 2회차=용도 [검색] 클릭 여부
+        def __init__(self, results):
+            self._results = list(results)
+        async def evaluate(self, _js, *args):
+            r = self._results.pop(0) if self._results else 0
+            if isinstance(r, Exception):
+                raise r
+            return r
+
+    class _Ctx:
+        def __init__(self, page):
+            self.pages = [page]
+
+    def run(results):
+        pg = _Page(results)
+        loop = asyncio.new_event_loop()
+        try:
+            return loop.run_until_complete(_fill_income_cert_form(pg, _Ctx(pg)))
+        finally:
+            loop.close()
+
+    yr = str(datetime.now().year - 1)
+    r = run([2, False])                      # 기간 2칸 채움 + 검색 버튼 못 찾음
+    assert r == {"years": True, "purpose": False, "year": yr}
+    r = run([0, False])                      # 아무것도 못 함 → 전부 False(안내 미노출)
+    assert r == {"years": False, "purpose": False, "year": yr}
+    r = run([RuntimeError("x"), RuntimeError("x")])  # 평가 실패도 침묵
+    assert r == {"years": False, "purpose": False, "year": yr}
+
+
+def test_wallet_required_detection():
+    """정부24 '전자문서지갑 발급 후 사용가능' 안내 감지 — 가족관계 등 전자문서지갑 선행 서류를
+    점검과 구분해 정직 안내로 전환(실사용 제보: 가족관계 타일이 이 팝업)."""
+    from rpa.gov24_rpa import _is_wallet_required, _wallet_msg
+    assert _is_wallet_required("안내\n전자문서지갑 발급 후 사용가능합니다. 정부24 앱(APP)에서 로그인 후 발급 해주세요.")
+    assert _is_wallet_required("전자문서지갑을 먼저 발급 후 이용하세요")
+    # 무관한 화면은 오탐 없음
+    assert not _is_wallet_required("발급 폼 로드 — 신청하기 진행")
+    assert not _is_wallet_required("")
+    assert not _is_wallet_required(None)
+    m = _wallet_msg("가족관계증명서")
+    assert "가족관계증명서" in m and "전자문서지갑" in m and "앱 오류 아님" in m
+
+
+def test_maintenance_msg_names_service():
+    """점검 안내 문구는 서류명을 넣고 '앱 오류 아님'을 명시한다(사용자 오해 방지)."""
+    from rpa.gov24_rpa import _maintenance_msg
+    m = _maintenance_msg("가족관계증명서")
+    assert "가족관계증명서" in m and "앱 오류 아님" in m and "전자발급" in m
+
+
+def test_maintenance_popup_text_gathers_and_skips_broken_frames():
+    """_maintenance_popup_text: 보이는 팝업/모달 텍스트를 프레임 전체에서 합치고, 접근 불가
+    (cross-origin) 프레임은 건너뛴다. → 점검 팝업이 연계기관 iframe 안에 떠도 감지되도록,
+    동시에 '본문 보일러플레이트'가 아니라 팝업만 대상으로 해 오탐을 줄이는 수집을 고정."""
+    import asyncio
+    from rpa.gov24_rpa import _maintenance_popup_text, _is_maintenance_notice
+
+    class _Frame:
+        # 이 프레임의 '보이는 팝업' 텍스트(_maintenance_popup_text 의 JS 결과)를 흉내낸다.
+        def __init__(self, popup=None, boom=False):
+            self._popup, self._boom = popup, boom
+        async def evaluate(self, _script):
+            if self._boom:
+                raise RuntimeError("cross-origin")  # 접근 불가 프레임
+            return self._popup or ""
+
+    class _Page:
+        frames = [_Frame(""), _Frame(boom=True), _Frame("안내\n서비스 점검 중입니다.\n닫기")]
+
+    loop = asyncio.new_event_loop()
+    try:
+        txt = loop.run_until_complete(_maintenance_popup_text(_Page()))
+    finally:
+        loop.close()
+    assert "서비스 점검 중입니다" in txt          # iframe 팝업이 합쳐져 잡힘(깨진 프레임은 건너뜀)
+    assert _is_maintenance_notice(txt)            # 팝업 텍스트로 점검 감지 성립
+
+
+def test_wait_document_rendered_returns_when_content_present():
+    """_wait_document_rendered: 문서 본문(텍스트/캔버스 등)이 감지되면 대기를 마치고 진행한다
+    → 빈 PDF 저장 방지의 '본문 렌더 대기'가 실제로 콘텐츠를 기다리는지 고정(ready 경로)."""
+    import asyncio
+    from rpa.gov24_rpa import _wait_document_rendered
+
+    class _Page:
+        async def wait_for_load_state(self, _state, timeout=0):
+            return None
+        async def evaluate(self, _script):
+            return True  # 본문이 이미 렌더됨
+
+    loop = asyncio.new_event_loop()
+    try:
+        loop.run_until_complete(_wait_document_rendered(_Page(), timeout_sec=1))  # 예외 없이 반환하면 통과
+    finally:
+        loop.close()

@@ -16,7 +16,9 @@ function isAnnual(renewal: string): boolean {
   // monitoring.ts isAnnualRenewal과 동일 규칙 — '1년'을 무조건 매칭하면 1회성 바우처('1년 이내 사용')를 매년 갱신으로 오판(거짓 .ics 갱신 일정)
   const r = renewal || ''
   if (/1회|사용|유효|만기|소진|이내|일시/.test(r)) return false
-  return /매년|연\s*1회|1년\s*(?:마다|단위|주기)|재확인|재산정|재판정/.test(r)
+  // '연간 재선정' 등 실제 매년 재신청형 누락 방지 — monitoring.isAnnualRenewal과 완전 동일하게('연간'·'재선정' 포함).
+  //   위 1회성 가드를 이미 통과한 문구만 이르므로 1회성 오판은 없음.
+  return /매년|연간|연\s*1회|1년\s*(?:마다|단위|주기)|재확인|재산정|재판정|재선정/.test(r)
 }
 
 /** 추적 항목에서 다가오는 복지 일정(준비/점검/갱신)을 날짜로 생성 */

@@ -35,6 +35,9 @@ export function SproutGuide() {
   const view = useAppStore((s) => s.view)
   const trackedCount = useAppStore((s) => s.tracked.length)
   const hasResult = useAppStore((s) => !!s.result)
+  // 진행상태(서류 준비·신청 시작) — '그다음에 뭘 하지?' 헷갈림에 다음 행동을 콕 집어 안내하기 위한 신호
+  const docsIssued = useAppStore((s) => Object.keys(s.docDone).length > 0)
+  const appliedCount = useAppStore((s) => s.tracked.filter((t) => t.status === 'applied' || t.status === 'done').length)
   const { ready, caps } = useBackend()
   const agentOn = ready === true && !!caps?.rpa
   const reduce = useReducedMotion()
@@ -42,14 +45,16 @@ export function SproutGuide() {
   const [off, setOff] = useState(() => {
     try { return localStorage.getItem(OFF_KEY) === '1' } catch { return false }
   })
-  const [open, setOpen] = useState(true)
+  const [open, setOpen] = useState(false)
   const [skip3D] = useState(shouldSkipHeavy3D)
   const [contextLost, setContextLost] = useState(false)
 
-  // 화면이 바뀌면 새 안내를 펼친다(영구 숨김이 아니라면) — '각 흐름에서' 안내가 이 컴포넌트의 존재 이유
-  useEffect(() => { setOpen(true) }, [view])
+  // 말풍선은 '기본 접힘' — 자동으로 펼쳐 목록·카드를 가리지 않게 한다(사용자 2회 제보: 나의복지 하단 카드를
+  //   덮음). 안내는 새싹이(마스코트)를 누르면 언제든 펼쳐 읽을 수 있고, 화면 전환 시엔 접힌 상태로 리셋한다.
+  //   (다음 행동 안내는 각 화면의 JourneyStepper·헤더가 이미 크게 제공하므로 마스코트는 보조 역할)
+  useEffect(() => { setOpen(false) }, [view])
 
-  const tip = guideTip(view, { hasResult, trackedCount, agentOn })
+  const tip = guideTip(view, { hasResult, trackedCount, agentOn, docsIssued, appliedCount })
   if (off || !tip) return null
 
   const turnOff = () => {

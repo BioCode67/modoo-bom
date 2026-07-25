@@ -13,7 +13,7 @@
 import asyncio
 import re
 from rpa.base import (
-    take_screenshot, make_browser_context_args, get_launch_options, launch_browser, save_document,
+    take_screenshot, make_browser_context_args, launch_browser, save_document,
     check_cancel, cancellable_sleep, CancelledByUser, NO_PRINT_SCRIPT,
 )
 
@@ -114,7 +114,9 @@ _JS_FILL_FORM = """
     // 전화번호 앞자리 select (010)
     const prefixSel = Array.from(document.querySelectorAll('select'))
         .find(s => Array.from(s.options).some(o => o.value === '010') && s.offsetParent !== null);
-    if (prefixSel && setVal(prefixSel, prefix)) filled.push('prefix:' + prefix);
+    // ⚠️ 채운 값(전화 앞자리)을 반환 문자열에 담지 않는다 — 이 문자열이 current_step 에 실려 무토큰
+    //    폴러에게 새던 실결함(감사 확정). '무엇을 채웠는지' 사실만(값 없음).
+    if (prefixSel && setVal(prefixSel, prefix)) filled.push('prefix');
 
     // 전화번호 뒷자리
     const phoneEl = document.getElementById('oacx_phone2');
@@ -253,9 +255,11 @@ async def _wait_and_fill_form(page, name, birth, prefix, suffix, task) -> bool:
             result = await page.evaluate(_JS_FILL_FORM, args)
             if result:
                 ss = await take_screenshot(page)
+                # ⚠️ 상태 메시지에 원시 PII(이름·생년월일·전화)를 담지 않는다 — RPA_SHARED(터널) 모드에서
+                #   무토큰 폴러가 current_step으로 PII를 볼 수 있던 실결함(gov24·apply와 동일하게 값 대신 사실만).
                 task.update("running",
                     f"폼 입력 완료 ({result})\n"
-                    f"이름={name} / 생년월일={birth} / 전화={prefix}-{suffix}",
+                    "이름·생년월일·연락처를 입력했어요.",
                     ss,
                 )
                 return True
@@ -429,14 +433,28 @@ async def _auto_confirm_print(context) -> bool:
     return False
 
 
-async def _wait_print(context, task, timeout: int = 90) -> bool:
+async def _wait_print(context, task, base_n: int = 1, timeout: int = 90) -> bool:
+    """출력/완료 '실제 도달'을 기다린다. ⚠️ '출력 버튼을 눌렀다'는 사실만으론 성공이 아니다(감사 확정 MED):
+    상시 존재하는 헤더 인쇄아이콘을 눌러 미발급 화면을 발급 완료로 저장·보고하던 것을 막는다.
+    genuine 신호만 True: ① 출력 확인 다이얼로그 자동확인(문서 렌더됨) ② base_n 대비 '새로 열린 창'
+    (자격득실 출력/뷰 창) ③ 출력 버튼 클릭 '뒤' 새 창/완료 텍스트. 신호 없으면 False(정직한 미확인)."""
     print_sels = ["button:has-text('출력')", "button:has-text('인쇄')", "#btnPrint", ".btn-print"]
+
+    def _alive_n():
+        return len([p for p in context.pages if not p.is_closed()])
+
     for _ in range(timeout):
         check_cancel(task, context)  # 취소·창닫힘 즉시 탈출(멈춤 유령 점유 차단)
         if await _auto_confirm_print(context):
             ss = await take_screenshot(context.pages[-1])
             task.update("running", "✅ 출력 확인 다이얼로그 자동 클릭!", ss)
             await asyncio.sleep(2)
+            return True  # 출력 다이얼로그 = 문서가 실제로 렌더된 신호
+        # '이번 발급으로 새로 열린' 창만 완료 신호로(로그인 중 오클릭 잔탭 등 base_n 이하 창은 오인 금지)
+        if _alive_n() > base_n:
+            ss = await take_screenshot(context.pages[-1])
+            task.update("running", "발급 완료 페이지 감지!", ss)
+            return True
         for p in context.pages:
             for sel in print_sels:
                 try:
@@ -444,15 +462,21 @@ async def _wait_print(context, task, timeout: int = 90) -> bool:
                     # count() 도 만일의 렌더러 블록 대비 타임아웃(감사 CRITICAL 방어)
                     if await asyncio.wait_for(el.count(), timeout=5) > 0:
                         ss = await take_screenshot(p)
-                        task.update("running", "출력 버튼 감지!", ss)
+                        task.update("running", "출력 버튼 감지 — 결과 확인 중…", ss)
                         await el.click()
-                        return True
+                        await asyncio.sleep(2)
+                        # ⚠️ 클릭'만'으론 성공 아님 — 새 창 개창 또는 완료 텍스트가 있어야 확정
+                        if _alive_n() > base_n:
+                            return True
+                        try:
+                            body = await asyncio.wait_for(p.inner_text("body"), timeout=5)
+                        except Exception:
+                            body = ""
+                        if any(k in body for k in ("발급완료", "발급 완료", "정상적으로", "처리완료")):
+                            return True
+                        # 신호 없음 — 이 버튼은 발급 결과가 아니었을 수 있음(계속 대기)
                 except Exception:
                     pass
-        if len(context.pages) > 1:
-            ss = await take_screenshot(context.pages[-1])
-            task.update("running", "발급 완료 페이지 감지!", ss)
-            return True
         await asyncio.sleep(1)
     return False
 
@@ -522,6 +546,18 @@ async def run_nhis_rpa(task, user_info: dict = None) -> None:
 
                             # ⑤ 폼 입력
                             filled = await _wait_and_fill_form(page, name, birth, prefix, suffix, task)
+                            if not filled:
+                                # 🧠 고정 ID(#oacx_*)가 안 잡히는 위젯(개편·다른 마크업) — 공용 오토필
+                                #    (ID 재시도 + ai_fill 의미 인식 폴백, 키 불필요·프레임 순회)로 한 번 더.
+                                #    부분 성공은 완료로 안 친다(3키 전부 True일 때만 — 과장 금지).
+                                from rpa.auth_autofill import autofill_easy_auth
+                                _fb = await autofill_easy_auth(
+                                    page, {"user_name": name, "birth_date": birth, "phone": prefix + suffix})
+                                filled = bool(_fb["name"] and _fb["birth"] and _fb["phone"])
+                                if filled:
+                                    task.update("running",
+                                                "의미 인식 폴백으로 이름·생년월일·연락처를 입력했어요.",
+                                                await take_screenshot(page))
 
                             if filled:
                                 # ⑥ 인증 요청
@@ -541,16 +577,14 @@ async def run_nhis_rpa(task, user_info: dict = None) -> None:
                             else:
                                 ss = await take_screenshot(page)
                                 task.update("waiting_login",
-                                    f"⚠️ 폼 자동 입력 실패.\n"
-                                    f"브라우저에서 직접 입력해주세요:\n"
-                                    f"이름: {name} / 생년월일: {birth} / 전화: {prefix}-{suffix}\n\n"
+                                    "⚠️ 폼 자동 입력 실패.\n"
+                                    "브라우저에서 이름·생년월일·전화번호를 직접 입력해주세요.\n\n"
                                     "입력 후 '인증 요청' → 카카오 알림 승인 → 자동 계속", ss)
                         else:
                             ss = await take_screenshot(page)
                             task.update("waiting_login",
                                 "⚠️ 카카오톡 자동 클릭 실패.\n"
-                                "브라우저에서 카카오톡을 선택하고 아래 정보를 입력해주세요:\n\n"
-                                f"이름: {name} / 생년월일: {birth} / 전화: {prefix}-{suffix}\n\n"
+                                "브라우저에서 카카오톡을 선택하고 이름·생년월일·전화번호를 직접 입력해주세요.\n\n"
                                 "입력 후 '인증 요청' → 카카오 알림 승인", ss)
                 else:
                     ss = await take_screenshot(page)
@@ -566,7 +600,12 @@ async def run_nhis_rpa(task, user_info: dict = None) -> None:
                 login_ok = await _wait_login(page, task, timeout=300)
                 if not login_ok:
                     ss = await take_screenshot(page)
-                    task.update("error", "로그인 대기 시간 초과 (5분). 다시 시도해주세요.", ss)
+                    # 🔬 로그인 미감지 실화면 구조를 남긴다 — 카카오 인증은 됐는데 감지만 놓친 경우(로그아웃
+                    #    링크·URL 변화)를 실측 구분해 _wait_login 을 보정. 개발 환경에서 못 보는 그 화면을 이 파일로.
+                    from rpa import diagnostics as _dg
+                    _saved = await _dg.dump(page, "건강보험자격득실-로그인미감지",
+                                            tried=["_wait_login: CERT_KEYWORD URL·로그아웃 링크"], note="5분 내 로그인 미감지")
+                    task.update("error", f"로그인 대기 시간 초과 (5분). 다시 시도해주세요.\n{_saved}".rstrip(), ss)
                     await browser.close()
                     return
 
@@ -584,20 +623,22 @@ async def run_nhis_rpa(task, user_info: dict = None) -> None:
             # ⑧ 발급 버튼 — 실제로 눌렀는지 반환값을 붙잡는다(무조건 '완료' 오보 방지)
             ss = await take_screenshot(page)
             task.update("running", "발급 버튼 탐색 중...", ss)
+            # 🪟 발급 전 창 집합 — '이번 발급으로 새로 열린 창'만 결과·완료 신호로 삼는다(로그인 중 간편인증
+            #    오클릭으로 열린 잔탭을 '발급 완료 팝업'으로 오인하던 절대 len>1 판정을 baseline 대비로 교정).
+            _base_ids = {id(p) for p in context.pages}
             # 발급 버튼 클릭(부수효과) — 성공 판정은 아래 completed(출력/완료화면)로만 하므로 반환값은 쓰지 않는다
             await _click_issue(page, context, task)
 
-            # ⑨ 출력 팝업/완료 화면 대기 — 완료 화면 도달 여부를 성공 판정에 사용
-            printed = await _wait_print(context, task, timeout=90)
-            completed = printed or len(context.pages) > 1
+            # ⑨ 출력 팝업/완료 화면 대기 — 완료 화면 '실제 도달' 여부를 성공 판정에 사용(버튼 클릭만으론 불충분)
+            printed = await _wait_print(context, task, len(_base_ids), timeout=90)
+            completed = printed
 
+            _new = [p for p in context.pages if id(p) not in _base_ids and not p.is_closed()]
+            _dlpage = _new[-1] if _new else page
             try:
-                final = context.pages[-1] if len(context.pages) > 1 else page
-                ss = await take_screenshot(final)
+                ss = await take_screenshot(_dlpage)
             except Exception:
                 ss = await take_screenshot(page)
-
-            _dlpage = context.pages[-1] if len(context.pages) > 1 else page
             doc = "건강보험 자격득실확인서"
             # ⚠️ 성공 판정은 completed(출력/완료화면 도달 = 권위 신호)로만 — save_document 는 어떤 화면이든
             #   항상 저장(headed 스샷 폴백)하므로 저장 성공을 발급 성공으로 쓰면 '미발급 화면'도 완료로 오보된다
@@ -620,10 +661,16 @@ async def run_nhis_rpa(task, user_info: dict = None) -> None:
             else:
                 # 발급 완료 화면을 확인하지 못함 — 가짜 '발급 완료!' 대신 정직하게 안내(감사 HIGH :583 해소).
                 #   저장하지 않았으므로 신청서 자동첨부에 미발급 캡처가 섞일 여지도 없다.
+                # 🔬 이 실화면(발급 버튼을 못 찾은 그 화면)의 구조를 PII 없이 남긴다 — 개발 환경에서 nhis
+                #    실화면을 못 보는 제약을, 사용자의 [진단 복사] 한 번으로 메워 ISSUE_SELECTORS를 실측 보정.
+                from rpa import diagnostics as _dg
+                _saved = await _dg.dump(_dlpage, "건강보험자격득실-발급화면미확인",
+                                        tried=["ISSUE_SELECTORS 클릭", "JS 발급 키워드 폴백", "_wait_print"],
+                                        note="로그인 후 발급/출력 화면 미확인")
                 task.update("error",
                     "발급 화면을 자동으로 확인하지 못했어요.\n\n"
                     "로그인이 끝났는지 확인하고, 브라우저 화면에서 [발급] 버튼을 직접 눌러 저장해 주세요.\n"
-                    "필요하면 [다시 시작]을 눌러 주세요.", ss)
+                    f"필요하면 [다시 시작]을 눌러 주세요.\n{_saved}".rstrip(), ss)
                 task.result = {"success": False, "doc_name": doc, "saved_path": None}
                 await cancellable_sleep(60, task, context)  # headed 창을 잠시 열어둬 수동 완료 가능
 
@@ -639,4 +686,13 @@ async def run_nhis_rpa(task, user_info: dict = None) -> None:
             ss = await take_screenshot(page)
         except Exception:
             ss = None
-        task.update("error", f"자동화 오류: {str(e)[:300]}\n터미널에서 상세 로그를 확인하세요.", ss)
+        # 🔬 예기치 못한 실패 — 그 순간의 실화면 구조를 PII 없이 자동 저장(page가 아직 없거나 닫혔으면 생략).
+        _saved = ""
+        try:
+            _pg = locals().get("page")
+            if _pg is not None:
+                from rpa import diagnostics as _dg
+                _saved = await _dg.dump(_pg, "건강보험자격득실-예외", tried=["nhis flow"], note=str(e)[:120])
+        except Exception:
+            pass
+        task.update("error", f"자동화 오류: {str(e)[:300]}\n터미널에서 상세 로그를 확인하세요.\n{_saved}".rstrip(), ss)

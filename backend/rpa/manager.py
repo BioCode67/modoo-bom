@@ -11,6 +11,7 @@
 import asyncio
 import hmac
 import os
+import re
 import secrets
 import uuid
 from contextlib import asynccontextmanager
@@ -31,15 +32,63 @@ def token_ok(t, token) -> bool:
 
 # 상태 응답에서 토큰 미인가 시 제거할 민감 필드(정부 페이지 스샷·실명·민감 서류종).
 _SENSITIVE_STATUS_FIELDS = ("screenshot_b64", "user_name", "doc_name")
+# result dict 에서 미인가 폴러에게 가릴 필드 — saved_path(파일명이 '서류종_실명_날짜.pdf'라 실명+서류종 유출)·
+#   doc_name(민감 서류종). success·manual_save·final_url 등 비민감 플래그는 보존.
+_SENSITIVE_RESULT_FIELDS = ("saved_path", "doc_name")
+
+# 진행 문구(current_step/steps)에 '이름: 값'처럼 원시 PII가 섞였을 때 미인가 폴러에게 새지 않도록
+#   걸러낼 라벨 패턴('라벨:' 또는 '라벨=' 형태만 — '이름·생년월일 입력' 같은 안내 문구는 값이 없어 유지).
+_PII_LABEL_RE = re.compile(r"(이름|성명|생년월일|주민등록번호|주민번호|전화|휴대폰|연락처)\s*[:=]\s*\S")
+# 저장 파일 경로 줄('자동 저장됨: C:\…\건강보험 자격득실확인서_홍길동_….pdf') — 파일명에 실명이 들어가므로
+#   그 줄째 제거한다. 서류명에 공백이 있어(예: '지방세 납세증명서') 단일 정규식이 끊기므로, '발급물 확장자'와
+#   '경로 구분자(\ 또는 /)'가 한 줄에 함께 있으면 저장 경로로 본다. casual 한 'PDF로 저장'·'Ctrl+P' 안내엔
+#   확장자(.pdf)도 구분자도 없어 보존된다.
+_DOC_EXT_RE = re.compile(r"\.(pdf|png|jpe?g)\b", re.IGNORECASE)
+
+
+def _is_saved_path_line(ln: str) -> bool:
+    return bool(_DOC_EXT_RE.search(ln)) and ("\\" in ln or "/" in ln)
+
+
+def _strip_pii_lines(text: str) -> str:
+    """'라벨: 값' PII 줄 + '저장 파일 경로' 줄을 제거하고 비민감 진행/안내 문구는 보존한다."""
+    return "\n".join(
+        ln for ln in str(text).split("\n")
+        if not _PII_LABEL_RE.search(ln) and not _is_saved_path_line(ln)
+    )
+
+
+def _redact_result(result):
+    """result dict 를 미인가용으로 정제 — 실명 포함 경로·민감 서류종 제거(존재/성공 여부는 보존)."""
+    if not isinstance(result, dict):
+        return result
+    r = dict(result)
+    for k in _SENSITIVE_RESULT_FIELDS:
+        if r.get(k):
+            r[k] = None  # 값(실명 경로·서류종)만 가림 — success 등으로 진행 판단은 유지
+    return r
 
 
 def redact_status(d: dict, authorized: bool) -> dict:
-    """상태 dict 를 응답용으로 정제 — download_token 은 항상 제거, 미인가면 PII 필드도 제거."""
+    """상태 dict 를 응답용으로 정제 — download_token 은 항상 제거, 미인가면 PII 필드도 제거.
+    ⚠️ 미인가면 current_step/steps 텍스트의 원시 PII 줄·저장경로 줄, 그리고 result 안의 saved_path/
+    doc_name 까지 심층 제거한다(소스단이 값 대신 사실만 담아도, RPA_SHARED 무토큰 폴러 유출을 이중 방어).
+    특히 result.saved_path 는 top-level user_name/doc_name 을 가려도 파일 경로로 재유출하던 실결함(감사 확정)."""
     d = dict(d)
     d.pop("download_token", None)  # 인가 비밀은 어떤 경우에도 노출 금지
     if not authorized:
         for k in _SENSITIVE_STATUS_FIELDS:
             d.pop(k, None)
+        if isinstance(d.get("current_step"), str):
+            d["current_step"] = _strip_pii_lines(d["current_step"])
+        if isinstance(d.get("steps"), list):
+            d["steps"] = [
+                {**s, "msg": _strip_pii_lines(s["msg"])}
+                if isinstance(s, dict) and isinstance(s.get("msg"), str) else s
+                for s in d["steps"]
+            ]
+        if "result" in d:
+            d["result"] = _redact_result(d["result"])
     return d
 
 

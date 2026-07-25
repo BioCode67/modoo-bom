@@ -18,7 +18,11 @@ import { WelfareCalendar } from '@/components/WelfareCalendar'
 import { HouseholdAnalyzer } from '@/components/HouseholdAnalyzer'
 import { AnnualCashflow } from '@/components/AnnualCashflow'
 import { DeadlineAlert } from '@/components/DeadlineAlert'
+import { WelfareRoadmap } from '@/components/WelfareRoadmap'
+import { PriorityRecommend } from '@/components/PriorityRecommend'
+import { DocPlanCard } from '@/components/DocPlanCard'
 import { DocReuseCard } from '@/components/DocReuseCard'
+import { PaymentSchedule } from '@/components/PaymentSchedule'
 import { useAppStore, type AppStatus } from '@/store/useAppStore'
 import { useAuthCtx } from '@/lib/authContext'
 import { sumCashMonthly, formatWon } from '@/lib/format'
@@ -98,11 +102,10 @@ export function My() {
       {/* AI 에이전트 브리핑 — 먼저 챙길 일을 능동적으로 보고 */}
       <AgentBriefing onOpen={setSelected} />
 
-      {/* 복지 여정 지도 — 찾기 → 서류 → 신청 → 관리 중 지금 어디쯤인지 + 다음 한 걸음 */}
+      {/* 복지 여정 지도 — 찾기 → 서류 → 신청 → 관리 중 지금 어디쯤인지 + 다음 한 걸음.
+          '지금 뭘 하면 되는지' 딱 하나만 또렷하게 보여주는 이 흐름 안내를 상단에 두고, 부가 정보(구독·연간
+          현금흐름 등)는 아래 '복지 도구 더보기'로 내려 정보 과다를 줄인다(사용자 피드백: 뭘 할지 헷갈림). */}
       <JourneyStepper />
-
-      {/* 관심 분야 알림 구독 — 구독 분야에서 받을 수 있는데 안 담은 복지를 능동 안내 */}
-      <InterestSubscribe onOpenPolicy={(id) => { const p = POLICY_MAP[id]; if (p) setSelected(p) }} />
 
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
         <div className="flex items-start justify-between gap-3">
@@ -146,14 +149,17 @@ export function My() {
         )}
       </motion.div>
 
-      {/* 담은 복지 중 마감 임박 — 놓침 방지 */}
+      {/* 복지 신청 로드맵 — 담은 복지를 '무엇을 어떤 순서로' 신청할지 실행 계획으로 (찾기→행동) */}
+      <WelfareRoadmap onOpen={setSelected} />
+
+      {/* 먼저 챙기세요 — 신청 전 담은 복지를 우선순위 점수로 '무엇부터' 추천(3개 이상일 때만) */}
+      <PriorityRecommend onOpen={setSelected} />
+
+      {/* 담은 복지 중 마감 임박 — 놓침 방지(액션 직결이라 상단 유지) */}
       <DeadlineAlert policies={tracked.map((t) => POLICY_MAP[t.policyId]).filter(Boolean)} onOpen={setSelected} />
 
-      {/* 담은 복지의 연간 현금흐름 — 앞으로 12개월 누적 수령액 */}
-      <AnnualCashflow policies={tracked.map((t) => POLICY_MAP[t.policyId]).filter(Boolean)} />
-
-      {/* 서류 재사용 — 여러 복지가 같은 서류를 쓸 때 '한 번만 준비'하도록(준비 부담↓) */}
-      <DocReuseCard policies={tracked.map((t) => POLICY_MAP[t.policyId]).filter(Boolean)} />
+      {/* 신청·수급 중 급여의 다음 입금 예정일 — '돈 언제 들어와?'(applied·done만 노출, 없으면 미표시) */}
+      <PaymentSchedule />
 
       {/* ② 신청 — 담은 복지 목록(각 카드에서 상태·서류·다음 할 일 관리) */}
       <section id="journey-apply" className="scroll-mt-24">
@@ -165,6 +171,7 @@ export function My() {
               <button
                 key={f.key}
                 onClick={() => setFilter(f.key)}
+                aria-pressed={filter === f.key}
                 className={cn('shrink-0 rounded-full px-4 py-2 text-sm font-semibold border-2 transition-all',
                   filter === f.key ? 'bg-sprout-700 border-sprout-700 text-white' : 'bg-white border-sprout-100 text-muted-foreground hover:border-sprout-200')}
               >
@@ -193,6 +200,10 @@ export function My() {
 
       {/* ① 서류 발급 — 담은 복지에 필요한 서류를 미리 준비 */}
       <section id="journey-docs" className="scroll-mt-24">
+        {/* 서류 중심 통합 정리 — 재사용(한 번 떼서 여러 신청)·유효기간(발급 3개월)을 한눈에 */}
+        <DocPlanCard onOpen={setSelected} />
+        {/* 서류 재사용 매트릭스 — 여러 복지가 같은 서류를 쓸 때 '한 번만 준비'하도록(준비 부담↓) */}
+        <DocReuseCard policies={tracked.map((t) => POLICY_MAP[t.policyId]).filter(Boolean)} />
         <DocumentCenter />
       </section>
 
@@ -210,11 +221,15 @@ export function My() {
         >
           <Wrench className="h-4 w-4 text-sprout-500" />
           복지 도구 더보기
-          <span className="text-xs font-normal text-muted-foreground">복지 캘린더 · 가구 분석 · 자동화 요약</span>
+          <span className="text-xs font-normal text-muted-foreground">알림 구독 · 연간 현금흐름 · 캘린더 · 가구 분석 · 자동화 요약</span>
           <ChevronDown className={cn('h-4 w-4 ml-auto transition-transform', showTools && 'rotate-180')} />
         </button>
         {showTools && (
           <div className="mt-2">
+            {/* 관심 분야 알림 구독 — 안 담은 복지 능동 안내(발견용, 신청 흐름과 분리해 여기로) */}
+            <InterestSubscribe onOpenPolicy={(id) => { const p = POLICY_MAP[id]; if (p) setSelected(p) }} />
+            {/* 담은 복지의 연간 현금흐름 — 앞으로 12개월 누적 수령액(부가 정보) */}
+            <AnnualCashflow policies={tracked.map((t) => POLICY_MAP[t.policyId]).filter(Boolean)} />
             <WelfareCalendar />
             <HouseholdAnalyzer onOpen={setSelected} />
             <AgentSummary />

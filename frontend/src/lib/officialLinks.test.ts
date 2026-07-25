@@ -17,6 +17,11 @@ describe('applyLink', () => {
   it('한글 채널 설명(복지로)은 홈으로 폴백', () => {
     expect(applyLink('복지로 또는 주민센터 방문 신청').url).toBe('https://www.bokjiro.go.kr')
   })
+  it('직업훈련(HRD-Net·K-디지털)은 정부24 검색이 아니라 HRD-Net으로 — 청년취업사관학교 실사용 제보', () => {
+    const r = applyLink('K-디지털 트레이닝 플랫폼 또는 직업훈련포털(HRD-Net)')
+    expect(r.url).toBe('https://www.hrd.go.kr')
+    expect(r.label).toContain('HRD-Net')
+  })
   it('빈 값은 복지로 홈 기본값', () => {
     expect(applyLink('').url).toBe('https://www.bokjiro.go.kr')
   })
@@ -29,8 +34,10 @@ describe('docLink', () => {
     expect(r.rpa).toBe(true)
     expect(docLink('주민등록초본').url).toContain('CappBizCD=13100000015') // 등·초본 동일 민원
   })
-  it('가족관계증명서 → 정부24 민원 딥링크(실측 97400000004) — efamily 홈 착지 대체', () => {
-    expect(docLink('가족관계증명서').url).toContain('CappBizCD=97400000004')
+  it('가족관계증명서 → 대법원 efamily 직행 — 정부24 경로는 전자문서지갑 선행·연계 차단(실사용 확정)', () => {
+    // 2026-07-20 실측: 원 발급처 efamily는 24시간 발급되는데 정부24 연계는 새벽에 막혔다(사용자 스크린샷).
+    // '링크라도 제대로' — 사용자가 눌렀을 때 실제로 발급되는 사이트로 보낸다.
+    expect(docLink('가족관계증명서').url).toContain('efamily.scourt.go.kr')
   })
   it('건강보험 자격득실 → 건보 + RPA', () => {
     expect(docLink('건강보험 자격득실확인서').url).toContain('nhis')

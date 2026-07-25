@@ -182,6 +182,49 @@ def test_portfolio_estimate_comma_only():
     assert _estimate_monthly_benefit("기초연금", "월 30만원") == 300000
 
 
+def test_portfolio_annual_amount_excluded_from_monthly_sum():
+    """연/1회성 금액(장학금 '연 500만원' 등)은 '월 합계'에서 제외한다(감사: catalog amount_krw를 그대로
+    월로 더해 12배 과대계상하던 것). 월 지속 신호가 함께 있으면(연 환산 병기) 월액으로 인정."""
+    from agents.nodes.portfolio_manager import _is_annual_or_onetime as f
+    assert f("연 500만원 장학금") is True and f("1회 300만원 지급") is True
+    assert f("출산 시 일시금 200만원") is True and f("분기별 50만원") is True
+    assert f("월 30만원") is False and f("매월 20만원") is False
+    assert f("월 100만원 (연 1200만원 상당)") is False  # 월 신호 우선(연 환산 병기)
+    assert f("") is False
+
+
+def test_guide_generator_survives_malformed_llm_guides(monkeypatch):
+    """LLM이 스키마를 어겨 guides를 '문자열 리스트'로 줘도 노드가 크래시 없이 완료된다
+    (과거 try/except 밖 g.get 루프가 AttributeError로 분석 전체를 중단시키던 잠재 결함 — 감사)."""
+    import asyncio
+    from agents.nodes import guide_generator as gg
+    from agents.state import AgentState
+
+    class _Resp:
+        content = '{"guides": ["엉터리 문자열", "또 다른 문자열"]}'
+
+    class _LLM:
+        async def ainvoke(self, msgs):
+            return _Resp()
+
+    monkeypatch.setattr(gg, "is_mock_mode", lambda: False)
+    monkeypatch.setattr(gg, "get_chat_llm", lambda **k: _LLM())
+    state = AgentState(eligible_policies=[{"id": "POL-001", "name": "기초연금", "eligible": True, "confidence": 0.9}])
+    out = asyncio.new_event_loop().run_until_complete(gg.guide_generator_node(state))
+    assert "application_guides" in out and out.get("required_docs") == []  # 예외 없이 반환·비-dict는 스킵
+
+
+def test_portfolio_estimate_no_false_manwon_on_comma_number():
+    """콤마 있는 금액 앞에 무관한 '만'(만 8세 등)이 있어도 1만배 과대계상하지 않는다(감사 실결함).
+    과거엔 콤마 제거 전 원문에서 위치를 찾아(find→-1) 문장 앞의 '만'을 오검출했다."""
+    from agents.nodes.portfolio_manager import _estimate_monthly_benefit as f
+    assert f("", "만 8세 미만 아동에게 100,000원 지급") == 100000       # 10억 아님
+    assert f("", "만 65세 이상에게 1,200원 지급") == 1200
+    # 정상 '만원' 표기는 그대로 환산(회귀 없음)
+    assert f("", "월 20만원") == 200000
+    assert f("", "월 최대 500,000원") == 500000
+
+
 # ── #2 rate_limit: 상한 초과 시 만료 버킷 청소(무한증가 방지) ──
 def test_rate_limit_evicts_expired():
     import api.rate_limit as rl
@@ -273,6 +316,113 @@ def test_resolve_apply_url_known_service_ignores_deeplink():
     other = "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF99999999"
     assert resolve_apply_url("기초연금", {"apply_url": other}) == SERVICE_APPLY_URLS["기초연금"]
     assert resolve_apply_url("아동수당", {"applyUrl": other}) == SERVICE_APPLY_URLS["아동수당"]
+
+
+def test_bokjiro_autofill_local_typing():
+    """복지로 간편인증 자동입력 — 한글 이름은 IME 삽입(영타 방지), 숫자는 실키, 값일치 검증.
+    실사용 제보: 복지로 로그인 창에 이름·주민번호·휴대폰이 자동입력 안 되던 것 해소."""
+    import asyncio
+    from rpa.apply_rpa import _autofill_bokjiro_auth
+
+    typed = []
+
+    class _Kbd:
+        async def press(self, k): typed.append(("press", k))
+        async def type(self, t, delay=0): typed.append(("type", t))
+        async def insert_text(self, t): typed.append(("insert", t))
+
+    class _Loc:
+        async def click(self, timeout=None): typed.append(("click", None))
+        async def fill(self, v, timeout=None): typed.append(("fill", v))
+
+    class _Ctx:
+        async def evaluate(self, js, *a):
+            if "setAttribute('data-modoobom-b'" in js and "kind==='phone'" in js:
+                return 1  # 마킹 성공
+            if "data-modoobom-b" in js and "activeElement" in js:
+                return True  # focus 성공
+            if "e.value.trim()" in js:
+                return True  # 값 일치(성공 판정)
+            if "전체동의" in js:
+                return True
+            return 0
+        def locator(self, sel): return _Loc()
+
+    class _Page:
+        keyboard = _Kbd()
+
+    out = asyncio.new_event_loop().run_until_complete(
+        _autofill_bokjiro_auth([_Ctx()], _Page(),
+                               {"name": "김주형", "birth_date": "20010601", "phone": "01012345678"}))
+    assert out == {"name": True, "birth": True, "phone": True}
+    assert ("insert", "김주형") in typed          # 한글 이름은 IME 삽입(영타 rlatkdtlr 방지)
+    assert ("type", "010601") in typed            # 생년월일 앞 6자리는 실키
+    assert ("type", "12345678") in typed          # 휴대폰 뒷부분은 실키
+    assert ("type", "김주형") not in typed         # 한글을 키 타이핑하지 않음
+
+
+def test_bokjiro_autofill_partial_and_empty():
+    """부분 정보/빈 정보 계약 — 값 없는 필드는 '판정 대상 아님'(True)으로 처리, 실패는 무해."""
+    import asyncio
+    from rpa.apply_rpa import _autofill_bokjiro_auth
+
+    class _Ctx:
+        async def evaluate(self, js, *a):
+            return 0  # 모든 마킹 실패(폼 못 찾음) — 실패 경로
+        def locator(self, sel):
+            class _L:
+                async def click(self, timeout=None): pass
+                async def fill(self, v, timeout=None): pass
+            return _L()
+
+    class _Page:
+        class keyboard:
+            @staticmethod
+            async def type(t, delay=0): pass
+            @staticmethod
+            async def insert_text(t): pass
+            @staticmethod
+            async def press(k): pass
+
+    # 값이 아예 없으면 전부 '대상 아님'(True) — 호출부의 _all_filled 판정이 오작동 안 하게
+    out = asyncio.new_event_loop().run_until_complete(
+        _autofill_bokjiro_auth([_Ctx()], _Page(), {}))
+    assert out == {"name": True, "birth": True, "phone": True}
+    # 값이 있는데 폼을 못 찾으면 해당 필드만 False(정직) — 사용자 직접 입력 폴백
+    out2 = asyncio.new_event_loop().run_until_complete(
+        _autofill_bokjiro_auth([_Ctx()], _Page(), {"name": "김주형", "phone": "01011112222"}))
+    assert out2["name"] is False and out2["phone"] is False and out2["birth"] is True
+
+
+def test_landed_matches_guard():
+    # 착지 대조 가드: 다른 서비스 상세로 열리면(복지로 ID 재배정) 자동 클릭을 멈추기 위한 판정.
+    from rpa.apply_rpa import _landed_matches
+    page_wolse = "복지서비스 상세 청년월세 한시 특별지원 신청하기 저소득 청년에게 월세를 지원"
+    assert _landed_matches(page_wolse, "청년월세지원")            # 표기 변형은 접두 매칭으로 흡수
+    assert _landed_matches("기초연금 상세 안내 신청하기", "기초연금")  # 정확 일치
+    assert not _landed_matches("아동수당 상세 안내", "기초연금")      # 딴 서비스 → 자동 클릭 중지
+    assert _landed_matches("", "기초연금")                          # 판독 실패(빈 본문)는 통과 — 과차단 금지
+    assert _landed_matches("아무 페이지", "")
+
+
+def test_frontend_backend_apply_deeplink_parity():
+    # 프론트 quickApply.KNOWN_APPLY_URLS ↔ 백엔드 SERVICE_APPLY_URLS 의 같은 서비스명은 같은
+    # wlfareInfoId 여야 한다 — 어긋나면 버튼과 RPA가 서로 다른 정책 페이지로 이동한다(오신청 위험).
+    import pathlib, re as _re
+    from rpa.apply_rpa import SERVICE_APPLY_URLS
+    ts = (pathlib.Path(__file__).resolve().parents[2] / "frontend" / "src" / "lib" / "quickApply.ts")
+    if not ts.exists():
+        return  # 백엔드 단독 배포(번들)에는 프론트 소스가 없다 — 소스트리에서만 검증
+    text = ts.read_text(encoding="utf-8")
+    fe = {}
+    for m in _re.finditer(r"^\s*'?([^'\n:]+?)'?\s*:\s*`\$\{BOKJIRO\}(WLF\d+)`", text, _re.M):
+        fe[m.group(1).strip()] = m.group(2)
+    assert len(fe) >= 20, f"프론트 딥링크 맵 파싱 실패(발견 {len(fe)}건) — 정규식/파일 구조 확인"
+    for name, url in SERVICE_APPLY_URLS.items():
+        be_id = _re.search(r"(WLF\d+)", url).group(1)
+        if name in fe:
+            assert fe[name] == be_id, f"'{name}' 딥링크 불일치: 프론트 {fe[name]} ≠ 백엔드 {be_id}"
+    assert fe.get("청년월세지원") == "WLF00004661"  # 데모 핵심 서비스 고정
 
 
 def test_gov24_form_options_helper_exists():

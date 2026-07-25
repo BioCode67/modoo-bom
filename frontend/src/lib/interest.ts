@@ -31,7 +31,11 @@ interface Pol { id: string; name: string; category: string }
 function matches(cat: string, sub: string): boolean {
   const c = cat || ''
   if (!c || !sub) return false // 빈 카테고리는 sub.includes('')가 항상 true라 모든 분야에 오매칭 → 제외
-  return c === sub || c.includes(sub) || sub.includes(c)
+  if (c === sub || c.includes(sub) || sub.includes(c)) return true
+  // 복합 분야('임신·출산'·'아동·영유아')는 토큰 단위로도 매칭 — '출산지원'이 '임신·출산' 구독에 잡히게(감사).
+  //   2자 이상 토큰만 비교해 단일 글자 잡음 매칭을 막는다.
+  const toks = sub.split(/[·・/]/).map((s) => s.trim()).filter((s) => s.length >= 2)
+  return toks.some((tk) => c.includes(tk) || tk.includes(c))
 }
 
 /**

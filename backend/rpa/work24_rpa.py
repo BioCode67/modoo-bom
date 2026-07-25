@@ -4,13 +4,15 @@
 - 간편인증 로그인 → 개인서비스 → 피보험자격이력내역서 발급
 """
 import asyncio
+import re
 from rpa.base import (
     take_screenshot, wait_for_login,
     click_first_matching, make_browser_context_args,
     click_provider_in_anyid, provider_display, detect_auth_form, AUTH_FORM_USER_GUIDE,
-    get_launch_options, launch_browser,
+    launch_browser, wait_any_visible, AUTH_FORM_SELECTORS,
     check_cancel, cancellable_sleep, CancelledByUser, NO_PRINT_SCRIPT,
 )
+from rpa.auth_autofill import autofill_easy_auth, request_easy_auth
 
 WORK24_MAIN = "https://www.work24.go.kr/cm/main.do"
 # 로그인 페이지 (간편인증 포함)
@@ -176,10 +178,39 @@ async def run_work24_rpa(task, user_info: dict = None) -> None:
             kakao_clicked = await click_provider_in_anyid(page, provider)
 
             await asyncio.sleep(1)
+
+            # 🧠 본인인증 폼 자동입력(2026-07-20 신설) — 4개 사이트 중 유일하게 수동이던 곳.
+            #    같은 anyid 위젯이라 공용 오토필(고정 ID 1순위 + ai_fill 의미 인식 폴백, 키 불필요·
+            #    프레임 순회) 재사용. '인증 요청'은 gov24와 동일 게이트(제공자 클릭 trusted +
+            #    생년월일 존재)에서만 자동 — 어르신은 폰에서 [인증 허용]만 누르면 된다(HITL 불변).
+            autofilled = False
+            requested = False
+            _uv = user_info or {}
+            if _uv.get("user_name") or _uv.get("name"):
+                await wait_any_visible(page, AUTH_FORM_SELECTORS, 8)  # 폼 렌더 대기(조기 탈출형)
+                _af = await autofill_easy_auth(page, _uv)
+                autofilled = bool(_af["name"] and _af["birth"] and _af["phone"])
+                if autofilled and kakao_clicked == "trusted" and re.sub(r"[^0-9]", "", str(_uv.get("birth_date") or "")):
+                    requested = await request_easy_auth(page)
+
             ss = await take_screenshot(page)
 
-            # 본인인증 폼이 열렸는지 감지
-            if await detect_auth_form(page):
+            # 자동입력 결과에 따라 안내를 가른다 — 부분 성공은 '완료'로 과장하지 않는다(3키 전부일 때만)
+            if autofilled and requested:
+                task.update(
+                    "waiting_login",
+                    "✅ 정보 자동입력 + '인증 요청'까지 완료했어요.\n"
+                    f"📱 휴대폰 {pv} 알림에서 [인증 허용]만 누르시면 됩니다.",
+                    ss,
+                )
+            elif autofilled:
+                task.update(
+                    "waiting_login",
+                    "✅ 이름·생년월일·휴대폰을 자동 입력했어요.\n"
+                    f"화면에서 '인증 요청'을 누른 뒤, 📱 {pv} 알림에서 [인증 허용]을 눌러 주세요.",
+                    ss,
+                )
+            elif await detect_auth_form(page):
                 task.update("waiting_login", AUTH_FORM_USER_GUIDE, ss)
             elif kakao_clicked or easy_auth_clicked:
                 task.update(
@@ -203,7 +234,12 @@ async def run_work24_rpa(task, user_info: dict = None) -> None:
             )
             if not login_ok:
                 ss = await take_screenshot(page)
-                task.update("error", "로그인 대기 시간 초과 (5분). 다시 시도해주세요.", ss)
+                # 🔬 로그인 미감지 실화면 구조를 남긴다 — 간편인증은 됐는데 감지만 놓친 경우를 실측 구분해
+                #    wait_for_login 을 보정. 개발 환경에서 못 보는 그 화면을 이 파일로.
+                from rpa import diagnostics as _dg
+                _saved = await _dg.dump(page, "고용보험이력-로그인미감지",
+                                        tried=["wait_for_login: URL·로그아웃 링크"], note="5분 내 로그인 미감지")
+                task.update("error", f"로그인 대기 시간 초과 (5분). 다시 시도해주세요.\n{_saved}".rstrip(), ss)
                 await browser.close()
                 return
 
@@ -249,6 +285,13 @@ async def run_work24_rpa(task, user_info: dict = None) -> None:
             issue_reached = False
             clicked_any = False
             spent_sels: set = set()
+            # 🪟 발급 전 창 집합 — '이번 발급으로 새로 열린' 결과 팝업만 신호로(로그인 중 간편인증 오클릭 잔탭을
+            #    '발급 완료 팝업'으로 오인하던 절대 len>1 판정을 baseline 대비로 교정 — 감사 확정).
+            _base_ids = {id(p) for p in context.pages}
+
+            def _has_new_page():
+                return any(id(p) not in _base_ids and not p.is_closed() for p in context.pages)
+
             for _w24 in range(90):
                 check_cancel(task, context)  # [중단]·창닫힘 즉시 탈출
                 # 침묵 90초 방지 — 30초마다 진행 화면과 함께 살아있음 갱신(멈춤 오인 방지)
@@ -258,8 +301,8 @@ async def run_work24_rpa(task, user_info: dict = None) -> None:
                     except Exception:
                         pass
                 try:
-                    # 결과 팝업이 이미 떠 있으면 그것이 가장 확실한 발급 신호
-                    if len(context.pages) > 1:
+                    # 이번 발급으로 새로 열린 결과 팝업이 있으면 그것이 가장 확실한 발급 신호
+                    if _has_new_page():
                         popup = context.pages[-1]
                         await popup.bring_to_front()
                         ss = await take_screenshot(popup)
@@ -278,8 +321,8 @@ async def run_work24_rpa(task, user_info: dict = None) -> None:
                             clicked_any = True
                             spent_sels.add(sel)
                             await asyncio.sleep(2)
-                            # 클릭이 실제 발급 결과로 이어졌는지 검증 — 팝업 개창 또는 완료 텍스트가 있어야 성공 확정
-                            if len(context.pages) > 1:
+                            # 클릭이 실제 발급 결과로 이어졌는지 검증 — 새 팝업 개창 또는 완료 텍스트가 있어야 성공 확정
+                            if _has_new_page():
                                 issue_reached = True
                                 break
                             try:
@@ -309,8 +352,10 @@ async def run_work24_rpa(task, user_info: dict = None) -> None:
                 task.result = {"success": True, "doc_name": "고용보험 피보험자격 이력내역서"}
             elif clicked_any:
                 # 발급 후보를 눌렀지만 발급 결과(팝업/완료)를 확인하지 못함 — 가짜 '완료' 대신 정직하게 안내(감사 :252)
+                # ⚠️ status를 'done'이 아닌 'error'로 — done/completed 는 프론트가 '✅ 발급 완료' 배지를 띄우므로,
+                #    미발급(success:False)을 done 으로 두면 거짓 완료 신호가 된다(nhis 미완료가 error 인 것과 파리티).
                 task.update(
-                    "done",
+                    "error",
                     "📄 고용보험 이력내역서 발급 화면까지 진행했어요.\n"
                     "화면에서 [발급]/[출력] 버튼을 눌러 조회 결과를 확인하고 Ctrl+P(⌘+P)로 저장해 주세요.\n"
                     "브라우저는 60초 후 자동 종료됩니다.",
@@ -318,11 +363,17 @@ async def run_work24_rpa(task, user_info: dict = None) -> None:
                 )
                 task.result = {"success": False, "doc_name": "고용보험 피보험자격 이력내역서", "manual_save": True}
             else:
+                # 🔬 발급 버튼을 못 찾은 그 화면의 구조를 PII 없이 남긴다 — 개발 환경에서 work24 실화면을
+                #    못 보는 제약을, 사용자의 [진단 복사] 한 번으로 메워 메뉴·조회·발급 셀렉터를 실측 보정.
+                from rpa import diagnostics as _dg
+                _saved = await _dg.dump(page, "고용보험이력-발급버튼미도달",
+                                        tried=["DOC_MENU_SELECTORS", "SEARCH_SELECTORS", "ISSUE_SELECTORS"],
+                                        note="로그인 후 발급/출력 버튼 미도달")
                 task.update(
-                    "done",
+                    "error",  # 미발급 — done 이면 프론트가 '✅ 발급 완료' 배지를 띄운다(거짓 완료 신호 제거)
                     "⚠️ 고용보험 이력내역서 '발급 버튼까지 도달하지 못했어요'.\n"
                     "로그인·조회가 됐는지 화면에서 확인하고, 발급/출력 버튼을 직접 눌러 저장해 주세요.\n"
-                    "브라우저는 60초 후 자동 종료됩니다.",
+                    f"브라우저는 60초 후 자동 종료됩니다.\n{_saved}".rstrip(),
                     ss,
                 )
                 task.result = {"success": False, "doc_name": "고용보험 피보험자격 이력내역서"}
@@ -336,4 +387,17 @@ async def run_work24_rpa(task, user_info: dict = None) -> None:
     except Exception as e:
         import traceback
         traceback.print_exc()
-        task.update("error", f"자동화 오류: {str(e)[:300]}", None)
+        try:
+            ss = await take_screenshot(page)
+        except Exception:
+            ss = None
+        # 🔬 예기치 못한 실패 — 그 순간의 실화면 구조를 PII 없이 자동 저장(page가 아직 없거나 닫혔으면 생략).
+        _saved = ""
+        try:
+            _pg = locals().get("page")
+            if _pg is not None:
+                from rpa import diagnostics as _dg
+                _saved = await _dg.dump(_pg, "고용보험이력-예외", tried=["work24 flow"], note=str(e)[:120])
+        except Exception:
+            pass
+        task.update("error", f"자동화 오류: {str(e)[:300]}\n{_saved}".rstrip(), ss)

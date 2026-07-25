@@ -43,7 +43,7 @@ export function Footer() {
         {/* 지금 보는 번들의 버전·빌드일 — 화면 제보가 오면 최신 배포와 대조해 '이전 캐시'를 1초에 판정
             (PWA 캐시·미갱신 데스크탑 빌드로 옛 화면을 보고 있는 경우가 실제로 있었음) */}
         <p className="mt-1 text-center text-[10px] text-muted-foreground/70">
-          모두봄 v{__APP_VERSION__} · 빌드 {__BUILD_DATE__}
+          모두봄 v{__APP_VERSION__} · 빌드 {__BUILD_DATE__}{__BUILD_SHA__ ? ` · ${__BUILD_SHA__}` : ''}
         </p>
       </div>
     </footer>

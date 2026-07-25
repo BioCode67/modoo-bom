@@ -73,6 +73,36 @@ describe('loadExternalCatalog — 디듑(시드 우선)', () => {
   })
 })
 
+describe('loadExternalCatalog — 지자체(LOC-) 빈 스텁 정리(실사용 제보)', () => {
+  const seed = WELFARE_POLICIES[0]
+  it("시드와 동명 + 알맹이 빈(서류0·현금 파싱X) 지자체 스텁은 스킵 — 좋은 시드가 커버", async () => {
+    // 실사용: 옥천군 '청년 월세 지원'(빈 데이터)을 담아 금액·서류가 다 비어 보였다.
+    const { mod, count } = await loadFresh(mockFetch([
+      { id: 'LOC-STUB', name: seed.name, benefit: '지역 청년 지원 사업 안내입니다', required_docs: [] },
+    ]))
+    expect(count).toBe(SEED) // 병합 없음
+    expect(mod.getPolicyMap()['LOC-STUB']).toBeUndefined()
+  })
+  it('시드와 동명이라도 서류가 있으면 지자체 유지(데이터 있는 실사업)', async () => {
+    const { mod } = await loadFresh(mockFetch([
+      { id: 'LOC-DOCS', name: seed.name, benefit: '방문 안내', required_docs: ['신분증'] },
+    ]))
+    expect(mod.getPolicyMap()['LOC-DOCS']).toBeTruthy()
+  })
+  it('시드와 동명이라도 현금액이 파싱되면 지자체 유지', async () => {
+    const { mod } = await loadFresh(mockFetch([
+      { id: 'LOC-CASH', name: seed.name, benefit: '월 20만원 지원', required_docs: [] },
+    ]))
+    expect(mod.getPolicyMap()['LOC-CASH']).toBeTruthy()
+  })
+  it('지역 고유명(이름이 시드와 다름) 지자체는 빈 데이터여도 유지', async () => {
+    const { mod } = await loadFresh(mockFetch([
+      { id: 'LOC-UNIQ', name: seed.name + ' 사업', benefit: '방문', required_docs: [] },
+    ]))
+    expect(mod.getPolicyMap()['LOC-UNIQ']).toBeTruthy()
+  })
+})
+
 describe('loadExternalCatalog — 정규화 & 견고성', () => {
   it('잘못된 항목(null/원시값/필드누락)은 건너뛰고 유효 항목만 병합', async () => {
     const { mod, count } = await loadFresh(mockFetch([
@@ -119,5 +149,12 @@ describe('시드 이름 중복 제거(표시용)', () => {
     // 중복이던 정책의 두 id 모두 MAP에서 조회 가능해야 추적/참조가 깨지지 않음
     expect(mod.getPolicyMap()['POL-012']).toBeTruthy()
     expect(mod.getPolicyMap()['POL-059']).toBeTruthy()
+  })
+})
+
+describe('nameKey — 표기변형 정규화(공백·괄호 제거로 시드/공공데이터 디듑)', () => {
+  it('괄호·공백 차이를 같은 키로 본다', () => {
+    expect(nameKey('임신·출산 진료비 지원 (국민행복카드)')).toBe(nameKey('임신·출산 진료비 지원 국민행복카드'))
+    expect(nameKey('가 나（다）')).toBe('가나다') // 전각 괄호·공백도 제거
   })
 })
