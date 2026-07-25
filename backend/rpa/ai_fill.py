@@ -81,7 +81,16 @@ _COLLECT_JS = """() => {
     };
     const out = [];
     let idx = 0;
-    for (const el of document.querySelectorAll('input, select, textarea, button, a, [role=button], [role=checkbox], [role=radio]')) {
+    // 🌑 shadow DOM 관통 수집(2026 웹에이전트 SOTA: browser-use/Stagehand는 shadow root를 뚫는다).
+    //   실측: 신형 정부/인증 위젯이 web component(open shadow root)로 렌더돼 document.querySelectorAll
+    //   만으론 입력·버튼을 못 봤다. open shadow root를 재귀로 함께 훑어 요소를 인덱싱한다(closed는 불가).
+    const SEL = 'input, select, textarea, button, a, [role=button], [role=checkbox], [role=radio]';
+    const collectEls = (root, acc, depth) => {
+        for (const el of root.querySelectorAll(SEL)) acc.push(el);
+        if (depth < 5) for (const el of root.querySelectorAll('*')) { if (el.shadowRoot) collectEls(el.shadowRoot, acc, depth + 1); }
+        return acc;
+    };
+    for (const el of collectEls(document, [], 0)) {
         const tag = el.tagName.toLowerCase();
         const type = (el.type || tag).toLowerCase();
         if (['hidden', 'image', 'file'].includes(type)) continue;
@@ -129,6 +138,13 @@ _MASK_ON_JS = """() => {
     return true;
 }"""
 _MASK_OFF_JS = "() => { const s = document.getElementById('modoobom-mask'); if (s) s.remove(); return true; }"
+
+# 🌑 shadow DOM 관통 querySelector — 인덱싱된 요소(data-modoobom-ai)가 open shadow root 안에 있어도
+#   찾는다. perception(_COLLECT_JS)이 shadow까지 인덱싱하므로, 값 검증·포커스·select 처리도 같은 관통이
+#   필요하다(안 그러면 shadow 요소 채움이 '검증 실패'로 false negative). closed shadow root는 접근 불가.
+_DQ = ("const dq=(s,r)=>{r=r||document;let e=r.querySelector(s);if(e)return e;"
+       "const hs=r.querySelectorAll('*');for(let i=0;i<hs.length;i++){if(hs[i].shadowRoot){"
+       "e=dq(s,hs[i].shadowRoot);if(e)return e;}}return null;};")
 
 _ENV_LOADED = False
 
@@ -368,8 +384,8 @@ async def _do_fill(ctx, page, sel: str, val: str) -> bool:
                     await loc.click(timeout=3000)
                 except Exception:
                     focused = await ctx.evaluate(
-                        "(s) => { const e = document.querySelector(s); if (!e) return false;"
-                        " e.focus(); return document.activeElement === e; }", sel)
+                        "(s) => { " + _DQ + " const e = dq(s); if (!e) return false;"
+                        " e.focus(); return e.getRootNode().activeElement === e; }", sel)
                     if not focused:
                         continue  # 포커스조차 못 잡으면 키 입력은 무의미 — 다음 방법(CDP fill)으로
                 await kb.press("Control+a")
@@ -383,7 +399,7 @@ async def _do_fill(ctx, page, sel: str, val: str) -> bool:
             # '값 일치' 검증 — 비어있지 않음만 보면 영타 오입력(rlatkdtlr)도 통과한다(실사용 확정).
             #   숫자 값은 포맷팅(하이픈 등) 관용, 그 외는 정확 일치. 비교는 브라우저 안에서만.
             ok = await ctx.evaluate(
-                """(a) => { const e = document.querySelector(a.s); if (!e || !e.value) return false;
+                "(a) => { " + _DQ + """ const e = dq(a.s); if (!e || !e.value) return false;
                     const t = e.value.trim(), v = String(a.v).trim();
                     if (/^[0-9]+$/.test(v)) return t.replace(/[^0-9]/g, '') === v;
                     return t === v; }""", {"s": sel, "v": val})
@@ -405,7 +421,7 @@ async def _execute_plan(ctx, page, plan: list, want: dict, allow_clicks: bool) -
                 if not (allow_clicks and clicks_enabled()):
                     continue
                 txt = await ctx.evaluate(
-                    "(s) => { const e = document.querySelector(s);"
+                    "(s) => { " + _DQ + " const e = dq(s);"
                     " return e ? (e.innerText || e.value || '').trim() : ''; }", sel)
                 if not click_text_allowed(txt):
                     continue  # 허용목록 밖 — 어떤 경우에도 클릭하지 않는다(HITL·비가역 보호)
@@ -419,7 +435,7 @@ async def _execute_plan(ctx, page, plan: list, want: dict, allow_clicks: bool) -
                 if not v:
                     continue
                 ok = await ctx.evaluate(
-                    """(a) => { const e = document.querySelector(a.s); if (!e || e.tagName !== 'SELECT') return false;
+                    "(a) => { " + _DQ + """ const e = dq(a.s); if (!e || e.tagName !== 'SELECT') return false;
                         const norm = (x) => String(x || '').replace(/\\s+/g, '');
                         const o = [...e.options].find(o => norm(o.text).includes(norm(a.v)) || (norm(a.v).includes(norm(o.text)) && norm(o.text).length >= 2));
                         if (!o) return false;
@@ -430,10 +446,10 @@ async def _execute_plan(ctx, page, plan: list, want: dict, allow_clicks: bool) -
                 continue
             if action == "fill" and val:
                 info = await ctx.evaluate(
-                    "(s) => { const e = document.querySelector(s); return e ? e.tagName.toLowerCase() : ''; }", sel)
+                    "(s) => { " + _DQ + " const e = dq(s); return e ? e.tagName.toLowerCase() : ''; }", sel)
                 if info == "select":
                     ok = await ctx.evaluate(
-                        """(a) => { const e = document.querySelector(a.s); if (!e) return false;
+                        "(a) => { " + _DQ + """ const e = dq(a.s); if (!e) return false;
                             const norm = (x) => String(x || '').replace(/\\s+/g, '');
                             const o = [...e.options].find(o => norm(o.text).includes(norm(a.v)) || (norm(a.v).includes(norm(o.text)) && norm(o.text).length >= 2));
                             if (!o) return false;
@@ -650,3 +666,276 @@ async def ai_fill(ctx, page, values: dict, page_hint: str = "", task=None,
         if not unfinished:
             break  # 점검 통과 — 전 키 완료
     return result
+
+
+# ── 🧭 observe → decide → click (내비게이션) — openclaw/browser-use식 SOTA를 '클릭 판단'에 적용 ──
+#   ai_fill 이 '어느 칸에 무엇을 채울지'를 접근성 트리로 판단하듯, 여기선 '어느 버튼을 눌러야
+#   목표에 도달하는지'를 같은 방식(클릭 가능 요소를 인덱싱해 라벨만 LLM에 전달)으로 판단한다.
+#   왜 필요한가: 정부24 발급 흐름의 '문서출력·다음·발급' 클릭이 하드코딩 라벨(click_by_text)이라
+#   사이트가 문구를 바꾸면 끊긴다 → 결정론 실패 시 self-heal 폴백으로 자연 복구.
+#
+#   프라이버시(불변): 버튼/링크의 '라벨'만 전송한다 — 입력값·문서 내용·개인정보는 담지 않는다.
+#   ⚠️ '문서 화면이 다 떴는가'(발급물 렌더 판정)는 여기에 넣지 않는다 — 그 화면은 실명·주민번호를
+#      그대로 담아, 스크린샷을 클라우드로 보내면 PII 유출이다. 렌더 판정은 브라우저 안(로컬)에서만
+#      하는 결정론 픽셀 안정 검사(gov24_rpa._wait_document_rendered)가 담당한다.
+_NAV_DENY = re.compile(r"제출|결제|삭제|탈퇴|해지|이체|취소|납부|송금")
+
+
+def _safe_button_label(text: str) -> str:
+    """클릭 후보의 '안전한' 라벨만 남긴다 — 마이페이지 '홍길동님·환영' 등 개인정보성 텍스트는 제외.
+    (프롬프트로 나가는 것은 순수 버튼 문구여야 한다 — 이름이 라벨에 섞이는 링크는 후보에서 뺀다)."""
+    t = re.sub(r"\s+", " ", str(text or "")).strip()
+    if not t:
+        return ""
+    if re.search(r"[가-힣]{2,4}\s*님|환영|로그아웃|마이\s*페이지", t):
+        return ""  # 개인정보성/계정 링크 — 내비게이션 후보 아님
+    return t[:24]
+
+
+def build_nav_prompt(goal: str, buttons: list) -> str:
+    """내비게이션 판단 프롬프트 — 목표와 '클릭 가능 요소 라벨'만 담는다(값·개인정보 미포함)."""
+    return (
+        "당신은 한국 정부 웹사이트 자동화 에이전트입니다. 아래는 지금 화면에서 '클릭 가능한 요소'의 라벨 목록입니다.\n"
+        f"목표: {goal}\n"
+        "이 목표로 나아가려면 어느 요소를 눌러야 합니까? 제출·결제·삭제·취소 같은 '비가역/위험' 버튼은 절대 고르지 마세요.\n"
+        "맞는 요소가 없으면 idx 를 -1 로 답하세요.\n"
+        '설명 없이 JSON 하나만 출력: {"idx": N}\n'
+        f"요소 목록: {json.dumps(buttons, ensure_ascii=False)}\n"
+    )
+
+
+async def _click_idx(ctx, idx) -> bool:
+    """인덱싱된 요소를 '자가 치유(self-healing)' 클릭 — 성공하면 True.
+
+    UiPath Healing Agent·BrowserStack식 복원력(실측 67% 실패 스텝 자가복구): 일시 실패
+    (오버레이 가림·스크롤 밖·detached 요소)에 대비해 단계적으로 재시도한다 —
+      ① 일반 클릭 → ② 화면에 들여(scroll into view) 재클릭 → ③ JS 합성 클릭(포인터 인터셉트 우회).
+    짧은 지수 백오프. 3단계 모두 실패하면 False(상위가 다른 후보로 폴백)."""
+    sel = f"[data-modoobom-ai='{idx}']"
+    loc = ctx.locator(sel)
+    for attempt in range(3):
+        try:
+            if attempt == 0:
+                await loc.click(timeout=4000)
+            elif attempt == 1:
+                try:
+                    await loc.scroll_into_view_if_needed(timeout=2000)  # 가림/스크롤 밖 해소 후 재시도
+                except Exception:
+                    pass
+                await loc.click(timeout=4000)
+            else:
+                ok = await ctx.evaluate(
+                    "(s) => { " + _DQ + " const e = dq(s); if (!e) return false; e.click(); return true; }", sel)
+                if not ok:
+                    return False  # 요소 자체가 사라짐(detached·제거) — 영구 실패, 재시도 무의미
+            await asyncio.sleep(0.6)
+            return True
+        except Exception:
+            await asyncio.sleep(0.35 * (attempt + 1))  # 지수(짧은) 백오프 — 일시 실패 완화
+    return False
+
+
+async def page_signature(ctx) -> str:
+    """같은-페이지 진행 검증용 '지문' — URL + 요소 수 + 본문 길이(값·개인정보 미포함).
+    행동 전/후 비교로 '실제로 화면이 바뀌었나'를 판정한다(Agent-E change-observer). ⚠️ 새 창을
+    여는 행동엔 쓰지 말 것(같은 페이지는 안 변해 오판) — 호출부가 같은-페이지 진행에만 사용."""
+    try:
+        return await ctx.evaluate(
+            "() => location.href + '|' + document.querySelectorAll('*').length + '|'"
+            " + (document.body ? document.body.innerText.length : 0)")
+    except Exception:
+        return ""
+
+
+async def act_and_verify(do_action, verify=None, attempts: int = 2) -> bool:
+    """🔁 행동→검증→재시도 — CUA/Claude computer-use('행동 후 스크린샷으로 됐는지 확인')·Agent-E
+    change-observer의 핵심 신뢰성 기법. '클릭은 됐지만 아무 일도 안 일어남'을 잡아 재시도/폴백하게 한다.
+
+    do_action(): 코루틴 — 행동 실행(bool 반환 권장). verify(): 코루틴 → bool(기대한 변화가 실제로
+    생겼는가). verify 가 None 이면 do_action 성공만으로 판정. 실패 시 짧은 백오프 후 최대 attempts 회."""
+    for i in range(max(1, attempts)):
+        try:
+            acted = await do_action()
+        except Exception:
+            acted = False
+        if verify is None:
+            if acted:
+                return True
+        else:
+            try:
+                if await verify():
+                    return True
+            except Exception:
+                pass
+        await asyncio.sleep(0.4 * (i + 1))
+    return False
+
+
+def _match_score(bn: str, wn: str) -> int:
+    """의미 접지(grounding) 점수화 — '첫 일치'가 아니라 정확일치>시작일치>부분일치로 오클릭을 줄인다
+    (OSCAR/browser-use식 라벨 접지). bn/wn 은 공백 제거 정규화된 라벨."""
+    if not bn or not wn:
+        return 0
+    if bn == wn:
+        return 100
+    if bn.startswith(wn) or wn.startswith(bn):
+        return 60
+    if wn in bn:
+        return 45
+    if bn in wn and len(bn) >= 2:
+        return 40
+    return 0
+
+
+async def ai_pick_action(ctx, goal: str, want_texts: list = None, task=None, site: str = "", verify=None) -> bool:
+    """🧭 목표(goal)에 맞는 버튼을 '화면을 이해해' 눌러 준다 — 클릭했으면 True.
+
+    3계층(상위 RPA 성능 기법을 안전·Mock-safe·프라이버시 보존으로 적용):
+      ⓪ 경로 기억(Skyvern route memorization): site 가 주어지면 (site,goal)의 '지난 성공 라벨'을 최우선
+         후보로 먼저 시도 → 빠르고 일관됨. 안 맞으면 무효화(forget)하고 아래로.
+      ① 결정론(무료·오프라인): want_texts(동의어)를 라벨 점수화(_match_score, 정확>시작>부분)로 지목.
+      ② LLM(키+RPA_AI_FILL, 옵트인): 결정론이 못 찾으면 클릭 가능 요소를 인덱싱해 라벨만 보내고
+         '어느 버튼이 goal 인가'를 판단(browser-use/Stagehand식 observe→decide).
+    성공 시 클릭한 라벨을 route_cache 에 기억(다음 실행 가속). 안전: 제출/결제/삭제/취소 등은 결정론·
+    LLM 양쪽에서 거부(_NAV_DENY), 개인정보성 라벨은 후보 제외. 프라이버시: 버튼 라벨만 전송·저장."""
+    want_texts = list(want_texts or [])
+    try:
+        from rpa import route_cache
+    except Exception:
+        route_cache = None
+    try:
+        fields = await ctx.evaluate(_COLLECT_JS)
+    except Exception:
+        return False
+    if not isinstance(fields, list) or not fields:
+        return False
+    _norm = lambda s: re.sub(r"\s+", "", str(s or ""))
+    # 클릭 가능 요소만 정리(버튼·링크·submit) — 안전 라벨 + 거부목록 제외
+    buttons = []
+    for f in fields:
+        role = f.get("role")
+        if role not in ("button", "link") and f.get("type") not in ("submit", "button"):
+            continue
+        label = _safe_button_label(f.get("text") or f.get("name"))
+        if not label or _NAV_DENY.search(_norm(label)):
+            continue
+        buttons.append({"idx": f.get("idx"), "text": label})
+    cached = route_cache.get_label(site, goal) if (route_cache and site) else ""
+    if not buttons:
+        if cached and route_cache:
+            route_cache.forget(site, goal)  # 후보 없음 — 옛 기억 무효화
+        return False
+
+    def _remember(lbl):
+        if route_cache and site and lbl:
+            route_cache.remember(site, goal, lbl)
+
+    # ⓪+① 결정론 — 경로 기억 라벨을 최우선으로, want_texts 동의어를 라벨 점수화로 지목
+    for wt in ([cached] if cached else []) + want_texts:
+        wn = _norm(wt)
+        if not wn:
+            continue
+        best, best_score = None, 0
+        for b in buttons:
+            sc = _match_score(_norm(b["text"]), wn)
+            if sc > best_score:
+                best, best_score = b, sc
+        if best is not None and best_score > 0:
+            if await _click_idx(ctx, best["idx"]):
+                if verify is not None:
+                    try:
+                        if not await verify():
+                            continue  # 클릭했지만 기대한 변화 없음 → 다음 후보로 자기수정
+                    except Exception:
+                        pass
+                _remember(best["text"])
+                return True
+    # 경로 기억 라벨이 후보 어디에도 없으면(사이트 문구 변경 등) 무효화 — 다음엔 다시 학습
+    if cached and route_cache and not any(_match_score(_norm(b["text"]), _norm(cached)) > 0 for b in buttons):
+        route_cache.forget(site, goal)
+
+    # ② LLM — 구조만 보고 판단(키 있을 때·옵트인)
+    if not ai_fill_enabled():
+        return False
+    prompt = build_nav_prompt(goal, buttons)
+    try:
+        loop = asyncio.get_running_loop()
+        text = await loop.run_in_executor(None, lambda: _ask_llm(prompt, 12, ""))
+    except Exception:
+        return False
+    m = re.search(r"\{[\s\S]*\}", text or "")
+    if not m:
+        return False
+    try:
+        idx = int(json.loads(m.group(0)).get("idx"))
+    except Exception:
+        return False
+    if idx < 0:
+        return False
+    # LLM 이 고른 idx 도 거부목록 재검(환각으로 제출/결제를 고르는 것 차단)
+    lbl = next((b["text"] for b in buttons if b["idx"] == idx), "")
+    if not lbl or _NAV_DENY.search(_norm(lbl)):
+        return False
+    if task is not None:
+        try:
+            task.update("running", f"🧭 AI가 화면을 읽고 '{lbl}' 단계로 진행해요(값·개인정보는 전송하지 않아요).")
+        except Exception:
+            pass
+    if await _click_idx(ctx, idx):
+        if verify is not None:
+            try:
+                if not await verify():
+                    return False  # LLM 선택 클릭이 화면을 바꾸지 못함 — 실패로 정직 보고
+            except Exception:
+                pass
+        _remember(lbl)
+        return True
+    return False
+
+
+async def ai_fill_deep(page, values: dict, page_hint: str = "", task=None,
+                       allow_clicks: bool = False, rounds: int = 2) -> dict:
+    """🪟 프레임 관통 ai_fill — 메인 페이지에서 못 채운 키를 자식 프레임(iframe)에서 이어서 채운다.
+    신형 폼이 iframe에 나뉘는 케이스 대비(browser-use/Stagehand cross-frame 파리티). 메인 우선 +
+    '남은 키만' 프레임 순회라, 프레임이 없거나 메인에서 다 채우면 기존 ai_fill과 동일(순수 확장)."""
+    result = await ai_fill(page, page, values, page_hint, task, allow_clicks, rounds)
+    want = {k: str(v) for k, v in (values or {}).items() if v}
+    remaining = {k: v for k, v in want.items() if not result.get(k)}
+    if not remaining:
+        return result
+    main = getattr(page, "main_frame", None)
+    for fr in list(getattr(page, "frames", None) or []):
+        if fr is main:
+            continue
+        try:
+            got = await ai_fill(fr, page, remaining, page_hint, None, allow_clicks, rounds)
+        except Exception:
+            continue
+        result.update({k: v for k, v in got.items() if v})
+        remaining = {k: v for k, v in remaining.items() if not result.get(k)}
+        if not remaining:
+            break
+    return result
+
+
+async def ai_pick_action_deep(page, goal: str, want_texts: list = None, task=None,
+                              site: str = "", verify=None) -> bool:
+    """🪟 프레임 관통(unified cross-frame) observe→decide→click — 목표 버튼을 메인 페이지에서 못 찾으면
+    자식 프레임(iframe)까지 훑어 클릭한다(browser-use/Stagehand의 cross-frame 트리 파리티).
+
+    실측 배경(2026-07-23): plus.gov.kr 로그인 위젯이 메인 프레임 light DOM에 안 잡힘(shadow는 관통 완료,
+    iframe 케이스 대비). 신형 정부/인증 폼은 콘텐츠가 프레임에 나뉘는 일이 잦다. 메인 우선이라 프레임이
+    없거나 메인에 버튼이 있으면 기존 ai_pick_action과 100% 동일(순수 확장)."""
+    if await ai_pick_action(page, goal, want_texts, task, site, verify):
+        return True
+    main = getattr(page, "main_frame", None)
+    for fr in list(getattr(page, "frames", None) or []):
+        if fr is main:
+            continue
+        try:
+            # 프레임엔 task 알림·site 캐시를 넘기지 않는다(메인에서 이미 처리·중복 방지). verify 는 유지.
+            if await ai_pick_action(fr, goal, want_texts, None, "", verify):
+                return True
+        except Exception:
+            continue
+    return False

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Sparkles, ArrowRight, ShieldCheck, Compass, Search } from 'lucide-react'
+import { Sparkles, ArrowRight, ShieldCheck, Compass, Search, Volume2 } from 'lucide-react'
 import { MascotCanvas } from '@/three/MascotCanvas'
 import { HeroAgentBubble } from '@/components/HeroAgentBubble'
 import { useAppStore } from '@/store/useAppStore'
@@ -86,7 +86,7 @@ function CountUpValue({ value }: { value: string }) {
 }
 
 export function Hero() {
-  const { setView, setPendingProfile, setAiIntent, setAiQuery } = useAppStore()
+  const { setView, setPendingProfile, setAiIntent, setAiQuery, openVoiceGuide } = useAppStore()
   // 실제 카탈로그 수를 신뢰 스탯으로 — 공공데이터(policies.json) 병합 후엔 정확한 수, 병합 전(시드 190)엔
   // 낮은 수 노출 방지를 위해 '5,000+' 보수 폴백(과장 없이 실제보다 작게). 병합되면 자동 리렌더.
   const catalogCount = useCatalog().length
@@ -184,6 +184,11 @@ export function Hero() {
             <button onClick={() => setView('explore')}
               className="text-xs rounded-full border border-sky2-100 bg-sky2-50/70 px-2.5 py-1 font-semibold text-sky2-700 hover:border-sky2-300 transition-colors inline-flex items-center gap-1">
               <Compass className="h-3 w-3" /> 정책 둘러보기
+            </button>
+            {/* 🔊 글 읽기 어려운 어르신·저시력 배려 — 첫 화면에서 사용법을 소리로 듣는 경로(발견성) */}
+            <button onClick={openVoiceGuide}
+              className="text-xs rounded-full border border-sprout-200 bg-sprout-50/80 px-2.5 py-1 font-semibold text-sprout-700 hover:border-sprout-400 transition-colors inline-flex items-center gap-1">
+              <Volume2 className="h-3 w-3" /> 🔊 음성으로 사용법 듣기
             </button>
           </div>
 

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Heart, Wallet, Scale, Sparkles, Compass, Printer, Cloud, ChevronDown, Wrench, UserPlus, FileText } from 'lucide-react'
+import { Heart, Wallet, Scale, Sparkles, Compass, Printer, Cloud, ChevronDown, Wrench, UserPlus, FileText, BellRing } from 'lucide-react'
 import type { Policy } from '@/data/policies'
 import { usePolicyMap } from '@/data/useCatalog'
 import type { EligiblePolicy, AnalysisResult } from '@/lib/welfare-engine'
@@ -35,10 +35,13 @@ const FILTERS: { key: AppStatus | 'all'; label: string }[] = [
   { key: 'done', label: '수급 중' },
 ]
 
+type MyTab = 'saved' | 'docs' | 'manage'
+
 export function My() {
   const { tracked, setView, resetForNextUser, profile } = useAppStore()
   const [filter, setFilter] = useState<AppStatus | 'all'>('all')
   const [reportCopied, setReportCopied] = useState(false) // '리포트 복사' 피드백
+  const [tab, setTab] = useState<MyTab>('saved') // 잡다한 세로 스크롤 대신 한 번에 한 섹션만 — 정보 과다 완화
   const [selected, setSelected] = useState<Policy | EligiblePolicy | null>(null)
   const [compare, setCompare] = useState(false)
   const [showTools, setShowTools] = useState(false) // 보조 도구(캘린더·가구분석·자동화요약) 접기 — 요소 과다로 길 잃지 않게
@@ -96,21 +99,20 @@ export function My() {
     )
   }
 
+  const TABS: { key: MyTab; label: string; icon: typeof Heart; count?: number }[] = [
+    { key: 'saved', label: '담은 복지', icon: Heart, count: tracked.length },
+    { key: 'docs', label: '서류 발급', icon: FileText },
+    { key: 'manage', label: '진행 관리', icon: BellRing },
+  ]
+
   return (
     <div className="page-container py-8 sm:py-10">
-      {/* AI 에이전트 브리핑 — 먼저 챙길 일을 능동적으로 보고 */}
-      <AgentBriefing onOpen={setSelected} />
-
-      {/* 복지 여정 지도 — 찾기 → 서류 → 신청 → 관리 중 지금 어디쯤인지 + 다음 한 걸음.
-          '지금 뭘 하면 되는지' 딱 하나만 또렷하게 보여주는 이 흐름 안내를 상단에 두고, 부가 정보(구독·연간
-          현금흐름 등)는 아래 '복지 도구 더보기'로 내려 정보 과다를 줄인다(사용자 피드백: 뭘 할지 헷갈림). */}
-      <JourneyStepper />
-
+      {/* ── 헤더 + 요약(항상 보이는 개요) ── */}
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
         <div className="flex items-start justify-between gap-3">
           <div>
             <h1 className="text-2xl sm:text-3xl font-extrabold">나의 복지 <Heart className="inline h-6 w-6 text-peach-400 fill-peach-400" /></h1>
-            <p className="text-muted-foreground mt-1">담아둔 복지의 신청 준비와 진행 상황을 한눈에 관리하세요.</p>
+            <p className="text-muted-foreground mt-1 text-sm">담아둔 복지의 준비·진행을 한눈에 관리하세요.</p>
           </div>
           <div className="shrink-0 flex flex-wrap items-center justify-end gap-2">
             {/* 담은 복지 목록을 텍스트로 복사 — 가족·사회복지사에게 전달 */}
@@ -135,7 +137,7 @@ export function My() {
         </div>
         <SyncBadge />
 
-        {/* 요약/계산기 */}
+        {/* 요약 3종 */}
         <div className="mt-5 grid grid-cols-2 sm:grid-cols-3 gap-3">
           <SummaryCard icon={<Heart className="h-5 w-5" />} value={`${tracked.length}개`} label="담은 복지" />
           <SummaryCard icon={<Wallet className="h-5 w-5" />} value={totalMonthly > 0 ? formatWon(totalMonthly) : '-'} sub={totalMonthly > 0 ? `연 최대 ${formatWon(totalMonthly * 12)}` : undefined} label="월 최대 현금지원" highlight />
@@ -148,66 +150,102 @@ export function My() {
         )}
       </motion.div>
 
-      {/* 복지 신청 로드맵 — 담은 복지를 '무엇을 어떤 순서로' 신청할지 실행 계획으로 (찾기→행동) */}
-      <WelfareRoadmap onOpen={setSelected} />
+      {/* 복지 여정 지도 — '지금 뭘 하면 되는지' 딱 하나. 단계를 누르면 아래 해당 탭으로 전환된다. */}
+      <div className="mt-5">
+        <JourneyStepper onGo={(stage) => setTab(stage === 'docs' ? 'docs' : stage === 'manage' ? 'manage' : 'saved')} />
+      </div>
 
-      {/* 먼저 챙기세요 — 신청 전 담은 복지를 우선순위 점수로 '무엇부터' 추천(3개 이상일 때만) */}
-      <PriorityRecommend onOpen={setSelected} />
-
-      {/* 담은 복지 중 마감 임박 — 놓침 방지(액션 직결이라 상단 유지) */}
+      {/* 담은 복지 중 마감 임박 — 놓침 방지(액션 직결이라 탭과 무관하게 항상 노출) */}
       <DeadlineAlert policies={tracked.map((t) => POLICY_MAP[t.policyId]).filter(Boolean)} onOpen={setSelected} />
 
-      {/* 신청·수급 중 급여의 다음 입금 예정일 — '돈 언제 들어와?'(applied·done만 노출, 없으면 미표시) */}
-      <PaymentSchedule />
+      {/* ── 탭 네비게이션 — 한 번에 한 섹션만(정보 과다 완화) ── */}
+      <div role="tablist" aria-label="나의 복지 섹션" className="mt-6 flex gap-1 rounded-2xl border border-sprout-100 bg-sprout-50/70 p-1">
+        {TABS.map((t) => {
+          const Icon = t.icon
+          const active = tab === t.key
+          return (
+            <button
+              key={t.key}
+              role="tab"
+              aria-selected={active}
+              onClick={() => setTab(t.key)}
+              className={cn('flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl px-2 py-2.5 text-sm font-bold transition-all',
+                active ? 'bg-white text-sprout-800 shadow-soft' : 'text-muted-foreground hover:text-foreground')}
+            >
+              <Icon className="h-4 w-4 shrink-0" />
+              <span className="truncate">{t.label}</span>
+              {t.count != null && t.count > 0 && (
+                <span className={cn('rounded-full px-1.5 text-[11px] font-extrabold', active ? 'bg-sprout-100 text-sprout-700' : 'bg-muted text-muted-foreground')}>{t.count}</span>
+              )}
+            </button>
+          )
+        })}
+      </div>
 
-      {/* ② 신청 — 담은 복지 목록(각 카드에서 상태·서류·다음 할 일 관리) */}
-      <section id="journey-apply" className="scroll-mt-24">
-        {/* 필터 + 비교 */}
-        <div className="mt-6 flex items-center gap-2 overflow-x-auto nice-scroll pb-1">
-          {FILTERS.map((f) => {
-            const count = f.key === 'all' ? tracked.length : tracked.filter((t) => t.status === f.key).length
-            return (
-              <button
-                key={f.key}
-                onClick={() => setFilter(f.key)}
-                aria-pressed={filter === f.key}
-                className={cn('shrink-0 rounded-full px-4 py-2 text-sm font-semibold border-2 transition-all',
-                  filter === f.key ? 'bg-sprout-700 border-sprout-700 text-white' : 'bg-white border-sprout-100 text-muted-foreground hover:border-sprout-200')}
-              >
-                {f.key !== 'all' && STATUS_META[f.key].emoji} {f.label} {count > 0 && <span className="opacity-70">{count}</span>}
-              </button>
-            )
-          })}
-          <div className="shrink-0 ml-auto flex gap-2">
-            {comparePolicies.length >= 2 && (
-              <button onClick={() => setCompare(true)} className="btn-secondary !py-2 !px-3 text-xs"><Scale className="h-4 w-4" /> 비교</button>
-            )}
-            <button onClick={() => window.print()} className="btn-secondary !py-2 !px-3 text-xs"><Printer className="h-4 w-4" /> 인쇄·저장</button>
-          </div>
-        </div>
+      {/* ── 탭 내용 ── */}
+      <div className="mt-4">
+        {/* 담은 복지 — 목록·상태·비교(각 카드에서 상태·서류·다음 할 일 관리) */}
+        {tab === 'saved' && (
+          <section id="journey-apply" aria-label="담은 복지">
+            {/* AI 브리핑 — 먼저 챙길 일을 능동적으로 보고(기본 탭에 배치해 상단 중복 스택 제거) */}
+            <AgentBriefing onOpen={setSelected} />
+            {/* 복지 신청 로드맵 — 담은 복지를 '무엇을 어떤 순서로' 실행 계획으로 */}
+            <WelfareRoadmap onOpen={setSelected} />
+            {/* 먼저 챙기세요 — 우선순위 점수로 '무엇부터'(3개 이상일 때만 자체 렌더) */}
+            <PriorityRecommend onOpen={setSelected} />
+            {/* 필터 + 비교/인쇄 */}
+            <div className="flex items-center gap-2 overflow-x-auto nice-scroll pb-1">
+              {FILTERS.map((f) => {
+                const count = f.key === 'all' ? tracked.length : tracked.filter((t) => t.status === f.key).length
+                return (
+                  <button
+                    key={f.key}
+                    onClick={() => setFilter(f.key)}
+                    className={cn('shrink-0 rounded-full px-4 py-2 text-sm font-semibold border-2 transition-all',
+                      filter === f.key ? 'bg-sprout-700 border-sprout-700 text-white' : 'bg-white border-sprout-100 text-muted-foreground hover:border-sprout-200')}
+                  >
+                    {f.key !== 'all' && STATUS_META[f.key].emoji} {f.label} {count > 0 && <span className="opacity-70">{count}</span>}
+                  </button>
+                )
+              })}
+              <div className="shrink-0 ml-auto flex gap-2">
+                {comparePolicies.length >= 2 && (
+                  <button onClick={() => setCompare(true)} className="btn-secondary !py-2 !px-3 text-xs"><Scale className="h-4 w-4" /> 비교</button>
+                )}
+                <button onClick={() => window.print()} className="btn-secondary !py-2 !px-3 text-xs"><Printer className="h-4 w-4" /> 인쇄·저장</button>
+              </div>
+            </div>
 
-        {/* 목록 */}
-        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <AnimatePresence>
-            {shown.map((item) => (
-              <TrackedCard key={item.policyId} item={item} policy={POLICY_MAP[item.policyId]} onOpen={() => setSelected(POLICY_MAP[item.policyId] ?? null)} />
-            ))}
-          </AnimatePresence>
-        </div>
-        {shown.length === 0 && <p className="py-12 text-center text-muted-foreground">해당 상태의 복지가 없어요.</p>}
-      </section>
+            {/* 목록 */}
+            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <AnimatePresence>
+                {shown.map((item) => (
+                  <TrackedCard key={item.policyId} item={item} policy={POLICY_MAP[item.policyId]} onOpen={() => setSelected(POLICY_MAP[item.policyId] ?? null)} />
+                ))}
+              </AnimatePresence>
+            </div>
+            {shown.length === 0 && <p className="py-12 text-center text-muted-foreground">해당 상태의 복지가 없어요.</p>}
+          </section>
+        )}
 
-      {/* ① 서류 발급 — 담은 복지에 필요한 서류를 미리 준비 */}
-      <section id="journey-docs" className="scroll-mt-24">
-        {/* 서류 중심 통합 정리 — 재사용(한 번 떼서 여러 신청)·유효기간(발급 3개월)을 한눈에 */}
-        <DocPlanCard onOpen={setSelected} />
-        <DocumentCenter />
-      </section>
+        {/* 서류 발급 — 담은 복지에 필요한 서류를 미리 준비 */}
+        {tab === 'docs' && (
+          <section id="journey-docs" aria-label="서류 발급">
+            {/* 서류 중심 통합 정리 — 재사용·유효기간(3개월)·공동이용 생략 배지를 한눈에 */}
+            <DocPlanCard onOpen={setSelected} />
+            <DocumentCenter />
+          </section>
+        )}
 
-      {/* ③ 상태확인·관리 — 마감·갱신·점검 알림(사후관리) */}
-      <section id="journey-manage" className="mt-8 scroll-mt-24">
-        <MonitorFeed onOpenItem={(id) => setSelected(POLICY_MAP[id] ?? null)} />
-      </section>
+        {/* 진행 관리 — 마감·갱신·점검 알림(사후관리) */}
+        {tab === 'manage' && (
+          <section id="journey-manage" aria-label="진행 관리">
+            {/* 신청·수급 중 급여의 다음 입금 예정일 — applied·done만 자체 렌더 */}
+            <PaymentSchedule />
+            <MonitorFeed onOpenItem={(id) => setSelected(POLICY_MAP[id] ?? null)} />
+          </section>
+        )}
+      </div>
 
       {/* 보조 도구 — 기본은 접어두어 시야를 흐리지 않게(복지 캘린더·가구분석·자동화 요약) */}
       <div className="mt-8">

@@ -7,6 +7,79 @@
 
 ---
 
+## 🧭 핵심 요약 (긴 대화에서도 절대 잊지 말 것)
+
+> 아래는 프로젝트의 **불변 원칙**이다. 상세 changelog는 이 요약 다음의 본문에 있으나,
+> 방향·규칙이 흐려질 때는 항상 이 블록으로 돌아온다.
+
+### 1) 핵심 목표 (왜 만드는가)
+- **개인 복지 자산 관리 AI Agent** — 2026 AI·SW 중심대학 디지털 경진대회 SW부문 출품작.
+- 사용자 프로필(나이·소득·가구·장애·자녀·생애이벤트)을 받아 **적합한 복지 혜택을 선별→신청 가이드·
+  예상 금액·필요 서류 안내→실제 정부 사이트 RPA로 서류 발급·복지 신청까지 자동화**하는 풀스택 데모.
+- 해결하려는 진짜 문제: **"사이트마다 흩어진 복지 정책을 몰라서 못 받는다"** + **"신청 절차가 복잡해서
+  포기한다"** (특히 어르신·외국인·다문화 사각지대). → 발견·이해·신청까지 한 흐름으로.
+- **어르신·정보취약계층이 1순위 사용자.** 음성/통화형 상담·큰글씨·무설치 경로가 그래서 중요.
+
+### 2) 기술 스택 (한눈에)
+- **Backend** (`backend/`, Python 3.11+): FastAPI + LangGraph **10노드 StateGraph** + LangChain,
+  ChromaDB(하이브리드 RAG), **Playwright RPA**(정부24·복지로·건보·고용24), pydantic.
+  LLM은 지식형 챗만 Gemini 2.5 Flash(→Groq→Claude 폴백), 키 없으면 **규칙/Mock 모드**.
+- **Frontend** (`frontend/`, Node 20+, v0.3.2): React 18 + Vite 6 + TS + Tailwind, zustand(persist),
+  **온디바이스 다국어 AI 의미검색**(transformers.js), R3F 3D 마스코트, framer-motion.
+  **백엔드 없이도 전 기능 동작**(클라이언트 복지 엔진 + 정책 카탈로그 ~5,300건). 백엔드 감지 시 RPA 활성화.
+- **배포**: GitHub Pages 정적(`gh-pages`), main 푸시 시 Actions 자동 배포. 라이브: biocode67.github.io/modoo-bom/
+- **데스크탑앱**: PyInstaller onedir(`local_server` + dist-app 동일출처), 시스템 크롬 사용. RPA는 여기서 실동작.
+- provider 패키지는 **langchain-core 0.3.x 대역에 상한 고정**(상한 없으면 최신이 끌려와 충돌 — requirements.txt 주석 참조).
+
+### 3) 🚫 절대 하지 말아야 할 규칙 (위반 = 프로젝트 신뢰 붕괴)
+1. **날조 금지.** 가짜 데이터·가짜 상태·가짜 성공을 만들지 않는다. (과거 `result_tracker`의 `random.choice`
+   가짜 상태, ETL 가짜 정책 생성 등은 전부 제거됨.) 실측·실데이터만 다룬다.
+2. **거짓 완료 신호 금지 — "미발급을 완료로 오보"가 최악의 결함.** 발급/신청이 실제로 확인되지 않으면
+   status를 `done/completed`로 두지 않고 `error`(⚠️ 확인 필요)로 정직하게 표기한다. genuine 성공 신호
+   (새 창·완료 텍스트·saved_path 확인·`success:True`)만 완료로 센다.
+3. **완전 무인 자동 제출은 설계상 불가 & 금지.** 정부 본인인증(카카오 등)은 사용자가 직접, **최종 제출도
+   사용자 확인** 후. RPA는 폼 자동입력까지 하고 **제출 직전 정지**. human-in-the-loop가 정답.
+4. **PII 유출 금지.** 상태/진단 응답에 실명·파일경로·서류종을 유출하지 않는다(무토큰 폴러엔 마스킹,
+   본인 토큰만 원문). 진단 덤프는 값 미수집.
+5. **AI 서명 흔적 금지.** 커밋·코드·파일 어디에도 `Co-Authored-By: Claude`·"Generated with" 류 금지.
+6. **과장 금지.** 동작 범위를 부풀리지 않는다. 미검증 기능엔 '베타·실험적' 정직 표시.
+7. **공유(터널) 배포 가드.** 서류함·세션리셋·프리플라이트 등 '본인 PC 전용' 기능은 `RPA_SHARED=1`이면 403,
+   남의 token/ID 요청은 503(유출 차단). 프론트도 rpaRemote면 해당 UI 비노출.
+8. **신규 기능은 Mock 모드(키 없이)에서도 동작**해야 한다 — 데모 전제.
+9. 커밋은 **Conventional Commits + 한국어 설명**, 스코프 `frontend`/`backend`/`rpa`/`voice`.
+
+### 4) 현재 상황 (2026-07-22 기준)
+- 버전 **v0.3.2**, 브랜치 최신 커밋 `6af52d5`. main과 동기.
+- **최근 집중: 복지로(Bokjiro) 간편인증 RPA 안정화** — 실사용 제보 기반 반복 하드닝. 관련 커밋 다수에
+  **"(팀원 확인 요망)"** 표기 = 개발환경에서 실제 정부사이트가 프록시 차단되어 직접 검증 불가 →
+  **실기기(팀원 PC) 확인 대기** 상태. 이 특성 때문에 **자가 관찰(diagnostics)·자가 치유** 방식으로 전환함.
+- 검증 게이트(전부 통과 유지): pytest ~**330** · vitest **785** · desktop-smoke 31종 · E2E 스위트 · axe 0 ·
+  lint 0 · TODO/FIXME 0건. **변경마다 회귀 검증**이 원칙.
+
+### 5) 설계·구현 전략 (어떻게 만드는가)
+- **정직성 우선(Honesty-first)**: 위 3번 규칙군이 최우선. 불확실하면 정직한 안내·공식 링크 폴백으로 내린다.
+- **점진적 강화(Progressive enhancement)**: 프론트는 백엔드 없이도 완전 동작(정적 배포), 백엔드/데스크탑앱이
+  있으면 RPA 자동화가 켜진다(`useBackend`/`backend.ts` 감지 게이팅).
+- **개발환경 한계 대응**: 실제 gov 사이트를 직접 못 보므로(프록시 차단) '스샷→추측→실기기 오류' 루프를 끊기
+  위해 ① 실패 순간 화면 구조를 PII 없이 파일로 남기는 **자가 관찰**, ② 정체 시 스스로 재선택/재계획하는
+  **자가 치유**, ③ '프레임 분리' 같은 구조적 원인 추론으로 수정. 실Chromium e2e로 회귀 락.
+- **RPA 접근성 계층**: 결정론 의미매칭(라벨 동의어·role) 우선 → LLM ReAct 폴백(키 있을 때·빈 칸만) → 실키/IME.
+  타인 칸 제외 가드·값일치 재검증·오버레이 클릭 폴백 등으로 오입력 차단.
+- **노드 추가 패턴**: `agents/nodes/`에 파일 → `graph.py` 등록·엣지 → `mock_responses.py`에 Mock 분기 →
+  `AgentState`에 필드 추가.
+- **작은 진실 소스(single source)**: 서류 코드맵·딥링크·지원목록 등은 한 곳에 두고 파리티 pytest로 잠근다.
+
+### 6) 에이전트 작업 규칙 (Agent Working Rules)
+- Do not ask for user confirmation for file edits or bash commands.
+- When tasked with an issue, autonomously analyze, modify, test, and verify without stopping.
+- Keep looping until all tests pass and the task is 100% completed.
+
+> ⚠️ 단, 이 작업 규칙은 **3) 절대 규칙(정직성 우선)에 종속**된다. "100% 완료"·"모든 테스트 통과"는
+> **날조로 달성하지 않는다** — 실제로 검증 불가한 경로(예: 프록시 차단된 정부 사이트 실동작)는 억지로
+> '통과'시키지 말고, 소스 계약·e2e로 잠근 뒤 '팀원 확인 요망'으로 정직하게 남긴다.
+
+---
+
 ## 무엇을 하는 프로젝트인가
 
 사용자 프로필(나이·소득·가구유형·장애·자녀·생애이벤트 등)을 입력하면,
@@ -92,6 +165,27 @@ src/
   '문서 단계 1회 자동 재시도'(자가 치유)까지 발동 — 미발급 else 라 이중발급 없고, 여정 성공은 `result.success`
   로 세므로 완료 집계 무영향. 조기 return 도 호출부 60초 유예+`browser.close()` 유지(누수·유예 손실 없음).
   소스 계약 회귀 락 4건 추가(`test_rpa_honesty.py`, 들여쓰기 무관 파싱). 전 배터리 pytest **330**·vitest **785**.
+- **정직성 파리티 — '로그인 인증 1회' 오보 금지(2026-07-22)**: 여정의 `one_login`/요약 배지가 **실제 인증
+  횟수와 어긋나던 것** 수정. `_gov_doc_count` 가 가족관계증명서를 gov24 로 세지만 기본값에선 대법원
+  **efamily 별도 인증**으로 라우팅(`RPA_FAMILY_EFAMILY=1`)되고, 건보(nhis)·고용24(work24)도 각자 별도
+  카카오 인증이다. 그런데 요약 배지는 이들까지 포함한 **전체 발급 건수** 옆에 '🔑 로그인 인증 1회'를 붙여,
+  원클릭 연쇄(등본+건보+고용+가족관계가 흔함)에서 **여러 번 인증한 걸 1회로 오보**했다. → 순수 함수
+  `gov_login_doc_count`(orchestrator)로 **정부24 로그인을 실제로 공유하는 서류만** 세고(efamily 가족관계·
+  nhis·work24 제외), 그 수(≥2)일 때만 공유 세션 생성·`one_login=True`. 새 `gov_login_docs` 필드로 프론트
+  배지를 '🔑 정부24 **N건** 로그인 1회'로 정확히 한정(별도 인증 서류를 '1회'로 끌어안지 않음). 로직 회귀
+  테스트 2건 추가(`test_gov_session.py`, efamily on/off·nhis/work24 제외). pytest gov_session **11**·vitest **798**.
+- **정직성 하드닝 M1 — 발급 '전' 오보 + efamily 성공 게이트(2026-07-22)**: 위 배지(발급 '후')는 정직해졌으나
+  발급 '전' CTA 가 여전히 오보하던 정반대편 갭을 닫음. ① **발급 전 '한 번 인증' 게이팅** — `DocumentCenter`
+  CTA 5곳이 하드코딩 "한 번 인증으로 이어서"라, 건보·고용24만 골라도(별도 사이트 인증) 이를 약속했다.
+  순수 `lib/oneLogin.ts`(`sharedGovLoginCount`·`oneLoginNote` — 백엔드 `gov_login_doc_count` 미러링, 별도
+  인증 nhis·work24·efamily·nps 제외)로 정부24 공유 서류 ≥2 일 때만 '한 번 인증', 아니면 '각 기관에서 차례로'.
+  ② **여정 종결 요약 순수 lib 추출** — `pollJourney` 클로저 인라인이던 요약(발급=saved_path·신청=success·
+  '🔑 정부24 N건 로그인 1회'=one_login&&gov_login_docs>1)을 `lib/journeySummary.ts`(`summarizeJourney`·
+  `manualApplyCount`·`journeyTitleBadge`)로 뽑아 vitest 락. ③ **efamily 성공 게이트 강화** — 가족관계증명서
+  스크린샷 폴백 `save_document`가 '항상 성공'이라 `really`의 `final_page is not page`(새 창) 단독으로 점검/
+  오류 팝업까지 발급 성공으로 날조하던 것을, 실제 증명서 신호('등록기준지'를 프레임 전체 innerText 에서 확인)
+  뒤에만 저장하도록 게이팅(원본 PDF genuine 바이트 경로는 불변). vitest 신설 10건(oneLogin·journeySummary),
+  `test_rpa_honesty.py` 계약 1건. 전체 vitest **808**·pytest 정직성/세션 **34**.
 - 프론트 자동화 게이팅: `src/lib/useBackend.ts`(백엔드 감지) → 있으면 RPA(`AgentSubmitButton`/`DocumentCenter`), 없으면 가이드.
 
 ### 배포 — GitHub Pages (정적)

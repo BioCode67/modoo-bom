@@ -5,6 +5,8 @@ import { getPolicyMap } from '@/data/catalog'
 import { useAppStore } from '@/store/useAppStore'
 import { docLink, isRpaSupported, isCertIssuable, certKind, CERT_WALLET, isApplyAutomatable, LOCAL_RPA_DOCS, setLocalRpaDocs, isLocalBetaDoc } from '@/lib/officialLinks'
 import { issuableCanonical, substituteIssuableDoc } from '@/lib/docAliases'
+import { sharedGovLoginCount, oneLoginNote } from '@/lib/oneLogin'
+import { summarizeJourney, manualApplyCount, journeyTitleBadge } from '@/lib/journeySummary'
 import { isBokjiroApplyable, bestApplyUrl } from '@/lib/quickApply'
 import { getRpaBase } from '@/lib/backend'
 import { useBackend } from '@/lib/useBackend'
@@ -705,26 +707,15 @@ export function DocumentCenter() {
         if (j.status === 'completed' || j.status === 'error' || j.status === 'cancelled') {
           forgetLive('journey', 'current') // 종결 — 복원 대상에서 제거
           if (j.status === 'completed') notifyDocsChanged() // 발급물들이 서류함·자동첨부 후보에 바로 보이게
-          const manualApplications = (j.steps || []).filter((sp) => sp.kind === 'apply' && ['done', 'completed'].includes(sp.status) && sp.success !== true).length
-          titleBadge(j.status === 'completed' && manualApplications === 0 ? '✅ 연쇄 발급 완료 — 모두봄' : '⚠️ 연쇄 발급 확인 필요 — 모두봄')
-          // 종결 요약 한 줄 — 실발급(saved_path)·건너뜀·신청 양식 준비만 정직하게 집계(0건 항목은 표기 생략)
+          // 종결 요약·완료 판정은 순수 lib(journeySummary)로 — 정직성 규칙(발급=saved_path·신청=success·
+          //   '🔑 정부24 N건 로그인 1회'=one_login&&gov_login_docs>1)을 vitest 로 회귀 락한다.
+          const manualApplications = manualApplyCount(j.steps || [])
+          titleBadge(journeyTitleBadge(j.status || '', manualApplications))
           {
-            const steps = j.steps || []
-            const oneLogin = !!(j as { one_login?: boolean }).one_login // 백엔드 사실 플래그 — 공유 세션 여정만 true
-            const issued = steps.filter((sp) => sp.kind !== 'apply' && sp.saved_path).length
-            const skipped = steps.filter((sp) => sp.status === 'cancelled').length
-            const prepared = steps.filter((sp) => sp.kind === 'apply' && ['done', 'completed'].includes(sp.status) && sp.success === true).length
-            const manual = steps.filter((sp) => sp.kind === 'apply' && ['done', 'completed'].includes(sp.status) && sp.success !== true).length
-            const parts = [
-              issued > 0 ? `서류 ${issued}건 발급${oneLogin && issued > 1 ? ' (🔑 로그인 인증 1회)' : ''}` : '',
-              skipped > 0 ? `${skipped}건 건너뜀` : '',
-              prepared > 0 ? `신청 양식 ${prepared}건 준비(제출은 본인 확인 후)` : '',
-              manual > 0 ? `신청 ${manual}건 직접 진행 필요` : '',
-            ].filter(Boolean)
-            const head = j.status === 'completed'
-              ? (manual > 0 ? '⚠️ 서류 발급 완료 · 신청 확인 필요' : '✅ 연쇄 자동발급 끝')
-              : j.status === 'cancelled' ? '⏹ 연쇄 중단됨' : '⚠️ 연쇄가 오류로 끝났어요'
-            setJourneySummary({ text: parts.length ? `${head} — ${parts.join(' · ')}` : head, issued })
+            setJourneySummary(summarizeJourney(j.steps || [], j.status || '', {
+              oneLogin: !!(j as { one_login?: boolean }).one_login, // 백엔드 사실 플래그 — 공유 세션 여정만 true
+              govLoginDocs: Number((j as { gov_login_docs?: number }).gov_login_docs || 0),
+            }))
           }
           finished = true; break
         }
@@ -843,7 +834,7 @@ export function DocumentCenter() {
       ) : (
         <div className="rounded-2xl border-2 border-sky2-100 bg-sky2-50/40 p-3.5">
           <div className="flex items-center justify-between gap-2 flex-wrap">
-            <p className="text-sm font-bold">🗂 원하는 서류 골라 일괄발급 <span className="text-xs font-semibold text-muted-foreground">지원 {localDocs.length}종 · 한 번 인증으로 이어서</span></p>
+            <p className="text-sm font-bold">🗂 원하는 서류 골라 일괄발급 <span className="text-xs font-semibold text-muted-foreground">지원 {localDocs.length}종 · 정부24는 한 번 인증으로 이어서</span></p>
             <button onClick={() => setPickOpen(false)} aria-label="일괄발급 선택 닫기" className="text-xs font-semibold text-muted-foreground hover:underline">닫기</button>
           </div>
           <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1.5">
@@ -858,7 +849,7 @@ export function DocumentCenter() {
             ))}
           </div>
           <button onClick={startPicked} className="btn-primary w-full mt-2.5 !py-2 text-sm">
-            🚀 선택한 {localDocs.filter((d) => picked[d]).length}종 한번에 발급 (한 번 인증으로 이어서)
+            🚀 선택한 {localDocs.filter((d) => picked[d]).length}종 한번에 발급 ({oneLoginNote(sharedGovLoginCount(localDocs.filter((d) => picked[d])))})
           </button>
           {pickMsg && <p className="mt-1 text-[11px] font-semibold text-rose-600">{pickMsg}</p>}
           <p className="mt-1 text-[11px] text-muted-foreground">📱 각 서류 차례에 인증 요청이 오면 승인만 해주세요 · 발급물은 🗂 서류함에 모여요</p>
@@ -924,7 +915,7 @@ export function DocumentCenter() {
         <div className="h-full rounded-full bg-sprout-500 transition-all duration-500"
           style={{ width: `${journeyProg.total ? Math.max(4, Math.round((journeyProg.done / journeyProg.total) * 100)) : 4}%` }} />
       </div>
-      <p className="mt-1.5 text-[11px] text-muted-foreground">한 번 인증으로 순서대로 발급돼요 — 📱 인증 요청이 오면 승인만 해주세요.</p>
+      <p className="mt-1.5 text-[11px] text-muted-foreground">📱 인증 요청이 오면 승인만 해주세요 — 정부24 서류는 한 번 인증으로 이어져요.</p>
     </div>
   ) : null
 
@@ -964,7 +955,7 @@ export function DocumentCenter() {
           <span className="chip-sprout"><Bot className="h-3.5 w-3.5" /> 자동발급 가능</span>
         </div>
         <p className="text-sm text-muted-foreground mt-1">
-          아직 담은 복지가 없어도 괜찮아요 — 필요한 증명서를 골라 <b>한 번 인증으로 자동발급</b>해 두면, 나중에 복지 신청 때 자동첨부돼요.
+          아직 담은 복지가 없어도 괜찮아요 — 필요한 증명서를 골라 <b>자동으로 발급</b>해 두면, 나중에 복지 신청 때 자동첨부돼요.
           <span className="block mt-0.5 text-xs">🔒 카카오 본인인증은 보안을 위해 본인이 직접 진행해요.</span>
         </p>
         <div className="mt-3"><AgentStatusStrip /></div>
@@ -1067,7 +1058,7 @@ export function DocumentCenter() {
           <button onClick={startAll} className="btn-primary w-full !py-2.5 text-sm">
             🚀 {vaultCovered.length > 0
               ? `부족한 서류 ${chainDocs.length}종만 자동발급`
-              : `필요한 서류 ${chainDocs.length}종 전부 자동발급`}{!ext && chainApply && chainSvcs.length > 0 ? ' + 자동신청까지' : ''} (한 번 인증으로 이어서)
+              : `필요한 서류 ${chainDocs.length}종 전부 자동발급`}{!ext && chainApply && chainSvcs.length > 0 ? ' + 자동신청까지' : ''} ({oneLoginNote(sharedGovLoginCount(chainDocs))})
           </button>
           {/* 🗂 서류함 실파일 기준 스마트 스킵 가시화 — '왜 n종만 발급하는지'를 숨기지 않는다 */}
           {!ext && vaultCovered.length > 0 && (

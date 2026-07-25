@@ -53,3 +53,7 @@ frontend/e2e/demo-video/
 extension/dist/
 backend/agent_profile.json
 backend/rpa/docs_extra.json
+backend/rpa/route_cache.json
+backend/.auth_test.json
+backend/_rpa_livetest.py
+backend/_rpa_smoke.py

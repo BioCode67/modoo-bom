@@ -109,6 +109,41 @@ def test_journey_creates_and_cleans_shared_session():
     assert '_run_step_doc(task, step["name"], user_info, gov_session)' in src
 
 
+def test_gov_login_doc_count_honest(monkeypatch):
+    """🔑 '로그인 1회' 주장의 정직성 — 실제로 정부24 로그인을 공유하는 서류만 센다.
+
+    별도 인증(가족관계=efamily, 건보=nhis, 고용24=work24)을 '1회'에 끼워 세면 사용자가 실제로
+    한 인증 횟수와 어긋나 거짓 완료 신호가 된다(감사 확정). 그 회귀를 소스가 아닌 로직으로 잠근다."""
+    from rpa import orchestrator as orch
+
+    def steps(*names):
+        return [{"kind": "doc", "name": n} for n in names]
+
+    # 정부24 순수 2종 → 공유 로그인 1회로 이어짐(=2)
+    assert orch.gov_login_doc_count(steps("주민등록등본", "주민등록초본")) == 2
+    # 건보·고용24 는 별도 사이트 인증 → 정부24 공유 대상 아님(등본만 1)
+    assert orch.gov_login_doc_count(
+        steps("주민등록등본", "건강보험 자격득실확인서", "고용보험 피보험자격 이력내역서")) == 1
+    # apply 단계는 무시
+    assert orch.gov_login_doc_count(
+        [{"kind": "doc", "name": "주민등록등본"}, {"kind": "apply", "name": "기초연금"}]) == 1
+
+    # 가족관계증명서: 기본(efamily) 경로면 별도 대법원 인증 → 등본과 '1회' 공유 아님(=1)
+    monkeypatch.delenv("RPA_FAMILY_EFAMILY", raising=False)
+    assert orch.gov_login_doc_count(steps("주민등록등본", "가족관계증명서")) == 1
+    # efamily 끄면(정부24 경로) 가족관계도 정부24 로그인을 공유 → 2
+    monkeypatch.setenv("RPA_FAMILY_EFAMILY", "0")
+    assert orch.gov_login_doc_count(steps("주민등록등본", "가족관계증명서")) == 2
+
+
+def test_journey_reports_gov_login_docs_count():
+    """orchestrator 계약 — 공유 로그인을 실제로 나눈 서류 수(gov_login_docs)를 UI 로 노출하고,
+    그 배지가 별도 인증 서류까지 '1회'로 오보하지 않도록 gov_login_doc_count 로만 판정한다."""
+    src = open("rpa/orchestrator.py", encoding="utf-8").read()
+    assert "_gov_doc_count = gov_login_doc_count(j[\"steps\"])" in src
+    assert 'j["gov_login_docs"]' in src
+
+
 def test_journey_retries_failed_doc_once(monkeypatch):
     """🔁 문서 단계 자동 재시도 — '오류 종결'된 문서는 같은 여정에서 1회 더 시도하고,
     두 번째도 실패하면 그대로 정직하게 오류로 남는다(무한 재시도 금지)."""

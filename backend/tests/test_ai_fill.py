@@ -20,6 +20,10 @@ def _run(coro):
 def _clean_env(monkeypatch):
     for k in ("GEMINI_API_KEY", "GOOGLE_API_KEY", "GROQ_API_KEY", "ANTHROPIC_API_KEY", "RPA_AI_FILL"):
         monkeypatch.delenv(k, raising=False)
+    # ⚠️ 테스트 이식성(실측): 개발 PC의 backend/.env 에 실제 키가 있으면 _load_env_file 이 그 키를
+    #    os.environ 에 주입해 위 delenv 를 무효화 → '키 없음' 게이트 테스트가 로컬에서만 깨졌다(실측).
+    #    _ENV_LOADED 를 True 로 고정해 .env 재읽기를 막는다(테스트가 명시적으로 setenv 한 키만 반영).
+    monkeypatch.setattr(af, "_ENV_LOADED", True, raising=False)
     yield
 
 
@@ -214,3 +218,206 @@ def test_ai_fill_executes_plan_with_local_typing(monkeypatch):
     assert ("insert", "김상식") in typed
     assert ("type", "김상식") not in typed
     assert ("press", "Control+a") in typed      # 전체선택 후 교체('-' 잔값 제거)
+
+
+# ── 🧭 ai_pick_action (observe→decide→click, 내비게이션) — openclaw식 클릭 판단 ──
+def _nav_ctx(fields, clicked):
+    """가짜 ctx — evaluate 는 요소 목록(=_COLLECT_JS 결과)을 돌려주고, locator().click() 은 눌린 idx 기록."""
+    import re as _re
+
+    class _Loc:
+        def __init__(self, sel):
+            self.sel = sel
+        async def click(self, timeout=None):
+            m = _re.search(r"data-modoobom-ai='(\d+)'", self.sel)
+            clicked.append(int(m.group(1)) if m else -1)
+
+    class _Ctx:
+        async def evaluate(self, js, *a):
+            return fields
+        def locator(self, sel):
+            return _Loc(sel)
+
+    return _Ctx()
+
+
+def test_ai_pick_action_deterministic_pick():
+    """결정론(무키) — want_texts 동의어를 양방향 부분일치로 잡아 올바른 버튼을 누른다.
+    '문서 출력'(공백 변형)도 매칭, 개인정보성 링크('홍길동님')는 후보에서 제외된다."""
+    clicked = []
+    fields = [
+        {"idx": 0, "role": "button", "text": "이전", "type": "button"},
+        {"idx": 1, "role": "button", "text": "문서 출력", "type": "button"},
+        {"idx": 2, "role": "link", "text": "홍길동님", "type": "link"},
+    ]
+    ok = _run(af.ai_pick_action(_nav_ctx(fields, clicked), "문서 출력 단계", ["문서출력", "출력하기"]))
+    assert ok is True
+    assert clicked == [1]
+
+
+def test_ai_pick_action_denylist_blocks_irreversible():
+    """제출·결제 등 비가역 버튼은 결정론 후보에서부터 제외 — 어떤 want_texts 로도 누르지 않는다(HITL 불변)."""
+    clicked = []
+    fields = [
+        {"idx": 0, "role": "button", "text": "제출", "type": "button"},
+        {"idx": 1, "role": "button", "text": "결제하기", "type": "button"},
+    ]
+    ok = _run(af.ai_pick_action(_nav_ctx(fields, clicked), "제출", ["제출", "결제"]))
+    assert ok is False
+    assert clicked == []
+
+
+def test_ai_pick_action_llm_decides_when_deterministic_misses(monkeypatch):
+    """LLM 계층(키+옵트인) — 결정론 동의어가 못 맞춘 라벨('증명서 인쇄')을 구조만 보고 골라 누른다."""
+    monkeypatch.setenv("GEMINI_API_KEY", "k")
+    monkeypatch.setattr(af, "_ask_llm", lambda *a, **k: '{"idx": 2}')
+    clicked = []
+    fields = [
+        {"idx": 0, "role": "button", "text": "이전", "type": "button"},
+        {"idx": 1, "role": "button", "text": "닫기", "type": "button"},
+        {"idx": 2, "role": "button", "text": "증명서 인쇄", "type": "button"},
+    ]
+    ok = _run(af.ai_pick_action(_nav_ctx(fields, clicked), "문서를 인쇄해 저장", ["문서출력", "출력하기"]))
+    assert ok is True
+    assert clicked == [2]
+
+
+def test_ai_pick_action_rejects_llm_denylisted_choice(monkeypatch):
+    """LLM 환각 가드 — LLM 이 비가역 버튼(후보에서 이미 빠진) idx 를 골라도 실행하지 않는다."""
+    monkeypatch.setenv("GEMINI_API_KEY", "k")
+    monkeypatch.setattr(af, "_ask_llm", lambda *a, **k: '{"idx": 0}')  # 위험 버튼 idx(환각)
+    clicked = []
+    fields = [
+        {"idx": 0, "role": "button", "text": "제출", "type": "button"},
+        {"idx": 1, "role": "button", "text": "닫기", "type": "button"},
+    ]
+    ok = _run(af.ai_pick_action(_nav_ctx(fields, clicked), "다음 단계", ["없는버튼"]))
+    assert ok is False
+    assert clicked == []
+
+
+def test_ai_pick_action_mock_safe_without_key(monkeypatch):
+    """Mock-safe — 키 없고 결정론도 못 맞추면 조용히 False. LLM 은 호출조차 안 한다(무동작 계약)."""
+    monkeypatch.setattr(
+        af, "_ask_llm",
+        lambda *a, **k: (_ for _ in ()).throw(AssertionError("키 없이 LLM 호출됨")))
+    clicked = []
+    fields = [{"idx": 0, "role": "button", "text": "닫기", "type": "button"}]
+    ok = _run(af.ai_pick_action(_nav_ctx(fields, clicked), "문서출력", ["문서출력"]))
+    assert ok is False
+    assert clicked == []
+
+
+def test_nav_prompt_privacy_and_safe_labels():
+    """프라이버시 — 개인정보성 라벨(이름+님·로그아웃)은 후보 제외, 프롬프트는 '값' 인자를 받지 않는다."""
+    import inspect
+    assert af._safe_button_label("홍길동님") == ""
+    assert af._safe_button_label("로그아웃") == ""
+    assert af._safe_button_label("마이페이지") == ""
+    assert af._safe_button_label("문서출력") == "문서출력"
+    p = af.build_nav_prompt("문서출력 단계로 진행", [{"idx": 1, "text": "문서출력"}])
+    assert "문서출력" in p                                        # 버튼 라벨(구조)은 전달
+    assert "values" not in inspect.signature(af.build_nav_prompt).parameters  # 값 인자 자체가 없음
+
+
+# ── 🔁 자가치유 클릭 + act→verify (CUA/Claude computer-use·UiPath Healing 기법) ──
+def test_click_idx_self_heals_overlay_then_js_click():
+    """자가치유 클릭 — 일반 클릭이 오버레이에 막혀도(2회 실패) ③ JS 합성 클릭으로 성공한다."""
+    calls = {"click": 0, "js": 0}
+
+    class _Loc:
+        async def click(self, timeout=None):
+            calls["click"] += 1
+            raise RuntimeError("overlay intercepts pointer events")  # 두 번(①②) 다 막힘
+        async def scroll_into_view_if_needed(self, timeout=None):
+            return None
+
+    class _Ctx:
+        def locator(self, sel):
+            return _Loc()
+        async def evaluate(self, js, *a):
+            calls["js"] += 1
+            return True  # JS 합성 클릭 성공(요소 존재)
+
+    ok = _run(af._click_idx(_Ctx(), 3))
+    assert ok is True
+    assert calls["click"] == 2      # ①일반 ②스크롤후 재클릭 모두 시도
+    assert calls["js"] == 1         # ③ JS 합성 클릭 폴백으로 성공
+
+
+def test_click_idx_gives_up_when_element_gone():
+    """요소가 사라졌으면(detached·제거) JS 클릭 단계에서 False — 영구 실패는 헛재시도 안 함."""
+    class _Loc:
+        async def click(self, timeout=None):
+            raise RuntimeError("timeout")
+        async def scroll_into_view_if_needed(self, timeout=None):
+            return None
+
+    class _Ctx:
+        def locator(self, sel):
+            return _Loc()
+        async def evaluate(self, js, *a):
+            return False  # querySelector → 없음
+
+    assert _run(af._click_idx(_Ctx(), 9)) is False
+
+
+def test_act_and_verify_retries_until_change():
+    """행동→검증→재시도 — 첫 시도는 변화 없음(verify False), 둘째에 변화 발생하면 성공."""
+    state = {"n": 0}
+
+    async def do_action():
+        state["n"] += 1
+        return True
+
+    async def verify():
+        return state["n"] >= 2  # 첫 행동 뒤엔 아직, 둘째 행동 뒤 True
+
+    assert _run(af.act_and_verify(do_action, verify, attempts=3)) is True
+    assert state["n"] == 2
+
+
+def test_act_and_verify_no_verify_uses_action_result():
+    """verify 없으면 do_action 성공만으로 판정(하위호환 경로)."""
+    async def ok_action():
+        return True
+
+    async def fail_action():
+        return False
+
+    assert _run(af.act_and_verify(ok_action)) is True
+    assert _run(af.act_and_verify(fail_action, attempts=2)) is False
+
+
+def test_ai_pick_action_verify_falls_through_to_next(monkeypatch):
+    """opt-in verify — 첫 클릭이 화면을 못 바꾸면(verify False) 다음 후보로 자기수정한다."""
+    clicked = []
+
+    class _Loc:
+        def __init__(self, sel):
+            import re as _re
+            m = _re.search(r"data-modoobom-ai='(\d+)'", sel)
+            self.idx = int(m.group(1)) if m else -1
+        async def click(self, timeout=None):
+            clicked.append(self.idx)
+        async def scroll_into_view_if_needed(self, timeout=None):
+            return None
+
+    fields = [
+        {"idx": 0, "role": "button", "text": "다음", "type": "button"},
+        {"idx": 1, "role": "button", "text": "계속", "type": "button"},
+    ]
+
+    class _Ctx:
+        async def evaluate(self, js, *a):
+            return fields
+        def locator(self, sel):
+            return _Loc(sel)
+
+    # 첫 후보(idx0) 클릭 뒤엔 변화 없음, 둘째(idx1) 클릭 뒤엔 변화 있음으로 검증
+    async def verify():
+        return 1 in clicked
+
+    ok = _run(af.ai_pick_action(_Ctx(), "진행", ["다음", "계속"], verify=verify))
+    assert ok is True
+    assert clicked == [0, 1]        # idx0 클릭→검증 실패→idx1 클릭→검증 성공(자기수정)

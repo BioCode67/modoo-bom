@@ -64,13 +64,18 @@ export function RpaShowcase() {
           <div className="flex-1">
             <p className="font-bold">더 자동으로도 — 원하는 분만 (선택)</p>
             <p className="text-sm text-muted-foreground mt-0.5 leading-relaxed">
-              웹에서는 공식 신청 페이지로 안내까지, <b className="text-foreground">데스크탑 앱에서는 실제 서류 발급·신청까지</b> 대신해 드려요.
-              로그인 인증을 <b className="text-foreground">한 번만</b> 하면 필요한 서류(주민등록등본·소득금액증명 등)를 정부24에서 순서대로 자동 발급하고
-              (일시 오류는 자동 재시도), 방금 받은 서류를 복지로 신청 양식에 <b className="text-foreground">자동으로 첨부</b>한 뒤 정보까지 채워 <b className="text-foreground">제출 직전에 멈춰요</b>.
-              발급한 서류는 <b className="text-foreground">서류함</b>이 유효기간까지 관리해, 이미 있는 건 건너뛰고 <b className="text-foreground">부족한 것만</b> 받아요.
-              <b className="text-foreground">본인인증 승인과 최종 제출</b>, 이 둘만 직접 하시면 돼요(명의도용을 막는 안전장치예요).
-              <br className="hidden sm:block" />앞으로는 <b className="text-foreground">공공 마이데이터</b>로 인증 한 번이면 완전 자동 — 설치 없이 안전하게 준비 중이에요.
+              웹은 공식 신청 페이지 안내까지, <b className="text-foreground">데스크탑 앱은 실제 서류 발급·신청까지</b> 대신해 드려요.
             </p>
+            {/* 핵심 안심 문구를 맨 앞에 크고 또렷하게 — 글벽에 묻히지 않게(어르신 가독성) */}
+            <p className="mt-2 rounded-xl bg-sprout-50 px-3 py-2 text-sm font-semibold text-sprout-800">
+              🔒 <b>본인인증 승인 · 최종 제출</b>, 이 둘만 직접 하시면 돼요 — 나머지는 자동이에요(명의도용을 막는 안전장치).
+            </p>
+            <ul className="mt-2 space-y-1 text-sm text-muted-foreground leading-relaxed">
+              <li>✅ 정부24 서류(등본·소득금액증명 등)는 <b className="text-foreground">한 번 인증으로 순서대로</b> 자동 발급 <span className="text-xs">(일시 오류는 자동 재시도)</span></li>
+              <li>✅ 받은 서류를 복지로 신청 양식에 <b className="text-foreground">자동 첨부</b>하고 정보까지 채운 뒤 <b className="text-foreground">제출 직전에 멈춰요</b></li>
+              <li>✅ <b className="text-foreground">서류함</b>이 유효기간까지 관리 — 이미 있는 건 건너뛰고 <b className="text-foreground">부족한 것만</b> 받아요</li>
+            </ul>
+            <p className="mt-2 text-xs text-muted-foreground">앞으로는 <b className="text-foreground">공공 마이데이터</b>로 인증 한 번이면 완전 자동 — 설치 없이 안전하게 준비 중이에요.</p>
           </div>
           <div className="flex flex-col items-center gap-2 shrink-0">
             {isWindows && (
@@ -90,6 +95,12 @@ export function RpaShowcase() {
                   설치 안내·다른 버전 보기
                 </a>
               </>
+            )}
+            {/* 비Windows 사용자에게 다음 걸음을 명확히 — 자동 발급 앱은 Windows 전용, 그 외는 무설치 경로로 */}
+            {!isWindows && (
+              <p className="max-w-[12rem] text-center text-[11px] text-muted-foreground">
+                자동 발급 앱은 <b className="text-foreground">Windows 전용</b>이에요 — 다른 기기는 <b className="text-foreground">위 무설치 경로</b>(말하기 → 신청)를 그대로 쓰시면 돼요.
+              </p>
             )}
             <span className="inline-flex items-center gap-1.5 text-xs font-bold text-sprout-700 bg-sprout-50 rounded-full px-3 py-1.5">
               <ShieldCheck className="h-4 w-4" /> 개인정보 서버 전송 0

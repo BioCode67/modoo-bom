@@ -737,6 +737,21 @@ async def _click_auth_confirm_any(ctx_page) -> bool:
                     return True
             except Exception:
                 continue
+    # 표준 셀렉터에 안 걸리는 '인증 완료'(복지로 eForm .cl-button/[role=button]) — 좌표 신뢰 클릭 폴백.
+    #   gov24 는 위 표준 셀렉터에서 먼저 잡혀 여기 도달하지 않으므로 기존 동작 불변(복지로만 실제 교정).
+    for ctx in _sibling_contexts(ctx_page):
+        try:
+            if await click_eform_button(ctx, "인증 완료") or await click_eform_button(ctx, "인증완료"):
+                await asyncio.sleep(1.2)
+                try:
+                    body = await ctx.evaluate("() => document.body ? document.body.innerText : ''")
+                except Exception:
+                    body = ""
+                if any(k in (body or "") for k in ("완료되지 않", "완료되지않", "미완료", "진행할 수 없", "다시 시도")):
+                    await click_by_text(ctx, ["확인"])
+                return True
+        except Exception:
+            continue
     return False
 
 
@@ -758,8 +773,9 @@ async def wait_for_login(
     report_interval = 15  # 15초마다 진행상황 스크린샷
     last_report = 0
     # '인증 완료' 자동 클릭(사용자 요청) — 폰 승인 뒤 앱이 완료 버튼을 눌러준다. 승인 전 클릭은 무해
-    #   ('미완료' 안내만 뜸)하므로 간격을 두고 재시도. 폰 승인 시간을 먼저 주려 20초부터 시작.
-    confirm_start, confirm_interval = 20, 12
+    #   ('미완료'/'진행할 수 없' 안내만 뜨고 그 [확인]만 닫음)하므로 짧은 간격으로 재시도해 승인 직후 바로
+    #   눌러준다(복지로 실사용: 12초 간격이 '인증 완료가 느리다'로 체감돼 8초로 단축, 시작도 14초로 당김).
+    confirm_start, confirm_interval = 14, 8
     last_confirm = 0
 
     for elapsed in range(timeout_sec):

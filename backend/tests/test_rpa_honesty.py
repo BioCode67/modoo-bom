@@ -133,6 +133,21 @@ def test_gov24_unissued_else_paths_report_error_not_done():
         assert '"done"' not in status_arg, f"{msg}: done 이면 거짓 '발급 완료' 배지"
 
 
+def test_efamily_screenshot_fallback_requires_genuine_signal():
+    """가족관계증명서(efamily): 스크린샷 폴백 save_document 는 '항상 성공'하므로, 새 창(final_page is
+    not page) 단독이 아니라 실제 증명서 신호('등록기준지' — 서식 고정 항목)를 프레임 전체에서 확인한
+    뒤에만 저장한다. 점검/오류 팝업(새 창)을 발급 성공으로 날조하던 결함 방지(감사 확정). 원본 PDF
+    (genuine 바이트) 경로는 이 게이트 위에서 이미 saved 라 영향 없음."""
+    src = open("rpa/gov24_rpa.py", encoding="utf-8").read()
+    # efamily 스크린샷 폴백 저장은 '등록기준지' 게이트 '안'에서만 호출된다(들여쓰기 무관 근접 확인)
+    i = src.index('saved = await save_document(final_page, "가족관계증명서", name)')
+    guard = src[i - 500:i]
+    assert 'if "등록기준지" in cert_text:' in guard, "스크린샷 폴백이 genuine 신호로 게이팅돼야 함"
+    # cert_text 는 프레임 전체 innerText 를 모아 iframe 내 증명서도 놓치지 않는다(과잉 거부 방지)
+    assert "cert_text = body_now" in src
+    assert "cert_text += " in src
+
+
 def test_nhis_success_gates_on_completion_not_save():
     """nhis 성공 판정이 '저장(saved)'이 아니라 '완료 신호(completed)'로만 이뤄지는지 계약 고정.
     save_document 는 어떤 화면이든 저장(스샷 폴백)하므로, 저장 성공을 발급 성공으로 쓰면 미발급 화면도
