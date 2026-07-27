@@ -20,160 +20,185 @@
   .bg { position: absolute; inset: 0; width: 70cm; height: 140cm; z-index: 0; }
 
   /* ───── 상단 필수 슬롯 ───── */
-  .univ {
-    position: absolute; left: 30.6cm; top: 4.1cm; width: 22cm; height: 4.6cm; z-index: 3;
-    display: flex; align-items: center; gap: 0.5cm;
-  }
+  .univ { position: absolute; left: 30.6cm; top: 4.1cm; width: 22cm; height: 4.6cm; z-index: 3;
+          display: flex; align-items: center; }
   .univ .name { font-family: 'Jua'; font-size: 2.35cm; color: #3b1f6e; letter-spacing: -0.02em; }
-  .univ .dept { font-size: 0.78cm; font-weight: 800; color: #6b4a9e; padding-bottom: 0.15cm; }
 
   .titlecard { position: absolute; left: 5.6cm; top: 14.3cm; width: 58.8cm; height: 13.6cm; z-index: 3;
     display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
-  .service { font-family: 'Jua'; font-size: 3.5cm; line-height: 1.05; color: #14532d; letter-spacing: -0.01em; }
+  .service { font-family: 'Jua'; font-size: 3.6cm; line-height: 1.05; color: #14532d; letter-spacing: -0.01em; }
   .service .en { font-family: 'Pretendard Variable'; font-weight: 800; font-size: 1.5cm; color: #16a34a; letter-spacing: 0.02em; }
-  .tagline { margin-top: 0.55cm; font-size: 1.36cm; font-weight: 800; color: #24483a; }
+  .tagline { margin-top: 0.5cm; font-size: 1.36cm; font-weight: 800; color: #24483a; }
   .tagline b { color: #ea580c; }
-  .teamline { margin-top: 0.85cm; display: flex; align-items: center; gap: 0.75cm; font-size: 1.06cm; font-weight: 700; color: #33413a; }
-  .teamchip { font-family: 'Jua'; font-size: 1.24cm; color: #fff; background: #16a34a; border-radius: 999px; padding: 0.14cm 0.75cm 0.24cm; letter-spacing: 0.01em; }
+  .teamline { margin-top: 0.8cm; display: flex; align-items: center; gap: 0.75cm; font-size: 1.06cm; font-weight: 700; color: #33413a; }
+  .teamchip { font-family: 'Jua'; font-size: 1.24cm; color: #fff; background: #16a34a; border-radius: 999px; padding: 0.14cm 0.75cm 0.24cm; }
   .teamline .lead { font-weight: 900; color: #14532d; }
 
+  /* ───── 히어로 스트립(마스코트 + 대표 수치) ───── */
+  .hero { position: absolute; left: 4.9cm; top: 29.6cm; width: 60.2cm; height: 10.6cm; z-index: 3;
+    background: linear-gradient(100deg, #14532d 0%, #16a34a 58%, #22b357 100%);
+    border-radius: 0.8cm; display: flex; align-items: center; padding: 0 1.3cm 0 0.6cm;
+    box-shadow: 0 0.2cm 0.6cm rgba(20,60,35,.16); }
+  .hero .mascot { height: 10.2cm; margin-top: -0.5cm; }
+  .hero .bubble { position: relative; background: #fff; border-radius: 0.55cm; padding: 0.5cm 0.72cm 0.58cm;
+    margin-left: 0.3cm; max-width: 24.5cm; }
+  .hero .bubble::before { content: ''; position: absolute; left: -0.42cm; top: 2.1cm;
+    border: 0.28cm solid transparent; border-right-color: #fff; }
+  .hero .bubble .t { font-size: 1.0cm; font-weight: 900; color: #14532d; line-height: 1.36; }
+  .hero .bubble .s { font-size: 0.7cm; font-weight: 700; color: #5f7368; margin-top: 0.18cm; line-height: 1.4; }
+  .hero .nums { display: flex; gap: 0.45cm; margin-left: auto; }
+  .hnum { text-align: center; color: #fff; padding: 0 0.3cm; }
+  .hnum .v { font-family: 'Jua'; font-size: 2.5cm; line-height: 1; letter-spacing: -0.01em; }
+  .hnum .v small { font-size: 0.95cm; }
+  .hnum .l { font-size: 0.65cm; font-weight: 800; margin-top: 0.2cm; opacity: .95; }
+  .hnum .s { font-size: 0.53cm; font-weight: 700; opacity: .72; margin-top: 0.06cm; }
+  .hsep { width: 0.045cm; background: rgba(255,255,255,.28); border-radius: 999px; margin: 0.9cm 0; }
+
   /* ───── 본문 2단 ───── */
-  .body { position: absolute; left: 4.9cm; top: 29.7cm; width: 60.2cm; height: 102.6cm; z-index: 3;
+  .body { position: absolute; left: 4.9cm; top: 41.4cm; width: 60.2cm; height: 90.9cm; z-index: 3;
     display: grid; grid-template-columns: 29.1cm 29.1cm; gap: 0 2cm; align-content: start; }
-  .col { display: flex; flex-direction: column; gap: 0.85cm; justify-content: space-between; }
+  .col { display: flex; flex-direction: column; gap: 0.8cm; justify-content: space-between; }
 
   .sec { background: #fff; border: 0.045cm solid #dbe7de; border-radius: 0.62cm; overflow: hidden;
          box-shadow: 0 0.12cm 0.4cm rgba(20,60,35,.07); }
-  .sec > h2 { background: #16a34a; color: #fff; font-family: 'Jua'; font-size: 1.12cm; letter-spacing: 0.01em;
-              padding: 0.34cm 0.7cm 0.44cm; display: flex; align-items: baseline; gap: 0.4cm; }
-  .sec > h2 .en { font-family: 'Pretendard Variable'; font-weight: 700; font-size: 0.62cm; opacity: .82; letter-spacing: 0.04em; }
+  .sec > h2 { background: #16a34a; color: #fff; font-family: 'Jua'; font-size: 1.1cm; letter-spacing: 0.01em;
+              padding: 0.3cm 0.7cm 0.4cm; display: flex; align-items: center; gap: 0.45cm; }
+  .sec > h2 .no { font-family: 'Pretendard Variable'; font-weight: 900; font-size: 0.72cm; letter-spacing: 0.06em;
+                  background: rgba(255,255,255,.2); border-radius: 0.28cm; padding: 0.1cm 0.3cm 0.14cm; flex: 0 0 auto; }
+  .sec > h2 .en { font-family: 'Pretendard Variable'; font-weight: 700; font-size: 0.58cm; opacity: .8;
+                  letter-spacing: 0.05em; margin-left: auto; }
   .sec.purple > h2 { background: #5b2d90; }
   .sec.dark > h2 { background: #14532d; }
-  .pad { padding: 0.62cm 0.7cm 0.72cm; }
+  .pad { padding: 0.6cm 0.7cm 0.7cm; }
 
-  p, li { font-size: 0.78cm; line-height: 1.5; color: #2c3b33; }
-  .lead-line { font-size: 1.02cm; font-weight: 800; color: #14532d; line-height: 1.35; }
+  p, li { font-size: 0.77cm; line-height: 1.48; color: #2c3b33; }
+  .lead-line { font-size: 1.0cm; font-weight: 800; color: #14532d; line-height: 1.34; }
   .lead-line b { color: #ea580c; }
-  ul { list-style: none; display: flex; flex-direction: column; gap: 0.3cm; }
+  ul { list-style: none; display: flex; flex-direction: column; gap: 0.28cm; }
   li { padding-left: 0.85cm; position: relative; }
-  li::before { content: ''; position: absolute; left: 0.14cm; top: 0.42cm; width: 0.28cm; height: 0.28cm;
+  li::before { content: ''; position: absolute; left: 0.14cm; top: 0.4cm; width: 0.28cm; height: 0.28cm;
                border-radius: 999px; background: #16a34a; }
   li b, p b { font-weight: 800; color: #14532d; }
-  .muted { color: #6d7f75; font-size: 0.62cm; line-height: 1.42; }
+  .muted { color: #6d7f75; font-size: 0.61cm; line-height: 1.42; }
 
   /* 문제 3분할 */
-  .probs { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5cm; margin-top: 0.55cm; }
-  .prob { background: #fff7f2; border: 0.04cm solid #fbd9c3; border-radius: 0.42cm; padding: 0.44cm 0.42cm 0.5cm; text-align: center; }
-  .prob .ic { font-size: 1.15cm; line-height: 1.1; }
-  .prob .t { font-size: 0.74cm; font-weight: 900; color: #9a3412; margin-top: 0.16cm; }
-  .prob .d { font-size: 0.6cm; color: #7c5a48; line-height: 1.35; margin-top: 0.1cm; }
+  .probs { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.48cm; margin-top: 0.5cm; }
+  .prob { background: #fff7f2; border: 0.04cm solid #fbd9c3; border-radius: 0.42cm; padding: 0.46cm 0.42cm 0.5cm; }
+  .prob .t { font-size: 0.75cm; font-weight: 900; color: #9a3412; }
+  .prob .d { font-size: 0.6cm; color: #7c5a48; line-height: 1.36; margin-top: 0.14cm; }
 
   /* 파이프라인 */
-  .flow { display: flex; align-items: stretch; gap: 0.22cm; margin-top: 0.15cm; }
-  .step { flex: 1; background: #f2fbf4; border: 0.04cm solid #bfe6cb; border-radius: 0.4cm; padding: 0.4cm 0.2cm 0.44cm; text-align: center; }
-  .step .n { font-family: 'Jua'; font-size: 0.72cm; color: #16a34a; }
-  .step .t { font-size: 0.63cm; font-weight: 800; color: #14532d; line-height: 1.25; margin-top: 0.08cm; }
+  .flow { display: flex; align-items: stretch; gap: 0.2cm; margin-top: 0.12cm; }
+  .step { flex: 1; background: #f2fbf4; border: 0.04cm solid #bfe6cb; border-radius: 0.4cm; padding: 0.38cm 0.16cm 0.42cm; text-align: center; }
+  .step .n { font-family: 'Jua'; font-size: 0.7cm; color: #16a34a; }
+  .step .t { font-size: 0.61cm; font-weight: 800; color: #14532d; line-height: 1.24; margin-top: 0.06cm; }
   .step.human { background: #fffbeb; border-color: #fcd34d; }
   .step.human .n, .step.human .t { color: #92400e; }
-  .arrow { align-self: center; font-size: 0.62cm; color: #9ec9ac; font-weight: 900; }
-
-  /* 통계 */
-  .stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.45cm; }
-  .stat { background: #f4fbf6; border: 0.04cm solid #cdead6; border-radius: 0.45cm; padding: 0.46cm 0.3cm 0.52cm; text-align: center; }
-  .stat .v { font-family: 'Jua'; font-size: 1.62cm; line-height: 1.05; color: #16a34a; }
-  .stat .v small { font-size: 0.72cm; }
-  .stat .l { font-size: 0.61cm; font-weight: 800; color: #24483a; margin-top: 0.12cm; line-height: 1.28; }
-  .stat .s { font-size: 0.53cm; color: #7b8d83; margin-top: 0.06cm; }
-  .stat.orange .v { color: #ea580c; } .stat.purple .v { color: #5b2d90; }
+  .arrow { align-self: center; font-size: 0.58cm; color: #9ec9ac; font-weight: 900; }
 
   /* AI 스택 */
-  .ai { display: flex; flex-direction: column; gap: 0.42cm; }
-  .aiitem { display: flex; gap: 0.52cm; align-items: flex-start; }
-  .aibadge { flex: 0 0 auto; width: 1.5cm; height: 1.5cm; border-radius: 0.42cm; background: #ecfdf3; border: 0.04cm solid #bbe8c9;
-             display: flex; align-items: center; justify-content: center; font-size: 0.86cm; }
-  .aiitem .t { font-size: 0.8cm; font-weight: 900; color: #14532d; line-height: 1.25; }
-  .aiitem .d { font-size: 0.68cm; color: #4a5c52; line-height: 1.4; margin-top: 0.06cm; }
+  .ai { display: flex; flex-direction: column; gap: 0.4cm; }
+  .aiitem { display: flex; gap: 0.5cm; align-items: flex-start; }
+  .aibadge { flex: 0 0 auto; width: 1.4cm; height: 1.4cm; border-radius: 0.38cm; background: #f3ecff; border: 0.04cm solid #ddcdf7;
+             display: flex; align-items: center; justify-content: center; font-family: 'Jua'; font-size: 0.72cm; color: #5b2d90; }
+  .aiitem .t { font-size: 0.79cm; font-weight: 900; color: #14532d; line-height: 1.24; }
+  .aiitem .d { font-size: 0.66cm; color: #4a5c52; line-height: 1.38; margin-top: 0.05cm; }
   .aiitem .d code { font-family: 'Pretendard Variable'; font-weight: 700; color: #5b2d90; }
 
   /* 화면 */
-  .shots { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5cm; }
+  .shots { display: grid; grid-template-columns: 1fr 1fr; gap: 0.48cm; }
   .shot { border: 0.045cm solid #d8e6dc; border-radius: 0.42cm; overflow: hidden; background: #fff; }
   .shot img { width: 100%; display: block; }
-  .shot .cap { font-size: 0.58cm; font-weight: 800; color: #24483a; padding: 0.24cm 0.3cm 0.3cm; text-align: center; }
+  .shot .cap { font-size: 0.57cm; font-weight: 800; color: #24483a; padding: 0.22cm 0.3cm 0.28cm; text-align: center; }
   .shot.wide { grid-column: 1 / -1; }
+  .shot.wide img { height: 15.2cm; object-fit: cover; object-position: top; }
+
+  /* 비교표 */
+  table.cmp { width: 100%; border-collapse: collapse; }
+  table.cmp th, table.cmp td { padding: 0.3cm 0.2cm; font-size: 0.65cm; text-align: center; border-bottom: 0.035cm solid #e8f0ea; }
+  table.cmp th { font-weight: 900; color: #4a5c52; font-size: 0.62cm; background: #f6faf7; line-height: 1.3; }
+  table.cmp th:first-child, table.cmp td:first-child { text-align: left; font-weight: 800; color: #24483a; padding-left: 0.3cm; }
+  table.cmp th.us { color: #14532d; background: #eafaef; }
+  table.cmp td.us { background: #f4fcf6; font-weight: 900; color: #15803d; }
+  table.cmp td.no { color: #b9c4bd; font-weight: 800; }
+  table.cmp td.part { color: #a9744a; font-weight: 800; font-size: 0.6cm; }
+  table.cmp tr:last-child td { border-bottom: none; }
+  .only { display: inline-block; font-size: 0.47cm; font-weight: 900; color: #fff; background: #ea580c;
+          border-radius: 999px; padding: 0.03cm 0.2cm 0.08cm; margin-left: 0.14cm; vertical-align: 0.06cm; }
 
   /* 특징 */
-  .feats { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5cm; }
-  .feat { background: #f8fbf9; border: 0.04cm solid #dceae1; border-radius: 0.45cm; padding: 0.48cm 0.46cm 0.54cm; }
-  .feat .t { font-size: 0.76cm; font-weight: 900; color: #14532d; }
-  .feat .d { font-size: 0.63cm; color: #55665c; line-height: 1.4; margin-top: 0.14cm; }
+  .feats { display: grid; grid-template-columns: 1fr 1fr; gap: 0.48cm; }
+  .feat { background: #f8fbf9; border: 0.04cm solid #dceae1; border-radius: 0.45cm; padding: 0.44cm 0.44cm 0.5cm; }
+  .feat .t { font-size: 0.75cm; font-weight: 900; color: #14532d; }
+  .feat .d { font-size: 0.62cm; color: #55665c; line-height: 1.38; margin-top: 0.12cm; }
+
+  /* 시스템 구조 */
+  .arch { display: flex; flex-direction: column; }
+  .layer { background: #f4fbf6; border: 0.04cm solid #cdead6; border-radius: 0.45cm; padding: 0.4cm 0.48cm 0.46cm; }
+  .layer.alt { background: #f7f3ff; border-color: #ddcdf7; }
+  .layer.gov { background: #fff8f1; border-color: #f8d8b8; }
+  .lname { font-size: 0.78cm; font-weight: 900; color: #14532d; }
+  .lname span { font-size: 0.56cm; font-weight: 800; color: #7c8f83; margin-left: 0.22cm; }
+  .layer.alt .lname { color: #4c2680; } .layer.gov .lname { color: #9a3412; }
+  .chips { display: flex; flex-wrap: wrap; gap: 0.16cm; margin: 0.22cm 0 0.2cm; }
+  .chips span { font-size: 0.53cm; font-weight: 800; color: #15803d; background: #fff; border: 0.035cm solid #bfe6cb;
+                border-radius: 999px; padding: 0.07cm 0.3cm 0.12cm; }
+  .chips.alt span { color: #5b2d90; border-color: #ddcdf7; }
+  .chips.gov span { color: #b45309; border-color: #f8d8b8; }
+  .ldesc { font-size: 0.61cm; color: #4a5c52; line-height: 1.38; }
+  .down { font-size: 0.54cm; font-weight: 800; color: #9ec9ac; text-align: center; padding: 0.12cm 0; }
+
+  /* 자동화 4단계 */
+  .rpa { display: flex; flex-direction: column; }
+  .rpastep { display: flex; gap: 0.5cm; align-items: flex-start; }
+  .rpaic { flex: 0 0 auto; width: 1.4cm; height: 1.4cm; border-radius: 0.38cm; background: #f3ecff; border: 0.04cm solid #d9c6f5;
+           display: flex; align-items: center; justify-content: center; font-family: 'Jua'; font-size: 0.72cm; color: #5b2d90; }
+  .rpastep .t { font-size: 0.79cm; font-weight: 900; color: #14532d; line-height: 1.24; }
+  .rpastep .t .hl { color: #5b2d90; } .rpastep .t .hl.stop { color: #b45309; }
+  .rpastep .d { font-size: 0.64cm; color: #4a5c52; line-height: 1.38; margin-top: 0.05cm; }
+  .rpastep.stop .rpaic { background: #fffbeb; border-color: #fcd34d; color: #b45309; }
+  .rpaline { width: 0.09cm; height: 0.55cm; background: #d9c6f5; margin-left: 0.66cm; border-radius: 999px; }
 
   /* 현장 */
-  .field { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5cm; }
-  .field figure { border-radius: 0.42cm; overflow: hidden; border: 0.045cm solid #d8e6dc; }
-  .field img { width: 100%; height: 10.4cm; object-fit: cover; display: block; }
-  .field figcaption { font-size: 0.58cm; font-weight: 700; color: #4a5c52; padding: 0.22cm 0.3cm 0.28cm; text-align: center; background: #fff; }
+  .field { display: grid; grid-template-columns: 1.95fr 1fr 1fr; gap: 0.4cm; }
+  .field figure { border-radius: 0.42cm; overflow: hidden; border: 0.045cm solid #d8e6dc; background: #fff; }
+  .field img { width: 100%; height: 7.5cm; object-fit: cover; display: block; }
+  .field figcaption { font-size: 0.55cm; font-weight: 700; color: #4a5c52; padding: 0.2cm 0.16cm 0.26cm; text-align: center; }
+
+  /* 품질 게이트 */
+  .qgrid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 0.4cm; }
+  .q { background: #f4fbf6; border: 0.04cm solid #cdead6; border-radius: 0.42cm; padding: 0.42cm 0.24cm 0.46cm; text-align: center; }
+  .q .v { font-family: 'Jua'; font-size: 1.5cm; line-height: 1.05; color: #16a34a; }
+  .q .v small { font-size: 0.66cm; }
+  .q .l { font-size: 0.6cm; font-weight: 900; color: #24483a; margin-top: 0.1cm; }
+  .q .s { font-size: 0.5cm; color: #7b8d83; margin-top: 0.06cm; line-height: 1.3; }
 
   /* 기대효과 */
-  .exp { display: flex; flex-direction: column; gap: 0.4cm; }
-  .expitem { display: flex; gap: 0.5cm; align-items: center; }
-  .expnum { flex: 0 0 auto; width: 1.15cm; height: 1.15cm; border-radius: 999px; background: #5b2d90; color: #fff;
-            font-family: 'Jua'; font-size: 0.72cm; display: flex; align-items: center; justify-content: center; padding-top: 0.06cm; }
-  .expitem .t { font-size: 0.75cm; font-weight: 800; color: #2c3b33; line-height: 1.35; }
+  .exp { display: flex; flex-direction: column; gap: 0.36cm; }
+  .expitem { display: flex; gap: 0.48cm; align-items: center; }
+  .expnum { flex: 0 0 auto; width: 1.1cm; height: 1.1cm; border-radius: 999px; background: #5b2d90; color: #fff;
+            font-family: 'Jua'; font-size: 0.7cm; display: flex; align-items: center; justify-content: center; padding-top: 0.06cm; }
+  .expitem .t { font-size: 0.73cm; font-weight: 800; color: #2c3b33; line-height: 1.34; }
   .expitem .t b { color: #5b2d90; }
 
   /* 팀·연락처 */
   .teamgrid { display: flex; gap: 0.7cm; align-items: center; }
-  .tbl { flex: 1; display: grid; grid-template-columns: auto 1fr; gap: 0.16cm 0.5cm; font-size: 0.72cm; }
+  .tbl { flex: 1; display: grid; grid-template-columns: auto 1fr; gap: 0.14cm 0.5cm; font-size: 0.7cm; }
   .tbl .k { font-weight: 900; color: #14532d; white-space: nowrap; }
   .tbl .v { color: #45564c; }
   .qr { flex: 0 0 auto; text-align: center; }
-  .qr img { width: 6.2cm; height: 6.2cm; display: block; border: 0.045cm solid #d8e6dc; border-radius: 0.35cm; }
-  .qr .c { font-size: 0.56cm; font-weight: 800; color: #16a34a; margin-top: 0.16cm; }
+  .qr img { width: 6.4cm; height: 6.4cm; display: block; border: 0.045cm solid #d8e6dc; border-radius: 0.35cm; }
+  .qr .c { font-size: 0.55cm; font-weight: 800; color: #16a34a; margin-top: 0.14cm; }
 
-  /* 서비스 개요 히어로(홈 화면 배너) */
-  .hero { border: 0.045cm solid #d8e6dc; border-radius: 0.45cm; overflow: hidden; margin-bottom: 0.5cm; height: 8.6cm; }
-  .hero img { width: 100%; margin-top: -1.2cm; display: block; }
-
-  /* 시스템 구조 3계층 */
-  .arch { display: flex; flex-direction: column; }
-  .layer { background: #f4fbf6; border: 0.04cm solid #cdead6; border-radius: 0.45cm; padding: 0.44cm 0.5cm 0.5cm; }
-  .layer.alt { background: #f7f3ff; border-color: #ddcdf7; }
-  .layer.gov { background: #fff8f1; border-color: #f8d8b8; }
-  .lname { font-size: 0.8cm; font-weight: 900; color: #14532d; }
-  .lname span { font-size: 0.58cm; font-weight: 800; color: #7c8f83; margin-left: 0.25cm; }
-  .layer.alt .lname { color: #4c2680; } .layer.gov .lname { color: #9a3412; }
-  .chips { display: flex; flex-wrap: wrap; gap: 0.18cm; margin: 0.26cm 0 0.24cm; }
-  .chips span { font-size: 0.54cm; font-weight: 800; color: #15803d; background: #fff; border: 0.035cm solid #bfe6cb;
-                border-radius: 999px; padding: 0.08cm 0.32cm 0.13cm; }
-  .chips.alt span { color: #5b2d90; border-color: #ddcdf7; }
-  .chips.gov span { color: #b45309; border-color: #f8d8b8; }
-  .ldesc { font-size: 0.63cm; color: #4a5c52; line-height: 1.4; }
-  .down { font-size: 0.56cm; font-weight: 800; color: #9ec9ac; text-align: center; padding: 0.16cm 0; }
-
-  /* 자동화 4단계 */
-  .rpa { display: flex; flex-direction: column; }
-  .rpastep { display: flex; gap: 0.55cm; align-items: flex-start; }
-  .rpaic { flex: 0 0 auto; width: 1.62cm; height: 1.62cm; border-radius: 0.45cm; background: #f3ecff; border: 0.04cm solid #d9c6f5;
-           display: flex; align-items: center; justify-content: center; font-size: 0.92cm; }
-  .rpastep .t { font-size: 0.82cm; font-weight: 900; color: #14532d; line-height: 1.25; }
-  .rpastep .t .hl { color: #5b2d90; }
-  .rpastep .t .hl.stop { color: #b45309; }
-  .rpastep .d { font-size: 0.66cm; color: #4a5c52; line-height: 1.4; margin-top: 0.08cm; }
-  .rpastep.stop .rpaic { background: #fffbeb; border-color: #fcd34d; }
-  .rpaline { width: 0.09cm; height: 0.72cm; background: #d9c6f5; margin-left: 0.76cm; border-radius: 999px; }
-
-  .kicker { display: inline-block; font-size: 0.6cm; font-weight: 900; color: #16a34a; background: #ecfdf3;
-            border-radius: 999px; padding: 0.1cm 0.45cm 0.16cm; margin-bottom: 0.3cm; letter-spacing: 0.01em; }
+  .kicker { display: inline-block; font-size: 0.58cm; font-weight: 900; color: #16a34a; background: #ecfdf3;
+            border-radius: 999px; padding: 0.08cm 0.42cm 0.14cm; margin-bottom: 0.28cm; }
 </style>
 </head>
 <body>
   <img class="bg" src="assets/bg.jpg" alt="" />
 
   <!-- (필수) 대학명 -->
-  <div class="univ">
-    <span class="name">영남대학교</span>
-  </div>
+  <div class="univ"><span class="name">영남대학교</span></div>
 
   <!-- (필수) 서비스명 · 팀명 · 팀장/팀원 -->
   <div class="titlecard">
@@ -185,28 +210,43 @@
     </div>
   </div>
 
+  <!-- 히어로 스트립 -->
+  <div class="hero">
+    <img class="mascot" src="assets/mascot-hero.png" alt="모두봄 마스코트 새싹이" />
+    <div class="bubble">
+      <div class="t">“내가 뭐 받을 수 있어?” 한 문장이면,<br />찾고 · 계산하고 · 서류까지 떼어 드려요.</div>
+      <div class="s">설치도 회원가입도 없이 — 어르신은 전화 걸듯 말로도 물어볼 수 있습니다.</div>
+    </div>
+    <div class="nums">
+      <div class="hnum"><div class="v">5,300<small>여 건</small></div><div class="l">전국 복지 실데이터</div><div class="s">큐레이션 190 + 공공데이터 5,143</div></div>
+      <div class="hsep"></div>
+      <div class="hnum"><div class="v">15<small>종</small></div><div class="l">서류 자동 발급</div><div class="s">정부24 · 건강보험 · 고용24</div></div>
+      <div class="hsep"></div>
+      <div class="hnum"><div class="v">0<small>건</small></div><div class="l">서버로 나가는 개인정보</div><div class="s">판정 · 검색이 기기 안에서</div></div>
+    </div>
+  </div>
+
   <div class="body">
     <!-- ══════════ 왼쪽 ══════════ -->
     <div class="col">
 
       <section class="sec">
-        <h2>개발 동기 <span class="en">MOTIVATION</span></h2>
+        <h2><span class="no">01</span>개발 동기<span class="en">MOTIVATION</span></h2>
         <div class="pad">
           <div class="lead-line">복지 예산은 늘어나는데, 정작 <b>필요한 사람이 못 받는다.</b></div>
           <div class="probs">
-            <div class="prob"><div class="ic">🗂️</div><div class="t">흩어진 정보</div><div class="d">중앙·지자체 5,000여 제도가 사이트마다 따로</div></div>
-            <div class="prob"><div class="ic">📄</div><div class="t">복잡한 절차</div><div class="d">서류 발급·방문·양식 작성에서 포기</div></div>
-            <div class="prob"><div class="ic">👵</div><div class="t">디지털 격차</div><div class="d">어르신·외국인은 검색조차 어려움</div></div>
+            <div class="prob"><div class="t">흩어진 정보</div><div class="d">중앙·지자체 5,000여 제도가 사이트마다 따로 있습니다.</div></div>
+            <div class="prob"><div class="t">복잡한 절차</div><div class="d">서류 발급·방문·양식 작성 단계에서 포기합니다.</div></div>
+            <div class="prob"><div class="t">디지털 격차</div><div class="d">어르신·외국인은 검색조차 어렵습니다.</div></div>
           </div>
-          <p style="margin-top:0.5cm">그래서 <b>발견 → 이해 → 신청</b>을 한 흐름으로 잇고, 어려운 절차는 <b>AI 에이전트가 대신 수행</b>하도록 만들었습니다.</p>
+          <p style="margin-top:0.48cm">그래서 <b>발견 → 이해 → 신청</b>을 한 흐름으로 잇고, 어려운 절차는 <b>AI 에이전트가 대신 수행</b>하도록 만들었습니다.</p>
         </div>
       </section>
 
       <section class="sec">
-        <h2>서비스 개요 · 동작 흐름 <span class="en">HOW IT WORKS</span></h2>
+        <h2><span class="no">02</span>동작 흐름<span class="en">HOW IT WORKS</span></h2>
         <div class="pad">
-          <div class="hero"><img src="assets/shots/home.png" alt="모두봄 홈 화면 — 3D 마스코트 새싹이" /></div>
-          <p style="margin-bottom:0.45cm">프로필 입력 또는 <b>“내가 뭐 받을 수 있어?” 한 문장</b>이면 충분합니다. 자격을 판정해 맞춤 복지를 고르고, 필요한 서류를 정부24에서 자동 발급하고, 복지로 신청서까지 채워 둡니다.</p>
+          <p style="margin-bottom:0.42cm">프로필 입력 또는 <b>한 문장</b>이면 충분합니다. 자격을 판정해 맞춤 복지를 고르고, 필요한 서류를 정부24에서 자동 발급하고, 복지로 신청서까지 채워 둡니다.</p>
           <div class="flow">
             <div class="step"><div class="n">01</div><div class="t">프로필 ·<br />자연어 입력</div></div>
             <div class="arrow">▶</div>
@@ -220,40 +260,40 @@
             <div class="arrow">▶</div>
             <div class="step human"><div class="n">06</div><div class="t">본인 확인<br />후 제출</div></div>
           </div>
-          <p class="muted" style="margin-top:0.4cm">※ 마지막 <b style="color:#92400e">제출은 반드시 사용자가</b> — 본인인증·최종 제출은 법적 행위라 자동화하지 않습니다(human-in-the-loop).</p>
+          <p class="muted" style="margin-top:0.36cm">※ 마지막 <b style="color:#92400e">제출은 반드시 사용자가</b> — 본인인증·최종 제출은 법적 행위라 자동화하지 않습니다(human-in-the-loop).</p>
         </div>
       </section>
 
       <section class="sec purple">
-        <h2>활용 AI <span class="en">AI STACK</span></h2>
+        <h2><span class="no">03</span>활용 AI<span class="en">AI STACK</span></h2>
         <div class="pad">
           <div class="ai">
             <div class="aiitem">
-              <div class="aibadge">🧠</div>
+              <div class="aibadge">A</div>
               <div>
                 <div class="t">온디바이스 다국어 의미 검색</div>
                 <div class="d"><code>multilingual-e5-small</code> 임베딩을 <b>브라우저에서 직접 실행</b>(transformers.js). 한국어·영어·베트남어 등 <b>교차 언어 검색</b> — 개인정보를 서버로 보내지 않습니다.</div>
               </div>
             </div>
             <div class="aiitem">
-              <div class="aibadge">🕸️</div>
+              <div class="aibadge">B</div>
               <div>
                 <div class="t">LangGraph 10노드 에이전트 + 하이브리드 RAG</div>
                 <div class="d">프로필 분석 → 정책 검색 → 자격 판별 → <b>재판별 루프</b> → 가이드 생성까지 상태 그래프로 오케스트레이션. 검색은 <code>BM25 + 임베딩</code> RRF 결합(ChromaDB).</div>
               </div>
             </div>
             <div class="aiitem">
-              <div class="aibadge">💬</div>
+              <div class="aibadge">C</div>
               <div>
                 <div class="t">LLM 3중 폴백 · 키 없이도 동작</div>
                 <div class="d"><code>Gemini 2.5 Flash → Groq → Claude</code> 자동 폴백, 실패 시 <b>규칙 기반 모드</b>로 전 기능 유지 — 시연이 멈추지 않습니다.</div>
               </div>
             </div>
             <div class="aiitem">
-              <div class="aibadge">🤖</div>
+              <div class="aibadge">D</div>
               <div>
                 <div class="t">웹 에이전트 RPA — 화면을 읽고 스스로 채움</div>
-                <div class="d"><b>접근성 트리(WAI-ARIA) 의미 매칭</b>으로 라벨이 바뀌어도 칸을 찾고, 막히면 <b>LLM ReAct 재계획</b>으로 복구. 실패 순간 화면 구조를 <b>개인정보 없이</b> 남겨 스스로 고칩니다.</div>
+                <div class="d"><b>접근성 트리(WAI-ARIA) 의미 매칭</b>으로 라벨이 바뀌어도 칸을 찾고, 막히면 <b>LLM ReAct 재계획</b>으로 복구. 실패 순간의 화면 구조를 <b>개인정보 없이</b> 남겨 스스로 고칩니다.</div>
               </div>
             </div>
           </div>
@@ -261,18 +301,32 @@
       </section>
 
       <section class="sec">
-        <h2>실제 화면 <span class="en">SCREENS</span></h2>
+        <h2><span class="no">04</span>실제 화면<span class="en">SCREENS</span></h2>
         <div class="pad">
           <div class="shots">
             <div class="shot wide"><img src="assets/shots/result.png" alt="분석 결과 화면" /><div class="cap">한 문장 입력 → 맞춤 복지 32개 · 월 예상 금액까지 즉시 산출</div></div>
             <div class="shot"><img src="assets/shots/call.png" alt="통화형 상담 화면" /><div class="cap">전화 걸듯 말로 묻는 통화형 상담</div></div>
-            <div class="shot"><img src="assets/shots/explore2.png" alt="정책 탐색 검색 결과 화면" /><div class="cap">5,298건에서 조건·의미로 좁히기(‘주거’ 411건)</div></div>
+            <div class="shot"><img src="assets/shots/explore2.png" alt="정책 탐색 검색 결과" /><div class="cap">5,298건에서 조건·의미로 좁히기</div></div>
           </div>
         </div>
       </section>
 
+
+      <section class="sec">
+        <h2><span class="no">05</span>품질 · 검증<span class="en">QUALITY GATES</span></h2>
+        <div class="pad">
+          <div class="qgrid">
+            <div class="q"><div class="v">1,812</div><div class="l">자동 테스트</div><div class="s">프론트 1,415 · 백엔드 397</div></div>
+            <div class="q"><div class="v">0<small>건</small></div><div class="l">접근성 위반</div><div class="s">axe · 전 화면 · 고대비 · 큰글씨</div></div>
+            <div class="q"><div class="v">14</div><div class="l">실브라우저 E2E</div><div class="s">웹 · 모바일 · 촬영 · 흐름</div></div>
+            <div class="q"><div class="v">0<small>원</small></div><div class="l">서버비 · 회원가입</div><div class="s">정적 배포 + 온디바이스</div></div>
+          </div>
+          <p class="muted" style="margin-top:0.4cm">모든 변경은 위 게이트를 통과해야 배포됩니다 — <b>지금 이 순간에도 라이브</b>에 같은 코드가 올라가 있습니다.</p>
+        </div>
+      </section>
+
       <section class="sec purple">
-        <h2>기대 효과 <span class="en">IMPACT</span></h2>
+        <h2><span class="no">06</span>기대 효과<span class="en">IMPACT</span></h2>
         <div class="pad">
           <div class="exp">
             <div class="expitem"><div class="expnum">1</div><div class="t"><b>몰라서 놓치는 복지 감소</b> — 흩어진 5,300여 제도를 한 번에 대조해 “내 것”만 추립니다.</div></div>
@@ -288,41 +342,40 @@
     <div class="col">
 
       <section class="sec dark">
-        <h2>개발 결과 <span class="en">RESULTS</span></h2>
+        <h2><span class="no">07</span>경쟁 서비스가 비운 자리<span class="en">POSITIONING</span></h2>
         <div class="pad">
-          <div class="stats">
-            <div class="stat"><div class="v">5,300<small>여 건</small></div><div class="l">전국 복지 실데이터</div><div class="s">큐레이션 190 + 공공데이터 5,143</div></div>
-            <div class="stat orange"><div class="v">15<small>종</small></div><div class="l">서류 자동 발급</div><div class="s">정부24 · 건강보험 · 고용24</div></div>
-            <div class="stat purple"><div class="v">7<small>개 언어</small></div><div class="l">온디바이스 AI 검색</div><div class="s">외국인 · 다문화 사각지대</div></div>
-            <div class="stat"><div class="v">0<small>원</small></div><div class="l">서버비 · 회원가입</div><div class="s">정적 배포 + 온디바이스 연산</div></div>
-            <div class="stat orange"><div class="v">1,812</div><div class="l">자동 품질 테스트</div><div class="s">프론트 1,415 + 백엔드 397</div></div>
-            <div class="stat"><div class="v">0<small>건</small></div><div class="l">접근성 위반(axe)</div><div class="s">전 화면 · 고대비 · 큰글씨 검사</div></div>
-          </div>
-          <p style="margin-top:0.55cm"><b>지금 바로 쓸 수 있는 상태</b>로 배포되어 있습니다 — 웹은 설치 없이 전 기능, 서류 자동발급이 필요하면 Windows 앱을 내려받아 확장합니다.</p>
+          <table class="cmp">
+            <tr><th>기능</th><th>복지로 · 보조금24<br /><span style="font-weight:700; color:#8b9a91">정부</span></th><th>민간 복지 앱<br /><span style="font-weight:700; color:#8b9a91">상용</span></th><th class="us">모두봄</th></tr>
+            <tr><td>회원가입 없이 즉시</td><td class="no">✕</td><td class="no">✕</td><td class="us">✓</td></tr>
+            <tr><td>온디바이스 다국어 AI</td><td class="no">✕</td><td class="no">✕</td><td class="us">✓<span class="only">유일</span></td></tr>
+            <tr><td>개인정보 서버 미전송</td><td class="part">정부 보관</td><td class="part">수집형</td><td class="us">✓<span class="only">유일</span></td></tr>
+            <tr><td>실제 서류 자동 발급</td><td class="no">✕</td><td class="no">✕</td><td class="us">✓<span class="only">유일</span></td></tr>
+            <tr><td>민간재단 큐레이션</td><td class="no">✕</td><td class="part">일부</td><td class="us">✓ 21건</td></tr>
+            <tr><td>신청서 자동 작성</td><td class="part">링크 안내</td><td class="part">링크 안내</td><td class="us">✓</td></tr>
+          </table>
+          <p class="muted" style="margin-top:0.36cm">각 서비스의 공개 정보 기준(2026-07). 정부 포털은 제도 안내에, 상용 앱은 추천에 강점이 있고 — <b>모두봄은 그 다음 단계인 ‘실제 신청 행위’</b>를 맡습니다.</p>
         </div>
       </section>
 
       <section class="sec">
-        <h2>특징 <span class="en">WHAT MAKES IT DIFFERENT</span></h2>
+        <h2><span class="no">08</span>특징<span class="en">WHAT MAKES IT DIFFERENT</span></h2>
         <div class="pad">
           <div class="feats">
-            <div class="feat"><div class="t">정직성을 코드로 강제</div><div class="d">확인되지 않은 발급을 ‘완료’로 표시하지 않고, 가짜 데이터·가짜 성공을 만들지 않습니다. 미확인은 <b>⚠️ 확인 필요</b>로 정직하게.</div></div>
-            <div class="feat"><div class="t">어르신을 1순위 사용자로</div><div class="d">전화 걸듯 말로 묻는 <b>통화형 상담</b>, 큰글씨·고대비·읽어주기. 설치·회원가입 없이 링크 하나로 시작.</div></div>
-            <div class="feat"><div class="t">개인정보가 기기를 안 떠남</div><div class="d">AI 의미 검색·자격 판정·금액 계산이 <b>전부 브라우저 안</b>에서. 서버 없이도 완전 동작하는 설계.</div></div>
-            <div class="feat"><div class="t">추천에서 끝내지 않음</div><div class="d">서류 발급 → 신청서 작성 → 사후 관리까지. 실제 정부 사이트를 <b>브라우저 자동화로 직접</b> 수행합니다.</div></div>
-            <div class="feat"><div class="t">실데이터만 씁니다</div><div class="d">공공데이터포털 실데이터 <b>5,143건</b> + 공식 출처로 검증한 큐레이션 190건. 없는 제도를 지어내지 않습니다.</div></div>
+            <div class="feat"><div class="t">정직성을 코드로 강제</div><div class="d">확인되지 않은 발급을 ‘완료’로 표시하지 않고, 가짜 데이터·가짜 성공을 만들지 않습니다.</div></div>
+            <div class="feat"><div class="t">어르신을 1순위 사용자로</div><div class="d">전화 걸듯 말로 묻는 <b>통화형 상담</b>, 큰글씨·고대비·읽어주기. 설치·회원가입 없이 링크 하나로.</div></div>
+            <div class="feat"><div class="t">실데이터만 씁니다</div><div class="d">공공데이터 <b>5,143건</b> + 공식 출처로 검증한 큐레이션 190건. 없는 제도를 지어내지 않습니다.</div></div>
             <div class="feat"><div class="t">키 없이도 멈추지 않음</div><div class="d">LLM 키가 없거나 API가 실패해도 <b>규칙 기반 모드</b>로 전 기능 유지 — 시연 중 끊김이 없습니다.</div></div>
           </div>
         </div>
       </section>
 
       <section class="sec">
-        <h2>시스템 구조 <span class="en">ARCHITECTURE</span></h2>
+        <h2><span class="no">09</span>시스템 구조<span class="en">ARCHITECTURE</span></h2>
         <div class="pad">
           <div class="arch">
             <div class="layer">
               <div class="lname">사용자 기기 <span>브라우저</span></div>
-              <div class="chips"><span>React 18</span><span>TypeScript</span><span>transformers.js 임베딩</span><span>복지 판정 엔진</span><span>zustand</span><span>PWA</span></div>
+              <div class="chips"><span>React 18</span><span>TypeScript</span><span>transformers.js 임베딩</span><span>복지 판정 엔진</span><span>PWA</span></div>
               <div class="ldesc">자격 판정 · 금액 계산 · AI 의미 검색이 <b>전부 기기 안</b>에서 — 서버 없이도 전 기능 동작(정적 배포).</div>
             </div>
             <div class="down">▼ 있으면 자동화가 켜집니다</div>
@@ -342,51 +395,51 @@
       </section>
 
       <section class="sec">
-        <h2>자동화 — 신청까지 대신 <span class="en">AGENT RPA</span></h2>
+        <h2><span class="no">10</span>자동화 — 신청까지 대신<span class="en">AGENT RPA</span></h2>
         <div class="pad">
           <div class="rpa">
             <div class="rpastep">
-              <div class="rpaic">🔐</div>
+              <div class="rpaic">1</div>
               <div><div class="t">정부24 로그인 <span class="hl">단 1회</span></div>
                    <div class="d">간편인증(카카오·PASS 등) 폼을 자동으로 채우고, 폰 승인만 사용자가 합니다.</div></div>
             </div>
             <div class="rpaline"></div>
             <div class="rpastep">
-              <div class="rpaic">📄</div>
+              <div class="rpaic">2</div>
               <div><div class="t">서류 <span class="hl">연쇄 자동 발급</span></div>
                    <div class="d">등본·가족관계·소득·건강보험 등 <b>15종</b>을 같은 로그인으로 이어서 발급 → 내 서류함에 정리.</div></div>
             </div>
             <div class="rpaline"></div>
             <div class="rpastep">
-              <div class="rpaic">✍️</div>
+              <div class="rpaic">3</div>
               <div><div class="t">복지로 <span class="hl">신청서 자동 작성</span></div>
                    <div class="d">서비스 딥링크로 이동해 이름·생년월일·연락처를 채우고 서류를 첨부합니다.</div></div>
             </div>
             <div class="rpaline"></div>
             <div class="rpastep stop">
-              <div class="rpaic">✋</div>
+              <div class="rpaic">4</div>
               <div><div class="t">제출 직전 <span class="hl stop">정지</span></div>
                    <div class="d">최종 제출은 <b>반드시 사용자가</b> — 비가역·법적 행위라 의도적으로 자동화하지 않았습니다.</div></div>
             </div>
           </div>
-          <p class="muted" style="margin-top:0.5cm">신청 이후에도 <b>신청일·정책 갱신 주기</b>로 서류 미비·갱신 임박을 스스로 점검해 알려 줍니다. 발급이 확인되지 않으면 완료로 표시하지 않습니다.</p>
-        </div>
-      </section>
-
-      <section class="sec">
-        <h2>현장 검증 <span class="en">FIELD TEST</span></h2>
-        <div class="pad">
-          <span class="kicker">경산시 노인복지센터</span>
-          <div class="field">
-            <figure><img src="assets/field.jpg" alt="어르신과 함께 모두봄을 사용해 보는 모습" /><figcaption>어르신과 함께 직접 사용</figcaption></figure>
-            <figure><img src="assets/field2.jpg" alt="어르신이 모두봄 홈 화면을 보는 모습" /><figcaption>직접 써 보신 어르신과 함께</figcaption></figure>
-          </div>
-          <p style="margin-top:0.45cm">실제 어르신들과 사용해 보며 <b>글자 크기·말로 묻기·다음 할 일 안내</b>를 다듬었습니다. “버튼이 뭔지 모르겠다”는 말이 곧 다음 커밋이 되었습니다.</p>
         </div>
       </section>
 
       <section class="sec dark">
-        <h2>팀 · 링크 <span class="en">TEAM &amp; DEMO</span></h2>
+        <h2><span class="no">11</span>현장 검증<span class="en">FIELD TEST</span></h2>
+        <div class="pad">
+          <span class="kicker">경산시 노인복지센터 — 어르신과 직접</span>
+          <div class="field">
+            <figure><img src="assets/field.jpg" alt="어르신과 함께 모두봄을 사용해 보는 모습" /><figcaption>옆에서 함께 조작해 보며</figcaption></figure>
+            <figure><img src="assets/field2.jpg" alt="직접 써 보신 어르신" /><figcaption>직접 써 보신 어르신</figcaption></figure>
+            <figure><img src="assets/field3.jpg" alt="노인복지센터에서 어르신들과 팀 모두봄" /><figcaption>시연을 마치고</figcaption></figure>
+          </div>
+          <p style="margin-top:0.42cm">만든 사람이 아니라 <b>쓸 사람에게 먼저 물었습니다.</b> 실제 어르신들과 함께 써 보며 글자 크기·말로 묻기·다음 할 일 안내를 다듬었고, <b>“버튼이 뭔지 모르겠다”</b>는 말이 곧 다음 커밋이 되었습니다.</p>
+        </div>
+      </section>
+
+      <section class="sec dark">
+        <h2><span class="no">12</span>팀 · 데모<span class="en">TEAM &amp; DEMO</span></h2>
         <div class="pad">
           <div class="teamgrid">
             <div class="tbl">
