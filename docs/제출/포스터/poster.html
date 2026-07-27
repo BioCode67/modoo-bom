@@ -55,21 +55,21 @@
   .hsep { width: 0.045cm; background: rgba(255,255,255,.28); border-radius: 999px; margin: 0.9cm 0; }
 
   /* ───── 본문 2단 ───── */
-  .body { position: absolute; left: 4.9cm; top: 41.4cm; width: 60.2cm; height: 90.9cm; z-index: 3;
+  .body { position: absolute; left: 4.9cm; top: 40.9cm; width: 60.2cm; height: 91.4cm; z-index: 3;
     display: grid; grid-template-columns: 29.1cm 29.1cm; gap: 0 2cm; align-content: start; }
-  .col { display: flex; flex-direction: column; gap: 0.8cm; justify-content: space-between; }
+  .col { display: flex; flex-direction: column; gap: 0.62cm; justify-content: space-between; }
 
   .sec { background: #fff; border: 0.045cm solid #dbe7de; border-radius: 0.62cm; overflow: hidden;
          box-shadow: 0 0.12cm 0.4cm rgba(20,60,35,.07); }
   .sec > h2 { background: #16a34a; color: #fff; font-family: 'Jua'; font-size: 1.1cm; letter-spacing: 0.01em;
-              padding: 0.3cm 0.7cm 0.4cm; display: flex; align-items: center; gap: 0.45cm; }
+              padding: 0.26cm 0.62cm 0.34cm; display: flex; align-items: center; gap: 0.4cm; }
   .sec > h2 .no { font-family: 'Pretendard Variable'; font-weight: 900; font-size: 0.72cm; letter-spacing: 0.06em;
                   background: rgba(255,255,255,.2); border-radius: 0.28cm; padding: 0.1cm 0.3cm 0.14cm; flex: 0 0 auto; }
   .sec > h2 .en { font-family: 'Pretendard Variable'; font-weight: 700; font-size: 0.58cm; opacity: .8;
                   letter-spacing: 0.05em; margin-left: auto; }
   .sec.purple > h2 { background: #5b2d90; }
   .sec.dark > h2 { background: #14532d; }
-  .pad { padding: 0.6cm 0.7cm 0.7cm; }
+  .pad { padding: 0.52cm 0.62cm 0.58cm; }
 
   p, li { font-size: 0.77cm; line-height: 1.48; color: #2c3b33; }
   .lead-line { font-size: 1.0cm; font-weight: 800; color: #14532d; line-height: 1.34; }
@@ -79,11 +79,11 @@
   li::before { content: ''; position: absolute; left: 0.14cm; top: 0.4cm; width: 0.28cm; height: 0.28cm;
                border-radius: 999px; background: #16a34a; }
   li b, p b { font-weight: 800; color: #14532d; }
-  .muted { color: #6d7f75; font-size: 0.61cm; line-height: 1.42; }
+  .muted { color: #6d7f75; font-size: 0.58cm; line-height: 1.42; }
 
   /* 문제 3분할 */
   .probs { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.48cm; margin-top: 0.5cm; }
-  .prob { background: #fff7f2; border: 0.04cm solid #fbd9c3; border-radius: 0.42cm; padding: 0.46cm 0.42cm 0.5cm; }
+  .prob { background: #fff7f2; border: 0.04cm solid #fbd9c3; border-radius: 0.42cm; padding: 0.36cm 0.36cm 0.4cm; }
   .prob .t { font-size: 0.75cm; font-weight: 900; color: #9a3412; }
   .prob .d { font-size: 0.6cm; color: #7c5a48; line-height: 1.36; margin-top: 0.14cm; }
 
@@ -97,7 +97,7 @@
   .arrow { align-self: center; font-size: 0.58cm; color: #9ec9ac; font-weight: 900; }
 
   /* AI 스택 */
-  .ai { display: flex; flex-direction: column; gap: 0.4cm; }
+  .ai { display: flex; flex-direction: column; gap: 0.3cm; }
   .aiitem { display: flex; gap: 0.5cm; align-items: flex-start; }
   .aibadge { flex: 0 0 auto; width: 1.4cm; height: 1.4cm; border-radius: 0.38cm; background: #f3ecff; border: 0.04cm solid #ddcdf7;
              display: flex; align-items: center; justify-content: center; font-family: 'Jua'; font-size: 0.72cm; color: #5b2d90; }
@@ -110,17 +110,15 @@
   .shot { border: 0.045cm solid #d8e6dc; border-radius: 0.42cm; overflow: hidden; background: #fff; }
   .shot img { width: 100%; display: block; }
   .shot .cap { font-size: 0.57cm; font-weight: 800; color: #24483a; padding: 0.22cm 0.3cm 0.28cm; text-align: center; }
-  .shot.wide { grid-column: 1 / -1; }
-  .shot.wide img { height: 11.5cm; object-fit: cover; object-position: top; }
-  .shots .shot img { height: 8.4cm; object-fit: cover; object-position: top; }
-  .shot.s3 { grid-column: span 2; }
-  .shot.s3 img { height: 5.9cm; }
-  .shots { grid-template-columns: repeat(6, 1fr); }
-  .shots > .shot:not(.wide):not(.s3) { grid-column: span 3; }
+  .shot img.tall { height: 9.2cm; object-fit: cover; object-position: top; }
+  .shot img.mid { height: 7.0cm; object-fit: cover; object-position: top; }
+  .shot img.mid.lang { object-position: center 66%; }
+  .shots2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.44cm; }
+  .shots2 .shot img.mid { height: 5.4cm; }
 
   /* 비교표 */
   table.cmp { width: 100%; border-collapse: collapse; }
-  table.cmp th, table.cmp td { padding: 0.22cm 0.18cm; font-size: 0.62cm; text-align: center; border-bottom: 0.035cm solid #e8f0ea; }
+  table.cmp th, table.cmp td { padding: 0.19cm 0.16cm; font-size: 0.6cm; text-align: center; border-bottom: 0.035cm solid #e8f0ea; }
   table.cmp th { font-weight: 900; color: #4a5c52; font-size: 0.62cm; background: #f6faf7; line-height: 1.3; }
   table.cmp th:first-child, table.cmp td:first-child { text-align: left; font-weight: 800; color: #24483a; padding-left: 0.3cm; }
   table.cmp th.us { color: #14532d; background: #eafaef; }
@@ -162,12 +160,12 @@
   .rpastep .t .hl { color: #5b2d90; } .rpastep .t .hl.stop { color: #b45309; }
   .rpastep .d { font-size: 0.62cm; color: #4a5c52; line-height: 1.34; margin-top: 0.04cm; }
   .rpastep.stop .rpaic { background: #fffbeb; border-color: #fcd34d; color: #b45309; }
-  .rpaline { width: 0.09cm; height: 0.55cm; background: #d9c6f5; margin-left: 0.66cm; border-radius: 999px; }
+  .rpaline { width: 0.09cm; height: 0.42cm; background: #d9c6f5; margin-left: 0.66cm; border-radius: 999px; }
 
   /* 현장 */
   .field { display: grid; grid-template-columns: 1.95fr 1fr 1fr; gap: 0.4cm; }
   .field figure { border-radius: 0.42cm; overflow: hidden; border: 0.045cm solid #d8e6dc; background: #fff; }
-  .field img { width: 100%; height: 6.2cm; object-fit: cover; display: block; }
+  .field img { width: 100%; height: 4.9cm; object-fit: cover; display: block; }
   .field figcaption { font-size: 0.55cm; font-weight: 700; color: #4a5c52; padding: 0.2cm 0.16cm 0.26cm; text-align: center; }
 
   /* 품질 게이트 */
@@ -184,7 +182,7 @@
   .credtxt { font-size: 0.62cm; font-weight: 800; color: #5f7368; }
 
   /* 기대효과 */
-  .exp { display: flex; flex-direction: column; gap: 0.36cm; }
+  .exp { display: flex; flex-direction: column; gap: 0.3cm; }
   .expitem { display: flex; gap: 0.48cm; align-items: center; }
   .expnum { flex: 0 0 auto; width: 1.1cm; height: 1.1cm; border-radius: 999px; background: #5b2d90; color: #fff;
             font-family: 'Jua'; font-size: 0.7cm; display: flex; align-items: center; justify-content: center; padding-top: 0.06cm; }
@@ -193,20 +191,23 @@
 
   /* 팀·연락처 */
   .teamgrid { display: flex; gap: 0.7cm; align-items: center; }
-  .tbl { flex: 1; display: grid; grid-template-columns: auto 1fr; gap: 0.14cm 0.5cm; font-size: 0.7cm; }
+  .tbl { flex: 1; display: grid; grid-template-columns: auto 1fr; gap: 0.1cm 0.44cm; font-size: 0.66cm; }
   .tbl .k { font-weight: 900; color: #14532d; white-space: nowrap; }
   .tbl .v { color: #45564c; }
   .qr { flex: 0 0 auto; text-align: center; }
-  .qr img { width: 6.4cm; height: 6.4cm; display: block; border: 0.045cm solid #d8e6dc; border-radius: 0.35cm; }
+  .qr img { width: 5.6cm; height: 5.6cm; display: block; border: 0.045cm solid #d8e6dc; border-radius: 0.35cm; }
   .qr .c { font-size: 0.55cm; font-weight: 800; color: #16a34a; margin-top: 0.14cm; }
 
   .outcome { background: #ecfdf3; border: 0.04cm solid #bfe6cb; border-radius: 0.42cm; padding: 0.28cm 0.42cm 0.34cm;
              font-size: 0.72cm; font-weight: 700; color: #24483a; line-height: 1.4; margin-bottom: 0.34cm; }
   .outcome b { font-weight: 900; color: #14532d; }
 
-  .centers { display: flex; flex-wrap: wrap; gap: 0.24cm; margin-bottom: 0.34cm; }
-  .cchip { font-size: 0.6cm; font-weight: 900; color: #14532d; background: #ecfdf3; border: 0.035cm solid #bfe6cb;
-           border-radius: 999px; padding: 0.1cm 0.4cm 0.16cm; }
+  .clist { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.34cm; margin-bottom: 0.4cm; }
+  .citem { display: flex; align-items: center; gap: 0.26cm; background: #f4fbf6; border: 0.04cm solid #cdead6;
+           border-radius: 0.38cm; padding: 0.2cm 0.24cm 0.24cm; }
+  .cnum { flex: 0 0 auto; width: 0.92cm; height: 0.92cm; border-radius: 999px; background: #16a34a; color: #fff;
+          font-family: 'Jua'; font-size: 0.6cm; display: flex; align-items: center; justify-content: center; padding-top: 0.04cm; }
+  .cname { font-size: 0.6cm; font-weight: 900; color: #14532d; line-height: 1.22; }
 
   .kicker { display: inline-block; font-size: 0.58cm; font-weight: 900; color: #16a34a; background: #ecfdf3;
             border-radius: 999px; padding: 0.08cm 0.42cm 0.14cm; margin-bottom: 0.28cm; }
@@ -264,7 +265,6 @@
       <section class="sec">
         <h2><span class="no">02</span>동작 흐름<span class="en">HOW IT WORKS</span></h2>
         <div class="pad">
-          <p style="margin-bottom:0.42cm">프로필 입력 또는 <b>한 문장</b>이면 충분합니다. 자격을 판정해 맞춤 복지를 고르고, 필요한 서류를 정부24에서 자동 발급하고, 복지로 신청서까지 채워 둡니다.</p>
           <div class="flow">
             <div class="step"><div class="n">01</div><div class="t">프로필 ·<br />자연어 입력</div></div>
             <div class="arrow">▶</div>
@@ -278,6 +278,7 @@
             <div class="arrow">▶</div>
             <div class="step human"><div class="n">06</div><div class="t">본인 확인<br />후 제출</div></div>
           </div>
+          <div class="shot" style="margin-top:0.5cm"><img class="tall" src="assets/shots/result.png" alt="분석 결과 화면" /><div class="cap">“72세, 혼자 살고 소득이 적어요” 한 문장 → 맞춤 복지 32개 · 월 예상 금액까지 즉시 산출</div></div>
           <p class="muted" style="margin-top:0.36cm">※ 마지막 <b style="color:#92400e">제출은 반드시 사용자가</b> — 본인인증·최종 제출은 법적 행위라 자동화하지 않습니다(human-in-the-loop).</p>
         </div>
       </section>
@@ -297,7 +298,7 @@
               <div class="aibadge">B</div>
               <div>
                 <div class="t">LangGraph 10노드 에이전트 + 하이브리드 RAG</div>
-                <div class="d">프로필 분석 → 정책 검색 → 자격 판별 → <b>재판별 루프</b> → 가이드 생성까지 상태 그래프로 오케스트레이션. 검색은 <code>BM25 + 임베딩</code> RRF 결합(ChromaDB).</div>
+                <div class="d">분석 → 검색 → 자격 판별 → <b>재판별 루프</b> → 가이드 생성까지 상태 그래프로 오케스트레이션. 검색은 <code>BM25 + 임베딩</code> RRF 결합.</div>
               </div>
             </div>
             <div class="aiitem">
@@ -311,35 +312,31 @@
               <div class="aibadge">D</div>
               <div>
                 <div class="t">웹 에이전트 RPA — 화면을 읽고 스스로 채움</div>
-                <div class="d"><b>접근성 트리(WAI-ARIA) 의미 매칭</b>으로 라벨이 바뀌어도 칸을 찾고, 막히면 <b>LLM ReAct 재계획</b>으로 복구. 실패 순간의 화면 구조를 <b>개인정보 없이</b> 남겨 스스로 고칩니다.</div>
+                <div class="d"><b>접근성 트리(WAI-ARIA) 의미 매칭</b>으로 라벨이 바뀌어도 칸을 찾고, 막히면 <b>LLM ReAct 재계획</b>으로 복구합니다.</div>
               </div>
             </div>
           </div>
+          <div class="shot" style="margin-top:0.5cm"><img class="mid lang" src="assets/shots/en.png" alt="다국어 진입 화면" /><div class="cap">7개 언어로 물어도 같은 결과 — 외국인·다문화 사각지대까지</div></div>
         </div>
       </section>
 
       <section class="sec">
-        <h2><span class="no">04</span>실제 화면<span class="en">SCREENS</span></h2>
+        <h2><span class="no">04</span>어르신을 1순위로<span class="en">ACCESSIBILITY FIRST</span></h2>
         <div class="pad">
-          <div class="shots">
-            <div class="shot wide"><img src="assets/shots/result.png" alt="분석 결과 화면" /><div class="cap">한 문장 입력 → 맞춤 복지 32개 · 월 예상 금액까지 즉시 산출</div></div>
-            <div class="shot"><img src="assets/shots/my.png" alt="나의 복지 관리 화면" /><div class="cap">담은 복지 · 신청 로드맵 · 서류 준비를 한 곳에서</div></div>
-            <div class="shot"><img src="assets/shots/calc.png" alt="기초생활보장 급여 계산기" /><div class="cap">가구원수 · 소득만 넣으면 급여별 기준액 즉시 계산</div></div>
-            <div class="shot s3"><img src="assets/shots/call.png" alt="통화형 상담" /><div class="cap">말로 묻는 통화 상담</div></div>
-            <div class="shot s3"><img src="assets/shots/explore2.png" alt="정책 탐색 검색" /><div class="cap">5,298건 조건 검색</div></div>
-            <div class="shot s3"><img src="assets/shots/en.png" alt="다국어 진입 화면" /><div class="cap">7개 언어 진입로</div></div>
+          <div class="shot"><img class="mid" src="assets/shots/call.png" alt="통화형 상담 화면" /><div class="cap">전화 걸듯 말로 묻고 소리로 듣는 통화형 상담</div></div>
+          <div class="feats" style="margin-top:0.5cm">
+            <div class="feat"><div class="t">화면을 못 읽어도</div><div class="d">말로 묻고 음성으로 답을 듣습니다. 큰글씨·고대비·읽어주기 모두 한 번의 토글로.</div></div>
+            <div class="feat"><div class="t">설치도 가입도 없이</div><div class="d">링크 하나면 폰에서도 전 기능. 접근성 검사(axe) 위반 <b>0건</b> 유지.</div></div>
           </div>
         </div>
       </section>
-
-
 
       <section class="sec">
         <h2><span class="no">05</span>품질 · 검증<span class="en">QUALITY GATES</span></h2>
         <div class="pad">
           <div class="qgrid">
             <div class="q"><div class="v">1,812</div><div class="l">자동 테스트</div><div class="s">프론트 1,415 · 백엔드 397</div></div>
-            <div class="q"><div class="v">0<small>건</small></div><div class="l">접근성 위반</div><div class="s">axe · 전 화면 · 고대비 · 큰글씨</div></div>
+            <div class="q"><div class="v">0<small>건</small></div><div class="l">접근성 위반</div><div class="s">axe · 전 화면 · 고대비</div></div>
             <div class="q"><div class="v">14</div><div class="l">실브라우저 E2E</div><div class="s">웹 · 모바일 · 촬영 · 흐름</div></div>
             <div class="q"><div class="v">0<small>원</small></div><div class="l">서버비 · 회원가입</div><div class="s">정적 배포 + 온디바이스</div></div>
           </div>
@@ -376,19 +373,18 @@
             <tr><td>민간재단 큐레이션</td><td class="no">✕</td><td class="part">일부</td><td class="us">✓ 21건</td></tr>
             <tr><td>신청서 자동 작성</td><td class="part">링크 안내</td><td class="part">링크 안내</td><td class="us">✓</td></tr>
           </table>
-          <p class="muted" style="margin-top:0.36cm">각 서비스의 공개 정보 기준(2026-07). 정부 포털은 제도 안내에, 상용 앱은 추천에 강점이 있고 — <b>모두봄은 그 다음 단계인 ‘실제 신청 행위’</b>를 맡습니다.</p>
+          <p class="muted" style="margin-top:0.3cm">각 서비스의 공개 정보 기준(2026-07). 정부 포털은 제도 안내에, 상용 앱은 추천에 강점이 있고 — <b>모두봄은 그 다음 단계인 ‘실제 신청 행위’</b>를 맡습니다.</p>
         </div>
       </section>
 
       <section class="sec">
-        <h2><span class="no">08</span>특징<span class="en">WHAT MAKES IT DIFFERENT</span></h2>
+        <h2><span class="no">08</span>찾기 · 계산<span class="en">SEARCH &amp; CALCULATE</span></h2>
         <div class="pad">
-          <div class="feats">
-            <div class="feat"><div class="t">정직성을 코드로 강제</div><div class="d">확인되지 않은 발급을 ‘완료’로 표시하지 않고, 가짜 데이터·가짜 성공을 만들지 않습니다.</div></div>
-            <div class="feat"><div class="t">어르신을 1순위 사용자로</div><div class="d">전화 걸듯 말로 묻는 <b>통화형 상담</b>, 큰글씨·고대비·읽어주기. 설치·회원가입 없이 링크 하나로.</div></div>
-            <div class="feat"><div class="t">실데이터만 씁니다</div><div class="d">공공데이터 <b>5,143건</b> + 공식 출처로 검증한 큐레이션 190건. 없는 제도를 지어내지 않습니다.</div></div>
-            <div class="feat"><div class="t">키 없이도 멈추지 않음</div><div class="d">LLM 키가 없거나 API가 실패해도 <b>규칙 기반 모드</b>로 전 기능 유지 — 시연 중 끊김이 없습니다.</div></div>
+          <div class="shots2">
+            <div class="shot"><img class="mid" src="assets/shots/explore2.png" alt="정책 탐색 검색 결과" /><div class="cap">5,298건에서 지역·금액·기한으로</div></div>
+            <div class="shot"><img class="mid" src="assets/shots/calc.png" alt="기초생활보장 급여 계산기" /><div class="cap">가구원수·소득 → 급여별 기준액</div></div>
           </div>
+          <p style="margin-top:0.44cm"><b>실데이터만 씁니다.</b> 공공데이터 5,143건 + 공식 출처로 검증한 큐레이션 190건 — 없는 제도는 지어내지 않고, 2026년 기준 금액은 보건복지부 고시로 대조했습니다.</p>
         </div>
       </section>
 
@@ -401,7 +397,7 @@
               <div class="chips"><span>React 18</span><span>TypeScript</span><span>transformers.js 임베딩</span><span>복지 판정 엔진</span><span>PWA</span></div>
               <div class="ldesc">자격 판정 · 금액 계산 · AI 검색이 <b>전부 기기 안</b>에서 — 서버 없이도 전 기능 동작.</div>
             </div>
-            <div class="down">▼ 있으면 자동화가 켜집니다</div>
+            <div class="down">▼ 서버가 있으면 자동화가 켜집니다</div>
             <div class="layer alt">
               <div class="lname">에이전트 서버 <span>선택</span></div>
               <div class="chips alt"><span>FastAPI</span><span>LangGraph 10노드</span><span>ChromaDB 하이브리드 RAG</span><span>Gemini · Groq · Claude</span></div>
@@ -442,28 +438,28 @@
             <div class="rpastep stop">
               <div class="rpaic">4</div>
               <div><div class="t">제출 직전 <span class="hl stop">정지</span></div>
-                   <div class="d">최종 제출은 <b>반드시 사용자가</b> — 비가역·법적 행위라 의도적으로 자동화하지 않았습니다.</div></div>
+                   <div class="d">확인되지 않은 발급을 ‘완료’로 표시하지 않습니다 — 최종 제출은 반드시 사용자가.</div></div>
             </div>
           </div>
+          <div class="shot" style="margin-top:0.44cm"><img class="mid" style="height:5.8cm" src="assets/shots/my.png" alt="나의 복지 관리 화면" /><div class="cap">담은 복지 · 신청 로드맵 · 서류 준비를 한 곳에서 관리</div></div>
         </div>
       </section>
 
       <section class="sec dark">
         <h2><span class="no">11</span>현장 검증<span class="en">FIELD TEST</span></h2>
         <div class="pad">
-          <div class="outcome"><b>노인종합복지관 3곳 방문</b> — 어르신들이 <b>몰라서 못 받던 복지를 그 자리에서 신청</b>하시도록 도와드렸습니다.</div>
-          <div class="centers">
-            <span class="cchip">대구광역시노인종합복지관</span>
-            <span class="cchip">달서구노인종합복지관</span>
-            <span class="cchip">경산시노인종합복지관</span>
+          <div class="outcome"><b>노인종합복지관 3곳 방문</b> — 어르신들이 <b>몰라서 못 받고 계시던 복지를 그 자리에서 신청</b>하시도록 도와드렸습니다.</div>
+          <div class="clist">
+            <div class="citem"><span class="cnum">1</span><span class="cname">대구광역시노인종합복지관</span></div>
+            <div class="citem"><span class="cnum">2</span><span class="cname">달서구노인종합복지관</span></div>
+            <div class="citem"><span class="cnum">3</span><span class="cname">경산시노인종합복지관</span></div>
           </div>
           <div class="field">
             <figure><img src="assets/field.jpg" alt="어르신과 함께 모두봄을 사용해 보는 모습" /><figcaption>옆에서 함께 조작해 보며</figcaption></figure>
             <figure><img src="assets/field2.jpg" alt="직접 써 보신 어르신" /><figcaption>직접 써 보신 어르신</figcaption></figure>
             <figure><img src="assets/field3.jpg" alt="복지관에서 어르신들과 팀 모두봄" /><figcaption>시연을 마치고</figcaption></figure>
           </div>
-          <p style="margin-top:0.42cm">만든 사람이 아니라 <b>쓸 사람에게 먼저 물었습니다.</b> 현장에서 나온 <b>“버튼이 뭔지 모르겠다”</b>는 말이 곧 다음 커밋이 되었고,
-            글자 크기 · 말로 묻기 · 다음 할 일 안내는 전부 그렇게 다듬어졌습니다.</p>
+          <p style="margin-top:0.4cm">만든 사람이 아니라 <b>쓸 사람에게 먼저 물었습니다.</b> 현장에서 나온 <b>“버튼이 뭔지 모르겠다”</b>는 말이 곧 다음 커밋이 되었습니다.</p>
         </div>
       </section>
 
