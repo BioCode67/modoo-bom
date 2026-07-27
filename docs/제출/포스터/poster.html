@@ -40,9 +40,12 @@
     border-radius: 0.8cm; display: flex; align-items: center; padding: 0 1.3cm 0 0.6cm;
     box-shadow: 0 0.2cm 0.6cm rgba(20,60,35,.16); }
   .hero .mascot { height: 10.2cm; margin-top: -0.5cm; }
-  .hero .bubble { position: relative; background: #fff; border-radius: 0.55cm; padding: 0.5cm 0.72cm 0.58cm;
-    margin-left: 0.3cm; max-width: 24.5cm; }
-  .hero .bubble::before { content: ''; position: absolute; left: -0.42cm; top: 2.1cm;
+  .hero .herotext { margin-left: 0.3cm; max-width: 24.5cm; }
+  .hero .bubble { position: relative; background: #fff; border-radius: 0.55cm; padding: 0.5cm 0.72cm 0.58cm; }
+  .hero .swbadge { display: inline-flex; align-items: center; margin-top: 0.42cm; background: #fde047;
+    color: #3f2d00; font-family: 'Jua'; font-size: 0.98cm; letter-spacing: 0.01em;
+    border-radius: 999px; padding: 0.18cm 0.72cm 0.3cm; box-shadow: 0 0.1cm 0.3cm rgba(0,0,0,.14); }
+  .hero .bubble::before { content: ''; position: absolute; left: -0.42cm; top: 1.6cm;
     border: 0.28cm solid transparent; border-right-color: #fff; }
   .hero .bubble .t { font-size: 1.0cm; font-weight: 900; color: #14532d; line-height: 1.36; }
   .hero .bubble .s { font-size: 0.7cm; font-weight: 700; color: #5f7368; margin-top: 0.18cm; line-height: 1.4; }
@@ -232,9 +235,12 @@
   <!-- 히어로 스트립 -->
   <div class="hero">
     <img class="mascot" src="assets/mascot-hero.png" alt="모두봄 마스코트 새싹이" />
-    <div class="bubble">
-      <div class="t">“내가 뭐 받을 수 있어?” 한 문장이면,<br />찾고 · 계산하고 · 서류까지 떼어 드려요.</div>
-      <div class="s">설치도 회원가입도 없이 — 어르신은 전화 걸듯 말로도 물어볼 수 있습니다.</div>
+    <div class="herotext">
+      <div class="bubble">
+        <div class="t">“내가 뭐 받을 수 있어?” 한 문장이면,<br />찾고 · 계산하고 · 서류까지 떼어 드려요.</div>
+        <div class="s">설치도 회원가입도 없이 — 어르신은 전화 걸듯 말로도 물어볼 수 있습니다.</div>
+      </div>
+      <div class="swbadge">SW 저작권 등록 완료</div>
     </div>
     <div class="nums">
       <div class="hnum"><div class="v">5,300<small>여 건</small></div><div class="l">전국 복지 실데이터</div><div class="s">큐레이션 190 + 공공데이터 5,143</div></div>
@@ -340,7 +346,6 @@
             <div class="q"><div class="v">14</div><div class="l">실브라우저 E2E</div><div class="s">웹 · 모바일 · 촬영 · 흐름</div></div>
             <div class="q"><div class="v">0<small>원</small></div><div class="l">서버비 · 회원가입</div><div class="s">정적 배포 + 온디바이스</div></div>
           </div>
-          <div class="cred"><span class="credchip">SW 저작권 등록 완료</span><span class="credtxt">자체 개발 저작물로 권리 확보</span></div>
           <p class="muted" style="margin-top:0.32cm">모든 변경은 위 게이트를 통과해야 배포됩니다 — <b>지금 이 순간에도 라이브</b>에 같은 코드가 올라가 있습니다.</p>
         </div>
       </section>
