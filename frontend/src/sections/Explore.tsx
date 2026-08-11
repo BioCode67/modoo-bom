@@ -390,6 +390,18 @@ export function Explore() {
                     <option value="vi-VN">Tiếng Việt</option>
                     <option value="zh-CN">中文</option>
                     <option value="ja-JP">日本語</option>
+                    {/* ↓ 결과 번역 대상 언어 확장(2026-08-11)과 짝 — 인식 로케일은 Chrome Web Speech 표기.
+                        인식 품질은 기기·언어별로 다르며, 안 되면 키보드 입력 경로가 항상 남는다(기존 이중 경로). */}
+                    <option value="th-TH">ไทย</option>
+                    <option value="ru-RU">Русский</option>
+                    <option value="ar-SA">العربية</option>
+                    <option value="hi-IN">हिन्दी</option>
+                    <option value="bn-BD">বাংলা</option>
+                    <option value="ta-IN">தமிழ்</option>
+                    <option value="si-LK">සිංහල</option>
+                    <option value="km-KH">ខ្មែរ</option>
+                    <option value="my-MM">မြန်မာ</option>
+                    <option value="lo-LA">ລາວ</option>
                   </select>
                   로 말할 수 있어요 (🎤 아이콘)
                 </p>
