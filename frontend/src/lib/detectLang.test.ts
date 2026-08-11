@@ -68,3 +68,34 @@ describe('detectUiLang — UI 언어 결정(보수적·항상 ko 복귀)', () =>
     expect(detectUiLang('帮助')).toBe('zh')
   })
 })
+
+describe('스크립트 고유 언어 확장(2026-08-11) — 결과 번역 대상 언어 확대', () => {
+  it('데바나가리·벵골·타밀·싱할라 문장 감지', () => {
+    expect(detectLang('मुझे मदद चाहिए')?.code).toBe('hi')
+    expect(detectLang('আমার সাহায্য দরকার')?.code).toBe('bn')
+    expect(detectLang('எனக்கு உதவி வேண்டும்')?.code).toBe('ta')
+    expect(detectLang('මට උදව් අවශ්‍යයි')?.code).toBe('si')
+  })
+  it('크메르·미얀마·라오 문장 감지(라오는 태국 문자와 구분)', () => {
+    expect(detectLang('ខ្ញុំត្រូវការជំនួយ')?.code).toBe('km')
+    expect(detectLang('ကျွန်တော် အကူအညီ လိုပါတယ်')?.code).toBe('my')
+    expect(detectLang('ຂ້ອຍຕ້ອງການຄວາມຊ່ວຍເຫຼືອ')?.code).toBe('lo')
+    expect(detectLang('ฉันต้องการความช่วยเหลือ')?.code).toBe('th') // 태국어는 여전히 th(비회귀)
+  })
+  it('새 언어도 라벨·국기가 있다(감지 칩 표시 계약)', () => {
+    for (const q of ['मदद', 'সাহায্য', 'உதவி', 'උදව්', 'ជំនួយ', 'အကူအညီ', 'ຊ່ວຍ']) {
+      const d = detectLang(q)
+      expect(d?.label, q).toBeTruthy()
+      expect(d?.flag, q).toBeTruthy()
+    }
+  })
+  it('detectUiLang: 비라틴 신뢰 원칙이 새 언어에도 적용(짧아도 채택)', () => {
+    expect(detectUiLang('ជំនួយ')).toBe('km')
+    expect(detectUiLang('मदद')).toBe('hi')
+  })
+  it('비회귀: 한국어·영어·베트남어 판정 불변', () => {
+    expect(detectLang('기초연금')?.code).toBe('ko')
+    expect(detectLang('I need help with housing')?.code).toBe('en')
+    expect(detectLang('Tôi cần hỗ trợ')?.code).toBe('vi')
+  })
+})

@@ -21,6 +21,15 @@ const LANGS: Record<string, { label: string; flag: string }> = {
   th: { label: 'ไทย', flag: '🇹🇭' },
   ru: { label: 'Русский', flag: '🇷🇺' },
   ar: { label: 'العربية', flag: '🇸🇦' },
+  // ↓ 스크립트 고유 언어 확장(2026-08-11) — 한국 이주민 다수 언어. 문자 자체가 언어를 확정하므로
+  //   오발동 없이 감지 가능. 결과 번역은 Translator API가 언어팩 유무를 판단(불가 시 정직 폴백).
+  hi: { label: 'हिन्दी', flag: '🇮🇳' },
+  bn: { label: 'বাংলা', flag: '🇧🇩' },
+  ta: { label: 'தமிழ்', flag: '🇮🇳' },
+  si: { label: 'සිංහල', flag: '🇱🇰' },
+  km: { label: 'ខ្មែរ', flag: '🇰🇭' },
+  my: { label: 'မြန်မာ', flag: '🇲🇲' },
+  lo: { label: 'ລາວ', flag: '🇱🇦' },
 }
 
 /** 입력 문자열의 대표 언어를 감지. 판별 불가/공백이면 null. */
@@ -29,14 +38,22 @@ export function detectLang(text: string): DetectedLang | null {
   if (!s) return null
 
   let ko = 0, kana = 0, han = 0, thai = 0, cyr = 0, arab = 0, latin = 0
+  let deva = 0, beng = 0, taml = 0, sinh = 0, khmr = 0, mymr = 0, laoo = 0
   for (const ch of s) {
     const c = ch.codePointAt(0) || 0
     if ((c >= 0xac00 && c <= 0xd7a3) || (c >= 0x1100 && c <= 0x11ff) || (c >= 0x3130 && c <= 0x318f)) ko++
     else if ((c >= 0x3040 && c <= 0x309f) || (c >= 0x30a0 && c <= 0x30ff)) kana++
     else if (c >= 0x4e00 && c <= 0x9fff) han++
     else if (c >= 0x0e00 && c <= 0x0e7f) thai++
+    else if (c >= 0x0e80 && c <= 0x0eff) laoo++      // 라오 문자(태국 문자와 범위 인접·비중첩)
     else if (c >= 0x0400 && c <= 0x04ff) cyr++
     else if (c >= 0x0600 && c <= 0x06ff) arab++
+    else if (c >= 0x0900 && c <= 0x097f) deva++      // 데바나가리(힌디어) — 네팔어도 같은 문자라 hi로 대표
+    else if (c >= 0x0980 && c <= 0x09ff) beng++      // 벵골 문자(방글라데시)
+    else if (c >= 0x0b80 && c <= 0x0bff) taml++      // 타밀 문자
+    else if (c >= 0x0d80 && c <= 0x0dff) sinh++      // 싱할라 문자(스리랑카)
+    else if (c >= 0x1000 && c <= 0x109f) mymr++      // 미얀마 문자
+    else if (c >= 0x1780 && c <= 0x17ff) khmr++      // 크메르 문자(캄보디아)
     else if ((c >= 0x41 && c <= 0x5a) || (c >= 0x61 && c <= 0x7a) || (c >= 0xc0 && c <= 0x1ef9)) latin++
   }
 
@@ -44,8 +61,15 @@ export function detectLang(text: string): DetectedLang | null {
   if (ko > 0) return pick('ko')
   if (kana > 0) return pick('ja')
   if (thai > 0) return pick('th')
+  if (laoo > 0) return pick('lo')
   if (cyr > 0) return pick('ru')
   if (arab > 0) return pick('ar')
+  if (deva > 0) return pick('hi')
+  if (beng > 0) return pick('bn')
+  if (taml > 0) return pick('ta')
+  if (sinh > 0) return pick('si')
+  if (mymr > 0) return pick('my')
+  if (khmr > 0) return pick('km')
   if (han > 0) return pick('zh') // 가나·한글 없이 한자만 → 중국어로 간주
   if (latin > 0) return VIET.test(s) ? pick('vi') : pick('en')
   return null
