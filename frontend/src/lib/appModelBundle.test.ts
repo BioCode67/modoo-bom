@@ -70,6 +70,10 @@ describe('앱 모델 동봉 — 3파일 경로 계약', () => {
     expect(existsSync(join(ROOT, 'scripts/fetch-app-model.mjs'))).toBe(true)
     expect(existsSync(join(ROOT, 'scripts/copy-app-models.mjs'))).toBe(true)
   })
+
+  it('fetcher는 상대 Location 리다이렉트를 기준 URL로 해석한다(HF 소형 파일 CI 실측)', () => {
+    expect(fetcher).toContain('new URL(res.headers.location, url)')
+  })
 })
 
 describe('언어팩 워밍업 — 사용자 제스처 시점(ForeignerWelcome)', () => {

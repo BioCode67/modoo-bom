@@ -41,7 +41,9 @@ function download(url, dest, redirects = 0) {
     get(url, (res) => {
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
         res.resume()
-        return resolve(download(res.headers.location, dest, redirects + 1))
+        // HF는 LFS 파일은 절대 CDN URL, 소형 파일은 '상대 경로' Location 으로 리다이렉트한다
+        // (CI 실측: config.json 등이 Invalid URL 로 실패) → 기준 URL 에 대해 해석한다.
+        return resolve(download(new URL(res.headers.location, url).toString(), dest, redirects + 1))
       }
       if (res.statusCode !== 200) {
         res.resume()
