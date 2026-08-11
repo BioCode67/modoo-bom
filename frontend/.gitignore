@@ -10,3 +10,4 @@ e2e/_tiny.jpg
 e2e/lh-*.json
 e2e/psi.json
 e2e-dist-a11y
+app-models/

@@ -62,6 +62,35 @@ async function ensureEmbeddings(onProgress?: SemanticProgress): Promise<void> {
   }
 }
 
+/**
+ * 데스크탑앱 동봉 모델 감지 — 앱 빌드(`--mode app`)에서만.
+ *
+ * 왜: 시연장·기관망은 HuggingFace/jsdelivr CDN이 느리거나 차단될 수 있다(실측: 프록시 403).
+ * 데스크탑앱은 local_server가 dist-app을 동일 출처로 서빙하므로, 빌드 시 동봉된 모델
+ * (`/models/…`, scripts/fetch-app-model.mjs)이 있으면 네트워크 없이 다국어 검색·번역이 돈다.
+ *
+ * 안전 설계(회귀 0 원칙):
+ * - 웹 빌드는 이 함수가 아예 호출되지 않아 기존 CDN 경로 그대로다.
+ * - 동봉이 없거나(HEAD 404) 응답이 SPA 폴백(text/html)이면 false → 오늘과 동일하게 CDN.
+ * - 동봉을 써도 allowRemoteModels는 켜 두어, 로컬 파일 손상 시 CDN으로 자연 폴백된다.
+ */
+async function detectBundledModel(base: string): Promise<{ model: boolean; wasm: boolean }> {
+  const head = async (path: string): Promise<boolean> => {
+    try {
+      const r = await fetch(`${base}${path}`, { method: 'HEAD' })
+      const ct = (r.headers.get('content-type') || '').toLowerCase()
+      return r.ok && !ct.includes('text/html') // SPA 폴백(index.html 200) 오검출 방지
+    } catch {
+      return false
+    }
+  }
+  const [model, wasm] = await Promise.all([
+    head('models/Xenova/multilingual-e5-small/config.json'),
+    head('models/ort/ort-wasm-simd-threaded.wasm'),
+  ])
+  return { model, wasm }
+}
+
 /** AI 임베딩 모델(transformers.js) 로드 — 질의 임베딩용. 실패 시 throw. */
 async function ensureModel(onProgress?: SemanticProgress): Promise<void> {
   if (_extractor) return
@@ -70,6 +99,25 @@ async function ensureModel(onProgress?: SemanticProgress): Promise<void> {
     onProgress?.({ stage: 'AI 모델 다운로드', pct: 0 })
     const { pipeline, env } = await import('@huggingface/transformers')
     env.allowLocalModels = false // HuggingFace CDN에서 로드
+    // 데스크탑앱 전용: 동봉 모델이 실재하면 로컬 우선(오프라인·차단망에서도 다국어 동작).
+    //   앱이 아니거나 동봉이 없으면 위 CDN 설정 그대로 — 웹(gh-pages) 경로는 불변.
+    if (import.meta.env.MODE === 'app') {
+      try {
+        const base = import.meta.env.BASE_URL || '/'
+        const bundled = await detectBundledModel(base)
+        if (bundled.model) {
+          env.allowLocalModels = true
+          env.localModelPath = `${base}models/`
+          env.allowRemoteModels = true // 로컬 손상 시 CDN 자연 폴백(안전밸브)
+          if (bundled.wasm) {
+            try {
+              const wasm = env.backends?.onnx?.wasm
+              if (wasm) wasm.wasmPaths = `${base}models/ort/`
+            } catch { /* onnx env 구조 변화 — 치명적 아님(CDN wasm 사용) */ }
+          }
+        }
+      } catch { /* 감지 실패 → CDN 경로 그대로(오늘과 동일) */ }
+    }
     // ⚠️ onnxruntime-web 안정화(간헐 'no available backend found' 수정):
     //   멀티스레드 WASM은 SharedArrayBuffer=cross-origin isolation(COOP/COEP 헤더)이 필요한데
     //   gh-pages는 그 헤더를 못 보낸다 → 스레드 백엔드가 간헐적으로 초기화 실패(특히 한국어 외 질의).

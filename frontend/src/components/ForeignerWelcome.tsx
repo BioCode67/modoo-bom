@@ -10,19 +10,24 @@ import { requestVoiceCall } from '@/lib/callBridge'
  *
  * ⚠️ 표기는 각 언어 사용자가 바로 알아볼 수 있는 정확한 문구만 사용(간단·검증 가능한 인사/질의).
  */
-const LANGS: { flag: string; label: string; hello: string; q: string }[] = [
-  { flag: '🇻🇳', label: 'Tiếng Việt', hello: 'Xin chào', q: 'Tôi có thu nhập thấp và cần hỗ trợ' },
-  { flag: '🇬🇧', label: 'English', hello: 'Hello', q: 'I have a low income and need support' },
-  { flag: '🇨🇳', label: '中文', hello: '你好', q: '我收入低，需要生活补助' },
-  { flag: '🇯🇵', label: '日本語', hello: 'こんにちは', q: '収入が少なく、支援が必要です' },
-  { flag: '🇮🇩', label: 'Indonesia', hello: 'Halo', q: 'Penghasilan saya rendah dan butuh bantuan' },
-  { flag: '🇹🇭', label: 'ไทย', hello: 'สวัสดี', q: 'ฉันมีรายได้น้อยและต้องการความช่วยเหลือ' },
+const LANGS: { flag: string; label: string; hello: string; q: string; code: string }[] = [
+  { flag: '🇻🇳', label: 'Tiếng Việt', code: 'vi', hello: 'Xin chào', q: 'Tôi có thu nhập thấp và cần hỗ trợ' },
+  { flag: '🇬🇧', label: 'English', code: 'en', hello: 'Hello', q: 'I have a low income and need support' },
+  { flag: '🇨🇳', label: '中文', code: 'zh', hello: '你好', q: '我收入低，需要生活补助' },
+  { flag: '🇯🇵', label: '日本語', code: 'ja', hello: 'こんにちは', q: '収入が少なく、支援が必要です' },
+  { flag: '🇮🇩', label: 'Indonesia', code: 'id', hello: 'Halo', q: 'Penghasilan saya rendah dan butuh bantuan' },
+  { flag: '🇹🇭', label: 'ไทย', code: 'th', hello: 'สวัสดี', q: 'ฉันมีรายได้น้อยและต้องการความช่วยเหลือ' },
 ]
 
 export function ForeignerWelcome() {
   const { setAiQuery, setAiIntent, setView } = useAppStore()
   const warm = () => { import('@/lib/semanticSearch').then((m) => m.warmupSemantic()).catch(() => {}) }
-  const ask = (q: string) => { setAiQuery(q); setAiIntent(true); setView('explore') }
+  const ask = (q: string, code?: string) => {
+    // 번역 언어팩 워밍업 — 클릭은 사용자 제스처라, 언어팩이 '다운로드 필요' 상태여도 받기 시작할 수 있다.
+    //   (탐색 진입 후 effect 시점엔 제스처가 소멸해 다운로드가 거절될 수 있는 것 보완 — 실패해도 무해)
+    if (code) import('@/lib/onDeviceTranslate').then((m) => { void m.getTranslator(code) }).catch(() => {})
+    setAiQuery(q); setAiIntent(true); setView('explore')
+  }
 
   return (
     <section className="page-container py-10 sm:py-14">
@@ -47,7 +52,7 @@ export function ForeignerWelcome() {
           {LANGS.map((l) => (
             <button
               key={l.label}
-              onClick={() => ask(l.q)}
+              onClick={() => ask(l.q, l.code)}
               onMouseEnter={warm} onFocus={warm} onTouchStart={warm}
               className="group flex flex-col items-start gap-0.5 rounded-2xl border border-violet-200 bg-white px-4 py-3 text-left hover:border-violet-400 hover:shadow-sm transition-all"
             >
