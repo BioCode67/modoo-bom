@@ -1,0 +1,1 @@
+import{a as s}from"./motion-CLPSl4-9.js";import{aG as r,aH as c}from"./index-DtoQX22-.js";function p(){const[n,t]=s.useState({ready:null,caps:null,waking:null});return s.useEffect(()=>{let e=!0;return r((a,u)=>e&&t(l=>({...l,waking:{n:a,max:u}}))).then(a=>e&&t({ready:a,caps:a?c():null,waking:null})),()=>{e=!1}},[]),n}export{p as u};
