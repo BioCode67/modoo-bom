@@ -7,7 +7,7 @@
  *
  * 동작:
  * - `frontend/app-models/`(gitignore, 빌드 캐시)에 아래를 준비한다.
- *   ① HuggingFace에서 Xenova/multilingual-e5-small 최소 파일(q8 ONNX 포함, ~35MB)
+ *   ① HuggingFace에서 Xenova/multilingual-e5-small 최소 파일(q8 ONNX 포함, 합계 ~130MB)
  *   ② node_modules의 onnxruntime-web WASM 런타임(ort-wasm-simd-threaded.*)
  * - 이미 받아져 있으면 건너뛴다(재빌드 빠름 · 오프라인 재빌드 안전).
  * - 다운로드 실패는 경고만 하고 exit 0 — 이 경우 앱은 오늘처럼 CDN 폴백으로 동작한다
