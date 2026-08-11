@@ -4,7 +4,7 @@
 ; 결과: dist\모두봄-설치.exe (더블클릭 설치 → 시작메뉴/바탕화면 아이콘 → 실행)
 
 #define AppName "모두봄 로컬 에이전트"
-#define AppVersion "0.3.2"
+#define AppVersion "0.3.3"
 #define AppExe "모두봄-에이전트.exe"
 
 [Setup]

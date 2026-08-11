@@ -13,7 +13,7 @@ rem ─────────────────────────�
 cd /d "%~dp0"
 set "REPO=BioCode67/modoo-bom"
 rem 버전을 올리면 여기 태그만 바꾸면 된다 — --latest 라 홈 CTA(latest/download)가 자동으로 새 자산을 가리킨다.
-set "TAG=app-v0.3.2"
+set "TAG=app-v0.3.3"
 set "DIST=backend\dist"
 
 rem 상위 오케스트레이터(update-and-publish.bat)에서 부르면 MODOO_NOPAUSE=1 로 pause 를 건너뛴다(무인 체인).
@@ -30,7 +30,7 @@ set "PUB_ERR=0"
 gh release view %TAG% -R %REPO% >nul 2>&1
 if errorlevel 1 (
   gh release create %TAG% "%DIST%\ModooBom-Setup.exe" "%DIST%\ModooBom-Agent.zip" -R %REPO% --target main ^
-     --title "모두봄 데스크탑 앱 (Windows) v0.3.2" --notes-file "docs\앱-릴리스-노트.md" --latest || set "PUB_ERR=1"
+     --title "모두봄 데스크탑 앱 (Windows) v0.3.3" --notes-file "docs\앱-릴리스-노트.md" --latest || set "PUB_ERR=1"
 ) else (
   gh release upload %TAG% "%DIST%\ModooBom-Setup.exe" "%DIST%\ModooBom-Agent.zip" -R %REPO% --clobber || set "PUB_ERR=1"
 )

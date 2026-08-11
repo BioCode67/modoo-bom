@@ -3,10 +3,10 @@ import { MessageCircleHeart, MousePointerClick, Smartphone, ShieldCheck, PlayCir
 import { SectionHeading } from '@/ui/SectionHeading'
 import { DemoAutomation } from '@/components/DemoAutomation'
 
-// 데스크탑 앱(Windows 전용) — 설치 exe '직접 다운로드'(릴리스 게시: app-v0.3.2 ModooBom-Setup.exe).
+// 데스크탑 앱(Windows 전용) — 설치 exe '직접 다운로드'(릴리스 게시: app-v0.3.3 ModooBom-Setup.exe).
 // latest/download 는 최신 릴리스의 동명 자산을 따라가므로 버전이 올라가도 링크가 유지된다.
 // ⚠️ 새 버전 게시 시 여기 APP_VERSION 만 릴리스 태그(app-vX.Y.Z)와 맞춰 바꾸면 화면 표기가 따라간다.
-const APP_VERSION = 'v0.3.2'
+const APP_VERSION = 'v0.3.3'
 const AGENT_SETUP_URL = 'https://github.com/BioCode67/modoo-bom/releases/latest/download/ModooBom-Setup.exe'
 const AGENT_RELEASES_URL = 'https://github.com/BioCode67/modoo-bom/releases'
 const isWindows = typeof navigator !== 'undefined' && /Windows/.test(navigator.userAgent)
