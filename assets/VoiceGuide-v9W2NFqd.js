@@ -1,4 +1,4 @@
-import{a as h,j as e,m as A}from"./motion-CLPSl4-9.js";import{c as D,u as U,T as X,b as q,a as f,X as K,V as W,S as J}from"./index-Yjks1J4y.js";import{u as Y}from"./useTTS-CzQSZlb9.js";import{u as Q,M as Z}from"./useSpeech-DZCpsAqV.js";import{V as N,s as $}from"./speakable-DdlfXZ1k.js";import{R as ee}from"./rotate-ccw-DvTQRDMY.js";import{V as te}from"./volume-x-Cmkk8S0I.js";import{C as ne}from"./chevron-right-DuQ2hwqG.js";import"./detectLang-E47FgtKa.js";/**
+import{a as h,j as e,m as A}from"./motion-CLPSl4-9.js";import{c as D,u as U,T as X,b as q,a as f,X as K,V as W,S as J}from"./index-CRSEMyQ8.js";import{u as Y}from"./useTTS-CzQSZlb9.js";import{u as Q,M as Z}from"./useSpeech-BH1znm9v.js";import{V as N,s as $}from"./speakable-CV4yKgjR.js";import{R as ee}from"./rotate-ccw-beNoaBbf.js";import{V as te}from"./volume-x-Bex9E7Xj.js";import{C as ne}from"./chevron-right-D3cB-MHE.js";import"./detectLang-DktvzYbd.js";/**
  * @license lucide-react v0.460.0 - ISC
  *
  * This source code is licensed under the ISC license.
