@@ -1,1 +1,0 @@
-if('serviceWorker' in navigator) {window.addEventListener('load', () => {navigator.serviceWorker.register('/modoo-bom/sw.js', { scope: '/modoo-bom/' })})}

@@ -1,47 +1,43 @@
 <!doctype html>
 <html lang="ko">
-  <head>
-    <meta charset="UTF-8" />
-    <!-- 콘텐츠 보안 정책(방어심층): 외부 스크립트 주입·플러그인·base 태그 하이재킹 차단, 연결 대상 화이트리스트.
-         온디바이스 AI(huggingface CDN)·폰트(jsdelivr)·선택적 백엔드(onrender)·로그인(supabase)만 허용. -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' blob:; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' https://cdn.jsdelivr.net data:; img-src 'self' data: https:; connect-src 'self' https://huggingface.co https://*.huggingface.co https://cdn-lfs.huggingface.co https://cdn-lfs-us-1.huggingface.co https://*.hf.co https://cdn.jsdelivr.net https://*.supabase.co wss://*.supabase.co https://*.onrender.com wss://*.onrender.com http://localhost:8000 ws://localhost:8000 https://*.trycloudflare.com; worker-src 'self' blob:; child-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'" />
-    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
-    <!-- 폰트 비차단 로드: 시스템 폰트로 먼저 그리고(swap) 로드 완료 시 적용 → 렌더 차단 제거 -->
-    <link id="pretendard-css" rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css" media="print" />
-    <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css" /></noscript>
-    <!-- 온디바이스 AI 모델(transformers.js) CDN 사전연결 — AI 의미 검색 첫 로딩 단축 -->
-    <link rel="preconnect" href="https://huggingface.co" crossorigin />
-    <link rel="dns-prefetch" href="https://huggingface.co" />
-    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
-    <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#22c55e" />
-    <title>모두봄 — 내 복지 혜택, 모두 찾아드릴게요 🌱</title>
-    <meta name="description" content="나이·소득·상황만 알려주면 AI가 받을 수 있는 복지 혜택을 한 번에 찾아 신청 방법과 필요 서류까지 안내해 드려요. 회원가입 없이 무료." />
-    <link rel="canonical" href="https://biocode67.github.io/modoo-bom/" />
-    <!-- Open Graph (카카오톡·페이스북 등 공유 미리보기) -->
-    <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="모두봄" />
-    <meta property="og:locale" content="ko_KR" />
-    <meta property="og:url" content="https://biocode67.github.io/modoo-bom/" />
-    <meta property="og:title" content="모두봄 — 내 복지 혜택, 모두 찾아드릴게요" />
-    <meta property="og:description" content="AI가 찾아주는 맞춤 복지. 확인부터 신청·관리까지 한 곳에서. 회원가입 없이 무료." />
-    <meta property="og:image" content="https://biocode67.github.io/modoo-bom/og.png" />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="1200" />
-    <meta property="og:image:alt" content="모두봄 — AI 맞춤 복지 찾기" />
-    <!-- Twitter Card -->
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="모두봄 — 내 복지 혜택, 모두 찾아드릴게요" />
-    <meta name="twitter:description" content="AI가 찾아주는 맞춤 복지. 확인부터 신청·관리까지 한 곳에서." />
-    <meta name="twitter:image" content="https://biocode67.github.io/modoo-bom/og-wide.png" />
-    <meta name="twitter:image:alt" content="모두봄 — AI 맞춤 복지 찾기" />
-    <meta name="color-scheme" content="light" />
-    <script type="module" crossorigin src="/modoo-bom/assets/index-DAM3FoZq.js"></script>
-    <link rel="modulepreload" crossorigin href="/modoo-bom/assets/motion-CLPSl4-9.js">
-    <link rel="stylesheet" crossorigin href="/modoo-bom/assets/index-DEj_TWDo.css">
-  <link rel="manifest" href="/modoo-bom/manifest.webmanifest"><script id="vite-plugin-pwa:register-sw" src="/modoo-bom/registerSW.js" defer></script></head>
-  <body>
-    <div id="root"></div>
-  </body>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>모두봄</title>
+<link rel="icon" href="favicon.svg">
+<style>
+  :root { color-scheme: light; }
+  * { margin: 0; box-sizing: border-box; }
+  body {
+    min-height: 100vh; display: grid; place-items: center;
+    background: linear-gradient(180deg, #f0fdf4 0%, #ffffff 70%);
+    font-family: Pretendard, "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+    color: #14532d; text-align: center; padding: 24px;
+  }
+  .seed { font-size: 56px; line-height: 1; margin-bottom: 18px; }
+  h1 { font-size: 28px; letter-spacing: -0.02em; margin-bottom: 12px; }
+  p { font-size: 17px; color: #3f6212; line-height: 1.6; }
+  .sub { margin-top: 10px; font-size: 14px; color: #65a30d; }
+</style>
+</head>
+<body>
+  <main>
+    <div class="seed">🌱</div>
+    <h1>모두봄</h1>
+    <p>데모 페이지는 현재 잠시 비공개 상태입니다.</p>
+    <p class="sub">이용해 주셔서 감사합니다.</p>
+  </main>
+  <script>
+    // 이전 방문자의 PWA 서비스워커·캐시 정리(오프라인 캐시가 옛 화면을 계속 보여주지 않게)
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function (rs) {
+        rs.forEach(function (r) { r.unregister() })
+      }).catch(function () {})
+    }
+    if (window.caches && caches.keys) {
+      caches.keys().then(function (ks) { ks.forEach(function (k) { caches.delete(k) }) }).catch(function () {})
+    }
+  </script>
+</body>
 </html>

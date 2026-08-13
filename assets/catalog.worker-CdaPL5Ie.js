@@ -1,1 +1,0 @@
-(function(){"use strict";self.onmessage=async e=>{try{const s=await fetch(e.data.url,{cache:"no-cache"});if(!s.ok){self.postMessage({ok:!1});return}const a=await s.json();self.postMessage({ok:!0,data:a})}catch{self.postMessage({ok:!1})}}})();
