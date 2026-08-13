@@ -1,7 +1,11 @@
 name: Deploy to GitHub Pages
+# ⏸ 2026-08-13 잠시 비공개: 본선 종료 후 데모 사이트를 임시로 내려둔 상태(팀 결정).
+#    gh-pages 는 안내 페이지로 교체돼 있고, main 푸시 자동 배포를 꺼둬 실수로 재공개되지 않게 함.
+#    ▶ 재공개 방법: ① Actions → 'Deploy to GitHub Pages' → Run workflow(수동 1클릭 — 실사이트 재배포)
+#                   ② 자동 배포까지 되살리려면 아래 push 트리거 주석을 해제(이 커밋 revert)
 on:
-  push:
-    branches: [main]
+  # push:
+  #   branches: [main]
   workflow_dispatch:
 # 배포 직렬화 — 연속 푸시 시 러너 큐 순서에 따라 '옛 커밋의 느린 런'이 '새 커밋의 빠른 런'을
 # 나중에 덮어 gh-pages가 구버전으로 남는 역전이 실측됨(run 104가 105보다 늦게 끝나 f36f812 잔존).
