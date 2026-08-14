@@ -7,19 +7,21 @@ name: 앱 릴리스 관리
 #            자산이 없으면 정직하게 실패한다(빈 릴리스 공개 방지).
 # publish-release.bat(gh CLI) 경로와 공존: bat 이 초안을 찾으면 자산만 업로드하므로
 # 이 워크플로의 publish 로 마무리하고, bat 이 새 공개 릴리스를 만들었으면 초안만 지우면 된다.
+# - unpublish(2026-08-13): 공개 릴리스를 draft 로 내려 다운로드를 비노출한다(잠시 비공개용).
+#            자산·태그는 그대로 유지되므로 publish 모드로 언제든 복원(Latest 포함)된다.
 on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "draft(초안 생성) 또는 publish(공개+Latest 전환)"
+        description: "draft(초안 생성) / publish(공개+Latest 전환) / unpublish(공개→draft 내림, 자산·태그 유지)"
         required: true
         default: draft
         type: choice
-        options: [draft, publish]
+        options: [draft, publish, unpublish]
       tag:
         description: "릴리스 태그"
         required: true
-        default: app-v0.3.2
+        default: app-v0.3.3
 
 permissions:
   contents: write
@@ -48,6 +50,13 @@ jobs:
               --title "모두봄 데스크탑 앱 (Windows) ${TAG#app-}" \
               --notes-file "docs/앱-릴리스-노트.md"
             echo "✅ ${TAG} 초안 생성 완료 — 자산 업로드 전까지 비공개, Latest 불변"
+          elif [ "$MODE" = "unpublish" ]; then
+            if [ -z "$rid" ]; then
+              echo "::error::${TAG} 릴리스가 없습니다 — 내릴 것이 없어요."
+              exit 1
+            fi
+            gh api -X PATCH "repos/${GITHUB_REPOSITORY}/releases/${rid}" -F draft=true >/dev/null
+            echo "✅ ${TAG} draft 전환 완료 — 다운로드 비노출(자산·태그 유지, 복원은 publish 모드)"
           else
             if [ -z "$rid" ]; then
               echo "::error::${TAG} 릴리스가 없습니다 — draft 모드로 먼저 생성하세요."
